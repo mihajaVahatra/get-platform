@@ -102,7 +102,7 @@ model School {
   logo         String?
   type         String    @default("PRIVATE")
   address      String?
-  city         String
+  city         String?
   region       String?
   country      String    @default("Madagascar")
   contactEmail String?
