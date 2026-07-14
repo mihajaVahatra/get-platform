@@ -1,0 +1,30 @@
+Lancer le POC
+# 1. Démarrer les conteneurs (PostgreSQL, Redis, MinIO)
+cd ~/get-poc
+docker compose up -d
+
+# 2. Lancer le backend (API) - dans un terminal séparé
+cd ~/get-poc/backend
+npx nodemon index.js
+
+# 3. Lancer le frontend (Next.js) - dans un autre terminal
+cd ~/get-poc/frontend
+npm run dev
+
+Arreter le POC
+# 1. Arrêter le frontend (dans son terminal) : Ctrl + C
+# 2. Arrêter le backend (dans son terminal) : Ctrl + C
+
+# 3. Arrêter les conteneurs Docker
+cd ~/get-poc
+docker compose down
+
+Relancer le POC 
+# Démarrer les conteneurs
+cd ~/get-poc && docker compose up -d
+
+# Lancer le backend (dans un terminal)
+cd ~/get-poc/backend && npx nodemon index.js
+
+# Lancer le frontend (dans un autre terminal)
+cd ~/get-poc/frontend && npm run dev

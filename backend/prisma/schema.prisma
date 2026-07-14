@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  roleId       String?
+  isActive     Boolean   @default(true)
+  isVerified   Boolean   @default(false)
+  lastLogin    DateTime?
+  refreshToken String?
+  mfaSecret    String?
+  mfaEnabled   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  student       Student?
+  schoolAdmin   SchoolAdmin?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  role          Role?          @relation(fields: [roleId], references: [id])
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model Student {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName        String
+  lastName         String
+  phone            String?
+  birthDate        DateTime?
+  cin              String?
+  bacYear          Int?
+  bacType          String?
+  address          String?
+  city             String?
+  region           String?
+  country          String    @default("Madagascar")
+  bio              String?
+  interests        String[]
+  skills           String[]
+  aspirations      String[]
+  profileCompleted Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  documents    Document[]
+  applications Application[]
+  payments     Payment[]
+
+  @@map("students")
+}
+
+model Document {
+  id         String    @id @default(uuid())
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String
+  name       String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  isVerified Boolean   @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@index([studentId, type])
+  @@map("documents")
+}
+
+model School {
+  id           String    @id @default(uuid())
+  name         String
+  slug         String    @unique
+  description  String?
+  logo         String?
+  type         String    @default("PRIVATE")
+  address      String?
+  city         String
+  region       String?
+  country      String    @default("Madagascar")
+  contactEmail String?
+  contactPhone String?
+  website      String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  admins        SchoolAdmin[]
+  offers        Offer[]
+  applications  Application[]
+  subscriptions SchoolSubscription[]
+  compliance    ComplianceCheck[]
+
+  @@map("schools")
+}
+
+model SchoolAdmin {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  permissions String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("school_admins")
+}
+
+model SchoolSubscription {
+  id            String    @id @default(uuid())
+  schoolId      String    @unique
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  plan          String
+  startDate     DateTime  @default(now())
+  endDate       DateTime?
+  isActive      Boolean   @default(true)
+  amount        Float
+  paymentStatus String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("school_subscriptions")
+}
+
+model Offer {
+  id                  String    @id @default(uuid())
+  schoolId            String
+  school              School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title               String
+  slug                String    @unique
+  description         String?
+  diploma             String
+  duration            Int
+  tuitionFees         Float
+  currency            String    @default("MGA")
+  prerequisites       String[]
+  capacity            Int?
+  applicationDeadline DateTime?
+  academicYear        String
+  isOpen              Boolean   @default(true)
+  isFeatured          Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  applications Application[]
+
+  @@index([schoolId, isOpen, createdAt])
+  @@map("offers")
+}
+
+model Application {
+  id             String    @id @default(uuid())
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  offerId        String
+  offer          Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  status         String    @default("PENDING")
+  score          Float?
+  testResults    Json?
+  interviewDate  DateTime?
+  interviewLink  String?
+  decisionDate   DateTime?
+  decisionReason String?
+  submittedAt    DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  timeline ApplicationTimeline[]
+  payments Payment[]
+  School   School?               @relation(fields: [schoolId], references: [id])
+  schoolId String?
+
+  @@unique([studentId, offerId])
+  @@index([studentId, status])
+  @@index([offerId, status])
+  @@map("applications")
+}
+
+model ApplicationTimeline {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        String
+  note          String?
+  createdBy     String?
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("application_timelines")
+}
+
+model Payment {
+  id            String       @id @default(uuid())
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id])
+  studentId     String
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  amount        Float
+  currency      String       @default("MGA")
+  method        String
+  status        String       @default("PENDING")
+  reference     String       @unique
+  providerRef   String?
+  commission    Float
+  receiptUrl    String?
+  paidAt        DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  transaction Transaction?
+  refund      Refund?
+
+  @@index([studentId, status])
+  @@index([reference])
+  @@map("payments")
+}
+
+model Transaction {
+  id                    String    @id @default(uuid())
+  paymentId             String    @unique
+  payment               Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  type                  String
+  amount                Float
+  provider              String
+  providerTransactionId String?
+  status                String
+  rawResponse           Json?
+  createdAt             DateTime  @default(now())
+  completedAt           DateTime?
+
+  @@map("transactions")
+}
+
+model Refund {
+  id          String    @id @default(uuid())
+  paymentId   String    @unique
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount      Float
+  reason      String?
+  status      String
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("refunds")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  title       String
+  body        String
+  data        Json?
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String?
+  body      String
+  type      String
+  variables String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_templates")
+}
+
+model MinistryReport {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        String
+  period      String
+  periodStart DateTime
+  periodEnd   DateTime
+  data        Json
+  fileUrl     String?
+  generatedBy String?
+  generatedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("ministry_reports")
+}
+
+model ComplianceCheck {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  checkType String
+  status    String
+  score     Float?
+  remarks   String?
+  checkedBy String?
+  checkedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, checkedAt])
+  @@map("compliance_checks")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String
+  resource     String
+  resourceId   String?
+  before       Json?
+  after        Json?
+  ip           String?
+  userAgent    String?
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isEncrypted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
+}
