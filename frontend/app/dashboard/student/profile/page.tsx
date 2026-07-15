@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
 
+// Schéma de validation pour le formulaire
 const profileSchema = z.object({
-  firstName: z.string().min(2, 'Prénom trop court'),
-  lastName: z.string().min(2, 'Nom trop court'),
+  firstName: z.string().min(2, 'Prénom trop court (min 2 caractères)'),
+  lastName: z.string().min(2, 'Nom trop court (min 2 caractères)'),
   phone: z.string().optional(),
   city: z.string().optional(),
   region: z.string().optional(),
@@ -25,9 +26,9 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function StudentProfilePage() {
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
 
   const {
     register,
@@ -41,6 +42,7 @@ export default function StudentProfilePage() {
   // Charger le profil au chargement
   useEffect(() => {
     fetchProfile();
+    fetchStats();
   }, []);
 
   const fetchProfile = async () => {
@@ -50,6 +52,16 @@ export default function StudentProfilePage() {
       reset(response.data.data);
     } catch (error) {
       console.error('Erreur chargement profil:', error);
+      toast.error('Erreur lors du chargement du profil');
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const response = await apiClient.get('/students/me/stats');
+      setStats(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement statistiques:', error);
     }
   };
 
@@ -58,16 +70,10 @@ export default function StudentProfilePage() {
     try {
       const response = await apiClient.put('/students/me', data);
       setProfile(response.data.data);
-      toast({
-        title: 'Profil mis à jour',
-        description: 'Vos informations ont été sauvegardées.',
-      });
+      toast.success('Profil mis à jour avec succès !');
     } catch (error: any) {
-      toast({
-        title: 'Erreur',
-        description: error.response?.data?.message || 'Une erreur est survenue',
-        variant: 'destructive',
-      });
+      const message = error.response?.data?.message || 'Erreur lors de la mise à jour';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -79,22 +85,24 @@ export default function StudentProfilePage() {
 
   return (
     <div className="space-y-6">
+      {/* En-tête avec avatar */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Mon Profil</h1>
         <div className="flex items-center gap-4">
-          <Avatar>
+          <Avatar className="h-12 w-12">
             <AvatarImage src="/avatar-placeholder.png" />
-            <AvatarFallback>
+            <AvatarFallback className="bg-blue-500 text-white text-lg">
               {profile.firstName?.[0]}{profile.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
           <div>
             <p className="font-medium">{profile.firstName} {profile.lastName}</p>
-            <p className="text-sm text-gray-500">{profile.email}</p>
+            <p className="text-sm text-gray-500">{profile.user?.email}</p>
           </div>
         </div>
       </div>
 
+      {/* Onglets */}
       <Tabs defaultValue="informations" className="space-y-4">
         <TabsList>
           <TabsTrigger value="informations">Informations</TabsTrigger>
@@ -102,6 +110,7 @@ export default function StudentProfilePage() {
           <TabsTrigger value="stats">Statistiques</TabsTrigger>
         </TabsList>
 
+        {/* === ONGLET INFORMATIONS === */}
         <TabsContent value="informations">
           <Card>
             <CardHeader>
@@ -115,36 +124,61 @@ export default function StudentProfilePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Prénom</Label>
-                    <Input id="firstName" {...register('firstName')} />
+                    <Input
+                      id="firstName"
+                      {...register('firstName')}
+                    />
                     {errors.firstName && (
                       <p className="text-sm text-red-500">{errors.firstName.message}</p>
                     )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Nom</Label>
-                    <Input id="lastName" {...register('lastName')} />
+                    <Input
+                      id="lastName"
+                      {...register('lastName')}
+                    />
                     {errors.lastName && (
                       <p className="text-sm text-red-500">{errors.lastName.message}</p>
                     )}
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="phone">Téléphone</Label>
-                  <Input id="phone" placeholder="+261 34 12 345 67" {...register('phone')} />
+                  <Input
+                    id="phone"
+                    placeholder="+261 34 12 345 67"
+                    {...register('phone')}
+                  />
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="city">Ville</Label>
-                    <Input id="city" placeholder="Antananarivo" {...register('city')} />
+                    <Input
+                      id="city"
+                      placeholder="Antananarivo"
+                      {...register('city')}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="region">Région</Label>
-                    <Input id="region" placeholder="Analamanga" {...register('region')} />
+                    <Input
+                      id="region"
+                      placeholder="Analamanga"
+                      {...register('region')}
+                    />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
-                  <Input id="bio" placeholder="Parlez-nous de vous..." {...register('bio')} />
+                  <Input
+                    id="bio"
+                    placeholder="Parlez-nous de vous..."
+                    {...register('bio')}
+                  />
                 </div>
               </CardContent>
               <CardFooter>
@@ -156,6 +190,7 @@ export default function StudentProfilePage() {
           </Card>
         </TabsContent>
 
+        {/* === ONGLET DOCUMENTS === */}
         <TabsContent value="documents">
           <Card>
             <CardHeader>
@@ -165,34 +200,33 @@ export default function StudentProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                  <p className="text-gray-500">Glissez-déposez vos fichiers ici</p>
-                  <p className="text-sm text-gray-400">ou cliquez pour sélectionner</p>
-                  <Button className="mt-4" variant="outline">
-                    Uploader un document
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <p className="font-medium">Documents existants</p>
-                  {profile.documents?.length === 0 ? (
-                    <p className="text-sm text-gray-500">Aucun document uploadé</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {profile.documents?.map((doc: any) => (
-                        <li key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <span>{doc.name}</span>
-                          <Button variant="ghost" size="sm">Télécharger</Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+              <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                <p className="text-gray-500">Glissez-déposez vos fichiers ici</p>
+                <p className="text-sm text-gray-400">ou cliquez pour sélectionner</p>
+                <Button className="mt-4" variant="outline">
+                  Uploader un document
+                </Button>
+              </div>
+              <div className="mt-6 space-y-2">
+                <p className="font-medium">Documents existants</p>
+                {profile.documents?.length === 0 ? (
+                  <p className="text-sm text-gray-500">Aucun document uploadé</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {profile.documents?.map((doc: any) => (
+                      <li key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span>{doc.name}</span>
+                        <Button variant="ghost" size="sm">Télécharger</Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* === ONGLET STATISTIQUES === */}
         <TabsContent value="stats">
           <Card>
             <CardHeader>
@@ -203,17 +237,37 @@ export default function StudentProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-blue-600">{profile.totalApplications || 0}</p>
+                <div className="bg-blue-50 p-4 rounded-lg text-center border border-blue-100">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {stats?.totalApplications || 0}
+                  </p>
                   <p className="text-sm text-gray-600">Candidatures</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-green-600">{profile.acceptedApplications || 0}</p>
+                <div className="bg-green-50 p-4 rounded-lg text-center border border-green-100">
+                  <p className="text-2xl font-bold text-green-600">
+                    {stats?.acceptedApplications || 0}
+                  </p>
                   <p className="text-sm text-gray-600">Acceptées</p>
                 </div>
-                <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                  <p className="text-2xl font-bold text-yellow-600">{profile.pendingApplications || 0}</p>
+                <div className="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-100">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {stats?.pendingApplications || 0}
+                  </p>
                   <p className="text-sm text-gray-600">En attente</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="bg-purple-50 p-4 rounded-lg text-center border border-purple-100">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {stats?.documentsUploaded || 0}
+                  </p>
+                  <p className="text-sm text-gray-600">Documents</p>
+                </div>
+                <div className="bg-indigo-50 p-4 rounded-lg text-center border border-indigo-100">
+                  <p className="text-2xl font-bold text-indigo-600">
+                    {stats?.profileCompletion || 0}%
+                  </p>
+                  <p className="text-sm text-gray-600">Profil complété</p>
                 </div>
               </div>
             </CardContent>

@@ -42,6 +42,12 @@ export default function DashboardLayout({
           <Link href="/dashboard/student/applications" className="block py-2 px-4 rounded hover:bg-gray-700">
             Mes Candidatures
           </Link>
+          <Link href="/dashboard/student/offers" className="block py-2 px-4 rounded hover:bg-gray-700">
+            Rechercher des offres
+          </Link>
+          <Link href="/dashboard/student/payments" className="block py-2 px-4 rounded hover:bg-gray-700">
+            Mes Paiements
+          </Link>
           <button
             onClick={handleLogout}
             className="block w-full text-left py-2 px-4 rounded hover:bg-gray-700 mt-8"
