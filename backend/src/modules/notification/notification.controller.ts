@@ -1,0 +1,295 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
+import { NotificationService } from './notification.service';
+import { SendNotificationDto } from './dto/send-notification.dto';
+import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { GetUser } from '../../common/decorators/get-user.decorator';
+import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
+import { NotificationResponseDto } from './dto/notification-response.dto';
+import { PrismaService } from '../prisma/prisma.service';
+
+@ApiTags('notifications')
+@Controller('notifications')
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth('access-token')
+export class NotificationController {
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  // ============================================================
+  // 1. ENVOI DE NOTIFICATION (admin / système)
+  // ============================================================
+
+  @Post('send')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET', 'MINISTRY')
+  @ApiOperation({ summary: 'Send a notification to a user (Admin/Ministry only)' })
+  @ApiBody({ type: SendNotificationDto })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Notification sent' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+  async sendNotification(@Body() dto: SendNotificationDto) {
+    const result = await this.notificationService.send(dto);
+    return {
+      success: true,
+      data: result,
+      message: 'Notification sent successfully',
+    };
+  }
+
+  // ============================================================
+  // 2. LISTE DES NOTIFICATIONS DE L'UTILISATEUR
+  // ============================================================
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get my notifications' })
+  @ApiQuery({ name: 'isRead', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiPaginatedResponse(NotificationResponseDto)
+  @ApiResponse({ status: HttpStatus.OK, description: 'Notifications retrieved' })
+  async getMyNotifications(
+    @GetUser('id') userId: string,
+    @Query('isRead') isRead?: boolean,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    const result = await this.notificationService.getUserNotifications(userId, {
+      isRead,
+      page,
+      limit,
+    });
+    return {
+      success: true,
+      data: result.items,
+      meta: result.meta,
+      message: 'Notifications retrieved successfully',
+    };
+  }
+
+  // ============================================================
+  // 3. MARCHE COMME LUE
+  // ============================================================
+
+  @Put(':id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  @ApiParam({ name: 'id', description: 'Notification ID' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Notification marked as read' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Notification not found' })
+  async markAsRead(@Param('id') id: string, @GetUser('id') userId: string) {
+    const result = await this.notificationService.markAsRead(id, userId);
+    return {
+      success: true,
+      data: result,
+      message: 'Notification marked as read',
+    };
+  }
+
+  @Put('me/read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'All notifications marked as read' })
+  async markAllAsRead(@GetUser('id') userId: string) {
+    const result = await this.notificationService.markAllAsRead(userId);
+    return {
+      success: true,
+      data: result,
+      message: 'All notifications marked as read',
+    };
+  }
+
+  // ============================================================
+  // 4. PRÉFÉRENCES
+  // ============================================================
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get my notification preferences' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Preferences retrieved' })
+  async getPreferences(@GetUser('id') userId: string) {
+    const preferences = await this.notificationService.getUserPreferences(userId);
+    return {
+      success: true,
+      data: preferences,
+      message: 'Preferences retrieved successfully',
+    };
+  }
+
+  @Put('preferences')
+  @ApiOperation({ summary: 'Update my notification preferences' })
+  @ApiBody({ type: NotificationPreferencesDto })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Preferences updated' })
+  async updatePreferences(
+    @GetUser('id') userId: string,
+    @Body() dto: NotificationPreferencesDto,
+  ) {
+    const result = await this.notificationService.updatePreferences(userId, dto);
+    return {
+      success: true,
+      data: result,
+      message: 'Preferences updated successfully',
+    };
+  }
+
+  // ============================================================
+  // 5. MÉTHODES SPÉCIFIQUES (pour les templates)
+  // ============================================================
+
+  @Post('welcome')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiOperation({ summary: 'Send welcome email (Admin only)' })
+  @ApiBody({ schema: { properties: { userId: { type: 'string', example: 'user-123' } } } })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Welcome email sent' })
+  async sendWelcomeEmail(@Body('userId') userId: string) {
+    const result = await this.notificationService.sendWelcomeEmail(userId);
+    return {
+      success: true,
+      data: result,
+      message: 'Welcome email sent successfully',
+    };
+  }
+
+  @Post('payment-confirmation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiOperation({ summary: 'Send payment confirmation (Admin only)' })
+  @ApiBody({
+    schema: {
+      properties: {
+        userId: { type: 'string', example: 'user-123' },
+        paymentId: { type: 'string', example: 'pay-123' },
+        amount: { type: 'number', example: 4500000 },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Payment confirmation sent' })
+  async sendPaymentConfirmation(
+    @Body('userId') userId: string,
+    @Body('paymentId') paymentId: string,
+    @Body('amount') amount: number,
+  ) {
+    const result = await this.notificationService.sendPaymentConfirmation(userId, paymentId, amount);
+    return {
+      success: true,
+      data: result,
+      message: 'Payment confirmation sent successfully',
+    };
+  }
+
+  @Post('status-update')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET', 'SCHOOL_ADMIN')
+  @ApiOperation({ summary: 'Send application status update (Admin/School Admin)' })
+  @ApiBody({
+    schema: {
+      properties: {
+        userId: { type: 'string', example: 'user-123' },
+        applicationId: { type: 'string', example: 'app-123' },
+        status: { type: 'string', example: 'ACCEPTED' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Status update sent' })
+  async sendStatusUpdate(
+    @Body('userId') userId: string,
+    @Body('applicationId') applicationId: string,
+    @Body('status') status: string,
+  ) {
+    const result = await this.notificationService.sendApplicationStatusUpdate(
+      userId,
+      applicationId,
+      status,
+    );
+    return {
+      success: true,
+      data: result,
+      message: 'Status update sent successfully',
+    };
+  }
+
+  @Post('reminder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET', 'SCHOOL_ADMIN')
+  @ApiOperation({ summary: 'Send deadline reminder (Admin/School Admin)' })
+  @ApiBody({
+    schema: {
+      properties: {
+        userId: { type: 'string', example: 'user-123' },
+        offerId: { type: 'string', example: 'offer-123' },
+        deadline: { type: 'string', example: '2025-03-15T00:00:00.000Z' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Reminder sent' })
+  async sendReminder(
+    @Body('userId') userId: string,
+    @Body('offerId') offerId: string,
+    @Body('deadline') deadline: string,
+  ) {
+    const result = await this.notificationService.sendDeadlineReminder(
+      userId,
+      offerId,
+      new Date(deadline),
+    );
+    return {
+      success: true,
+      data: result,
+      message: 'Reminder sent successfully',
+    };
+  }
+
+  // ============================================================
+  // 6. STATISTIQUES DES NOTIFICATIONS
+  // ============================================================
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET', 'MINISTRY')
+  @ApiOperation({ summary: 'Get notification statistics (Admin/Ministry only)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
+  async getStats(@GetUser('id') userId: string) {
+    const total = await this.prisma.notification.count({
+      where: { userId },
+    });
+    const unread = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+
+    return {
+      success: true,
+      data: {
+        total,
+        unread,
+        read: total - unread,
+        byType: {
+          EMAIL: 0,
+          SMS: 0,
+          PUSH: 0,
+          IN_APP: 0,
+        },
+      },
+      message: 'Statistics retrieved successfully',
+    };
+  }
+}

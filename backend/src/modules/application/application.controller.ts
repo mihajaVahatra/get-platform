@@ -8,7 +8,6 @@ import {
   Query,
   HttpStatus,
   UseGuards,
-  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,18 +33,22 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
-import { PrismaService } from '../prisma/prisma.service';
 import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotFoundException } from '@nestjs/common';
+
 
 @ApiTags('applications')
 @Controller('applications')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
 export class ApplicationController {
-  constructor(
-    private readonly applicationService: ApplicationService,
-    private readonly prisma: PrismaService,
-  ) {}
+ constructor(
+  private readonly applicationService: ApplicationService,
+  private readonly prisma: PrismaService,  // ← AJOUTER
+) {}
+
+  // ========== STUDENT ==========
 
   @Post()
   @ApiOperation({ summary: 'Submit applications to multiple offers' })
@@ -55,12 +58,14 @@ export class ApplicationController {
     description: 'Applications submitted',
     type: BulkApplicationResponseDto,
   })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
   async submitApplications(
     @GetUser('id') userId: string,
     @Body() dto: SubmitApplicationDto,
   ) {
-    const student = await this.prisma.student.findUnique({ where: { userId } });
-    if (!student) throw new NotFoundException('Student profile not found');
+    // Get student ID from user
+    const student = await this.getStudentIdFromUser(userId);
     const result = await this.applicationService.submitApplications(student.id, dto.offerIds);
     return {
       success: true,
@@ -75,14 +80,14 @@ export class ApplicationController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiPaginatedResponse(ApplicationResponseDto)
+  @ApiResponse({ status: HttpStatus.OK, description: 'Applications retrieved' })
   async getMyApplications(
     @GetUser('id') userId: string,
     @Query('status') status?: ApplicationStatus,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    const student = await this.prisma.student.findUnique({ where: { userId } });
-    if (!student) throw new NotFoundException('Student profile not found');
+    const student = await this.getStudentIdFromUser(userId);
     const result = await this.applicationService.getStudentApplications(student.id, {
       status,
       page,
@@ -96,6 +101,8 @@ export class ApplicationController {
     };
   }
 
+  // ========== SCHOOL ADMIN ==========
+
   @Get('school/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -105,6 +112,8 @@ export class ApplicationController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiPaginatedResponse(ApplicationResponseDto)
+  @ApiResponse({ status: HttpStatus.OK, description: 'School applications retrieved' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async getSchoolApplications(
     @GetUser('id') userId: string,
     @Query('status') status?: ApplicationStatus,
@@ -126,11 +135,14 @@ export class ApplicationController {
     };
   }
 
+  // ========== DETAIL (Authorized) ==========
+
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Application details' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Application not found' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async getApplication(
     @Param('id') id: string,
     @GetUser('id') userId: string,
@@ -144,6 +156,8 @@ export class ApplicationController {
     };
   }
 
+  // ========== STATUS UPDATE (School Admin) ==========
+
   @Put(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
@@ -151,6 +165,7 @@ export class ApplicationController {
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiBody({ type: UpdateApplicationStatusDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Status updated' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Application not found' })
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateApplicationStatusDto,
@@ -163,6 +178,8 @@ export class ApplicationController {
       message: 'Status updated successfully',
     };
   }
+
+  // ========== SCHEDULE TEST / INTERVIEW ==========
 
   @Post(':id/schedule-test')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -250,6 +267,8 @@ export class ApplicationController {
     };
   }
 
+  // ========== STATISTICS (Ministry only) ==========
+
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('MINISTRY', 'ADMIN_GET')
@@ -273,5 +292,14 @@ export class ApplicationController {
       data: stats,
       message: 'Statistics retrieved successfully',
     };
+  }
+
+  // ========== HELPER ==========
+  private async getStudentIdFromUser(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) throw new NotFoundException('Student profile not found');
+    return student;
   }
 }

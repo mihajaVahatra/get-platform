@@ -1,4 +1,3 @@
-// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -11,6 +10,7 @@ import { ApplicationModule } from './modules/application/application.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { MinistryModule } from './modules/ministry/ministry.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -36,8 +36,7 @@ import { NotificationModule } from './modules/notification/notification.module';
     PaymentModule,
     MinistryModule,
     NotificationModule,
+    AuditModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}
