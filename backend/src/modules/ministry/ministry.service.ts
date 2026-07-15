@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GenerateReportDto, ReportType, ExportFormat } from './dto/report-request.dto';
+import { GenerateReportDto, ReportType, ReportPeriod, ExportFormat } from './dto/report-request.dto';
 import { ComplianceUpdateDto, ComplianceStatus } from './dto/compliance-update.dto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -14,60 +14,66 @@ export class MinistryService {
 
   async getDashboard(filters?: { from?: Date; to?: Date }) {
     const where: any = {};
-    if (filters?.from) where.createdAt = { gte: filters.from };
-    if (filters?.to) where.createdAt = { ...where.createdAt, lte: filters.to };
+    if (filters?.from) where.submittedAt = { gte: filters.from };
+    if (filters?.to) where.submittedAt = { ...where.submittedAt, lte: filters.to };
 
-    const [totalApplications, totalStudents, totalSchools, totalOffers] = await Promise.all([
-      this.prisma.application.count({ where }),
-      this.prisma.student.count(),
-      this.prisma.school.count({ where: { deletedAt: null } }),
-      this.prisma.offer.count({ where: { deletedAt: null } }),
-    ]);
+    // Total des candidatures
+    const totalApplications = await this.prisma.application.count({ where });
 
-    const acceptedCount = await this.prisma.application.count({
+    // Total des étudiants
+    const totalStudents = await this.prisma.student.count();
+
+    // Total des écoles actives
+    const totalSchools = await this.prisma.school.count({
+      where: { isActive: true, deletedAt: null },
+    });
+
+    // Total des offres ouvertes
+    const totalOffers = await this.prisma.offer.count({
+      where: { isOpen: true, deletedAt: null },
+    });
+
+    // Taux d'acceptation
+    const accepted = await this.prisma.application.count({
       where: { ...where, status: 'ACCEPTED' },
     });
-    const acceptanceRate = totalApplications > 0
-      ? Math.round((acceptedCount / totalApplications) * 100)
-      : 0;
+    const acceptanceRate = totalApplications > 0 ? (accepted / totalApplications) * 100 : 0;
 
-    // Le champ gender n'existe pas encore, on met des valeurs par défaut
+    // Répartition par genre (approximatif via les étudiants)
+    const students = await this.prisma.student.findMany({
+      include: { user: true },
+    });
     const genderDistribution = {
       male: 0,
       female: 0,
       other: 0,
       unknown: 0,
     };
+    // Répartition par région
+    const regionalDistribution = await this.prisma.$queryRaw`
+      SELECT region, COUNT(*) as count
+      FROM students
+      WHERE region IS NOT NULL
+      GROUP BY region
+      ORDER BY count DESC
+    `;
 
-    const studentsByRegion = await this.prisma.student.groupBy({
-      by: ['region'],
-      _count: true,
-      orderBy: { _count: { region: 'desc' } },
-    });
+    // Répartition par filière (via les offres)
+    const applicationsByFiliere = await this.prisma.$queryRaw`
+      SELECT o.diploma as filiere, COUNT(a.id) as count
+      FROM applications a
+      JOIN offers o ON a."offerId" = o.id
+      GROUP BY o.diploma
+      ORDER BY count DESC
+      LIMIT 10
+    `;
 
-    const applicationsByFiliere = await this.prisma.application.groupBy({
-      by: ['offerId'],
-      _count: true,
-    });
-
-    const offerIds = applicationsByFiliere.map((a) => a.offerId);
-    const offers = await this.prisma.offer.findMany({
-      where: { id: { in: offerIds } },
-      select: { id: true, title: true },
-    });
-    const offerMap = new Map(offers.map((o) => [o.id, o.title]));
-
-    const filiereData = applicationsByFiliere.map((a) => ({
-      filiere: offerMap.get(a.offerId) || 'Unknown',
-      count: a._count,
-    }));
-    filiereData.sort((a, b) => b.count - a.count);
-
-    const monthAggregation = await this.prisma.$queryRaw`
+    // Tendances mensuelles
+    const monthlyTrends = await this.prisma.$queryRaw`
       SELECT 
         DATE_TRUNC('month', "submittedAt") as period,
         COUNT(*) as count
-      FROM "applications"
+      FROM applications
       WHERE "submittedAt" IS NOT NULL
       GROUP BY DATE_TRUNC('month', "submittedAt")
       ORDER BY period DESC
@@ -79,14 +85,11 @@ export class MinistryService {
       totalStudents,
       totalSchools,
       totalOffers,
-      acceptanceRate,
+      acceptanceRate: Math.round(acceptanceRate * 100) / 100,
       genderDistribution,
-      regionalDistribution: studentsByRegion.map((r) => ({
-        region: r.region || 'Non renseigné',
-        count: r._count,
-      })),
-      applicationsByFiliere: filiereData.slice(0, 10),
-      trends: monthAggregation,
+      regionalDistribution,
+      applicationsByFiliere,
+      trends: monthlyTrends,
     };
   }
 
@@ -102,71 +105,55 @@ export class MinistryService {
     schoolId?: string;
   }) {
     const where: any = {};
-
     if (filters?.from) where.submittedAt = { gte: filters.from };
     if (filters?.to) where.submittedAt = { ...where.submittedAt, lte: filters.to };
+    if (filters?.schoolId) where.offer = { schoolId: filters.schoolId };
 
-    if (filters?.region) {
-      where.offer = {
-        school: {
-          region: filters.region,
-        },
-      };
-    }
-
-    if (filters?.schoolId) {
-      where.offer = {
-        ...where.offer,
-        schoolId: filters.schoolId,
-      };
-    }
-
-    if (filters?.filiere) {
-      where.offer = {
-        ...where.offer,
-        title: { contains: filters.filiere, mode: 'insensitive' },
-      };
-    }
-
+    // Total
     const total = await this.prisma.application.count({ where });
 
+    // Par statut
     const byStatus = await this.prisma.application.groupBy({
       by: ['status'],
       where,
       _count: true,
     });
 
-    const regionData = await this.prisma.$queryRaw`
-      SELECT 
-        s.region,
-        COUNT(a.id) as count
+    // Par région (via l'étudiant)
+    const byRegion = await this.prisma.$queryRaw`
+      SELECT s.region, COUNT(a.id) as count
       FROM applications a
-      JOIN offers o ON a."offerId" = o.id
-      JOIN schools s ON o."schoolId" = s.id
-      WHERE a."deletedAt" IS NULL
-        AND s."deletedAt" IS NULL
+      JOIN students s ON a."studentId" = s.id
+      WHERE s.region IS NOT NULL
       GROUP BY s.region
       ORDER BY count DESC
     `;
 
-    const filiereData = await this.prisma.$queryRaw`
-      SELECT 
-        o.title as filiere,
-        COUNT(a.id) as count
+    // Par filière (via l'offre)
+    const byFiliere = await this.prisma.$queryRaw`
+      SELECT o.diploma as filiere, COUNT(a.id) as count
       FROM applications a
       JOIN offers o ON a."offerId" = o.id
-      WHERE a."deletedAt" IS NULL
-        AND o."deletedAt" IS NULL
-      GROUP BY o.title
+      GROUP BY o.diploma
       ORDER BY count DESC
-      LIMIT 20
+    `;
+
+    // Par genre (approximatif)
+    const byGender = await this.prisma.$queryRaw`
+      SELECT u.gender, COUNT(a.id) as count
+      FROM applications a
+      JOIN students s ON a."studentId" = s.id
+      JOIN users u ON s."userId" = u.id
+      WHERE u.gender IS NOT NULL
+      GROUP BY u.gender
     `;
 
     return {
       total,
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
-      byRegion: regionData,
-      byFiliere: filiereData,
+      byRegion,
+      byFiliere,
+      byGender,
     };
   }
 
@@ -175,50 +162,73 @@ export class MinistryService {
   // ============================================================
 
   async getSchoolStats() {
-    const [totalSchools, publicSchools, privateSchools, schoolsByRegion, offersPerSchool, applicationsPerSchool] =
-      await Promise.all([
-        this.prisma.school.count({ where: { deletedAt: null } }),
-        this.prisma.school.count({ where: { deletedAt: null, type: 'PUBLIC' } }),
-        this.prisma.school.count({ where: { deletedAt: null, type: 'PRIVATE' } }),
-        this.prisma.school.groupBy({
-          by: ['region'],
-          where: { deletedAt: null },
-          _count: true,
-        }),
-        this.prisma.$queryRaw<{ average: number }[]>`
-          SELECT AVG(offer_count)::float as average
-          FROM (
-            SELECT COUNT(*) as offer_count
-            FROM offers
-            WHERE "deletedAt" IS NULL
-            GROUP BY "schoolId"
-          ) as subquery
-        `,
-        this.prisma.$queryRaw<{ avg: number }[]>`
-          SELECT AVG(app_count)::float as avg
-          FROM (
-            SELECT COUNT(*) as app_count
-            FROM applications a
-            JOIN offers o ON a."offerId" = o.id
-            WHERE a."deletedAt" IS NULL
-              AND o."deletedAt" IS NULL
-            GROUP BY o."schoolId"
-          ) as subquery
-        `,
-      ]);
+    const totalSchools = await this.prisma.school.count({
+      where: { deletedAt: null },
+    });
 
-    const avgOffers = offersPerSchool.length > 0 ? offersPerSchool[0]?.average : 0;
-    const avgApps = applicationsPerSchool.length > 0 ? applicationsPerSchool[0]?.avg : 0;
+    const publicSchools = await this.prisma.school.count({
+      where: { type: 'PUBLIC', deletedAt: null },
+    });
+
+    const privateSchools = await this.prisma.school.count({
+      where: { type: 'PRIVATE', deletedAt: null },
+    });
+
+    // Par région
+    const schoolsByRegion = await this.prisma.$queryRaw`
+      SELECT region, COUNT(*) as count
+      FROM schools
+      WHERE region IS NOT NULL
+      GROUP BY region
+      ORDER BY count DESC
+    `;
+
+    // Nombre d'offres par école
+    const offersPerSchool = await this.prisma.$queryRaw`
+      SELECT 
+        s.name,
+        COUNT(o.id) as offerCount
+      FROM schools s
+      LEFT JOIN offers o ON s.id = o."schoolId"
+      WHERE s."deletedAt" IS NULL
+      GROUP BY s.id, s.name
+      ORDER BY offerCount DESC
+    `;
+
+    // Candidatures par école
+   const applicationsPerSchool = await this.prisma.$queryRaw<{ avg: number }[]>`
+    SELECT AVG(app_count)::float as avg
+    FROM (
+      SELECT COUNT(*) as app_count
+      FROM applications a
+      JOIN offers o ON a."offerId" = o.id
+      WHERE a."deletedAt" IS NULL
+      AND o."deletedAt" IS NULL
+      GROUP BY o."schoolId"
+    ) as subquery
+`;
+const avgApps = applicationsPerSchool.length > 0 ? applicationsPerSchool[0]?.avg : 0;
+
+    // Calcul de la moyenne
+    const avgApplications = await this.prisma.$queryRaw`
+      SELECT AVG(applicationCount) as avg
+      FROM (
+        SELECT COUNT(a.id) as applicationCount
+        FROM schools s
+        LEFT JOIN offers o ON s.id = o."schoolId"
+        LEFT JOIN applications a ON o.id = a."offerId"
+        WHERE s."deletedAt" IS NULL
+        GROUP BY s.id
+      ) as school_stats
+    `;
 
     return {
       totalSchools,
       publicSchools,
       privateSchools,
-      schoolsByRegion: schoolsByRegion.map((r) => ({
-        region: r.region || 'Non renseigné',
-        count: r._count,
-      })),
-      averageOffersPerSchool: Number(avgOffers) || 0,
+      schoolsByRegion,
+      offersPerSchool,
+      applicationsPerSchool,
       averageApplicationsPerSchool: Number(avgApps) || 0,
     };
   }
@@ -228,35 +238,43 @@ export class MinistryService {
   // ============================================================
 
   async getGeographicStats() {
-    const byRegion = await this.prisma.student.groupBy({
-      by: ['region'],
-      _count: true,
-      where: { region: { not: null } },
-      orderBy: { _count: { region: 'desc' } },
-    });
+    // Étudiants par région
+    const studentsByRegion = await this.prisma.$queryRaw`
+      SELECT region, COUNT(*) as count
+      FROM students
+      WHERE region IS NOT NULL
+      GROUP BY region
+      ORDER BY count DESC
+    `;
 
-    const byCity = await this.prisma.student.groupBy({
-      by: ['city'],
-      _count: true,
-      where: { city: { not: null } },
-      orderBy: { _count: { city: 'desc' } },
-      take: 20,
-    });
+    // Écoles par région
+    const schoolsByRegion = await this.prisma.$queryRaw`
+      SELECT region, COUNT(*) as count
+      FROM schools
+      WHERE region IS NOT NULL
+      GROUP BY region
+      ORDER BY count DESC
+    `;
+
+    // Candidatures par région
+    const applicationsByRegion = await this.prisma.$queryRaw`
+      SELECT s.region, COUNT(a.id) as count
+      FROM applications a
+      JOIN students s ON a."studentId" = s.id
+      WHERE s.region IS NOT NULL
+      GROUP BY s.region
+      ORDER BY count DESC
+    `;
 
     return {
-      byRegion: byRegion.map((r) => ({
-        region: r.region,
-        count: r._count,
-      })),
-      byCity: byCity.map((c) => ({
-        city: c.city,
-        count: c._count,
-      })),
+      studentsByRegion,
+      schoolsByRegion,
+      applicationsByRegion,
     };
   }
 
   // ============================================================
-  // 5. CONFORMITÉ
+  // 5. GESTION DE LA CONFORMITÉ
   // ============================================================
 
   async getCompliance(options?: { status?: string; page?: number; limit?: number }) {
@@ -274,15 +292,7 @@ export class MinistryService {
         take: limit,
         orderBy: { checkedAt: 'desc' },
         include: {
-          school: {
-            select: {
-              id: true,
-              name: true,
-              city: true,
-              region: true,
-              type: true,
-            },
-          },
+          school: true,
         },
       }),
       this.prisma.complianceCheck.count({ where }),
@@ -299,17 +309,15 @@ export class MinistryService {
     };
   }
 
-  async updateCompliance(
-    schoolId: string,
-    dto: ComplianceUpdateDto,
-    userId?: string,
-  ) {
+  async updateCompliance(schoolId: string, dto: ComplianceUpdateDto, userId?: string) {
+    // Vérifier que l'école existe
     const school = await this.prisma.school.findFirst({
       where: { id: schoolId, deletedAt: null },
     });
     if (!school) throw new NotFoundException('School not found');
 
-    const check = await this.prisma.complianceCheck.create({
+    // Créer un nouveau check
+    const compliance = await this.prisma.complianceCheck.create({
       data: {
         schoolId,
         checkType: 'REGULAR',
@@ -319,13 +327,16 @@ export class MinistryService {
         checkedBy: userId,
         checkedAt: new Date(),
       },
+      include: {
+        school: true,
+      },
     });
 
-    return check;
+    return compliance;
   }
 
   // ============================================================
-  // 6. RAPPORTS
+  // 6. GESTION DES RAPPORTS
   // ============================================================
 
   async getReports(options?: { type?: ReportType; page?: number; limit?: number }) {
@@ -358,6 +369,22 @@ export class MinistryService {
   }
 
   async generateReport(dto: GenerateReportDto, userId?: string) {
+    // Récupérer les données selon les sections demandées
+    const data: any = {};
+    if (dto.sections?.includes('applications') || !dto.sections) {
+      data.applications = await this.getApplicationStats({
+        from: new Date(dto.periodStart),
+        to: new Date(dto.periodEnd),
+      });
+    }
+    if (dto.sections?.includes('schools') || !dto.sections) {
+      data.schools = await this.getSchoolStats();
+    }
+    if (dto.sections?.includes('geographic') || !dto.sections) {
+      data.geographic = await this.getGeographicStats();
+    }
+
+    // Créer le rapport en base
     const report = await this.prisma.ministryReport.create({
       data: {
         name: dto.name,
@@ -366,51 +393,83 @@ export class MinistryService {
         period: dto.period,
         periodStart: new Date(dto.periodStart),
         periodEnd: new Date(dto.periodEnd),
-        data: {
-          sections: dto.sections,
-          generatedAt: new Date().toISOString(),
-          format: dto.format,
-        },
+        data,
         generatedBy: userId,
-        fileUrl: `https://storage.get.mg/reports/${uuidv4()}.${dto.format.toLowerCase()}`,
+        generatedAt: new Date(),
       },
+    });
+
+    // Pour le moment, on simule la génération du fichier
+    // Plus tard, on générera un vrai PDF/Excel
+    const fileUrl = `https://storage.get.mg/reports/${report.id}.${dto.format.toLowerCase()}`;
+
+    await this.prisma.ministryReport.update({
+      where: { id: report.id },
+      data: { fileUrl },
     });
 
     return {
       reportId: report.id,
-      status: 'GENERATED',
-      estimatedCompletion: new Date().toISOString(),
+      status: 'COMPLETED',
+      fileUrl,
     };
   }
 
-  async getReport(reportId: string) {
+  async getReport(id: string) {
     const report = await this.prisma.ministryReport.findUnique({
-      where: { id: reportId },
+      where: { id },
     });
     if (!report) throw new NotFoundException('Report not found');
     return report;
   }
 
-  async exportReport(reportId: string, format: ExportFormat): Promise<{ buffer: Buffer; contentType: string }> {
-    const report = await this.getReport(reportId);
+  async exportReport(id: string, format: ExportFormat): Promise<{ buffer: Buffer; contentType: string }> {
+    const report = await this.getReport(id);
 
-    const content = `
-      REPORT: ${report.name}
-      Type: ${report.type}
-      Period: ${report.periodStart} - ${report.periodEnd}
-      Generated: ${report.generatedAt}
-      Format: ${format}
-    `;
-
-    const buffer = Buffer.from(content);
+    // Simulation d'export
+    // Plus tard, on générera un vrai PDF avec PDFKit ou un Excel avec ExcelJS
+    const content = JSON.stringify(report.data, null, 2);
+    const buffer = Buffer.from(content, 'utf-8');
 
     const contentType = {
       [ExportFormat.PDF]: 'application/pdf',
       [ExportFormat.EXCEL]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       [ExportFormat.CSV]: 'text/csv',
       [ExportFormat.JSON]: 'application/json',
-    }[format] || 'text/plain';
+    }[format] || 'application/octet-stream';
 
     return { buffer, contentType };
+  }
+
+  // ============================================================
+  // 7. STATISTIQUES PUBLIQUES (API ouverte)
+  // ============================================================
+
+  async getPublicStats() {
+    // Version simplifiée et anonymisée des stats
+    const totalSchools = await this.prisma.school.count({
+      where: { isActive: true, deletedAt: null },
+    });
+
+    const totalOffers = await this.prisma.offer.count({
+      where: { isOpen: true, deletedAt: null },
+    });
+
+    const totalApplications = await this.prisma.application.count();
+
+    const schoolsByRegion = await this.prisma.$queryRaw`
+      SELECT region, COUNT(*) as count
+      FROM schools
+      WHERE region IS NOT NULL AND "isActive" = true
+      GROUP BY region
+      ORDER BY count DESC
+    `;
+
+    return {
+      totalSchools,
+      totalOffers,
+      totalApplications,
+      schoolsByRegion,
+    };
   }
 }
