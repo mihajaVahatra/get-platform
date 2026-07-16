@@ -47,7 +47,6 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    //Déchiffrer les données sensibles avant de les renvoyer
     return {
       ...student,
       phone: student.phone ? this.encryption.decrypt(student.phone) : null,
@@ -67,7 +66,6 @@ export class StudentService {
 
     const profileCompleted = this.calculateProfileCompletion({ ...student, ...dto });
 
-    //Construire les données à mettre à jour avec chiffrement
     const data: any = {
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -84,7 +82,6 @@ export class StudentService {
       profileCompleted,
     };
 
-    //Chiffrer les données sensibles avant l'enregistrement
     if (dto.phone) data.phone = this.encryption.encrypt(dto.phone);
     if (dto.cin) data.cin = this.encryption.encrypt(dto.cin);
 
@@ -108,7 +105,6 @@ export class StudentService {
       student.bio,
     ];
     const filled = fields.filter(f => f !== null && f !== undefined && f !== '').length;
-    // Profile is considered complete if at least 70% of fields are filled
     return (filled / fields.length) >= 0.7;
   }
 
@@ -145,7 +141,6 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    // Mock storage - will be replaced with S3/MinIO later
     const fileUrl = `https://storage.get.mg/documents/${student.id}/${Date.now()}-${file.originalname}`;
 
     return this.prisma.document.create({
@@ -338,5 +333,20 @@ export class StudentService {
       documentsUploaded: documents.length,
       profileCompletion: this.calculateProfileCompletion(student),
     };
+  }
+
+  // ========== AVATAR ==========
+
+  async updateAvatar(userId: string, avatarUrl: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    return this.prisma.student.update({
+      where: { userId },
+      data: { avatarUrl },
+    });
   }
 }

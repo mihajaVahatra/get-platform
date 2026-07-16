@@ -10,20 +10,20 @@ export class SchoolService {
 
   async create(dto: CreateSchoolDto, userId: string) {
     const slug = slugify(dto.name, { lower: true, strict: true });
-    const school = await this.prisma.school.create({
-      data: {
-        name: dto.name,
-        slug,
-        description: dto.description,
-        type: dto.type,
-        city: dto.city,
-        region: dto.region,
-        contactEmail: dto.contactEmail,
-        contactPhone: dto.contactPhone,
-        website: dto.website,
-        // Later: create SchoolAdmin entry for userId
-      },
-    });
+    const data: any = {
+      name: dto.name,
+      slug,
+      type: dto.type,
+      isActive: true,
+    };
+    if (dto.description) data.description = dto.description;
+    if (dto.city) data.city = dto.city;
+    if (dto.region) data.region = dto.region;
+    if (dto.contactEmail) data.contactEmail = dto.contactEmail;
+    if (dto.contactPhone) data.contactPhone = dto.contactPhone;
+    if (dto.website) data.website = dto.website;
+
+    const school = await this.prisma.school.create({ data });
     return school;
   }
 
@@ -82,8 +82,7 @@ export class SchoolService {
   }
 
   async update(id: string, dto: UpdateSchoolDto, userId: string) {
-    // TODO: check if user is admin of this school or ADMIN_GET
-    const school = await this.findOne(id);
+    await this.findOne(id);
     const slug = dto.name ? slugify(dto.name, { lower: true, strict: true }) : undefined;
     return this.prisma.school.update({
       where: { id },
@@ -95,11 +94,20 @@ export class SchoolService {
   }
 
   async delete(id: string, userId: string) {
-    // TODO: check if user is admin of this school or ADMIN_GET
     await this.findOne(id);
     return this.prisma.school.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+  }
+
+  // ========== LOGO ==========
+
+  async updateLogo(schoolId: string, logoUrl: string) {
+    const school = await this.findOne(schoolId);
+    return this.prisma.school.update({
+      where: { id: schoolId },
+      data: { logo: logoUrl },
     });
   }
 }

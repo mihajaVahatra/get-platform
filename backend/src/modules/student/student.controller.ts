@@ -22,20 +22,24 @@ import {
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { StudentService } from './student.service';
+import { StorageService, ImageEntityType, ImageType } from '../../common/services/storage.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
-import { UploadDocumentDto, DocumentResponseDto } from './dto/upload-document.dto';
+import { UploadDocumentDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('students')
 @Controller('students')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
 export class StudentController {
-  constructor(private readonly studentService: StudentService) {}
+  constructor(
+    private readonly studentService: StudentService,
+    private readonly storageService: StorageService,
+  ) {}
 
   // ========== PROFILE ==========
 
@@ -49,7 +53,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const profile = await this.studentService.getProfile(user.id);
     return {
       success: true,
@@ -71,12 +74,62 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const profile = await this.studentService.updateProfile(user.id, dto);
     return {
       success: true,
       data: profile,
       message: 'Profile updated successfully',
+    };
+  }
+
+  // ========== AVATAR ==========
+
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload student avatar' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Avatar uploaded' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid file' })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException('Seules les images sont autorisées'), false);
+      }
+    },
+  }))
+  async uploadAvatar(
+    @GetUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!user.student) {
+      throw new ForbiddenException('Réservé aux étudiants');
+    }
+    if (!file) {
+      throw new BadRequestException('Aucun fichier uploadé');
+    }
+
+    const result = await this.storageService.uploadImage(file, {
+      entityType: ImageEntityType.STUDENT,
+      entityId: user.student.id,
+      type: ImageType.AVATAR,
+    });
+
+    await this.studentService.updateAvatar(user.id, result.url);
+
+    return {
+      success: true,
+      data: { avatarUrl: result.url },
+      message: 'Avatar uploaded successfully',
     };
   }
 
@@ -90,7 +143,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const documents = await this.studentService.getDocuments(user.id);
     return {
       success: true,
@@ -140,11 +192,9 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-
     const document = await this.studentService.uploadDocument(user.id, file, dto);
     return {
       success: true,
@@ -166,7 +216,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     await this.studentService.deleteDocument(user.id, documentId);
     return {
       success: true,
@@ -188,7 +237,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const suggestions = await this.studentService.submitOrientationQuestionnaire(user.id, dto);
     return {
       success: true,
@@ -205,7 +253,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const suggestions = await this.studentService.getOrientationSuggestions(user.id);
     return {
       success: true,
@@ -224,7 +271,6 @@ export class StudentController {
     if (!user.student) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
     }
-
     const stats = await this.studentService.getStudentStats(user.id);
     return {
       success: true,

@@ -105,6 +105,9 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Connexion...' : 'Se connecter'}
           </Button>
+          <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline text-center block mt-2">
+            Mot de passe oublié ?
+          </Link>
           <p className="text-sm text-center text-gray-600">
             Pas encore de compte ?{' '}
             <Link href="/auth/register" className="text-blue-600 hover:underline">

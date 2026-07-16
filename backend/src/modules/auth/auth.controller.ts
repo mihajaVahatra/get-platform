@@ -14,6 +14,7 @@ import { GetUser } from '../../common/decorators/get-user.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // ========== REGISTER ==========
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
@@ -25,6 +26,7 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  // ========== LOGIN ==========
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -36,8 +38,39 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  // ========== MFA ENDPOINTS ==========
+  // ========== FORGOT PASSWORD ==========
+  @Public()
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiBody({ schema: { properties: { email: { type: 'string' } } } })
+  @ApiResponse({ status: 200, description: 'Reset email sent' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
 
+  // ========== RESET PASSWORD ==========
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiBody({
+    schema: {
+      properties: {
+        token: { type: 'string' },
+        newPassword: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  @ApiResponse({ status: 400, description: 'Invalid token or password' })
+  async resetPassword(
+    @Body('token') token: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.resetPassword(token, newPassword);
+  }
+
+  // ========== MFA ==========
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')

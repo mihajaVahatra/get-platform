@@ -10,6 +10,9 @@ import {
   HttpStatus,
   UseGuards,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,8 +22,11 @@ import {
   ApiQuery,
   ApiParam,
   ApiBody,
+  ApiConsumes,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
+import { StorageService, ImageEntityType, ImageType } from '../../common/services/storage.service';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
 import { SchoolResponseDto } from './dto/school-response.dto';
@@ -34,7 +40,10 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 @ApiTags('schools')
 @Controller('schools')
 export class SchoolController {
-  constructor(private readonly schoolService: SchoolService) {}
+  constructor(
+    private readonly schoolService: SchoolService,
+    private readonly storageService: StorageService,
+  ) {}
 
   // ========== PUBLIC ROUTES ==========
 
@@ -112,7 +121,6 @@ export class SchoolController {
     @Body() dto: UpdateSchoolDto,
     @GetUser() user: any,
   ) {
-    // ✅ Vérifier que l'utilisateur est admin GET ou schoolAdmin de cette école
     const isAdminGet = user.role === 'ADMIN_GET';
     const isSchoolAdmin = user.schoolAdmin && user.schoolAdmin.schoolId === id;
 
@@ -144,6 +152,66 @@ export class SchoolController {
     };
   }
 
+  // ========== LOGO UPLOAD ==========
+
+  @Post(':id/logo')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Upload school logo' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', description: 'School ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Logo uploaded' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException('Seules les images sont autorisées'), false);
+      }
+    },
+  }))
+  async uploadLogo(
+    @Param('id') schoolId: string,
+    @GetUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    // Vérifier les droits
+    const isAdminGet = user.role === 'ADMIN_GET';
+    const isSchoolAdmin = user.schoolAdmin && user.schoolAdmin.schoolId === schoolId;
+
+    if (!isAdminGet && !isSchoolAdmin) {
+      throw new ForbiddenException('Vous n\'êtes pas autorisé à modifier cette école');
+    }
+
+    if (!file) {
+      throw new BadRequestException('Aucun fichier uploadé');
+    }
+
+    const result = await this.storageService.uploadImage(file, {
+      entityType: ImageEntityType.SCHOOL,
+      entityId: schoolId,
+      type: ImageType.LOGO,
+    });
+
+    await this.schoolService.updateLogo(schoolId, result.url);
+
+    return {
+      success: true,
+      data: { logoUrl: result.url },
+      message: 'Logo uploaded successfully',
+    };
+  }
+
   // ========== SCHOOL ADMIN ROUTES ==========
 
   @Get('me')
@@ -156,7 +224,6 @@ export class SchoolController {
     if (!user.schoolAdmin) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
     }
-
     const school = await this.schoolService.findOne(user.schoolAdmin.schoolId);
     return {
       success: true,
@@ -175,9 +242,7 @@ export class SchoolController {
     if (!user.schoolAdmin) {
       throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
     }
-
     const schoolId = user.schoolAdmin.schoolId;
-    // TODO: implement stats retrieval by school ID
     return {
       success: true,
       data: {

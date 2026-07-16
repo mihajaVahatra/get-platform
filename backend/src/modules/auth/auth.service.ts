@@ -82,7 +82,6 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Vérifier les tentatives de connexion
     await this.checkLoginAttempts(user.id);
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
@@ -91,7 +90,6 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Réinitialiser les tentatives après succès
     await this.resetLoginAttempts(user.id);
 
     await this.prisma.user.update({
@@ -108,7 +106,49 @@ export class AuthService {
     };
   }
 
-  // ========== MFA METHODS ==========
+  // ========== FORGOT PASSWORD ==========
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return { message: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.' };
+    }
+
+    const resetToken = this.jwt.sign(
+      { sub: user.id, type: 'reset' },
+      { expiresIn: '1h' },
+    );
+
+    console.log(`🔗 Lien de réinitialisation pour ${email}: http://localhost:3000/auth/reset-password?token=${resetToken}`);
+
+    return { message: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const payload = this.jwt.verify(token);
+
+      if (payload.type !== 'reset') {
+        throw new BadRequestException('Token invalide');
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await this.prisma.user.update({
+        where: { id: payload.sub },
+        data: { password: hashedPassword },
+      });
+
+      return { success: true, message: 'Mot de passe réinitialisé avec succès' };
+    } catch (error) {
+      throw new BadRequestException('Token invalide ou expiré');
+    }
+  }
+
+  // ========== MFA ==========
 
   async enableMfa(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -251,7 +291,6 @@ export class AuthService {
     });
 
     if (user && user.failedLoginAttempts >= this.MAX_LOGIN_ATTEMPTS) {
-      //Vérifier si lastFailedLoginAt existe avant d'appeler getTime()
       if (user.lastFailedLoginAt) {
         const timeSinceLastAttempt = Date.now() - user.lastFailedLoginAt.getTime();
         if (timeSinceLastAttempt < this.LOCK_TIME) {
@@ -260,7 +299,6 @@ export class AuthService {
           );
         }
       }
-      // Réinitialiser après 15 minutes (ou si lastFailedLoginAt est null)
       await this.prisma.user.update({
         where: { id: userId },
         data: { failedLoginAttempts: 0, lastFailedLoginAt: null },

@@ -75,6 +75,7 @@ model Student {
   payments     Payment[]
 
   @@map("students")
+  avatarUrl    String?
 }
 
 model Document {
@@ -370,4 +371,20 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
 
   @@map("system_configs")
+}
+
+model Image {
+  id         String   @id @default(uuid())
+  url        String   // URL publique de l'image
+  type       String   // AVATAR, LOGO, ILLUSTRATION, BANNER, etc.
+  entityType String   // STUDENT, SCHOOL, ADMIN, MINISTRY, OFFER, SYSTEM
+  entityId   String?  // ID de l'entité associée
+  mimeType   String
+  size       Int
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@map("images")
 }
