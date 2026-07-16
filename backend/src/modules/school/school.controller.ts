@@ -9,6 +9,7 @@ import {
   Query,
   HttpStatus,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,6 +35,8 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 @Controller('schools')
 export class SchoolController {
   constructor(private readonly schoolService: SchoolService) {}
+
+  // ========== PUBLIC ROUTES ==========
 
   @Public()
   @Get()
@@ -75,6 +78,8 @@ export class SchoolController {
     };
   }
 
+  // ========== ADMIN ROUTES ==========
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -84,8 +89,8 @@ export class SchoolController {
   @ApiResponse({ status: HttpStatus.CREATED, description: 'School created' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - Admin required' })
-  async createSchool(@Body() dto: CreateSchoolDto, @GetUser('id') userId: string) {
-    const school = await this.schoolService.create(dto, userId);
+  async createSchool(@Body() dto: CreateSchoolDto, @GetUser() user: any) {
+    const school = await this.schoolService.create(dto, user.id);
     return {
       success: true,
       data: school,
@@ -105,9 +110,17 @@ export class SchoolController {
   async updateSchool(
     @Param('id') id: string,
     @Body() dto: UpdateSchoolDto,
-    @GetUser('id') userId: string,
+    @GetUser() user: any,
   ) {
-    const school = await this.schoolService.update(id, dto, userId);
+    // ✅ Vérifier que l'utilisateur est admin GET ou schoolAdmin de cette école
+    const isAdminGet = user.role === 'ADMIN_GET';
+    const isSchoolAdmin = user.schoolAdmin && user.schoolAdmin.schoolId === id;
+
+    if (!isAdminGet && !isSchoolAdmin) {
+      throw new ForbiddenException('Vous n\'êtes pas autorisé à modifier cette école');
+    }
+
+    const school = await this.schoolService.update(id, dto, user.id);
     return {
       success: true,
       data: school,
@@ -123,11 +136,60 @@ export class SchoolController {
   @ApiParam({ name: 'id', description: 'School ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'School deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'School not found' })
-  async deleteSchool(@Param('id') id: string, @GetUser('id') userId: string) {
-    await this.schoolService.delete(id, userId);
+  async deleteSchool(@Param('id') id: string, @GetUser() user: any) {
+    await this.schoolService.delete(id, user.id);
     return {
       success: true,
       message: 'School deleted successfully',
+    };
+  }
+
+  // ========== SCHOOL ADMIN ROUTES ==========
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get current school info (School Admin only)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'School info retrieved' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - School Admin required' })
+  async getMySchool(@GetUser() user: any) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
+    }
+
+    const school = await this.schoolService.findOne(user.schoolAdmin.schoolId);
+    return {
+      success: true,
+      data: school,
+      message: 'School info retrieved successfully',
+    };
+  }
+
+  @Get('me/stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get current school statistics (School Admin only)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'School statistics retrieved' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - School Admin required' })
+  async getMySchoolStats(@GetUser() user: any) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
+    }
+
+    const schoolId = user.schoolAdmin.schoolId;
+    // TODO: implement stats retrieval by school ID
+    return {
+      success: true,
+      data: {
+        schoolId,
+        totalOffers: 0,
+        openOffers: 0,
+        totalApplications: 0,
+        pendingApplications: 0,
+        acceptedApplications: 0,
+        rejectedApplications: 0,
+      },
+      message: 'School statistics retrieved successfully',
     };
   }
 }

@@ -13,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET')!, // ✅ on garantit qu'il existe
+      secretOrKey: config.get<string>('JWT_SECRET')!,
     });
   }
 
@@ -22,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: {
         student: true,
+        schoolAdmin: true,   //Ajouté pour les admins école
         role: true,
       },
     });
@@ -30,11 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Utilisateur non trouvé ou inactif');
     }
 
-    // ✅ Retourne l'utilisateur avec le rôle et studentId ajoutés (sans doublons)
+    //Retourne l'utilisateur complet (avec les relations)
     return {
       ...user,
       role: user.role?.name || 'STUDENT',
       studentId: user.student?.id,
+      schoolAdminId: user.schoolAdmin?.id,
     };
   }
 }

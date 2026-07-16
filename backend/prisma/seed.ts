@@ -33,7 +33,7 @@ async function main() {
 
   console.log('✅ Rôles créés');
 
-  // 2. Créer un admin
+  // 2. Créer un admin GET
   const adminPassword = await bcrypt.hash('Admin123!', 10);
   await prisma.user.upsert({
     where: { email: 'admin@get.mg' },
@@ -45,10 +45,23 @@ async function main() {
       isVerified: true,
     },
   });
+  console.log('✅ Admin GET créé');
 
-  console.log('✅ Admin créé');
+  // 3. Créer un school admin
+  const schoolAdminPassword = await bcrypt.hash('Mihaja@25!', 10);
+  await prisma.user.upsert({
+    where: { email: 'schooladmin@get.mg' },
+    update: {},
+    create: {
+      email: 'schooladmin@get.mg',
+      password: schoolAdminPassword,
+      roleId: schoolAdminRole.id,
+      isVerified: true,
+    },
+  });
+  console.log('✅ School Admin créé');
 
-  // 3. Créer une école exemple
+  // 4. Créer une école de test
   const school = await prisma.school.upsert({
     where: { slug: 'esmia' },
     update: {},
@@ -62,16 +75,15 @@ async function main() {
       isActive: true,
     },
   });
-
   console.log(`✅ École créée: ${school.name}`);
 
-  // 4. Créer un étudiant test
+  // 5. Créer un étudiant test
   const studentPassword = await bcrypt.hash('Student123!', 10);
   const student = await prisma.user.upsert({
-    where: { email: 'jean.rakoto@email.com' },
+    where: { email: 'test@gmail.com' },
     update: {},
     create: {
-      email: 'jean.rakoto@email.com',
+      email: 'test@gmail.com',
       password: studentPassword,
       roleId: studentRole.id,
       isVerified: true,
@@ -86,7 +98,6 @@ async function main() {
       },
     },
   });
-
   console.log(`✅ Étudiant test créé: ${student.email}`);
 
   console.log('🌱 Seeding terminé !');

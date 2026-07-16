@@ -18,10 +18,12 @@ model User {
   refreshToken String?
   mfaSecret    String?
   mfaEnabled   Boolean   @default(false)
+  failedLoginAttempts Int      @default(0)
+  lastFailedLoginAt   DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
-
+  
   student       Student?
   schoolAdmin   SchoolAdmin?
   notifications Notification[]

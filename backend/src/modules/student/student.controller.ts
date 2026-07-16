@@ -11,6 +11,7 @@ import {
   BadRequestException,
   HttpStatus,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -43,8 +44,13 @@ export class StudentController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Profile retrieved successfully' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Student not found' })
-  async getProfile(@GetUser('id') userId: string) {
-    const profile = await this.studentService.getProfile(userId);
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  async getProfile(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const profile = await this.studentService.getProfile(user.id);
     return {
       success: true,
       data: profile,
@@ -57,11 +63,16 @@ export class StudentController {
   @ApiBody({ type: UpdateStudentProfileDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Profile updated successfully' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
   async updateProfile(
-    @GetUser('id') userId: string,
+    @GetUser() user: any,
     @Body() dto: UpdateStudentProfileDto,
   ) {
-    const profile = await this.studentService.updateProfile(userId, dto);
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const profile = await this.studentService.updateProfile(user.id, dto);
     return {
       success: true,
       data: profile,
@@ -74,8 +85,13 @@ export class StudentController {
   @Get('me/documents')
   @ApiOperation({ summary: 'Get all documents' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Documents retrieved' })
-  async getDocuments(@GetUser('id') userId: string) {
-    const documents = await this.studentService.getDocuments(userId);
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  async getDocuments(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const documents = await this.studentService.getDocuments(user.id);
     return {
       success: true,
       data: documents,
@@ -98,8 +114,9 @@ export class StudentController {
   })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Document uploaded' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'File too large or unsupported format' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
   @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
       const allowedMimes = [
         'application/pdf',
@@ -116,14 +133,19 @@ export class StudentController {
     },
   }))
   async uploadDocument(
-    @GetUser('id') userId: string,
+    @GetUser() user: any,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
   ) {
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    const document = await this.studentService.uploadDocument(userId, file, dto);
+
+    const document = await this.studentService.uploadDocument(user.id, file, dto);
     return {
       success: true,
       data: document,
@@ -136,11 +158,16 @@ export class StudentController {
   @ApiParam({ name: 'id', description: 'Document ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Document deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Document not found' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
   async deleteDocument(
-    @GetUser('id') userId: string,
+    @GetUser() user: any,
     @Param('id') documentId: string,
   ) {
-    await this.studentService.deleteDocument(userId, documentId);
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    await this.studentService.deleteDocument(user.id, documentId);
     return {
       success: true,
       message: 'Document deleted successfully',
@@ -153,11 +180,16 @@ export class StudentController {
   @ApiOperation({ summary: 'Submit orientation questionnaire' })
   @ApiBody({ type: OrientationQuestionnaireDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Questionnaire submitted' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
   async submitOrientationQuestionnaire(
-    @GetUser('id') userId: string,
+    @GetUser() user: any,
     @Body() dto: OrientationQuestionnaireDto,
   ) {
-    const suggestions = await this.studentService.submitOrientationQuestionnaire(userId, dto);
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const suggestions = await this.studentService.submitOrientationQuestionnaire(user.id, dto);
     return {
       success: true,
       data: { suggestions },
@@ -168,8 +200,13 @@ export class StudentController {
   @Get('me/orientation')
   @ApiOperation({ summary: 'Get orientation suggestions' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Orientation suggestions retrieved' })
-  async getOrientationSuggestions(@GetUser('id') userId: string) {
-    const suggestions = await this.studentService.getOrientationSuggestions(userId);
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  async getOrientationSuggestions(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const suggestions = await this.studentService.getOrientationSuggestions(user.id);
     return {
       success: true,
       data: { suggestions },
@@ -182,8 +219,13 @@ export class StudentController {
   @Get('me/stats')
   @ApiOperation({ summary: 'Get personal statistics' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
-  async getStudentStats(@GetUser('id') userId: string) {
-    const stats = await this.studentService.getStudentStats(userId);
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  async getStudentStats(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+    }
+
+    const stats = await this.studentService.getStudentStats(user.id);
     return {
       success: true,
       data: stats,

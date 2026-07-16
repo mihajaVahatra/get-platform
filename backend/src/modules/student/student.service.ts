@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @Injectable()
 export class StudentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encryption: EncryptionService,
+  ) {}
 
   // ========== PROFILE ==========
 
@@ -43,8 +47,11 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
+    //Déchiffrer les données sensibles avant de les renvoyer
     return {
       ...student,
+      phone: student.phone ? this.encryption.decrypt(student.phone) : null,
+      cin: student.cin ? this.encryption.decrypt(student.cin) : null,
       profileCompleted: this.calculateProfileCompletion(student),
     };
   }
@@ -60,25 +67,30 @@ export class StudentService {
 
     const profileCompleted = this.calculateProfileCompletion({ ...student, ...dto });
 
+    //Construire les données à mettre à jour avec chiffrement
+    const data: any = {
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+      bacYear: dto.bacYear,
+      bacType: dto.bacType,
+      city: dto.city,
+      address: dto.address,
+      region: dto.region,
+      bio: dto.bio,
+      interests: dto.interests,
+      skills: dto.skills,
+      aspirations: dto.aspirations,
+      profileCompleted,
+    };
+
+    //Chiffrer les données sensibles avant l'enregistrement
+    if (dto.phone) data.phone = this.encryption.encrypt(dto.phone);
+    if (dto.cin) data.cin = this.encryption.encrypt(dto.cin);
+
     const updatedStudent = await this.prisma.student.update({
       where: { userId },
-      data: {
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        phone: dto.phone,
-        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-        cin: dto.cin,
-        bacYear: dto.bacYear,
-        bacType: dto.bacType,
-        city: dto.city,
-        address: dto.address,
-        region: dto.region,
-        bio: dto.bio,
-        interests: dto.interests,
-        skills: dto.skills,
-        aspirations: dto.aspirations,
-        profileCompleted,
-      },
+      data,
     });
 
     return updatedStudent;
