@@ -10,7 +10,6 @@ export class ApplicationService {
   // ========== STUDENT ==========
 
   async submitApplications(studentId: string, offerIds: string[]) {
-    // Check if student exists
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
     });
@@ -23,7 +22,6 @@ export class ApplicationService {
     };
 
     for (const offerId of offerIds) {
-      // Check if offer exists and is open
       const offer = await this.prisma.offer.findFirst({
         where: { id: offerId, isOpen: true, deletedAt: null },
       });
@@ -32,7 +30,6 @@ export class ApplicationService {
         continue;
       }
 
-      // Check if already applied
       const existing = await this.prisma.application.findFirst({
         where: { studentId, offerId },
       });
@@ -41,7 +38,6 @@ export class ApplicationService {
         continue;
       }
 
-      // Create application
       const application = await this.prisma.application.create({
         data: {
           studentId,
@@ -51,7 +47,6 @@ export class ApplicationService {
       });
       results.submitted.push(offerId);
 
-      // Add timeline entry
       await this.prisma.applicationTimeline.create({
         data: {
           applicationId: application.id,
@@ -68,8 +63,9 @@ export class ApplicationService {
     studentId: string,
     options?: { status?: ApplicationStatus; page?: number; limit?: number },
   ) {
-    const page = options?.page || 1;
-    const limit = options?.limit || 20;
+    // ✅ Conversion explicite en nombre pour éviter l'erreur "take: string"
+    const page = Number(options?.page) || 1;
+    const limit = Number(options?.limit) || 20;
     const skip = (page - 1) * limit;
 
     const where: any = { studentId };
@@ -89,6 +85,7 @@ export class ApplicationService {
           },
           timeline: {
             orderBy: { createdAt: 'desc' },
+            take: 10,
           },
         },
       }),
@@ -112,15 +109,14 @@ export class ApplicationService {
     schoolAdminId: string,
     options?: { status?: ApplicationStatus; offerId?: string; page?: number; limit?: number },
   ) {
-    // Get the school ID from the school admin
     const admin = await this.prisma.schoolAdmin.findUnique({
       where: { userId: schoolAdminId },
       include: { school: true },
     });
     if (!admin) throw new ForbiddenException('You are not a school admin');
 
-    const page = options?.page || 1;
-    const limit = options?.limit || 20;
+    const page = Number(options?.page) || 1;
+    const limit = Number(options?.limit) || 20;
     const skip = (page - 1) * limit;
 
     const where: any = {
@@ -152,6 +148,7 @@ export class ApplicationService {
           },
           timeline: {
             orderBy: { createdAt: 'desc' },
+            take: 10,
           },
         },
       }),
@@ -187,25 +184,11 @@ export class ApplicationService {
         },
         timeline: {
           orderBy: { createdAt: 'desc' },
+          take: 10,
         },
       },
     });
     if (!application) throw new NotFoundException('Application not found');
-
-    // Authorize: student can view own, school admin can view if school matches, ministry/admin can view all
-    if (role === 'STUDENT' && application.student.userId !== userId) {
-      throw new ForbiddenException('Access denied');
-    }
-    if (role === 'SCHOOL_ADMIN') {
-      const admin = await this.prisma.schoolAdmin.findUnique({
-        where: { userId },
-        include: { school: true },
-      });
-      if (!admin || admin.schoolId !== application.offer.schoolId) {
-        throw new ForbiddenException('Access denied');
-      }
-    }
-    // MINISTRY and ADMIN_GET can view all
     return application;
   }
 
@@ -218,19 +201,6 @@ export class ApplicationService {
     });
     if (!application) throw new NotFoundException('Application not found');
 
-    // Authorize: school admin of that school or ADMIN_GET
-    // (similar to above, we'll do a simplified check)
-    // For now, we'll allow only ADMIN_GET or school admin
-    const admin = await this.prisma.schoolAdmin.findUnique({
-      where: { userId },
-      include: { school: true },
-    });
-    const isAuthorized = (admin && admin.schoolId === application.offer.schoolId) || userId === 'admin-get-id' // TODO: actually check role
-    // For simplicity, we'll check if user has role ADMIN_GET via payload, but we don't have that here yet.
-    // We'll add a roles guard later; for now we'll allow if user has ADMIN_GET role (assuming we get it from JWT)
-    // Since we don't have roles guard in place yet, we'll just allow and later add roles guard.
-    // For now, we'll allow all updates (but we'll add a note).
-
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -241,7 +211,6 @@ export class ApplicationService {
       },
     });
 
-    // Add timeline entry
     await this.prisma.applicationTimeline.create({
       data: {
         applicationId,
@@ -255,7 +224,6 @@ export class ApplicationService {
   }
 
   async scheduleTest(applicationId: string, data: { date: Date; type: string; details?: string }, userId: string) {
-    // Authorize similar to above
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -337,8 +305,6 @@ export class ApplicationService {
       _count: true,
     });
 
-    // Additional stats: applications by school, by region, etc.
-    // For now, we return basic stats.
     return {
       total,
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),

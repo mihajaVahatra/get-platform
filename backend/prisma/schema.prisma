@@ -8,27 +8,28 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  password     String
-  roleId       String?
-  isActive     Boolean   @default(true)
-  isVerified   Boolean   @default(false)
-  lastLogin    DateTime?
-  refreshToken String?
-  mfaSecret    String?
-  mfaEnabled   Boolean   @default(false)
-  failedLoginAttempts Int      @default(0)
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  password            String
+  roleId              String?
+  role                Role?     @relation(fields: [roleId], references: [id])
+  isActive            Boolean   @default(true)
+  isVerified          Boolean   @default(false)
+  lastLogin           DateTime?
+  refreshToken        String?
+  mfaSecret           String?
+  mfaEnabled          Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
   lastFailedLoginAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
-  
+  gender              String    @default("MALE") // MALE, FEMALE
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
   student       Student?
   schoolAdmin   SchoolAdmin?
   notifications Notification[]
   auditLogs     AuditLog[]
-  role          Role?          @relation(fields: [roleId], references: [id])
 
   @@map("users")
 }
@@ -66,6 +67,7 @@ model Student {
   skills           String[]
   aspirations      String[]
   profileCompleted Boolean   @default(false)
+  avatarUrl        String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
@@ -75,26 +77,6 @@ model Student {
   payments     Payment[]
 
   @@map("students")
-  avatarUrl    String?
-}
-
-model Document {
-  id         String    @id @default(uuid())
-  studentId  String
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  type       String
-  name       String
-  fileUrl    String
-  fileSize   Int
-  mimeType   String
-  isVerified Boolean   @default(false)
-  verifiedBy String?
-  verifiedAt DateTime?
-  uploadedAt DateTime  @default(now())
-  deletedAt  DateTime?
-
-  @@index([studentId, type])
-  @@map("documents")
 }
 
 model School {
@@ -105,7 +87,7 @@ model School {
   logo         String?
   type         String    @default("PRIVATE")
   address      String?
-  city         String?
+  city         String
   region       String?
   country      String    @default("Madagascar")
   contactEmail String?
@@ -116,11 +98,11 @@ model School {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  admins        SchoolAdmin[]
-  offers        Offer[]
-  applications  Application[]
-  subscriptions SchoolSubscription[]
-  compliance    ComplianceCheck[]
+  admins SchoolAdmin[]
+  offers Offer[]
+
+  subscription SchoolSubscription?
+  compliance   ComplianceCheck[]
 
   @@map("schools")
 }
@@ -200,8 +182,6 @@ model Application {
 
   timeline ApplicationTimeline[]
   payments Payment[]
-  School   School?               @relation(fields: [schoolId], references: [id])
-  schoolId String?
 
   @@unique([studentId, offerId])
   @@index([studentId, status])
@@ -276,6 +256,25 @@ model Refund {
   createdAt   DateTime  @default(now())
 
   @@map("refunds")
+}
+
+model Document {
+  id         String    @id @default(uuid())
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String
+  name       String
+  fileUrl    String
+  fileSize   Int
+  mimeType   String
+  isVerified Boolean   @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@index([studentId, type])
+  @@map("documents")
 }
 
 model Notification {
@@ -361,6 +360,22 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model Image {
+  id         String   @id @default(uuid())
+  url        String
+  type       String // AVATAR, LOGO, ILLUSTRATION, BANNER
+  entityType String // STUDENT, SCHOOL, ADMIN, MINISTRY, OFFER, SYSTEM
+  entityId   String?
+  mimeType   String
+  size       Int
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@map("images")
+}
+
 model SystemConfig {
   id          String   @id @default(uuid())
   key         String   @unique
@@ -371,20 +386,4 @@ model SystemConfig {
   updatedAt   DateTime @updatedAt
 
   @@map("system_configs")
-}
-
-model Image {
-  id         String   @id @default(uuid())
-  url        String   // URL publique de l'image
-  type       String   // AVATAR, LOGO, ILLUSTRATION, BANNER, etc.
-  entityType String   // STUDENT, SCHOOL, ADMIN, MINISTRY, OFFER, SYSTEM
-  entityId   String?  // ID de l'entité associée
-  mimeType   String
-  size       Int
-  isPublic   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([entityType, entityId])
-  @@map("images")
 }

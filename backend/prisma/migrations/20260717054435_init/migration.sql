@@ -10,6 +10,9 @@ CREATE TABLE "users" (
     "refreshToken" TEXT,
     "mfaSecret" TEXT,
     "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "failedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
+    "lastFailedLoginAt" TIMESTAMP(3),
+    "gender" TEXT NOT NULL DEFAULT 'MALE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -49,29 +52,12 @@ CREATE TABLE "students" (
     "skills" TEXT[],
     "aspirations" TEXT[],
     "profileCompleted" BOOLEAN NOT NULL DEFAULT false,
+    "avatarUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
 
     CONSTRAINT "students_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "documents" (
-    "id" TEXT NOT NULL,
-    "studentId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "fileUrl" TEXT NOT NULL,
-    "fileSize" INTEGER NOT NULL,
-    "mimeType" TEXT NOT NULL,
-    "isVerified" BOOLEAN NOT NULL DEFAULT false,
-    "verifiedBy" TEXT,
-    "verifiedAt" TIMESTAMP(3),
-    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deletedAt" TIMESTAMP(3),
-
-    CONSTRAINT "documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -164,7 +150,6 @@ CREATE TABLE "applications" (
     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
-    "schoolId" TEXT,
 
     CONSTRAINT "applications_pkey" PRIMARY KEY ("id")
 );
@@ -229,6 +214,24 @@ CREATE TABLE "refunds" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "refunds_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "documents" (
+    "id" TEXT NOT NULL,
+    "studentId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "fileUrl" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "isVerified" BOOLEAN NOT NULL DEFAULT false,
+    "verifiedBy" TEXT,
+    "verifiedAt" TIMESTAMP(3),
+    "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "documents_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -314,6 +317,22 @@ CREATE TABLE "audit_logs" (
 );
 
 -- CreateTable
+CREATE TABLE "images" (
+    "id" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" TEXT,
+    "mimeType" TEXT NOT NULL,
+    "size" INTEGER NOT NULL,
+    "isPublic" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "images_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "system_configs" (
     "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
@@ -334,9 +353,6 @@ CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "students_userId_key" ON "students"("userId");
-
--- CreateIndex
-CREATE INDEX "documents_studentId_type_idx" ON "documents"("studentId", "type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "schools_slug_key" ON "schools"("slug");
@@ -381,6 +397,9 @@ CREATE UNIQUE INDEX "transactions_paymentId_key" ON "transactions"("paymentId");
 CREATE UNIQUE INDEX "refunds_paymentId_key" ON "refunds"("paymentId");
 
 -- CreateIndex
+CREATE INDEX "documents_studentId_type_idx" ON "documents"("studentId", "type");
+
+-- CreateIndex
 CREATE INDEX "notifications_userId_isRead_idx" ON "notifications"("userId", "isRead");
 
 -- CreateIndex
@@ -393,6 +412,9 @@ CREATE INDEX "compliance_checks_schoolId_checkedAt_idx" ON "compliance_checks"("
 CREATE INDEX "audit_logs_userId_createdAt_idx" ON "audit_logs"("userId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "images_entityType_entityId_idx" ON "images"("entityType", "entityId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "system_configs_key_key" ON "system_configs"("key");
 
 -- AddForeignKey
@@ -400,9 +422,6 @@ ALTER TABLE "users" ADD CONSTRAINT "users_roleId_fkey" FOREIGN KEY ("roleId") RE
 
 -- AddForeignKey
 ALTER TABLE "students" ADD CONSTRAINT "students_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "documents" ADD CONSTRAINT "documents_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "school_admins" ADD CONSTRAINT "school_admins_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -423,9 +442,6 @@ ALTER TABLE "applications" ADD CONSTRAINT "applications_studentId_fkey" FOREIGN 
 ALTER TABLE "applications" ADD CONSTRAINT "applications_offerId_fkey" FOREIGN KEY ("offerId") REFERENCES "offers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "applications" ADD CONSTRAINT "applications_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "schools"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "application_timelines" ADD CONSTRAINT "application_timelines_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -439,6 +455,9 @@ ALTER TABLE "transactions" ADD CONSTRAINT "transactions_paymentId_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "refunds" ADD CONSTRAINT "refunds_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "payments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "documents" ADD CONSTRAINT "documents_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -15,44 +15,71 @@ export class StudentService {
   // ========== PROFILE ==========
 
   async getProfile(userId: string) {
-    const student = await this.prisma.student.findUnique({
-      where: { userId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            isActive: true,
-          },
-        },
-        documents: {
-          where: { deletedAt: null },
-          orderBy: { uploadedAt: 'desc' },
-        },
-        applications: {
-          include: {
-            offer: {
-              include: {
-                school: true,
-              },
+    try {
+      const student = await this.prisma.student.findUnique({
+        where: { userId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              isActive: true,
             },
           },
-          orderBy: { submittedAt: 'desc' },
-          take: 10,
+          documents: {
+            where: { deletedAt: null },
+            orderBy: { uploadedAt: 'desc' },
+          },
+          applications: {
+            include: {
+              offer: {
+                include: {
+                  school: true,
+                },
+              },
+            },
+            orderBy: { submittedAt: 'desc' },
+            take: 10,
+          },
         },
-      },
-    });
+      });
 
-    if (!student) {
-      throw new NotFoundException('Student not found');
+      if (!student) {
+        throw new NotFoundException('Student not found');
+      }
+
+      // ✅ Décryptage sécurisé avec fallback
+      let decryptedPhone: string | null = null;
+      let decryptedCin: string | null = null;
+
+      if (student.phone) {
+        try {
+          decryptedPhone = this.encryption.decrypt(student.phone);
+        } catch (e) {
+          console.warn('⚠️ Erreur décryptage phone, utilisation de la valeur brute:', e.message);
+          decryptedPhone = student.phone;
+        }
+      }
+
+      if (student.cin) {
+        try {
+          decryptedCin = this.encryption.decrypt(student.cin);
+        } catch (e) {
+          console.warn('⚠️ Erreur décryptage cin, utilisation de la valeur brute:', e.message);
+          decryptedCin = student.cin;
+        }
+      }
+
+      return {
+        ...student,
+        phone: decryptedPhone,
+        cin: decryptedCin,
+        profileCompleted: this.calculateProfileCompletion(student),
+      };
+    } catch (error) {
+      console.error('❌ Erreur getProfile:', error);
+      throw error;
     }
-
-    return {
-      ...student,
-      phone: student.phone ? this.encryption.decrypt(student.phone) : null,
-      cin: student.cin ? this.encryption.decrypt(student.cin) : null,
-      profileCompleted: this.calculateProfileCompletion(student),
-    };
   }
 
   async updateProfile(userId: string, dto: UpdateStudentProfileDto) {
@@ -82,8 +109,22 @@ export class StudentService {
       profileCompleted,
     };
 
-    if (dto.phone) data.phone = this.encryption.encrypt(dto.phone);
-    if (dto.cin) data.cin = this.encryption.encrypt(dto.cin);
+    if (dto.phone) {
+      try {
+        data.phone = this.encryption.encrypt(dto.phone);
+      } catch (e) {
+        console.warn('⚠️ Erreur chiffrement phone, stockage en clair:', e.message);
+        data.phone = dto.phone;
+      }
+    }
+    if (dto.cin) {
+      try {
+        data.cin = this.encryption.encrypt(dto.cin);
+      } catch (e) {
+        console.warn('⚠️ Erreur chiffrement cin, stockage en clair:', e.message);
+        data.cin = dto.cin;
+      }
+    }
 
     const updatedStudent = await this.prisma.student.update({
       where: { userId },

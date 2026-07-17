@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // 1. Créer les rôles
+  // Rôles
   const studentRole = await prisma.role.upsert({
     where: { name: 'STUDENT' },
     update: {},
@@ -19,12 +19,6 @@ async function main() {
     create: { name: 'ADMIN_GET', description: 'Administrateur GET' },
   });
 
-  const ministryRole = await prisma.role.upsert({
-    where: { name: 'MINISTRY' },
-    update: {},
-    create: { name: 'MINISTRY', description: 'Ministère' },
-  });
-
   const schoolAdminRole = await prisma.role.upsert({
     where: { name: 'SCHOOL_ADMIN' },
     update: {},
@@ -33,7 +27,7 @@ async function main() {
 
   console.log('✅ Rôles créés');
 
-  // 2. Créer un admin GET
+  // Admin GET (MALE)
   const adminPassword = await bcrypt.hash('Admin123!', 10);
   await prisma.user.upsert({
     where: { email: 'admin@get.mg' },
@@ -43,11 +37,12 @@ async function main() {
       password: adminPassword,
       roleId: adminRole.id,
       isVerified: true,
+      gender: 'MALE',
     },
   });
   console.log('✅ Admin GET créé');
 
-  // 3. Créer un school admin
+  // School Admin (FEMALE)
   const schoolAdminPassword = await bcrypt.hash('Mihaja@25!', 10);
   await prisma.user.upsert({
     where: { email: 'schooladmin@get.mg' },
@@ -57,27 +52,12 @@ async function main() {
       password: schoolAdminPassword,
       roleId: schoolAdminRole.id,
       isVerified: true,
+      gender: 'FEMALE',
     },
   });
   console.log('✅ School Admin créé');
 
-  // 4. Créer une école de test
-  const school = await prisma.school.upsert({
-    where: { slug: 'esmia' },
-    update: {},
-    create: {
-      name: 'ESMIA - École Supérieure de Management',
-      slug: 'esmia',
-      description: 'Formation en gestion et commerce international.',
-      city: 'Antananarivo',
-      region: 'Analamanga',
-      type: 'PRIVATE',
-      isActive: true,
-    },
-  });
-  console.log(`✅ École créée: ${school.name}`);
-
-  // 5. Créer un étudiant test
+  // Étudiant test (MALE)
   const studentPassword = await bcrypt.hash('Student123!', 10);
   const student = await prisma.user.upsert({
     where: { email: 'test@gmail.com' },
@@ -87,6 +67,7 @@ async function main() {
       password: studentPassword,
       roleId: studentRole.id,
       isVerified: true,
+      gender: 'MALE',
       student: {
         create: {
           firstName: 'Jean',
@@ -105,7 +86,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error('❌ Erreur lors du seeding:', e);
+    console.error('❌ Erreur:', e);
     process.exit(1);
   })
   .finally(async () => {
