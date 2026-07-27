@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { GraduationCap } from 'lucide-react';
 
 // ============================================================
 // SCHÉMA DE VALIDATION
@@ -99,8 +101,8 @@ export default function RegisterPage() {
         window.location.href = '/dashboard';
       }, 800);
       
-    } catch (error: any) {
-      const errorData = error.response?.data;
+    } catch (error: unknown) {
+      const errorData = axios.isAxiosError<{ message?: string | string[] }>(error) ? error.response?.data : undefined;
       let errorMessages: string[] = [];
       
       if (errorData?.message) {
@@ -123,7 +125,8 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl text-center">🚀 GET - Inscription</CardTitle>
+        <Link href="/" aria-label="Retour à l’accueil GET" className="mx-auto mb-3 flex w-fit items-center gap-2 text-3xl font-black tracking-[-0.08em] text-violet-600 transition-transform hover:scale-[1.03]">GET<span className="text-blue-500">.</span><GraduationCap className="-ml-1 -mt-1 size-5 rotate-[-18deg] text-indigo-600" /></Link>
+        <CardTitle className="text-2xl text-center">Créer un compte étudiant</CardTitle>
         <CardDescription className="text-center">
           Créez votre compte étudiant
         </CardDescription>
@@ -273,6 +276,8 @@ export default function RegisterPage() {
               Se connecter
             </Link>
           </p>
+          <div className="flex w-full items-center gap-3 text-xs text-gray-400 before:h-px before:flex-1 before:bg-gray-200 after:h-px after:flex-1 after:bg-gray-200">ou s&apos;inscrire avec</div>
+          <button type="button" onClick={() => toast('L’inscription avec Google sera bientôt disponible.')} className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-gray-200 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"><span className="text-xl font-bold text-[#4285F4]">G</span>Continuer avec Google</button>
         </CardFooter>
       </form>
     </Card>
