@@ -1,30 +1,51 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  BarChart3,
+  BookOpen,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Headphones,
+  Home,
+  LibraryBig,
+  LogOut,
+  Mail,
+  Newspaper,
+  Route,
+  School,
+  Settings,
+  ShieldCheck,
+  WalletCards,
+} from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
-import { User, FileText, CreditCard, GraduationCap, Settings, LogOut, LayoutDashboard, School, Building2, ShieldCheck, BarChart3 } from 'lucide-react';
 
 type UserRole = 'STUDENT' | 'SCHOOL_ADMIN' | 'MINISTRY' | 'ADMIN_GET' | null;
+type DashboardUser = {
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  avatarUrl?: string;
+  enrolledYear?: string;
+};
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [userRole, setUserRole] = useState<UserRole>(null);
-  const [user, setUser] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [user, setUser] = useState<DashboardUser | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
-    const token = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('accessToken='))
-      ?.split('=')[1];
-
+    const token = document.cookie.split('; ').find((row) => row.startsWith('accessToken='))?.split('=')[1];
     if (!token) {
       router.push('/auth/login');
       return;
@@ -32,188 +53,142 @@ export default function DashboardLayout({
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      setUserRole(payload.role || 'STUDENT');
-      setUser((prev) => ({
-        ...prev,
-        firstName: payload.firstName || '',
-        lastName: payload.lastName || '',
-        gender: payload.gender || 'MALE',
-      }));
+      Promise.resolve().then(() => {
+        setUserRole(payload.role || 'STUDENT');
+        setUser({ firstName: payload.firstName || '', lastName: payload.lastName || '', gender: payload.gender || 'MALE' });
+      });
     } catch {
-      setUserRole('STUDENT');
+      Promise.resolve().then(() => setUserRole('STUDENT'));
     }
-  }, []);
+  }, [router]);
 
-  // Charger le profil complet pour les étudiants
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        if (userRole === 'STUDENT') {
-          const response = await apiClient.get('/students/me');
-          const studentData = response.data.data;
-          setUser((prev) => ({
-            ...prev,
-            ...studentData,
-            firstName: studentData.firstName || prev?.firstName || '',
-            lastName: studentData.lastName || prev?.lastName || '',
-            gender: studentData.gender || prev?.gender || 'MALE',
-            avatarUrl: studentData.avatarUrl || prev?.avatarUrl || '',
-          }));
-          const statsRes = await apiClient.get('/students/me/stats');
-          setStats(statsRes.data.data);
-        }
-      } catch (error) {
-        console.error('Erreur chargement profil:', error);
-      }
-    };
-    if (userRole) {
-      fetchUser();
-    }
+    if (userRole !== 'STUDENT') return;
+    apiClient.get('/students/me')
+      .then((response) => {
+        const student = response.data.data;
+        setUser((current) => ({
+          ...current,
+          ...student,
+          firstName: student.firstName || current?.firstName || '',
+          lastName: student.lastName || current?.lastName || '',
+          gender: student.gender || current?.gender || 'MALE',
+        }));
+      })
+      .catch((error) => console.error('Erreur chargement profil:', error));
   }, [userRole]);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    if (userRole !== 'STUDENT') return;
+    const refreshUnreadMessages = () => {
+      apiClient.get('/messages/unread-count')
+        .then((response) => setUnreadMessages(response.data.data?.count ?? 0))
+        .catch(() => setUnreadMessages(0));
+    };
+    refreshUnreadMessages();
+    window.addEventListener('messages:updated', refreshUnreadMessages);
+    return () => window.removeEventListener('messages:updated', refreshUnreadMessages);
+  }, [userRole, pathname]);
+
+  const logout = () => {
     document.cookie = 'accessToken=; path=/; max-age=0';
     router.push('/auth/login');
   };
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
-  };
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
+  const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Étudiant';
 
-  const isStudent = userRole === 'STUDENT';
-  const isSchoolAdmin = userRole === 'SCHOOL_ADMIN';
-  const isMinistry = userRole === 'MINISTRY';
-  const isAdminGet = userRole === 'ADMIN_GET';
-
-  const displayName = user?.firstName && user?.lastName 
-    ? `${user.firstName} ${user.lastName}`
-    : user?.firstName || user?.lastName || 'Utilisateur';
+  if (userRole === 'STUDENT') {
+    return (
+      <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <StudentSidebar
+          avatarUrl={user?.avatarUrl}
+          displayName={displayName}
+          initials={initials}
+          year={user?.enrolledYear}
+          gender={user?.gender}
+          onAvatarUpload={(avatarUrl) => setUser((current) => ({ ...current, avatarUrl }))}
+          onLogout={logout}
+          pathname={pathname}
+          unreadMessages={unreadMessages}
+        />
+        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-9 lg:py-7">{children}</main>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto flex gap-6 items-start">
-        
-        <aside className="sticky top-6 w-72 shrink-0">
-          <div className="bg-gradient-to-b from-purple-700 via-purple-800 to-purple-900 rounded-3xl p-5 text-white shadow-2xl shadow-purple-500/20 border border-white/10 backdrop-blur-sm">
-
-            <div className="flex flex-col items-center text-center">
-              {/* Avatar uniquement (sans badge) */}
-              <AvatarUpload
-                currentUrl={user?.avatarUrl}
-                endpoint="/students/me/avatar"
-                onUpload={(url) => setUser({ ...user, avatarUrl: url })}
-                fallbackText={user && getInitials(user.firstName, user.lastName)}
-                gender={user?.gender}
-                firstName={user?.firstName}
-                lastName={user?.lastName}
-                size={96}
-              />
-
-              <h2 className="text-lg font-bold mt-2">{displayName}</h2>
-              <p className="text-purple-200 text-sm capitalize">
-                {userRole?.replace('_', ' ')?.toLowerCase() || 'Étudiant'}
-              </p>
-            </div>
-
-            {isStudent && stats && (
-              <div className="grid grid-cols-3 gap-2 text-center text-sm border-t border-white/10 pt-3 mt-3 mb-3">
-                <div>
-                  <p className="font-bold text-lg">{stats.totalApplications || 0}</p>
-                  <p className="text-purple-200 text-[10px]">Candidatures</p>
-                </div>
-                <div>
-                  <p className="font-bold text-lg text-green-300">{stats.acceptedApplications || 0}</p>
-                  <p className="text-purple-200 text-[10px]">Acceptées</p>
-                </div>
-                <div>
-                  <p className="font-bold text-lg text-yellow-300">{stats.pendingApplications || 0}</p>
-                  <p className="text-purple-200 text-[10px]">En attente</p>
-                </div>
-              </div>
-            )}
-
-            <nav className="space-y-0.5">
-              <Link href="/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                <LayoutDashboard className="h-4 w-4" /> Dashboard
-              </Link>
-
-              {(isStudent || isAdminGet) && (
-                <>
-                  <div className="text-[10px] text-purple-300 uppercase tracking-wider px-3 pt-2 pb-1">Étudiant</div>
-                  <Link href="/dashboard/student/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <User className="h-4 w-4" /> Profil
-                  </Link>
-                  <Link href="/dashboard/student/applications" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <FileText className="h-4 w-4" /> Candidatures
-                  </Link>
-                  <Link href="/dashboard/student/offers" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <GraduationCap className="h-4 w-4" /> Offres
-                  </Link>
-                  <Link href="/dashboard/student/payments" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <CreditCard className="h-4 w-4" /> Paiements
-                  </Link>
-                </>
-              )}
-
-              {(isSchoolAdmin || isAdminGet) && (
-                <>
-                  <div className="text-[10px] text-purple-300 uppercase tracking-wider px-3 pt-2 pb-1">École</div>
-                  <Link href="/dashboard/school" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <School className="h-4 w-4" /> Dashboard
-                  </Link>
-                  <Link href="/dashboard/school/offers" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    📝 Offres
-                  </Link>
-                  <Link href="/dashboard/school/applications" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    📋 Candidatures
-                  </Link>
-                </>
-              )}
-
-              {(isMinistry || isAdminGet) && (
-                <>
-                  <div className="text-[10px] text-purple-300 uppercase tracking-wider px-3 pt-2 pb-1">Ministère</div>
-                  <Link href="/dashboard/ministry" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <BarChart3 className="h-4 w-4" /> Dashboard
-                  </Link>
-                  <Link href="/dashboard/ministry/compliance" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    <ShieldCheck className="h-4 w-4" /> Conformité
-                  </Link>
-                  <Link href="/dashboard/ministry/reports" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    📋 Rapports
-                  </Link>
-                </>
-              )}
-
-              {isAdminGet && (
-                <>
-                  <div className="text-[10px] text-purple-300 uppercase tracking-wider px-3 pt-2 pb-1">Admin</div>
-                  <Link href="/dashboard/admin" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm">
-                    <Building2 className="h-4 w-4" /> Dashboard
-                  </Link>
-                  <Link href="/dashboard/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    👥 Utilisateurs
-                  </Link>
-                  <Link href="/dashboard/admin/schools" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm pl-8">
-                    🏛️ Écoles
-                  </Link>
-                </>
-              )}
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 transition-colors text-sm w-full text-left text-red-300 mt-2"
-              >
-                <LogOut className="h-4 w-4" /> Déconnexion
-              </button>
-            </nav>
-          </div>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="mx-auto flex max-w-7xl gap-6 items-start">
+        <aside className="sticky top-6 w-72 shrink-0 rounded-3xl bg-gradient-to-b from-violet-700 via-violet-800 to-violet-900 p-5 text-white shadow-2xl shadow-violet-500/20">
+          <div className="mb-5 text-center"><p className="text-lg font-bold">GET</p><p className="text-sm text-violet-200">{userRole?.replace('_', ' ')}</p></div>
+          <nav className="space-y-1 text-sm">
+            <NavItem href="/dashboard" label="Dashboard" icon={Home} active={pathname === '/dashboard'} />
+            {userRole === 'SCHOOL_ADMIN' && <><NavItem href="/dashboard/school" label="Mon école" icon={School} active={pathname === '/dashboard/school'} /><NavItem href="/dashboard/school/offers" label="Offres" icon={GraduationCap} active={pathname.includes('/offers')} /></>}
+            {userRole === 'MINISTRY' && <><NavItem href="/dashboard/ministry" label="Dashboard" icon={BarChart3} active={pathname === '/dashboard/ministry'} /><NavItem href="/dashboard/ministry/compliance" label="Conformité" icon={ShieldCheck} active={pathname.includes('/compliance')} /><NavItem href="/dashboard/ministry/reports" label="Rapports" icon={FileText} active={pathname.includes('/reports')} /></>}
+            {userRole === 'ADMIN_GET' && <><NavItem href="/dashboard/admin" label="Administration" icon={Building2} active /><NavItem href="/dashboard/ministry" label="Ministère" icon={BarChart3} /><NavItem href="/dashboard/school" label="Écoles" icon={School} /></>}
+            <button onClick={logout} className="mt-3 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-red-200 hover:bg-white/10"><LogOut className="size-4" />Déconnexion</button>
+          </nav>
         </aside>
-
-        <main className="flex-1 min-w-0 bg-white rounded-3xl shadow-sm p-6">
-          {children}
-        </main>
+        <main className="min-w-0 flex-1 rounded-3xl bg-white p-6 shadow-sm">{children}</main>
       </div>
     </div>
   );
+}
+
+function StudentSidebar({ avatarUrl, displayName, initials, year, gender, onAvatarUpload, onLogout, pathname, unreadMessages }: {
+  avatarUrl?: string;
+  displayName: string;
+  initials: string;
+  year?: string;
+  gender?: string;
+  onAvatarUpload: (url: string) => void;
+  onLogout: () => void;
+  pathname: string;
+  unreadMessages: number;
+}) {
+  const items = [
+    { label: 'Accueil', icon: Home, href: '/dashboard/student' },
+    { label: 'Mon parcours', icon: Route, href: '/dashboard/student/parcours' },
+    { label: 'Mes cours', icon: BookOpen, href: '/dashboard/student/courses' },
+    { label: 'Emploi du temps', icon: CalendarDays, href: '/dashboard/student/schedule' },
+    { label: 'Mes notes', icon: ClipboardList, href: '/dashboard/student/grades' },
+    { label: 'Finances', icon: WalletCards, href: '/dashboard/student/payments' },
+    { label: 'Documents', icon: FileText, href: '/dashboard/student/documents' },
+    { label: 'Messages', icon: Mail, href: '/dashboard/student/messages', badge: unreadMessages ? String(unreadMessages) : undefined },
+    { label: 'Actualités', icon: Newspaper, href: '/dashboard/student/news' },
+    { label: 'Stages & emplois', icon: BriefcaseBusiness, href: '/dashboard/student/opportunities' },
+    { label: 'Bibliothèque', icon: LibraryBig, href: '/dashboard/student/library' },
+    { label: 'Paramètres', icon: Settings, href: '/dashboard/student/settings' },
+  ];
+
+  return (
+    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-7 lg:flex lg:min-h-screen lg:flex-col">
+      <Link href="/dashboard/student" className="mb-7 px-3">
+        <div className="text-4xl font-black tracking-tight text-violet-600">GET<span className="text-blue-500">.</span></div>
+        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500">Grandes Écoles de<br />Tananarive et de Madagascar</p>
+      </Link>
+      <nav className="space-y-1">
+        {items.map(({ label, icon: Icon, href, badge }) => {
+          const active = label === 'Accueil' ? pathname === '/dashboard/student' : pathname === href.split('?')[0] && !href.includes('?');
+          return <Link key={label} href={href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}><Icon className="size-4" /><span className="flex-1">{label}</span>{badge && <span className="flex size-5 items-center justify-center rounded-full bg-violet-600 text-[10px] text-white">{badge}</span>}</Link>;
+        })}
+      </nav>
+      <div className="mt-auto space-y-4 pt-6">
+        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <AvatarUpload currentUrl={avatarUrl} endpoint="/students/me/avatar" onUpload={onAvatarUpload} fallbackText={initials} gender={gender} firstName={displayName.split(' ')[0]} lastName={displayName.split(' ').slice(1).join(' ')} size={44} />
+            <div className="min-w-0"><p className="truncate text-sm font-bold">{displayName}</p><p className="truncate text-[11px] text-slate-500">{year || 'Étudiant inscrit'}</p></div>
+          </div>
+          <Link href="/dashboard/student/profile" className="mt-3 flex items-center justify-between text-xs font-semibold text-violet-600">Voir mon profil <ChevronRight className="size-4" /></Link>
+        </div>
+        <div className="rounded-xl bg-violet-50 p-3 text-violet-700"><div className="flex items-center gap-2 text-xs font-bold"><Headphones className="size-4" />Besoin d’aide ?</div><p className="mt-1 text-[11px] text-slate-500">Centre d’aide & support</p></div>
+        <button onClick={onLogout} className="flex w-full items-center gap-2 px-3 text-xs font-semibold text-slate-500 hover:text-rose-600"><LogOut className="size-4" />Déconnexion</button>
+      </div>
+    </aside>
+  );
+}
+
+function NavItem({ href, label, icon: Icon, active = false }: { href: string; label: string; icon: typeof Home; active?: boolean }) {
+  return <Link href={href} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${active ? 'bg-white/15' : 'hover:bg-white/10'}`}><Icon className="size-4" />{label}</Link>;
 }

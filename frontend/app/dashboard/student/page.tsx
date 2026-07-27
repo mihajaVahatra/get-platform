@@ -2,265 +2,157 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import {
+  Award,
+  Bell,
+  BookOpen,
+  BookOpenCheck,
+  BriefcaseBusiness,
+  CalendarDays,
+  CheckSquare,
+  Download,
+  FileCheck2,
+  LibraryBig,
+  Mail,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  WalletCards,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Bell, Search, ChevronRight, User, FileText, CreditCard, GraduationCap, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import toast from 'react-hot-toast';
 
-type StudentStats = {
-  totalApplications: number;
-  pendingApplications: number;
-  acceptedApplications: number;
-  rejectedApplications: number;
-  documentsUploaded: number;
-  profileCompletion: boolean;
+type Student = {
+  firstName: string;
+  enrolledYear?: string | null;
+  enrolledSchool?: { name: string } | null;
 };
 
-type Application = {
-  id: string;
-  status: string;
-  submittedAt: string;
-  offer: {
-    id: string;
-    title: string;
-    diploma: string;
-    school: {
-      id: string;
-      name: string;
-      city: string;
-    };
-  };
-};
+const schedule = [
+  { time: '08:00 – 10:00', course: 'Algorithmique Avancée', room: 'Salle B204', state: 'En cours', active: true },
+  { time: '10:15 – 12:15', course: 'Bases de Données', room: 'Salle B205', state: 'À venir' },
+  { time: '14:00 – 16:00', course: 'Anglais Technique', room: 'Salle A102', state: 'À venir' },
+  { time: '16:15 – 18:15', course: 'Mathématiques Discrètes', room: 'Salle B203', state: 'À venir' },
+];
+
+const tasks = [
+  { title: 'Devoir Algorithmique', date: 'À rendre le 15 juin 2025', badge: 'Urgent', tone: 'bg-rose-50 text-rose-600' },
+  { title: 'Projet Bases de Données', date: 'À rendre le 22 juin 2025', badge: 'Important', tone: 'bg-orange-50 text-orange-600' },
+  { title: 'Préparer présentation Anglais', date: 'À rendre le 30 juin 2025', badge: 'À faire', tone: 'bg-blue-50 text-blue-600' },
+  { title: 'Réviser pour l’examen', date: 'Algorithmique Avancée', badge: 'À faire', tone: 'bg-blue-50 text-blue-600' },
+];
+
+const courses = [
+  { title: 'Algorithmique Avancée', teacher: 'Pr. A. Andrianarison', grade: '15,5/20', tone: 'bg-violet-50 text-violet-600' },
+  { title: 'Bases de Données', teacher: 'Pr. T. Ravelomanana', grade: '14/20', tone: 'bg-emerald-50 text-emerald-600' },
+  { title: 'Anglais Technique', teacher: 'Dr. L. Rakotomalala', grade: '16/20', tone: 'bg-blue-50 text-blue-600' },
+];
+
+const events = [
+  { month: 'JUIN', day: '20', title: 'Journée des compétences', detail: 'Ateliers et formations', time: '08:00' },
+  { month: 'JUIN', day: '25', title: 'Hackathon ESPA', detail: 'Compétition inter-écoles', time: '09:00' },
+  { month: 'JUIL.', day: '05', title: 'Conférence Tech', detail: 'Invité : Expert du secteur', time: '14:00' },
+];
 
 export default function StudentDashboardPage() {
-  const [user, setUser] = useState<any>(null);
-  const [stats, setStats] = useState<StudentStats | null>(null);
-  const [recentApplications, setRecentApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState<Student | null>(null);
 
   useEffect(() => {
-    fetchProfile();
-    fetchStats();
-    fetchRecentApplications();
+    apiClient.get('/students/me')
+      .then((response) => setStudent(response.data.data))
+      .catch((error) => console.error('Erreur chargement étudiant:', error));
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      const response = await apiClient.get('/students/me');
-      setUser(response.data.data);
-    } catch (error) {
-      console.error('Erreur chargement profil:', error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await apiClient.get('/students/me/stats');
-      setStats(response.data.data);
-    } catch (error) {
-      console.error('Erreur chargement statistiques:', error);
-    }
-  };
-
-  const fetchRecentApplications = async () => {
-    try {
-      const response = await apiClient.get('/applications/me?limit=3');
-      setRecentApplications(response.data.data || []);
-    } catch (error) {
-      console.error('Erreur chargement candidatures:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      PENDING: 'bg-yellow-500',
-      ACCEPTED: 'bg-green-500',
-      REJECTED: 'bg-red-500',
-      INTERVIEW_SCHEDULED: 'bg-blue-400',
-      TEST_SCHEDULED: 'bg-purple-400',
-      ENROLLED: 'bg-emerald-600',
-    };
-    return colors[status] || 'bg-gray-300';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      PENDING: 'En attente',
-      ACCEPTED: '✅ Acceptée',
-      REJECTED: '❌ Refusée',
-      INTERVIEW_SCHEDULED: 'Entretien planifié',
-      TEST_SCHEDULED: 'Test planifié',
-      ENROLLED: 'Inscrit',
-    };
-    return labels[status] || status;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  if (loading) return <div className="flex justify-center p-8">Chargement...</div>;
-
-  const isProfileComplete = stats?.profileCompletion === true;
+  const school = student?.enrolledSchool?.name ?? 'ESPA';
+  const year = student?.enrolledYear ?? '2ᵉ année Informatique';
 
   return (
-    <div className="space-y-6">
-      {/* En-tête avec recherche et notifications */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input placeholder="Rechercher..." className="pl-10" />
+    <div className="mx-auto max-w-[1450px] space-y-4 text-[#111a4b]">
+      <header className="flex flex-wrap items-center justify-between gap-4 pb-3">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-[27px]">Bonjour {student?.firstName || 'Toavina'} <span aria-hidden="true">👋</span></h1>
+          <p className="mt-1 text-sm font-medium text-slate-500">Bienvenue à {school} – {year}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">3</span>
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="relative hidden w-72 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input placeholder="Rechercher..." className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm" /><kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-violet-50 px-1.5 py-1 text-[10px] text-violet-500">Ctrl K</kbd></div>
+          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Bell className="size-5" /><span className="absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-white bg-rose-500" /></button>
+          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Mail className="size-5" /><span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">3</span></button>
         </div>
-      </div>
+      </header>
 
-      {/* Bannière de bienvenue avec indicateur de profil */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white relative overflow-hidden">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-blue-200">Bienvenue,</p>
-            <h1 className="text-2xl font-bold">{user?.firstName} {user?.lastName} !</h1>
-            <p className="text-blue-200 mt-1">Tenez-vous informé de vos candidatures</p>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatWidget icon={BookOpen} title="Moyenne générale" value="15,2" suffix="/20" hint="↑ +1,3 vs semestre précédent" tone="violet" />
+        <StatWidget icon={BookOpenCheck} title="Crédits validés" value="18" suffix="/30" hint="60% du programme" progress="60" tone="green" />
+        <StatWidget icon={CalendarDays} title="Absences" value="2" suffix="" hint="Justifiées" tone="orange" />
+        <StatWidget icon={Award} title="Points de mérite" value="120" suffix="pts" hint="Bravo ! Continue comme ça 💪" tone="blue" />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-12">
+        <Widget className="xl:col-span-4" title={<>Emploi du temps <span className="font-normal text-slate-500">– Aujourd’hui</span></>} action="Voir tout">
+          <div className="mt-4 space-y-1">
+            {schedule.map((item) => <div key={item.time} className="grid grid-cols-[108px_1fr_auto] items-center gap-3 py-2.5 text-xs">
+              <div className="relative border-r border-slate-200 pr-3 text-violet-700"><span className={`absolute -right-[5px] top-1/2 size-2 rounded-full border-2 border-white ${item.active ? 'bg-violet-600' : 'bg-slate-300'}`} />{item.time}</div>
+              <div><p className="font-bold text-slate-800">{item.course}</p><p className="mt-1 text-slate-400">{item.room}</p></div>
+              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-500'}`}>{item.state}</span>
+            </div>)}
           </div>
-          
-          {/* Badge profil stylé en haut à droite */}
-          {!isProfileComplete && (
-            <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/20 text-sm font-medium shadow-lg">
-              <AlertCircle className="h-4 w-4 text-yellow-300" />
-              <span className="text-white/90 text-xs">Profil incomplet</span>
+        </Widget>
+
+        <Widget className="xl:col-span-4" title="Mes tâches" action="Voir toutes">
+          <div className="mt-3 divide-y divide-slate-100">
+            {tasks.map((task) => <div key={task.title} className="flex items-center gap-3 py-3 first:pt-1"><CheckSquare className="size-4 shrink-0 text-slate-300" /><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800">{task.title}</p><p className="mt-1 text-[11px] text-slate-500">{task.date}</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${task.tone}`}>{task.badge}</span></div>)}
+          </div>
+        </Widget>
+
+        <div className="space-y-4 xl:col-span-4">
+          <Widget title="Actualités" action="Voir tout">
+            <div className="mt-4 overflow-hidden rounded-xl bg-gradient-to-br from-[#27204d] via-[#5651a8] to-[#88a0bc] p-4 text-white shadow-inner">
+              <span className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold">IMPORTANT</span><h3 className="mt-5 text-base font-bold">Réinscription 2025–2026</h3><p className="mt-2 text-xs leading-5 text-violet-50">La réinscription en ligne est ouverte jusqu&apos;au 30 juin 2025.</p>
             </div>
-          )}
-          {isProfileComplete && (
-            <div className="flex items-center gap-1.5 bg-green-500/20 backdrop-blur-sm rounded-full px-3 py-1.5 border border-green-400/30 text-sm font-medium shadow-lg">
-              <span className="text-green-300 text-xs">✅ Profil complet</span>
+            <div className="mt-3 divide-y divide-slate-100">{['Conférence : IA et avenir', 'Résultats examens S1', 'Club Robotique'].map((news, index) => <div key={news} className="flex items-center gap-3 py-2"><span className="flex size-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500"><Sparkles className="size-3.5" /></span><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-800">{news}</p><p className="text-[10px] text-slate-500">{index === 0 ? '06 juin 2025' : index === 1 ? '04 juin 2025' : 'Rejoignez-nous !'}</p></div>{index < 2 && <span className="text-[10px] text-slate-400">{index === 0 ? '06 juin' : '04 juin'}</span>}</div>)}</div>
+          </Widget>
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-12">
+        <div className="space-y-4 xl:col-span-8">
+          <Widget title="Accès rapides">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <QuickAction icon={Download} label="Télécharger" detail="attestation" tone="violet" href="/dashboard/student/profile" /><QuickAction icon={FileCheck2} label="Demande de" detail="document" tone="green" href="/dashboard/student/profile" /><QuickAction icon={WalletCards} label="Paiement en" detail="ligne" tone="orange" href="/dashboard/student/payments" /><QuickAction icon={ShieldCheck} label="Demande de" detail="bourse" tone="rose" href="/dashboard/student" /><QuickAction icon={BriefcaseBusiness} label="Stages &" detail="emplois" tone="blue" href="/dashboard/student" /><QuickAction icon={LibraryBig} label="Bibliothèque" detail="en ligne" tone="violet" href="/dashboard/student" />
             </div>
-          )}
+          </Widget>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Widget title="Mes cours" action="Voir tout">
+              <div className="mt-3 divide-y divide-slate-100">{courses.map((course) => <div key={course.title} className="flex items-center gap-3 py-3"><span className={`flex size-9 items-center justify-center rounded-lg ${course.tone}`}><BookOpen className="size-4" /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800">{course.title}</p><p className="mt-1 text-[11px] text-slate-500">{course.teacher}</p></div><span className="text-sm font-extrabold text-violet-600">{course.grade}</span></div>)}</div>
+            </Widget>
+            <Widget title="Finances" action="Voir tout">
+              <div className="mt-4 grid grid-cols-2 gap-4"><div className="rounded-xl bg-emerald-50 p-4"><p className="text-[11px] text-slate-500">Solde actuel</p><p className="mt-2 text-xl font-extrabold text-emerald-600">125 000 Ar</p><span className="mt-2 inline-block rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">● Disponible</span></div><div><p className="text-[11px] text-slate-500">Prochain paiement</p><p className="mt-2 text-xs font-bold text-slate-700">Frais de scolarité S2</p><p className="mt-2 text-lg font-extrabold text-emerald-600">350 000 Ar</p><p className="mt-2 text-[10px] text-slate-500">À payer avant le 30 juin 2025</p><Link href="/dashboard/student/payments" className="mt-4 flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700">Payer maintenant</Link></div></div>
+            </Widget>
+          </div>
         </div>
-      </div>
 
-      {/* Cartes de statistiques */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-blue-600">📊 Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{stats?.totalApplications || 0}</p>
-            <p className="text-sm text-gray-500">Candidatures</p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/student/applications?status=ACCEPTED'}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-green-600">✅ Acceptées</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{stats?.acceptedApplications || 0}</p>
-            <p className="text-sm text-gray-500">Candidatures acceptées</p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/student/applications?status=PENDING'}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-yellow-600">⏳ En attente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-yellow-600">{stats?.pendingApplications || 0}</p>
-            <p className="text-sm text-gray-500">Candidatures en cours</p>
-          </CardContent>
-        </Card>
-      </div>
+        <Widget className="xl:col-span-4" title="Événements à venir" action="Voir tout">
+          <div className="mt-3 divide-y divide-slate-100">{events.map((event) => <div key={event.title} className="flex items-center gap-3 py-3"><div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-violet-50 text-violet-600"><span className="text-[9px] font-bold">{event.month}</span><span className="text-lg font-extrabold leading-4">{event.day}</span></div><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800">{event.title}</p><p className="mt-1 text-[11px] text-slate-500">{event.detail}</p></div><span className="text-xs font-semibold text-slate-500">{event.time}</span></div>)}</div>
+          <Link href="/dashboard/student?section=events" className="mt-3 flex items-center justify-center rounded-lg bg-violet-50 py-2 text-xs font-bold text-violet-600">Voir tous les événements</Link>
+        </Widget>
+      </section>
 
-      {/* Dernières candidatures */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">📋 Dernières candidatures</h2>
-          <Link href="/dashboard/student/applications" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-            Voir tout <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {recentApplications.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-6 text-center text-gray-500">
-                Aucune candidature récente
-              </CardContent>
-            </Card>
-          ) : (
-            recentApplications.map((app) => (
-              <Card key={app.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-medium">{app.offer.title}</p>
-                      <p className="text-sm text-gray-500">{app.offer.school.name}</p>
-                      <p className="text-xs text-gray-400">{formatDate(app.submittedAt)}</p>
-                    </div>
-                    <Badge className={`${getStatusColor(app.status)} text-white`}>
-                      {getStatusLabel(app.status)}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Actions rapides */}
-      <div>
-        <h2 className="text-lg font-semibold mb-4">⚡ Actions rapides</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Link href="/dashboard/student/offers">
-            <Card className="hover:shadow-lg transition-shadow hover:border-blue-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl mb-2">🔍</p>
-                <p className="font-medium text-sm">Rechercher</p>
-                <p className="text-xs text-gray-500">des offres</p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/dashboard/student/profile">
-            <Card className="hover:shadow-lg transition-shadow hover:border-blue-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl mb-2">👤</p>
-                <p className="font-medium text-sm">Mon profil</p>
-                <p className="text-xs text-gray-500">mes informations</p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/dashboard/student/payments">
-            <Card className="hover:shadow-lg transition-shadow hover:border-blue-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl mb-2">💳</p>
-                <p className="font-medium text-sm">Paiements</p>
-                <p className="text-xs text-gray-500">historique</p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/dashboard/student/applications">
-            <Card className="hover:shadow-lg transition-shadow hover:border-blue-300 cursor-pointer">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl mb-2">📋</p>
-                <p className="font-medium text-sm">Candidatures</p>
-                <p className="text-xs text-gray-500">suivi</p>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      </div>
+      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 px-4 py-3 text-xs text-violet-700"><Bell className="size-4 shrink-0" /><p><span className="font-bold">Astuce GET :</span> Active les notifications pour ne rien manquer de tes cours et événements !</p><button className="ml-auto text-slate-400">×</button></div>
     </div>
   );
+}
+
+function StatWidget({ icon: Icon, title, value, suffix, hint, tone, progress }: { icon: typeof BookOpen; title: string; value: string; suffix: string; hint: string; tone: 'violet' | 'green' | 'orange' | 'blue'; progress?: string }) {
+  const styles = { violet: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', orange: 'bg-orange-50 text-orange-500', blue: 'bg-blue-50 text-blue-500' };
+  const valueStyles = { violet: 'text-violet-600', green: 'text-emerald-600', orange: 'text-orange-500', blue: 'text-blue-500' };
+  return <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_4px_18px_rgba(68,50,140,0.05)]"><div className="flex gap-4"><span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${styles[tone]}`}><Icon className="size-6" /></span><div className="min-w-0"><p className="text-xs font-bold text-slate-700">{title}</p><p className={`mt-1 text-[28px] font-extrabold leading-8 ${valueStyles[tone]}`}>{value}<span className="ml-1 text-sm">{suffix}</span></p>{progress && <div className="mt-2 h-1.5 w-44 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>}<p className="mt-2 text-[11px] text-slate-500">{hint}</p></div></div></div>;
+}
+
+function Widget({ title, action, children, className = '' }: { title: React.ReactNode; action?: string; children: React.ReactNode; className?: string }) {
+  return <section className={`rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)] ${className}`}><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-extrabold text-[#111a4b]">{title}</h2>{action && <button className="text-[11px] font-bold text-violet-600 hover:text-violet-700">{action}</button>}</div>{children}</section>;
+}
+
+function QuickAction({ icon: Icon, label, detail, tone, href }: { icon: typeof Download; label: string; detail: string; tone: 'violet' | 'green' | 'orange' | 'rose' | 'blue'; href: string }) {
+  const styles = { violet: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', orange: 'bg-orange-50 text-orange-500', rose: 'bg-rose-50 text-rose-500', blue: 'bg-blue-50 text-blue-500' };
+  return <Link href={href} className="flex items-center gap-2 rounded-xl p-2 transition hover:bg-slate-50"><span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${styles[tone]}`}><Icon className="size-4" /></span><span className="text-[11px] font-bold leading-4 text-slate-600">{label}<br />{detail}</span></Link>;
 }

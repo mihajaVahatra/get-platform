@@ -68,6 +68,14 @@ model Student {
   aspirations      String[]
   profileCompleted Boolean   @default(false)
   avatarUrl        String?
+
+  // ════════════════════════════════════════════
+  //  RELATION AVEC L'ÉCOLE (INSCRIPTION)
+  // ════════════════════════════════════════════
+  enrolledSchoolId String?
+  enrolledSchool   School?   @relation("EnrolledStudents", fields: [enrolledSchoolId], references: [id])
+  enrolledYear     String?   // ex: "2ᵉ année Informatique"
+
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
@@ -76,6 +84,7 @@ model Student {
   applications Application[]
   payments     Payment[]
 
+  @@index([enrolledSchoolId])
   @@map("students")
 }
 
@@ -97,6 +106,11 @@ model School {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
+
+  // ════════════════════════════════════════════
+  //  ÉTUDIANTS INSCRITS
+  // ════════════════════════════════════════════
+  enrolledStudents Student[] @relation("EnrolledStudents")
 
   admins SchoolAdmin[]
   offers Offer[]

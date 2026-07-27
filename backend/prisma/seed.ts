@@ -55,11 +55,26 @@ async function main() {
       gender: 'FEMALE',
     },
   });
-  console.log('✅ School Admin créé');
+  console.log('✅ School Admin créé: schooladmin@get.mg / Mihaja@25!');
 
-  // Étudiant test (MALE)
+  const school = await prisma.school.upsert({
+    where: { slug: 'espa' },
+    update: {},
+    create: {
+      name: "ESPA - École Supérieure Polytechnique d'Antananarivo",
+      slug: 'espa',
+      description: "École d'ingénieurs publique",
+      city: 'Antananarivo',
+      region: 'Analamanga',
+      country: 'Madagascar',
+      website: 'https://espa.mg',
+      isActive: true,
+    },
+  });
+  console.log(`✅ École ESPA créée: ${school.name} (ID: ${school.id})`);
+
   const studentPassword = await bcrypt.hash('Student123!', 10);
-  const student = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'test@gmail.com' },
     update: {},
     create: {
