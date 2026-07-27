@@ -1,2 +1,2 @@
-import { SchoolManagementView } from '@/components/school-portal/school-management-view';
-export default function StudentsPage() { return <SchoolManagementView view="students" />; }
+import { PeopleDirectory } from '@/components/school-portal/people-directory';
+export default function StudentsPage() { return <PeopleDirectory kind="student" />; }
