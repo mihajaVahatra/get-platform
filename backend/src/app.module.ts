@@ -11,6 +11,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { MinistryModule } from './modules/ministry/ministry.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { MessageModule } from './modules/message/message.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AuditModule } from './modules/audit/audit.module';
     MinistryModule,
     NotificationModule,
     AuditModule,
+    MessageModule,
   ],
 })
 export class AppModule {}
