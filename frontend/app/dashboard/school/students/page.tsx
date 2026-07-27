@@ -1,2 +1,2 @@
-import { PeopleDirectory } from '@/components/school-portal/people-directory';
-export default function StudentsPage() { return <PeopleDirectory kind="student" />; }
+import { StudentImportDirectory } from '@/components/school-portal/student-import-directory';
+export default function StudentsPage() { return <StudentImportDirectory />; }
