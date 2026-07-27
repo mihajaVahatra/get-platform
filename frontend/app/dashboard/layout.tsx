@@ -12,7 +12,6 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
-  GraduationCap,
   Headphones,
   Home,
   LibraryBig,
@@ -24,6 +23,11 @@ import {
   Settings,
   ShieldCheck,
   WalletCards,
+  UsersRound,
+  Layers3,
+  ReceiptText,
+  Megaphone,
+  ChartNoAxesCombined,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
@@ -117,6 +121,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  if (userRole === 'SCHOOL_ADMIN') {
+    return (
+      <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <SchoolSidebar pathname={pathname} displayName={displayName === 'Étudiant' ? 'Administrateur' : displayName} onLogout={logout} />
+        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto flex max-w-7xl gap-6 items-start">
@@ -124,7 +137,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="mb-5 text-center"><p className="text-lg font-bold">GET</p><p className="text-sm text-violet-200">{userRole?.replace('_', ' ')}</p></div>
           <nav className="space-y-1 text-sm">
             <NavItem href="/dashboard" label="Dashboard" icon={Home} active={pathname === '/dashboard'} />
-            {userRole === 'SCHOOL_ADMIN' && <><NavItem href="/dashboard/school" label="Mon école" icon={School} active={pathname === '/dashboard/school'} /><NavItem href="/dashboard/school/offers" label="Offres" icon={GraduationCap} active={pathname.includes('/offers')} /></>}
             {userRole === 'MINISTRY' && <><NavItem href="/dashboard/ministry" label="Dashboard" icon={BarChart3} active={pathname === '/dashboard/ministry'} /><NavItem href="/dashboard/ministry/compliance" label="Conformité" icon={ShieldCheck} active={pathname.includes('/compliance')} /><NavItem href="/dashboard/ministry/reports" label="Rapports" icon={FileText} active={pathname.includes('/reports')} /></>}
             {userRole === 'ADMIN_GET' && <><NavItem href="/dashboard/admin" label="Administration" icon={Building2} active /><NavItem href="/dashboard/ministry" label="Ministère" icon={BarChart3} /><NavItem href="/dashboard/school" label="Écoles" icon={School} /></>}
             <button onClick={logout} className="mt-3 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-red-200 hover:bg-white/10"><LogOut className="size-4" />Déconnexion</button>
@@ -135,6 +147,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
+
+function SchoolSidebar({ pathname, displayName, onLogout }: { pathname: string; displayName: string; onLogout: () => void }) {
+  const academic = [
+    { label: 'Étudiants', icon: UsersRound, href: '/dashboard/school?section=students' },
+    { label: 'Cours', icon: BookOpen, href: '/dashboard/school?section=courses' },
+    { label: 'Professeurs', icon: UserRoundIcon, href: '/dashboard/school?section=teachers' },
+    { label: 'Programmes', icon: Layers3, href: '/dashboard/school?section=programs' },
+    { label: 'Salles & Emplois du temps', icon: CalendarDays, href: '/dashboard/school?section=schedule' },
+  ];
+  const admin = [
+    { label: 'Inscriptions', icon: ClipboardList, href: '/dashboard/school?section=enrollments' },
+    { label: 'Paiements', icon: ReceiptText, href: '/dashboard/school?section=payments' },
+    { label: 'Documents', icon: FileText, href: '/dashboard/school?section=documents' },
+    { label: 'Communications', icon: Megaphone, href: '/dashboard/school?section=communications', badge: '4' },
+    { label: 'Rapports & Statistiques', icon: ChartNoAxesCombined, href: '/dashboard/school?section=reports' },
+  ];
+  return <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-6 lg:flex lg:min-h-screen lg:flex-col"><Link href="/dashboard/school" className="mb-6 px-3"><div className="text-4xl font-black tracking-tight text-violet-600">GET<span className="text-blue-500">.</span></div><p className="mt-1 text-[10px] font-medium leading-4 text-slate-500">Grandes Écoles de<br />Tananarive et de Madagascar</p></Link><nav className="space-y-1"><SchoolNav href="/dashboard/school" label="Tableau de bord" icon={Home} active={pathname === '/dashboard/school'} /><SidebarGroup label="Gestion académique" items={academic} /><SidebarGroup label="Administration" items={admin} /><SchoolNav href="/dashboard/school?section=settings" label="Paramètres" icon={Settings} active={false} /></nav><div className="mt-auto space-y-4"><div className="rounded-xl border border-slate-100 p-3 shadow-sm"><div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">E</span><div><p className="text-sm font-bold">ESPA</p><p className="text-[10px] leading-4 text-slate-500">École Supérieure<br />Polytechnique d’Antananarivo</p></div></div></div><div className="flex items-center gap-2 border-t border-slate-100 pt-3"><span className="grid size-9 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">{displayName.slice(0, 1)}</span><div className="min-w-0"><p className="truncate text-xs font-bold">{displayName}</p><p className="text-[10px] text-slate-500">Administrateur</p></div></div><div className="rounded-xl bg-violet-50 p-3 text-violet-700"><div className="flex items-center gap-2 text-xs font-bold"><Headphones className="size-4" />Besoin d’aide ?</div><p className="mt-1 text-[11px] text-slate-500">Centre d’aide & support</p></div><button onClick={onLogout} className="flex w-full items-center gap-2 px-2 text-xs font-semibold text-slate-500 hover:text-rose-600"><LogOut className="size-4" />Déconnexion</button></div></aside>;
+}
+
+function SidebarGroup({ label, items }: { label: string; items: Array<{ label: string; icon: typeof Home; href: string; badge?: string }> }) { return <div className="py-3"><p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>{items.map((item) => <SchoolNav key={item.label} {...item} active={false} />)}</div>; }
+function SchoolNav({ href, label, icon: Icon, active, badge }: { href: string; label: string; icon: typeof Home; active: boolean; badge?: string }) { return <Link href={href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}><Icon className="size-4" /><span className="flex-1">{label}</span>{badge && <span className="grid size-5 place-items-center rounded-full bg-violet-600 text-[10px] text-white">{badge}</span>}</Link>; }
+const UserRoundIcon = UsersRound;
 
 function StudentSidebar({ avatarUrl, displayName, initials, year, gender, onAvatarUpload, onLogout, pathname, unreadMessages }: {
   avatarUrl?: string;
