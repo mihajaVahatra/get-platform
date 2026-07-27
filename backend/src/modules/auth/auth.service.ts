@@ -48,6 +48,7 @@ export class AuthService {
           create: {
             firstName: dto.firstName,
             lastName: dto.lastName,
+            phone: dto.phone,
           },
         },
       },
