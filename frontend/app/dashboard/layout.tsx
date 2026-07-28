@@ -845,7 +845,7 @@ function StudentSidebar({
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{displayName}</p>
               <p className="truncate text-[11px] text-slate-500">
-                {year || 'Étudiant inscrit'}
+                {year || 'Candidat'}
               </p>
             </div>
           </div>
