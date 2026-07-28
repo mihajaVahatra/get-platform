@@ -255,6 +255,7 @@ function isNavigationActive(currentUrl: string, href: string) {
   }
   const isDashboardRoot =
     /^\/dashboard\/(student|school|teacher|admin|ministry)$/.test(targetPath);
+  if (isDashboardRoot && currentSearch) return false;
   return (
     currentPath === targetPath ||
     (!isDashboardRoot && currentPath.startsWith(`${targetPath}/`))
