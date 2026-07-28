@@ -153,17 +153,23 @@ export default function DashboardLayout({
   if (userRole === 'SCHOOL_ADMIN' || userRole === 'TEACHER') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <SchoolSidebar
-          pathname={pathname}
-          displayName={
-            displayName === 'Étudiant'
-              ? userRole === 'TEACHER'
-                ? 'Professeur'
-                : 'Administrateur'
-              : displayName
-          }
-          onLogout={logout}
-        />
+        {userRole === 'TEACHER' ? (
+          <TeacherSidebar
+            pathname={pathname}
+            displayName={
+              displayName === 'Étudiant' ? 'Professeur' : displayName
+            }
+            onLogout={logout}
+          />
+        ) : (
+          <SchoolSidebar
+            pathname={pathname}
+            displayName={
+              displayName === 'Étudiant' ? 'Administrateur' : displayName
+            }
+            onLogout={logout}
+          />
+        )}
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
         </main>
@@ -224,6 +230,130 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+function TeacherSidebar({
+  pathname,
+  displayName,
+  onLogout,
+}: {
+  pathname: string;
+  displayName: string;
+  onLogout: () => void;
+}) {
+  const items = [
+    { label: 'Tableau de bord', icon: Home, href: '/dashboard/teacher' },
+    {
+      label: 'Mes cours',
+      icon: BookOpen,
+      href: '/dashboard/teacher?view=courses',
+    },
+    {
+      label: 'Étudiants',
+      icon: UsersRound,
+      href: '/dashboard/teacher?view=students',
+    },
+    {
+      label: 'Évaluations',
+      icon: ClipboardList,
+      href: '/dashboard/teacher?view=evaluations',
+    },
+    {
+      label: 'Emploi du temps',
+      icon: CalendarDays,
+      href: '/dashboard/teacher?view=schedule',
+    },
+    {
+      label: 'Devoirs',
+      icon: FileText,
+      href: '/dashboard/teacher?view=assignments',
+    },
+    {
+      label: 'Ressources',
+      icon: LibraryBig,
+      href: '/dashboard/teacher?view=resources',
+    },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/teacher?view=messages',
+      badge: '3',
+    },
+    {
+      label: 'Notes & Bulletins',
+      icon: Trophy,
+      href: '/dashboard/teacher?view=grades',
+    },
+    {
+      label: 'Annonces',
+      icon: Megaphone,
+      href: '/dashboard/teacher?view=announcements',
+    },
+  ];
+  return (
+    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-6 text-white lg:flex lg:min-h-screen lg:flex-col">
+      <Link href="/dashboard/teacher" className="mb-7 px-3">
+        <div className="text-4xl font-black tracking-tight">
+          GET<span className="text-violet-300">.</span>
+        </div>
+        <p className="mt-1 text-[10px] font-medium leading-4 text-blue-100">
+          Grandes Écoles de
+          <br />
+          Tananarive et de Madagascar
+        </p>
+      </Link>
+      <p className="mb-2 px-3 text-[9px] font-bold uppercase tracking-wide text-blue-200">
+        Menu professeur
+      </p>
+      <nav className="space-y-1">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active =
+            item.href === '/dashboard/teacher' &&
+            pathname === '/dashboard/teacher';
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold transition ${active ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30' : 'text-blue-100 hover:bg-white/10'}`}
+            >
+              <Icon className="size-4" />
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="grid size-5 place-items-center rounded-full bg-violet-400 text-[9px] text-white">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="mt-auto space-y-4">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <p className="text-xs font-bold">{displayName}</p>
+          <p className="mt-1 text-[10px] text-blue-100">
+            Professeur · Informatique
+          </p>
+        </div>
+        <button
+          onClick={() =>
+            window.location.assign('/dashboard/teacher?view=settings')
+          }
+          className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-white"
+        >
+          <Settings className="size-4" />
+          Paramètres
+        </button>
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-rose-300"
+        >
+          <LogOut className="size-4" />
+          Déconnexion
+        </button>
+      </div>
+    </aside>
   );
 }
 

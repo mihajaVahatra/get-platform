@@ -82,7 +82,7 @@ export function LoginScreen() {
 
       const destinations: Record<string, string> = {
         SCHOOL_ADMIN: '/dashboard/school',
-        TEACHER: '/dashboard/school',
+        TEACHER: '/dashboard/teacher',
         MINISTRY: '/dashboard/ministry',
         ADMIN_GET: '/dashboard/admin',
       };

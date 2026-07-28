@@ -15,7 +15,7 @@ export default function DashboardIndexPage() {
         const paths: Record<string, string> = {
           STUDENT: '/dashboard/student',
           SCHOOL_ADMIN: '/dashboard/school',
-          TEACHER: '/dashboard/school',
+          TEACHER: '/dashboard/teacher',
           MINISTRY: '/dashboard/ministry',
           ADMIN_GET: '/dashboard/admin',
         };
