@@ -93,14 +93,21 @@ export class OfferController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create a new offer' })
   @ApiBody({ type: CreateOfferDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Offer created' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Not authenticated',
+  })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
-  async createOffer(@Body() dto: CreateOfferDto, @GetUser('id') userId: string) {
+  async createOffer(
+    @Body() dto: CreateOfferDto,
+    @GetUser('id') userId: string,
+  ) {
     const offer = await this.offerService.create(dto, userId);
     return {
       success: true,
@@ -110,7 +117,8 @@ export class OfferController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update an offer' })
   @ApiParam({ name: 'id', description: 'Offer ID' })
@@ -132,7 +140,8 @@ export class OfferController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Delete an offer' })
   @ApiParam({ name: 'id', description: 'Offer ID' })
@@ -147,11 +156,14 @@ export class OfferController {
   }
 
   @Patch(':id/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Open or close an offer' })
   @ApiParam({ name: 'id', description: 'Offer ID' })
-  @ApiBody({ schema: { properties: { isOpen: { type: 'boolean', example: true } } } })
+  @ApiBody({
+    schema: { properties: { isOpen: { type: 'boolean', example: true } } },
+  })
   @ApiResponse({ status: HttpStatus.OK, description: 'Offer status updated' })
   async toggleOfferStatus(
     @Param('id') id: string,

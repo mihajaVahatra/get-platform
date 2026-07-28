@@ -1,164 +1,50 @@
-'use client';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  ArrowRight, BadgeCheck, BookOpen, Building2, ClipboardCheck, GraduationCap, Landmark,
+  Mail, MapPin, Phone, Search, ShieldCheck, Sparkles, UserRound, WalletCards,
+} from 'lucide-react';
 
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = 'http://localhost:3001/api';
+const navLinks = [
+  ['Accueil', '#accueil'], ['À propos', '#apropos'], ['Établissements', '#etablissements'],
+  ['Fonctionnalités', '#fonctionnalites'], ['Actualités', '#actualites'], ['Contact', '#contact'],
+];
 
 export default function Home() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [token, setToken] = useState<string | null>(null);
-  const [schools, setSchools] = useState<any[]>([]);
-  const [user, setUser] = useState<any>(null);
-  const [message, setMessage] = useState('');
-
-  const fetchSchools = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/schools`);
-      setSchools(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchSchools();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('');
-    try {
-      let endpoint = isLogin ? '/auth/login' : '/auth/register';
-      let payload: any = { email, password };
-      if (!isLogin) {
-        payload = { ...payload, firstName, lastName };
-      }
-      const res = await axios.post(`${API_URL}${endpoint}`, payload);
-      setToken(res.data.token);
-      setUser(res.data.user);
-      setMessage(`✅ ${isLogin ? 'Connecté' : 'Inscrit'} avec succès !`);
-      setEmail('');
-      setPassword('');
-      setFirstName('');
-      setLastName('');
-    } catch (err: any) {
-      setMessage(`❌ Erreur : ${err.response?.data?.error || 'Vérifie ta connexion'}`);
-    }
-  };
-
-  if (token) {
-    return (
-      <main className="flex min-h-screen flex-col items-center p-8 bg-gray-50">
-        <div className="max-w-4xl w-full bg-white p-8 rounded-xl shadow-lg">
-          <h1 className="text-3xl font-bold text-blue-700 mb-2">🎓 Bienvenue, {user?.firstName} !</h1>
-          <p className="text-gray-600 mb-6">Email : {user?.email}</p>
-          <button
-            onClick={() => { setToken(null); setUser(null); }}
-            className="text-sm bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Se déconnecter
-          </button>
-
-          <hr className="my-8" />
-          <h2 className="text-2xl font-semibold mb-4">🏫 Liste des écoles et offres</h2>
-          <div className="grid gap-6 md:grid-cols-2">
-            {schools.map((school) => (
-              <div key={school.id} className="border p-4 rounded-lg shadow-sm bg-gray-50">
-                <h3 className="text-xl font-bold text-gray-800">{school.name}</h3>
-                <p className="text-sm text-gray-600">{school.description}</p>
-                <p className="text-sm text-gray-500">📍 {school.city}</p>
-                <div className="mt-3">
-                  <p className="font-semibold text-sm">Offres disponibles :</p>
-                  {school.offers.map((offer: any) => (
-                    <div key={offer.id} className="ml-2 text-sm bg-white p-2 rounded mt-1 shadow-sm">
-                      <span className="font-medium">{offer.title}</span> - {offer.diploma} <br />
-                      <span className="text-blue-600">💰 {offer.tuitionFees.toLocaleString()} Ar</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-blue-100">
-      <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full">
-        <h1 className="text-3xl font-bold text-center text-blue-700 mb-6">
-          🚀 GET - POC
-        </h1>
-        <div className="flex justify-center gap-4 mb-6">
-          <button
-            onClick={() => setIsLogin(true)}
-            className={`px-4 py-2 rounded-lg ${isLogin ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-          >
-            Connexion
-          </button>
-          <button
-            onClick={() => setIsLogin(false)}
-            className={`px-4 py-2 rounded-lg ${!isLogin ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-          >
-            Inscription
-          </button>
+    <main className="min-h-screen overflow-x-hidden bg-[#fdfcff] text-[#101849]">
+      <header className="sticky top-0 z-30 border-b border-white/70 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
+          <Brand />
+          <nav className="hidden items-center gap-7 lg:flex">{navLinks.map(([label, href], index) => <a key={href} href={href} className={`relative py-7 text-[13px] font-bold transition hover:text-violet-600 ${index === 0 ? 'text-violet-600 after:absolute after:bottom-5 after:left-0 after:h-0.5 after:w-full after:bg-violet-600' : 'text-[#182153]'}`}>{label}</a>)}</nav>
+          <div className="flex items-center gap-2 sm:gap-3"><Link href="/auth/login" className="rounded-lg border border-violet-200 px-3 py-2 text-xs font-bold text-[#192153] transition hover:border-violet-500 hover:text-violet-600 sm:px-5 sm:text-sm">Se connecter</Link><Link href="/auth/register" className="rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-3 py-2 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-violet-300 sm:px-5 sm:text-sm">S&apos;inscrire</Link></div>
         </div>
+      </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <>
-              <input
-                type="text"
-                placeholder="Prénom"
-                className="w-full p-2 border rounded"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Nom"
-                className="w-full p-2 border rounded"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </>
-          )}
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-2 border rounded"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Mot de passe"
-            className="w-full p-2 border rounded"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition"
-          >
-            {isLogin ? 'Se connecter' : "S'inscrire"}
-          </button>
-        </form>
-        {message && <p className="mt-4 text-center text-sm">{message}</p>}
-        <p className="mt-6 text-xs text-gray-400 text-center">
-          Le backend doit tourner sur le port 3001
-        </p>
-      </div>
+      <section id="accueil" className="relative"><div className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-14 pt-14 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:pb-20 lg:pt-16">
+        <div className="max-w-[530px]"><h1 className="text-5xl font-black leading-[1.1] tracking-tight text-[#111949] sm:text-6xl">Ton avenir<br />commence <span className="text-violet-600">ici.</span></h1><p className="mt-6 max-w-[460px] text-lg leading-8 text-[#56618a]">GET est la plateforme officielle qui simplifie ton parcours post-bac : candidatures, concours, paiements et inscriptions, tout en un seul endroit.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/auth/register" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5"><UserRound className="size-5" />Je suis étudiant<ArrowRight className="size-4" /></Link><Link href="/auth/register" className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-white px-5 py-3.5 text-sm font-bold text-violet-600 transition hover:bg-violet-50"><Building2 className="size-5" />Je suis une école / institution</Link></div><div className="mt-10 grid grid-cols-3 gap-3 border-t border-violet-100 pt-6"><MiniBenefit icon={ShieldCheck} title="100% en ligne" text="Accessible partout" /><MiniBenefit icon={BadgeCheck} title="Sécurisé et fiable" text="Données protégées" /><MiniBenefit icon={Sparkles} title="Simple et rapide" text="Gain de temps assuré" /></div></div>
+        <div className="relative mx-auto w-full max-w-[620px]"><div className="absolute -inset-8 rounded-[56px] bg-gradient-to-br from-violet-100 via-transparent to-indigo-100 blur-2xl" /><div className="relative h-[485px] overflow-hidden rounded-[46px] border border-white bg-[#e9eaff] shadow-[0_25px_55px_rgba(69,49,170,0.18)] sm:h-[570px]"><Image src="/landing-students-campus.png" alt="Deux étudiants sur un campus universitaire" fill priority className="object-cover object-center" sizes="(max-width: 1024px) 100vw, 620px" /><div className="absolute inset-0 bg-gradient-to-t from-[#21185d]/25 via-transparent to-white/10" /></div><div className="absolute -bottom-2 left-5 right-5 rounded-2xl border border-white/80 bg-white/90 p-4 shadow-xl backdrop-blur-md sm:-bottom-7 sm:left-8 sm:right-8 sm:p-5"><div className="flex items-center gap-4"><span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600"><GraduationCap className="size-6" /></span><div><p className="font-extrabold text-[#161d4c]">Rejoins les grandes écoles</p><p className="mt-0.5 text-sm text-[#67718f]">et construis ton avenir dès aujourd&apos;hui.</p></div></div><div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3 text-xs font-semibold text-[#717b99]"><span className="flex -space-x-2"><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-violet-100 text-[10px] text-violet-600">E</span><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-emerald-100 text-[10px] text-emerald-600">I</span><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-orange-100 text-[10px] text-orange-600">U</span></span>Écoles partenaires</div></div></div>
+      </div></section>
+
+      <section id="apropos" className="mx-auto max-w-[1120px] px-5 py-16 text-center sm:px-8"><SectionEyebrow>Pourquoi choisir GET ?</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Une plateforme pensée pour <span className="text-violet-600">tous les acteurs</span></h2><p className="mx-auto mt-3 max-w-2xl text-[#68738f]">GET connecte étudiants, établissements et partenaires dans un écosystème numérique simple, transparent et efficace.</p><div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4"><ActorCard icon={GraduationCap} tone="violet" title="Pour les étudiants" text="Candidature simplifiée, suivi en temps réel, paiements sécurisés et accès aux informations essentielles." /><ActorCard icon={Building2} tone="green" title="Pour les écoles" text="Gestion centralisée des candidatures, suivi des inscriptions, outils de communication et tableaux de bord performants." /><ActorCard icon={Landmark} tone="orange" title="Pour les partenaires" text="Intégration bancaire et mobile, paiements sécurisés et promotion de l’inclusion financière des jeunes." /><ActorCard icon={ShieldCheck} tone="blue" title="Pour le ministère" text="Pilotage stratégique, statistiques fiables et amélioration continue du système d’enseignement supérieur." /></div></section>
+
+      <section id="fonctionnalites" className="mx-auto max-w-[1120px] px-5 py-12 sm:px-8"><div className="text-center"><SectionEyebrow>Comment ça marche ?</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Un parcours simple en <span className="text-violet-600">4 étapes</span></h2></div><div className="relative mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"><div className="absolute left-[12%] right-[12%] top-8 hidden border-t-2 border-dotted border-violet-200 lg:block" /><Step number="1" icon={ClipboardCheck} title="Crée ton compte" text="Inscris-toi gratuitement en quelques minutes." /><Step number="2" icon={Search} title="Choisis et postule" text="Découvre les formations et envoie tes candidatures." /><Step number="3" icon={BookOpen} title="Suis ton parcours" text="Suis l’évolution de ton dossier, tes concours et résultats." /><Step number="4" icon={WalletCards} title="Inscris-toi en ligne" text="Paie tes frais en toute sécurité et finalise ton inscription." /></div><div className="mt-14 grid gap-5 rounded-2xl bg-gradient-to-r from-violet-700 via-indigo-600 to-violet-600 px-6 py-6 text-white shadow-xl shadow-violet-200 sm:grid-cols-2 lg:grid-cols-4"><Stat icon={Building2} value="50+" label="Établissements partenaires" /><Stat icon={UserRound} value="30 000+" label="Étudiants inscrits" /><Stat icon={ClipboardCheck} value="100 000+" label="Candidatures traitées" /><Stat icon={ShieldCheck} value="100%" label="Paiements sécurisés" /></div></section>
+
+      <section id="actualites" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-8"><div className="flex flex-wrap items-end justify-between gap-3"><div><SectionEyebrow>Actualités</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Reste <span className="text-violet-600">informé</span></h2></div><a href="#actualites" className="inline-flex items-center gap-2 text-sm font-bold text-violet-600">Voir toutes les actualités <ArrowRight className="size-4" /></a></div><div className="mt-8 grid gap-5 md:grid-cols-3"><NewsCard type="INSCRIPTIONS" date="10 mai 2025" title="Réinscription 2025–2026" text="La réinscription en ligne est ouverte jusqu&apos;au 30 juin 2025." image="desk" /><NewsCard type="CONCOURS" date="08 mai 2025" title="Calendrier des concours" text="Consultez le calendrier des concours d&apos;entrée des grandes écoles partenaires." image="campus" /><NewsCard type="ACTUALITÉ" date="05 mai 2025" title="Nouveautés sur GET" text="Découvrez les nouvelles fonctionnalités pour une meilleure expérience." image="library" /></div></section>
+
+      <section id="etablissements" className="mx-auto max-w-[1120px] px-5 pb-16 sm:px-8"><div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 via-white to-indigo-50 px-7 py-8 sm:px-10"><GraduationCap className="absolute -bottom-7 right-8 size-36 rotate-[-20deg] text-violet-100" /><div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center"><div><h2 className="text-3xl font-black tracking-tight">Prêt à construire ton avenir ?</h2><p className="mt-2 max-w-lg text-[#66718e]">Rejoins des milliers d’étudiants et accède aux meilleures opportunités d’études à Madagascar.</p></div><Link href="/auth/register" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-200"><UserRound className="size-5" />Créer mon compte gratuitement</Link></div><p className="relative mt-4 text-center text-sm font-medium text-[#78819a] md:text-right">C’est rapide, gratuit et sécurisé !</p></div></section>
+
+      <footer id="contact" className="border-t border-slate-100 bg-white"><div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-12 sm:px-8 md:grid-cols-[1.5fr_repeat(3,1fr)]"><div><Brand /><p className="mt-5 max-w-[230px] text-sm leading-6 text-[#68738f]">La plateforme qui ouvre la voie vers ton bac et ton futur.</p><div className="mt-5 flex gap-3 text-[#475174]"><Social label="Facebook" /><Social label="Instagram" /><Social label="LinkedIn" /><Social label="YouTube" /></div></div><FooterLinks title="Plateforme" links={['Fonctionnalités', 'Établissements', 'Tarifs', 'FAQ']} /><FooterLinks title="Ressources" links={['Guides étudiants', 'Conseils orientation', 'Actualités', 'Centre d’aide']} /><div><h3 className="font-extrabold">Contact</h3><ul className="mt-4 space-y-3 text-sm text-[#68738f]"><li className="flex gap-2"><Phone className="size-4 shrink-0 text-violet-600" />+261 34 12 345 67</li><li className="flex gap-2"><Mail className="size-4 shrink-0 text-violet-600" />contact@get.mg</li><li className="flex gap-2"><MapPin className="size-4 shrink-0 text-violet-600" />Antananarivo, Madagascar</li></ul></div></div><div className="mx-auto flex max-w-[1120px] flex-wrap justify-between gap-3 border-t border-slate-100 px-5 py-5 text-xs text-[#7b849e] sm:px-8"><span>© 2025 GET - Tous droits réservés.</span><span className="flex gap-5"><a href="#">Conditions d’utilisation</a><a href="#">Politique de confidentialité</a></span></div></footer>
     </main>
   );
 }
+
+function Brand() { return <Link href="/" className="flex items-center gap-3"><span className="relative text-4xl font-black tracking-[-0.1em] text-violet-600">GET<GraduationCap className="absolute -right-3 -top-2 size-5 rotate-[-18deg] text-indigo-700" /></span><span className="text-[10px] font-semibold leading-3 text-[#596486]">Grandes Écoles de<br />Tananarive et de Madagascar</span></Link>; }
+function MiniBenefit({ icon: Icon, title, text }: { icon: typeof ShieldCheck; title: string; text: string }) { return <div><Icon className="size-5 text-violet-600" /><p className="mt-2 text-xs font-extrabold text-[#202858]">{title}</p><p className="mt-0.5 text-[10px] text-[#737d9a]">{text}</p></div>; }
+function SectionEyebrow({ children }: { children: React.ReactNode }) { return <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-600">{children}</p>; }
+function ActorCard({ icon: Icon, tone, title, text }: { icon: typeof GraduationCap; tone: 'violet' | 'green' | 'orange' | 'blue'; title: string; text: string }) { const tones = { violet: 'bg-violet-50 text-violet-600 border-violet-100', green: 'bg-emerald-50 text-emerald-600 border-emerald-100', orange: 'bg-orange-50 text-orange-500 border-orange-100', blue: 'bg-blue-50 text-blue-600 border-blue-100' }; return <article className={`rounded-xl border p-5 text-left ${tones[tone]}`}><span className="grid size-11 place-items-center rounded-full bg-white/70 shadow-sm"><Icon className="size-6" /></span><h3 className="mt-4 font-extrabold text-[#17204e]">{title}</h3><p className="mt-2 text-xs leading-5 text-[#5d6889]">{text}</p></article>; }
+function Step({ number, icon: Icon, title, text }: { number: string; icon: typeof Search; title: string; text: string }) { return <article className="relative z-10 text-center"><span className="mx-auto grid size-16 place-items-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-lg shadow-violet-100"><Icon className="size-7" /></span><p className="mt-5 text-sm font-extrabold"><span className="text-violet-600">{number}.</span> {title}</p><p className="mx-auto mt-2 max-w-[190px] text-xs leading-5 text-[#68738f]">{text}</p></article>; }
+function Stat({ icon: Icon, value, label }: { icon: typeof Building2; value: string; label: string }) { return <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-white/15"><Icon className="size-6" /></span><div><p className="text-2xl font-black">{value}</p><p className="text-xs text-violet-100">{label}</p></div></div>; }
+function NewsCard({ type, date, title, text, image }: { type: string; date: string; title: string; text: string; image: 'desk' | 'campus' | 'library' }) { const gradients = { desk: 'from-slate-700 via-slate-500 to-emerald-300', campus: 'from-violet-800 via-indigo-500 to-amber-200', library: 'from-amber-700 via-orange-300 to-violet-300' }; return <article className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm"><div className={`h-36 bg-gradient-to-br ${gradients[image]} p-3`}><span className="rounded bg-violet-600 px-2 py-1 text-[9px] font-black text-white">{type}</span></div><div className="p-4"><div className="flex justify-between gap-2 text-[10px] text-[#78819a]"><span>{type}</span><span>{date}</span></div><h3 className="mt-2 font-extrabold text-[#17204e]">{title}</h3><p className="mt-2 text-sm leading-6 text-[#68738f]">{text}</p></div></article>; }
+function FooterLinks({ title, links }: { title: string; links: string[] }) { return <div><h3 className="font-extrabold">{title}</h3><ul className="mt-4 space-y-3 text-sm text-[#68738f]">{links.map((link) => <li key={link}><a className="hover:text-violet-600" href="#">{link}</a></li>)}</ul></div>; }
+function Social({ label }: { label: string }) { return <a aria-label={label} href="#" className="grid size-8 place-items-center rounded-full border border-slate-200 text-xs font-black transition hover:border-violet-300 hover:text-violet-600">{label.slice(0, 1)}</a>; }

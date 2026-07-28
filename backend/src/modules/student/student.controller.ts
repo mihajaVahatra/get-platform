@@ -24,7 +24,11 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StudentService } from './student.service';
-import { StorageService, ImageEntityType, ImageType } from '../../common/services/storage.service';
+import {
+  StorageService,
+  ImageEntityType,
+  ImageType,
+} from '../../common/services/storage.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
@@ -45,13 +49,27 @@ export class StudentController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get current student profile' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Profile retrieved successfully' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Student not found' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Not authenticated',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Student not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async getProfile(@GetUser() user: any) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     const profile = await this.studentService.getProfile(user.id);
     return {
@@ -64,15 +82,23 @@ export class StudentController {
   @Put('me')
   @ApiOperation({ summary: 'Update student profile' })
   @ApiBody({ type: UpdateStudentProfileDto })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Profile updated successfully' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Profile updated successfully',
+  })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async updateProfile(
     @GetUser() user: any,
     @Body() dto: UpdateStudentProfileDto,
   ) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     const profile = await this.studentService.updateProfile(user.id, dto);
     return {
@@ -97,16 +123,21 @@ export class StudentController {
   })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Avatar uploaded' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid file' })
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-      } else {
-        cb(new BadRequestException('Seules les images sont autorisées'), false);
-      }
-    },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException('Seules les images sont autorisées'),
+            false,
+          );
+        }
+      },
+    }),
+  )
   async uploadAvatar(
     @GetUser() user: any,
     @UploadedFile() file: Express.Multer.File,
@@ -138,10 +169,15 @@ export class StudentController {
   @Get('me/documents')
   @ApiOperation({ summary: 'Get all documents' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Documents retrieved' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async getDocuments(@GetUser() user: any) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     const documents = await this.studentService.getDocuments(user.id);
     return {
@@ -159,43 +195,65 @@ export class StudentController {
       type: 'object',
       properties: {
         file: { type: 'string', format: 'binary' },
-        type: { type: 'string', enum: ['CV', 'LETTER', 'ID', 'DIPLOMA', 'PHOTO', 'OTHER'] },
+        type: {
+          type: 'string',
+          enum: ['CV', 'LETTER', 'ID', 'DIPLOMA', 'PHOTO', 'OTHER'],
+        },
         name: { type: 'string' },
       },
     },
   })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Document uploaded' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'File too large or unsupported format' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-      const allowedMimes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      ];
-      if (allowedMimes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new BadRequestException('Unsupported file format. Accepted: PDF, JPG, PNG, DOC, DOCX'), false);
-      }
-    },
-  }))
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'File too large or unsupported format',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        if (allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Unsupported file format. Accepted: PDF, JPG, PNG, DOC, DOCX',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
   async uploadDocument(
     @GetUser() user: any,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
   ) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    const document = await this.studentService.uploadDocument(user.id, file, dto);
+    const document = await this.studentService.uploadDocument(
+      user.id,
+      file,
+      dto,
+    );
     return {
       success: true,
       data: document,
@@ -207,14 +265,19 @@ export class StudentController {
   @ApiOperation({ summary: 'Delete a document' })
   @ApiParam({ name: 'id', description: 'Document ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Document deleted' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Document not found' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
-  async deleteDocument(
-    @GetUser() user: any,
-    @Param('id') documentId: string,
-  ) {
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Document not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async deleteDocument(@GetUser() user: any, @Param('id') documentId: string) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     await this.studentService.deleteDocument(user.id, documentId);
     return {
@@ -228,16 +291,25 @@ export class StudentController {
   @Post('me/orientation')
   @ApiOperation({ summary: 'Submit orientation questionnaire' })
   @ApiBody({ type: OrientationQuestionnaireDto })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Questionnaire submitted' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Questionnaire submitted',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async submitOrientationQuestionnaire(
     @GetUser() user: any,
     @Body() dto: OrientationQuestionnaireDto,
   ) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
-    const suggestions = await this.studentService.submitOrientationQuestionnaire(user.id, dto);
+    const suggestions =
+      await this.studentService.submitOrientationQuestionnaire(user.id, dto);
     return {
       success: true,
       data: { suggestions },
@@ -247,13 +319,23 @@ export class StudentController {
 
   @Get('me/orientation')
   @ApiOperation({ summary: 'Get orientation suggestions' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Orientation suggestions retrieved' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Orientation suggestions retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async getOrientationSuggestions(@GetUser() user: any) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
-    const suggestions = await this.studentService.getOrientationSuggestions(user.id);
+    const suggestions = await this.studentService.getOrientationSuggestions(
+      user.id,
+    );
     return {
       success: true,
       data: { suggestions },
@@ -266,10 +348,15 @@ export class StudentController {
   @Get('me/stats')
   @ApiOperation({ summary: 'Get personal statistics' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'User is not a student' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
   async getStudentStats(@GetUser() user: any) {
     if (!user.student) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux étudiants');
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
     }
     const stats = await this.studentService.getStudentStats(user.id);
     return {

@@ -58,7 +58,7 @@ export function AvatarUpload({
       setPreview(url);
       onUpload(url);
       toast.success('Image mise à jour !');
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de l\'upload');
     } finally {
       setIsUploading(false);

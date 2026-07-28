@@ -41,6 +41,7 @@ export class StudentService {
             orderBy: { submittedAt: 'desc' },
             take: 10,
           },
+          enrolledSchool: true,
         },
       });
 

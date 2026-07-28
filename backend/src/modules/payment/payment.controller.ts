@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   HttpStatus,
   UseGuards,
   StreamableFile,
@@ -43,7 +44,10 @@ export class PaymentController {
   @ApiOperation({ summary: 'Initiate a payment' })
   @ApiBody({ type: InitiatePaymentDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Payment initiated' })
-  async initiatePayment(@GetUser('id') userId: string, @Body() dto: InitiatePaymentDto) {
+  async initiatePayment(
+    @GetUser('id') userId: string,
+    @Body() dto: InitiatePaymentDto,
+  ) {
     const student = await this.prisma.student.findUnique({ where: { userId } });
     if (!student) throw new NotFoundException('Student not found');
     const result = await this.paymentService.initiatePayment(student.id, dto);
@@ -56,9 +60,16 @@ export class PaymentController {
   @ApiOperation({ summary: 'Get payment status' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Payment details' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Payment not found' })
-  async getPayment(@Param('id') id: string, @GetUser('id') userId: string) {
-    const payment = await this.paymentService.getPayment(id, userId);
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Payment not found',
+  })
+  async getPayment(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    const payment = await this.paymentService.getPayment(id, userId, role);
     return { success: true, data: payment };
   }
 
@@ -75,7 +86,11 @@ export class PaymentController {
   ) {
     const student = await this.prisma.student.findUnique({ where: { userId } });
     if (!student) throw new NotFoundException('Student not found');
-    const result = await this.paymentService.getHistory(student.id, page, limit);
+    const result = await this.paymentService.getHistory(
+      student.id,
+      page,
+      limit,
+    );
     return { success: true, data: result.items, meta: result.meta };
   }
 
@@ -84,8 +99,11 @@ export class PaymentController {
   @ApiOperation({ summary: 'Webhook for payment confirmation' })
   @ApiBody({ type: PaymentWebhookDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Webhook processed' })
-  async handleWebhook(@Body() dto: PaymentWebhookDto) {
-    const result = await this.paymentService.handleWebhook(dto);
+  async handleWebhook(
+    @Body() dto: PaymentWebhookDto,
+    @Headers('x-webhook-signature') signature?: string,
+  ) {
+    const result = await this.paymentService.handleWebhook(dto, signature);
     return { success: true, data: result };
   }
 
@@ -95,8 +113,12 @@ export class PaymentController {
   @ApiOperation({ summary: 'Download payment receipt' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Receipt PDF' })
-  async getReceipt(@Param('id') id: string, @GetUser('id') userId: string) {
-    const buffer = await this.paymentService.generateReceipt(id, userId);
+  async getReceipt(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    const buffer = await this.paymentService.generateReceipt(id, userId, role);
     return new StreamableFile(buffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="receipt-${id}.pdf"`,
@@ -107,15 +129,23 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Open a bank account for student' })
-  @ApiBody({ schema: { properties: { bankId: { type: 'string', example: 'bank-123' } } } })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Bank account opened' })
+  @ApiBody({
+    schema: { properties: { bankId: { type: 'string', example: 'bank-123' } } },
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Bank account opened',
+  })
   async openBankAccount(
     @GetUser('id') userId: string,
     @Body('bankId') bankId: string,
   ) {
     const student = await this.prisma.student.findUnique({ where: { userId } });
     if (!student) throw new NotFoundException('Student not found');
-    const result = await this.paymentService.openBankAccount(student.id, bankId);
+    const result = await this.paymentService.openBankAccount(
+      student.id,
+      bankId,
+    );
     return { success: true, data: result };
   }
 
