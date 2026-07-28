@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 interface DefaultAvatarProps {
   gender?: string | null;
   firstName?: string;
@@ -8,28 +10,9 @@ interface DefaultAvatarProps {
   className?: string;
 }
 
-export function DefaultAvatar({
-  gender,
-  firstName,
-  lastName,
-  size = 40,
-  className = '',
-}: DefaultAvatarProps) {
-  const getInitials = () => {
-    const first = firstName?.[0] || '';
-    const last = lastName?.[0] || '';
-    return `${first}${last}`.toUpperCase();
-  };
+export function DefaultAvatar({ gender, size = 40, className = '' }: DefaultAvatarProps) {
+  const isFemale = gender?.toUpperCase() === 'FEMALE';
+  const src = isFemale ? '/avatars/default-female.png' : '/avatars/default-male.png';
 
-  // Uniquement 2 couleurs : MALE → bleu, FEMALE → rose
-  const bgColor = gender === 'FEMALE' ? 'bg-pink-500' : 'bg-blue-500';
-
-  return (
-    <div
-      className={`${bgColor} text-white rounded-full flex items-center justify-center font-bold ${className}`}
-      style={{ width: size, height: size, fontSize: size * 0.45 }}
-    >
-      {getInitials() || '?'}
-    </div>
-  );
+  return <div className={`relative flex shrink-0 overflow-hidden rounded-full bg-violet-50 ${className}`} style={{ width: size, height: size }}><Image src={src} alt={isFemale ? 'Avatar par défaut féminin' : 'Avatar par défaut masculin'} fill sizes={`${size}px`} className="object-cover" priority={size >= 80} /></div>;
 }
