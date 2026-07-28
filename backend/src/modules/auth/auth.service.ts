@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +12,7 @@ import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EncryptionService } from '../../common/services/encryption.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +23,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
+    private encryption: EncryptionService,
   ) {}
 
   // ========== REGISTER ==========
@@ -34,7 +41,7 @@ export class AuthService {
     });
 
     if (!studentRole) {
-      throw new Error('Rôle STUDENT introuvable. Exécutez d\'abord le seed.');
+      throw new Error("Rôle STUDENT introuvable. Exécutez d'abord le seed.");
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -115,7 +122,10 @@ export class AuthService {
     });
 
     if (!user) {
-      return { message: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.' };
+      return {
+        message:
+          'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
+      };
     }
 
     const resetToken = this.jwt.sign(
@@ -123,9 +133,13 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    console.log(`🔗 Lien de réinitialisation pour ${email}: http://localhost:3000/auth/reset-password?token=${resetToken}`);
+    // Le token doit être envoyé par un fournisseur d'e-mail. Ne jamais le logger.
+    void resetToken;
 
-    return { message: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.' };
+    return {
+      message:
+        'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
+    };
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -143,7 +157,10 @@ export class AuthService {
         data: { password: hashedPassword },
       });
 
-      return { success: true, message: 'Mot de passe réinitialisé avec succès' };
+      return {
+        success: true,
+        message: 'Mot de passe réinitialisé avec succès',
+      };
     } catch (error) {
       throw new BadRequestException('Token invalide ou expiré');
     }
@@ -167,7 +184,7 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        mfaSecret: secret.base32,
+        mfaSecret: this.encryption.encrypt(secret.base32),
         mfaEnabled: false,
       },
     });
@@ -190,7 +207,7 @@ export class AuthService {
     }
 
     const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
+      secret: this.decryptMfaSecret(user.mfaSecret),
       encoding: 'base32',
       token: code,
       window: 2,
@@ -218,7 +235,7 @@ export class AuthService {
     }
 
     const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
+      secret: this.decryptMfaSecret(user.mfaSecret),
       encoding: 'base32',
       token: code,
       window: 2,
@@ -293,10 +310,11 @@ export class AuthService {
 
     if (user && user.failedLoginAttempts >= this.MAX_LOGIN_ATTEMPTS) {
       if (user.lastFailedLoginAt) {
-        const timeSinceLastAttempt = Date.now() - user.lastFailedLoginAt.getTime();
+        const timeSinceLastAttempt =
+          Date.now() - user.lastFailedLoginAt.getTime();
         if (timeSinceLastAttempt < this.LOCK_TIME) {
           throw new UnauthorizedException(
-            'Trop de tentatives. Réessayez dans 15 minutes.'
+            'Trop de tentatives. Réessayez dans 15 minutes.',
           );
         }
       }
@@ -322,5 +340,14 @@ export class AuthService {
       where: { id: userId },
       data: { failedLoginAttempts: 0, lastFailedLoginAt: null },
     });
+  }
+
+  private decryptMfaSecret(secret: string) {
+    try {
+      return this.encryption.decrypt(secret);
+    } catch {
+      // Compatibilité avec les secrets MFA déjà enregistrés avant le chiffrement.
+      return secret;
+    }
   }
 }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { UpdateOfferDto } from './dto/update-offer.dto';
@@ -15,7 +19,7 @@ export class OfferService {
     });
     if (!school) throw new NotFoundException('School not found');
 
-    // TODO: check if user is admin of this school or ADMIN_GET
+    await this.ensureCanManageSchool(userId, dto.schoolId);
 
     const slug = slugify(dto.title, { lower: true, strict: true });
 
@@ -29,7 +33,9 @@ export class OfferService {
         tuitionFees: dto.tuitionFees,
         prerequisites: dto.prerequisites || [],
         capacity: dto.capacity,
-        applicationDeadline: dto.applicationDeadline ? new Date(dto.applicationDeadline) : undefined,
+        applicationDeadline: dto.applicationDeadline
+          ? new Date(dto.applicationDeadline)
+          : undefined,
         academicYear: dto.academicYear,
         isOpen: dto.isOpen ?? true,
         schoolId: dto.schoolId,
@@ -57,9 +63,12 @@ export class OfferService {
     const where: any = { deletedAt: null };
 
     if (filters?.schoolId) where.schoolId = filters.schoolId;
-    if (filters?.diploma) where.diploma = { contains: filters.diploma, mode: 'insensitive' };
-    if (filters?.minFees !== undefined) where.tuitionFees = { gte: filters.minFees };
-    if (filters?.maxFees !== undefined) where.tuitionFees = { ...where.tuitionFees, lte: filters.maxFees };
+    if (filters?.diploma)
+      where.diploma = { contains: filters.diploma, mode: 'insensitive' };
+    if (filters?.minFees !== undefined)
+      where.tuitionFees = { gte: filters.minFees };
+    if (filters?.maxFees !== undefined)
+      where.tuitionFees = { ...where.tuitionFees, lte: filters.maxFees };
     if (filters?.search) {
       where.OR = [
         { title: { contains: filters.search, mode: 'insensitive' } },
@@ -95,7 +104,9 @@ export class OfferService {
     // Apply city filter in memory (if needed)
     let filteredItems = items;
     if (filters?.city) {
-      filteredItems = items.filter((offer) => offer.school?.city === filters.city);
+      filteredItems = items.filter(
+        (offer) => offer.school?.city === filters.city,
+      );
     }
 
     return {
@@ -114,10 +125,6 @@ export class OfferService {
       where: { id, deletedAt: null },
       include: {
         school: true,
-        applications: {
-          take: 5,
-          orderBy: { submittedAt: 'desc' },
-        },
       },
     });
     if (!offer) throw new NotFoundException('Offer not found');
@@ -125,17 +132,22 @@ export class OfferService {
   }
 
   async update(id: string, dto: UpdateOfferDto, userId: string) {
-    await this.findOne(id);
-    // TODO: check permissions
+    const offer = await this.findOne(id);
+    await this.ensureCanManageSchool(userId, offer.schoolId);
 
-    const slug = dto.title ? slugify(dto.title, { lower: true, strict: true }) : undefined;
+    const slug = dto.title
+      ? slugify(dto.title, { lower: true, strict: true })
+      : undefined;
 
     return this.prisma.offer.update({
       where: { id },
       data: {
         ...dto,
+        schoolId: undefined,
         slug,
-        applicationDeadline: dto.applicationDeadline ? new Date(dto.applicationDeadline) : undefined,
+        applicationDeadline: dto.applicationDeadline
+          ? new Date(dto.applicationDeadline)
+          : undefined,
       },
       include: {
         school: true,
@@ -144,8 +156,8 @@ export class OfferService {
   }
 
   async delete(id: string, userId: string) {
-    await this.findOne(id);
-    // TODO: check permissions
+    const offer = await this.findOne(id);
+    await this.ensureCanManageSchool(userId, offer.schoolId);
     return this.prisma.offer.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -154,7 +166,7 @@ export class OfferService {
 
   async toggleStatus(id: string, isOpen: boolean, userId: string) {
     const offer = await this.findOne(id);
-    // TODO: check permissions
+    await this.ensureCanManageSchool(userId, offer.schoolId);
     return this.prisma.offer.update({
       where: { id },
       data: { isOpen },
@@ -178,5 +190,21 @@ export class OfferService {
         school: true,
       },
     });
+  }
+
+  private async ensureCanManageSchool(userId: string, schoolId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true, schoolAdmin: true },
+    });
+    if (user?.role?.name === 'ADMIN_GET') return;
+    if (
+      user?.role?.name === 'SCHOOL_ADMIN' &&
+      user.schoolAdmin?.schoolId === schoolId
+    )
+      return;
+    throw new ForbiddenException(
+      'Vous n’êtes pas autorisé à gérer les offres de cet établissement',
+    );
   }
 }

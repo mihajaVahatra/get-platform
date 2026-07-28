@@ -52,11 +52,11 @@ export function LoginScreen() {
     defaultValues: { remember: true },
   });
 
-  const onSubmit = async ({ email, password, remember }: LoginForm) => {
+  const onSubmit = async ({ email, password }: LoginForm) => {
     setIsLoading(true);
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      const { accessToken, user } = response.data.data;
+      const { user } = response.data.data;
       const institutionRoles = [
         'SCHOOL_ADMIN',
         'TEACHER',
@@ -66,19 +66,20 @@ export function LoginScreen() {
       const isInstitutionUser = institutionRoles.includes(user.role);
 
       if (isInstitution && !isInstitutionUser) {
+        await apiClient.post('/auth/logout');
         toast.error(
           'Ce compte étudiant doit se connecter depuis l’onglet Étudiant.',
         );
         return;
       }
       if (!isInstitution && isInstitutionUser) {
+        await apiClient.post('/auth/logout');
         toast.error(
           'Ce compte institutionnel doit se connecter depuis l’onglet École / Institution.',
         );
         return;
       }
 
-      persistAccessToken(accessToken, remember);
       const destinations: Record<string, string> = {
         SCHOOL_ADMIN: '/dashboard/school',
         TEACHER: '/dashboard/school',
@@ -462,9 +463,6 @@ function AccountTab({
       {children}
     </button>
   );
-}
-function persistAccessToken(accessToken: string, remember: boolean) {
-  document.cookie = `accessToken=${accessToken}; path=/; ${remember ? 'max-age=604800' : ''}`;
 }
 function Brand({ light = false }: { light?: boolean }) {
   return (

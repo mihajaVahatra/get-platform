@@ -26,7 +26,11 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
-import { StorageService, ImageEntityType, ImageType } from '../../common/services/storage.service';
+import {
+  StorageService,
+  ImageEntityType,
+  ImageType,
+} from '../../common/services/storage.service';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
 import { SchoolResponseDto } from './dto/school-response.dto';
@@ -63,7 +67,11 @@ export class SchoolController {
     @Query('type') type?: string,
     @Query('search') search?: string,
   ) {
-    const result = await this.schoolService.findAll(page, limit, { city, type, search });
+    const result = await this.schoolService.findAll(page, limit, {
+      city,
+      type,
+      search,
+    });
     return {
       success: true,
       data: result.items,
@@ -77,7 +85,10 @@ export class SchoolController {
   @ApiOperation({ summary: 'Get school details' })
   @ApiParam({ name: 'id', description: 'School ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'School details' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'School not found' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'School not found',
+  })
   async getSchool(@Param('id') id: string) {
     const school = await this.schoolService.findOne(id);
     return {
@@ -96,8 +107,14 @@ export class SchoolController {
   @ApiOperation({ summary: 'Create a new school (Admin only)' })
   @ApiBody({ type: CreateSchoolDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'School created' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - Admin required' })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Not authenticated',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied - Admin required',
+  })
   async createSchool(@Body() dto: CreateSchoolDto, @GetUser() user: any) {
     const school = await this.schoolService.create(dto, user.id);
     return {
@@ -114,7 +131,10 @@ export class SchoolController {
   @ApiParam({ name: 'id', description: 'School ID' })
   @ApiBody({ type: UpdateSchoolDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'School updated' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'School not found' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'School not found',
+  })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async updateSchool(
     @Param('id') id: string,
@@ -125,7 +145,9 @@ export class SchoolController {
     const isSchoolAdmin = user.schoolAdmin && user.schoolAdmin.schoolId === id;
 
     if (!isAdminGet && !isSchoolAdmin) {
-      throw new ForbiddenException('Vous n\'êtes pas autorisé à modifier cette école');
+      throw new ForbiddenException(
+        "Vous n'êtes pas autorisé à modifier cette école",
+      );
     }
 
     const school = await this.schoolService.update(id, dto, user.id);
@@ -143,7 +165,10 @@ export class SchoolController {
   @ApiOperation({ summary: 'Delete a school (Admin only)' })
   @ApiParam({ name: 'id', description: 'School ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'School deleted' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'School not found' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'School not found',
+  })
   async deleteSchool(@Param('id') id: string, @GetUser() user: any) {
     await this.schoolService.delete(id, user.id);
     return {
@@ -170,16 +195,21 @@ export class SchoolController {
   })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Logo uploaded' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-      } else {
-        cb(new BadRequestException('Seules les images sont autorisées'), false);
-      }
-    },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException('Seules les images sont autorisées'),
+            false,
+          );
+        }
+      },
+    }),
+  )
   async uploadLogo(
     @Param('id') schoolId: string,
     @GetUser() user: any,
@@ -187,10 +217,13 @@ export class SchoolController {
   ) {
     // Vérifier les droits
     const isAdminGet = user.role === 'ADMIN_GET';
-    const isSchoolAdmin = user.schoolAdmin && user.schoolAdmin.schoolId === schoolId;
+    const isSchoolAdmin =
+      user.schoolAdmin && user.schoolAdmin.schoolId === schoolId;
 
     if (!isAdminGet && !isSchoolAdmin) {
-      throw new ForbiddenException('Vous n\'êtes pas autorisé à modifier cette école');
+      throw new ForbiddenException(
+        "Vous n'êtes pas autorisé à modifier cette école",
+      );
     }
 
     if (!file) {
@@ -219,10 +252,15 @@ export class SchoolController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get current school info (School Admin only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'School info retrieved' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - School Admin required' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied - School Admin required',
+  })
   async getMySchool(@GetUser() user: any) {
     if (!user.schoolAdmin) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
     }
     const school = await this.schoolService.findOne(user.schoolAdmin.schoolId);
     return {
@@ -235,12 +273,22 @@ export class SchoolController {
   @Get('me/stats')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get current school statistics (School Admin only)' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'School statistics retrieved' })
-  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied - School Admin required' })
+  @ApiOperation({
+    summary: 'Get current school statistics (School Admin only)',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'School statistics retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied - School Admin required',
+  })
   async getMySchoolStats(@GetUser() user: any) {
     if (!user.schoolAdmin) {
-      throw new ForbiddenException('Cette fonctionnalité est réservée aux administrateurs d\'école');
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
     }
     const schoolId = user.schoolAdmin.schoolId;
     return {

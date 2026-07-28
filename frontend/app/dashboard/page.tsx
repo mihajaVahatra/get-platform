@@ -2,35 +2,26 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
 
 export default function DashboardIndexPage() {
   const router = useRouter();
   useEffect(() => {
-    const token = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('accessToken='))
-      ?.split('=')[1];
-
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const userRole = payload.role || 'STUDENT';
-      // Redirection dynamique
-      const paths: Record<string, string> = {
-        STUDENT: '/dashboard/student',
-        SCHOOL_ADMIN: '/dashboard/school',
-        TEACHER: '/dashboard/school',
-        MINISTRY: '/dashboard/ministry',
-        ADMIN_GET: '/dashboard/admin',
-      };
-      router.push(paths[userRole] || '/dashboard/student');
-    } catch {
-      router.push('/dashboard/student');
-    }
+    apiClient
+      .get('/auth/me')
+      .then((response) => {
+        const userRole = response.data.data.user.role || 'STUDENT';
+        // Redirection dynamique
+        const paths: Record<string, string> = {
+          STUDENT: '/dashboard/student',
+          SCHOOL_ADMIN: '/dashboard/school',
+          TEACHER: '/dashboard/school',
+          MINISTRY: '/dashboard/ministry',
+          ADMIN_GET: '/dashboard/admin',
+        };
+        router.replace(paths[userRole] || '/dashboard/student');
+      })
+      .catch(() => router.replace('/auth/login'));
   }, [router]);
 
   return (
