@@ -34,6 +34,15 @@ type View =
   | 'announcements'
   | 'settings';
 
+type CourseTab =
+  | 'overview'
+  | 'content'
+  | 'students'
+  | 'evaluations'
+  | 'assignments'
+  | 'grades'
+  | 'settings';
+
 const courses = [
   [
     'Algorithmique et Programmation',
@@ -102,9 +111,10 @@ const grades = [
 export function TeacherPortal() {
   const params = useSearchParams();
   const view = (params.get('view') || 'dashboard') as View;
+  const courseTab = (params.get('tab') || 'overview') as CourseTab;
 
   if (view === 'courses') return <Courses />;
-  if (view === 'course-detail') return <CourseDetail />;
+  if (view === 'course-detail') return <CourseDetail tab={courseTab} />;
   if (view === 'students') return <Students />;
   if (view === 'evaluations') return <Evaluations />;
   if (view === 'grades') return <Grades />;
@@ -342,7 +352,7 @@ function Courses() {
         rows={courses.map((course) => [
           <Link
             className="font-bold text-[#16204d] hover:text-violet-600"
-            href="/dashboard/teacher?view=course-detail"
+            href="/dashboard/teacher?view=course-detail&tab=overview"
             key={course[0]}
           >
             {course[0]}
@@ -361,65 +371,314 @@ function Courses() {
   );
 }
 
-function CourseDetail() {
+function CourseDetail({ tab }: { tab: CourseTab }) {
   return (
     <Page
       title="Algorithmique et Programmation"
       subtitle="L3 Informatique · Groupe A"
       back="/dashboard/teacher?view=courses"
     >
-      <Tabs
-        labels={[
-          'Aperçu',
-          'Contenu',
-          'Étudiants',
-          'Évaluations',
-          'Devoirs',
-          'Notes',
-          'Paramètres',
-        ]}
-      />
-      <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
-        <Card title="Informations générales">
-          <Info
-            rows={[
-              ['Code du cours', 'INFO301'],
-              ['Niveau', 'Licence 3'],
-              ['Crédits', '6'],
-              ['Enseignant', 'Prof. Andrianiarina'],
-              ['Salle', 'Salle 2.3'],
-              ['Horaires', 'Lun 08:00 – 10:00\nMer 08:00 – 10:00'],
-              [
-                'Description',
-                'Ce cours couvre les concepts fondamentaux de la programmation et des algorithmes.',
-              ],
-            ]}
-          />
-        </Card>
-        <div className="space-y-4">
-          <Card title="Statistiques du cours">
-            <div className="grid grid-cols-2 gap-3">
-              <MiniStat value="28" label="Étudiants inscrits" />
-              <MiniStat value="24" label="Présents (85%)" />
-              <MiniStat value="12,45" label="Moyenne générale" />
-              <MiniStat value="85%" label="Taux de réussite" />
-            </div>
-          </Card>
-          <Card title="Ressources récentes">
-            <List
-              items={['Cours_Algo_Chapitre3.pdf', 'Slides_Complexité.pdf']}
-              icon={FileText}
-            />
-            <Link
-              href="/dashboard/teacher?view=resources"
-              className="mt-4 block text-xs font-bold text-violet-600"
-            >
-              Voir toutes les ressources →
-            </Link>
-          </Card>
-        </div>
-      </div>
+      <CourseTabs active={tab} />
+      {tab === 'overview' && <CourseOverview />}
+      {tab === 'content' && <CourseContent />}
+      {tab === 'students' && <CourseStudents />}
+      {tab === 'evaluations' && <CourseEvaluations />}
+      {tab === 'assignments' && <CourseAssignments />}
+      {tab === 'grades' && <CourseGrades />}
+      {tab === 'settings' && <CourseSettings />}
     </Page>
+  );
+}
+
+function CourseTabs({ active }: { active: CourseTab }) {
+  const tabs: Array<[CourseTab, string]> = [
+    ['overview', 'Aperçu'],
+    ['content', 'Contenu'],
+    ['students', 'Étudiants'],
+    ['evaluations', 'Évaluations'],
+    ['assignments', 'Devoirs'],
+    ['grades', 'Notes'],
+    ['settings', 'Réglages'],
+  ];
+  return (
+    <nav className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
+      {tabs.map(([key, label]) => (
+        <Link
+          key={key}
+          href={`/dashboard/teacher?view=course-detail&tab=${key}`}
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${active === key ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+        >
+          {label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function CourseOverview() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
+      <Card title="Informations générales">
+        <Info
+          rows={[
+            ['Code du cours', 'INFO301'],
+            ['Niveau', 'Licence 3'],
+            ['Crédits', '6'],
+            ['Enseignant', 'Prof. Andrianiarina'],
+            ['Salle', 'Salle 2.3'],
+            ['Horaires', 'Lun 08:00 – 10:00\nMer 08:00 – 10:00'],
+            [
+              'Description',
+              'Ce cours couvre les concepts fondamentaux de la programmation et des algorithmes.',
+            ],
+          ]}
+        />
+      </Card>
+      <div className="space-y-4">
+        <Card title="Statistiques du cours">
+          <div className="grid grid-cols-2 gap-3">
+            <MiniStat value="28" label="Étudiants inscrits" />
+            <MiniStat value="24" label="Présents (85%)" />
+            <MiniStat value="12,45" label="Moyenne générale" />
+            <MiniStat value="85%" label="Taux de réussite" />
+          </div>
+        </Card>
+        <Card title="Ressources récentes">
+          <List
+            items={['Cours_Algo_Chapitre3.pdf', 'Slides_Complexité.pdf']}
+            icon={FileText}
+          />
+          <Link
+            href="/dashboard/teacher?view=resources"
+            className="mt-4 block text-xs font-bold text-violet-600"
+          >
+            Voir toutes les ressources →
+          </Link>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function CourseContent() {
+  const chapters = [
+    ['Chapitre 1 · Fondamentaux', 'Publié le 04 mai · 3 ressources'],
+    ['Chapitre 2 · Structures de contrôle', 'Publié le 08 mai · 4 ressources'],
+    [
+      'Chapitre 3 · Complexité algorithmique',
+      'Publié le 12 mai · 2 ressources',
+    ],
+    ['Chapitre 4 · Arbres et graphes', 'Brouillon · Non visible aux étudiants'],
+  ];
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
+      <Card title="Contenu pédagogique" action="Ajouter un chapitre">
+        <div className="space-y-3">
+          {chapters.map(([title, detail], index) => (
+            <div
+              className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"
+              key={title}
+            >
+              <span className="grid size-8 place-items-center rounded-lg bg-violet-50 text-xs font-bold text-violet-600">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-[#26305e]">{title}</p>
+                <p className="mt-1 text-[10px] text-slate-500">{detail}</p>
+              </div>
+              <MoreVertical className="size-4 text-violet-600" />
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card title="À publier">
+        <List
+          icon={FileText}
+          items={[
+            'Corrigé TP · Structures de données',
+            'Exemples de parcours d’arbres',
+            'Quiz de révision · Chapitre 3',
+          ]}
+        />
+        <button className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
+          Publier une ressource
+        </button>
+      </Card>
+    </div>
+  );
+}
+
+function CourseStudents() {
+  return (
+    <TableCard
+      headers={[
+        'Étudiant',
+        'Matricule',
+        'Présence',
+        'Dernière activité',
+        'Moyenne',
+        'Suivi',
+      ]}
+      rows={students.slice(0, 4).map((student) => [
+        <StudentName key={student[0]} name={student[0]} />,
+        student[1],
+        <Progress key={`${student[0]}-presence`} value={student[4]} />,
+        'Il y a 2 jours',
+        student[5],
+        <span
+          key={`${student[0]}-follow`}
+          className="text-[10px] font-bold text-violet-600"
+        >
+          Voir le suivi
+        </span>,
+      ])}
+    />
+  );
+}
+
+function CourseEvaluations() {
+  const rows = [
+    ['Contrôle 2 · Algorithmes', 'Contrôle', '28 mai 2025', '2', '12,90'],
+    ['TP · Structures de données', 'TP', '03 juin 2025', '3', '14,00'],
+    ['Mini-projet · Parcours de graphes', 'Projet', '18 juin 2025', '4', '—'],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
+          Créer une évaluation
+        </button>
+      </div>
+      <TableCard
+        headers={[
+          'Évaluation',
+          'Type',
+          'Date',
+          'Coefficient',
+          'Moyenne',
+          'Actions',
+        ]}
+        rows={rows.map((row) => [
+          ...row,
+          <MoreVertical className="size-4 text-violet-600" key={row[0]} />,
+        ])}
+      />
+    </div>
+  );
+}
+
+function CourseAssignments() {
+  const rows = [
+    [
+      'TP · Base de données #1',
+      '25 mai 2025',
+      '20 / 28 remis',
+      '4 à corriger',
+      'En cours',
+    ],
+    [
+      'Exercice · Tri et recherche',
+      '02 juin 2025',
+      '28 / 28 remis',
+      '0 à corriger',
+      'Corrigé',
+    ],
+    ['Mini-projet · Graphes', '18 juin 2025', '12 / 28 remis', '—', 'À venir'],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
+          Créer un devoir
+        </button>
+      </div>
+      <TableCard
+        headers={['Devoir', 'Date limite', 'Remises', 'À corriger', 'Statut']}
+        rows={rows.map((row) => [
+          ...row.slice(0, 4),
+          <Status key={row[0]} value={row[4]} />,
+        ])}
+      />
+    </div>
+  );
+}
+
+function CourseGrades() {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg bg-violet-50 p-3 text-xs text-violet-700">
+        <b>Saisie des notes</b>
+        <span className="ml-2 text-violet-500">
+          Les moyennes sont calculées automatiquement. L’export est réservé à
+          l’administration de l’établissement.
+        </span>
+      </div>
+      <TableCard
+        headers={[
+          'Étudiant',
+          'Contrôle 1',
+          'TP',
+          'Contrôle 2',
+          'Projet',
+          'Moyenne',
+        ]}
+        rows={grades.slice(0, 4).map((grade) => [
+          <StudentName key={grade[0]} name={grade[0]} />,
+          ...grade.slice(1, 5),
+          <b className="text-violet-600" key={`${grade[0]}-average`}>
+            {grade[6]}
+          </b>,
+        ])}
+      />
+    </div>
+  );
+}
+
+function CourseSettings() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_.8fr]">
+      <Card title="Réglages pédagogiques">
+        <div className="space-y-4">
+          <Field
+            label="Nom affiché du cours"
+            value="Algorithmique et Programmation"
+          />
+          <Field
+            label="Message d’accueil"
+            value="Bienvenue dans l’espace du cours. Consultez les ressources avant chaque séance."
+            wide
+          />
+          <label className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs font-semibold text-[#34406b]">
+            <span>Autoriser les messages du groupe</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-600">
+              Activé
+            </span>
+          </label>
+          <label className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs font-semibold text-[#34406b]">
+            <span>Notifier les étudiants lors d’une publication</span>
+            <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-600">
+              Activé
+            </span>
+          </label>
+          <button className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white">
+            Enregistrer les réglages
+          </button>
+        </div>
+      </Card>
+      <Card title="Accès du cours">
+        <Info
+          rows={[
+            ['Visibilité', 'Étudiants du groupe A'],
+            ['Inscrits', '28 étudiants'],
+            ['Responsable pédagogique', 'Prof. Andrianiarina'],
+            [
+              'Modification structurelle',
+              'Réservée à l’administration de l’établissement',
+            ],
+          ]}
+        />
+      </Card>
+    </div>
   );
 }
 

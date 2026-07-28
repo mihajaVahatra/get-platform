@@ -250,6 +250,15 @@ function useCurrentDashboardUrl(pathname: string) {
 function isNavigationActive(currentUrl: string, href: string) {
   const [currentPath, currentSearch = ''] = currentUrl.split('?');
   const [targetPath, targetSearch = ''] = href.split('?');
+  const currentParams = new URLSearchParams(currentSearch);
+  const targetParams = new URLSearchParams(targetSearch);
+  if (
+    targetPath === '/dashboard/teacher' &&
+    targetParams.get('view') === 'courses' &&
+    ['courses', 'course-detail'].includes(currentParams.get('view') || '')
+  ) {
+    return true;
+  }
   if (targetSearch) {
     return currentPath === targetPath && currentSearch === targetSearch;
   }
