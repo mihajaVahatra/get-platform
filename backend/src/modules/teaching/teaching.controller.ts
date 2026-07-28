@@ -33,6 +33,9 @@ export class TeachingController {
   @Get() courses(@GetUser('id') id: string) {
     return this.teaching.courses(id);
   }
+  @Get('schools') schools(@GetUser('id') id: string) {
+    return this.teaching.schools(id);
+  }
   @Get(':courseId') detail(
     @GetUser('id') id: string,
     @Param('courseId') courseId: string,

@@ -15,7 +15,15 @@ export class TeachingService {
   private async course(userId: string, courseId: string) {
     const teacher = await this.teacher(userId);
     const course = await this.prisma.course.findFirst({
-      where: { id: courseId, teacherId: teacher.id },
+      where: {
+        id: courseId,
+        teacherId: teacher.id,
+        school: {
+          teacherAssignments: {
+            some: { teacherId: teacher.id, isActive: true },
+          },
+        },
+      },
     });
     if (!course) throw new NotFoundException('Cours introuvable');
     return course;
@@ -23,8 +31,16 @@ export class TeachingService {
   courses(userId: string) {
     return this.teacher(userId).then((teacher) =>
       this.prisma.course.findMany({
-        where: { teacherId: teacher.id },
+        where: {
+          teacherId: teacher.id,
+          school: {
+            teacherAssignments: {
+              some: { teacherId: teacher.id, isActive: true },
+            },
+          },
+        },
         include: {
+          school: { select: { id: true, name: true, slug: true } },
           _count: {
             select: {
               enrollments: true,
@@ -37,6 +53,14 @@ export class TeachingService {
         orderBy: { title: 'asc' },
       }),
     );
+  }
+  async schools(userId: string) {
+    const teacher = await this.teacher(userId);
+    return this.prisma.teacherSchool.findMany({
+      where: { teacherId: teacher.id, isActive: true },
+      include: { school: { select: { id: true, name: true, slug: true } } },
+      orderBy: { school: { name: 'asc' } },
+    });
   }
   async detail(userId: string, courseId: string) {
     await this.course(userId, courseId);

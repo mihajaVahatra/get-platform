@@ -170,10 +170,42 @@ async function main() {
   });
   const teacher = await prisma.teacher.upsert({
     where: { userId: teacherUser.id },
-    update: { schoolId: school.id },
+    update: {},
     create: {
       userId: teacherUser.id,
+    },
+  });
+  await prisma.teacherSchool.upsert({
+    where: {
+      teacherId_schoolId: { teacherId: teacher.id, schoolId: school.id },
+    },
+    update: {
+      department: 'Informatique',
+      specialty: 'Algorithmique',
+      isActive: true,
+    },
+    create: {
+      teacherId: teacher.id,
       schoolId: school.id,
+      department: 'Informatique',
+      specialty: 'Algorithmique',
+    },
+  });
+  await prisma.teacherSchool.upsert({
+    where: {
+      teacherId_schoolId: {
+        teacherId: teacher.id,
+        schoolId: seededSchools[0].id,
+      },
+    },
+    update: {
+      department: 'Informatique',
+      specialty: 'Algorithmique',
+      isActive: true,
+    },
+    create: {
+      teacherId: teacher.id,
+      schoolId: seededSchools[0].id,
       department: 'Informatique',
       specialty: 'Algorithmique',
     },
@@ -199,7 +231,28 @@ async function main() {
       schedule: 'Lun 08:00 – 10:00; Mer 08:00 – 10:00',
     },
   });
-  console.log('✅ Professeur créé: prof.rakoto@espa.mg / Professeur123!');
+  await prisma.course.upsert({
+    where: {
+      schoolId_code_group: {
+        schoolId: seededSchools[0].id,
+        code: 'ALGO201',
+        group: 'Groupe B',
+      },
+    },
+    update: { teacherId: teacher.id },
+    create: {
+      schoolId: seededSchools[0].id,
+      teacherId: teacher.id,
+      code: 'ALGO201',
+      title: 'Algorithmique appliquée',
+      level: 'Licence 2',
+      group: 'Groupe B',
+      credits: 4,
+      room: 'Salle Informatique 1',
+      schedule: 'Mar 13:00 – 16:00',
+    },
+  });
+  console.log('✅ Professeur créé et affecté à ESPA + IST Mahajanga: prof.rakoto@espa.mg / Professeur123!');
 
   const studentPassword = await bcrypt.hash('Student123!', 10);
   await prisma.user.upsert({

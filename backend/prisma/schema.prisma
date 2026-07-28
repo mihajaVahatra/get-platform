@@ -119,10 +119,10 @@ model School {
   // ════════════════════════════════════════════
   enrolledStudents Student[] @relation("EnrolledStudents")
 
-  admins   SchoolAdmin[]
-  offers   Offer[]
-  teachers Teacher[]
-  courses  Course[]
+  admins             SchoolAdmin[]
+  offers             Offer[]
+  teacherAssignments TeacherSchool[]
+  courses            Course[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -144,19 +144,34 @@ model SchoolAdmin {
 }
 
 model Teacher {
+  id          String          @id @default(uuid())
+  userId      String          @unique
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments TeacherSchool[]
+  courses     Course[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("teachers")
+}
+
+/// Affectation d'un professeur dans un établissement. Un professeur peut
+/// enseigner dans plusieurs établissements, avec une spécialité propre à chacun.
+model TeacherSchool {
   id         String   @id @default(uuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacherId  String
+  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   schoolId   String
   school     School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   department String?
   specialty  String?
-  courses    Course[]
+  isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@index([schoolId])
-  @@map("teachers")
+  @@unique([teacherId, schoolId])
+  @@index([schoolId, isActive])
+  @@map("teacher_schools")
 }
 
 model Course {
