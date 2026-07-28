@@ -11,7 +11,6 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
-  Download,
   FileText,
   Mail,
   MoreVertical,
@@ -294,7 +293,6 @@ function Students() {
       subtitle="Consultez et gérez la liste des étudiants."
     >
       <TableCard
-        exportable
         headers={[
           'Étudiant',
           'Matricule',
@@ -403,7 +401,6 @@ function Grades() {
     >
       <Tabs labels={['Algorithmique et Programmation']} />
       <TableCard
-        exportable
         headers={[
           'Étudiant',
           'Contrôle 1 (20)',
@@ -583,7 +580,9 @@ function Resources() {
         headers={['Nom', 'Cours', 'Type', 'Date', 'Actions']}
         rows={rows.map((r) => [
           ...r,
-          <Download className="size-4 text-violet-600" key={r[0]} />,
+          <span className="text-[10px] font-semibold text-slate-400" key={r[0]}>
+            Consultation
+          </span>,
         ])}
       />
     </Page>
