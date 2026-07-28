@@ -14,6 +14,7 @@ import { MinistryModule } from './modules/ministry/ministry.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { MessageModule } from './modules/message/message.module';
+import { TeachingModule } from './modules/teaching/teaching.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MessageModule } from './modules/message/message.module';
     NotificationModule,
     AuditModule,
     MessageModule,
+    TeachingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -152,7 +152,7 @@ async function main() {
   );
 
   const teacherPassword = await bcrypt.hash('Professeur123!', 10);
-  await prisma.user.upsert({
+  const teacherUser = await prisma.user.upsert({
     where: { email: 'prof.rakoto@espa.mg' },
     update: {
       password: teacherPassword,
@@ -166,6 +166,37 @@ async function main() {
       roleId: teacherRole.id,
       isVerified: true,
       gender: 'MALE',
+    },
+  });
+  const teacher = await prisma.teacher.upsert({
+    where: { userId: teacherUser.id },
+    update: { schoolId: school.id },
+    create: {
+      userId: teacherUser.id,
+      schoolId: school.id,
+      department: 'Informatique',
+      specialty: 'Algorithmique',
+    },
+  });
+  await prisma.course.upsert({
+    where: {
+      schoolId_code_group: {
+        schoolId: school.id,
+        code: 'INFO301',
+        group: 'Groupe A',
+      },
+    },
+    update: { teacherId: teacher.id },
+    create: {
+      schoolId: school.id,
+      teacherId: teacher.id,
+      code: 'INFO301',
+      title: 'Algorithmique et Programmation',
+      level: 'Licence 3',
+      group: 'Groupe A',
+      credits: 6,
+      room: 'Salle 2.3',
+      schedule: 'Lun 08:00 – 10:00; Mer 08:00 – 10:00',
     },
   });
   console.log('✅ Professeur créé: prof.rakoto@espa.mg / Professeur123!');
