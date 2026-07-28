@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3,
   BookOpen,
@@ -154,21 +154,25 @@ export default function DashboardLayout({
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
         {userRole === 'TEACHER' ? (
-          <TeacherSidebar
-            pathname={pathname}
-            displayName={
-              displayName === 'Étudiant' ? 'Professeur' : displayName
-            }
-            onLogout={logout}
-          />
+          <Suspense fallback={null}>
+            <TeacherSidebar
+              pathname={pathname}
+              displayName={
+                displayName === 'Étudiant' ? 'Professeur' : displayName
+              }
+              onLogout={logout}
+            />
+          </Suspense>
         ) : (
-          <SchoolSidebar
-            pathname={pathname}
-            displayName={
-              displayName === 'Étudiant' ? 'Administrateur' : displayName
-            }
-            onLogout={logout}
-          />
+          <Suspense fallback={null}>
+            <SchoolSidebar
+              pathname={pathname}
+              displayName={
+                displayName === 'Étudiant' ? 'Administrateur' : displayName
+              }
+              onLogout={logout}
+            />
+          </Suspense>
         )}
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
@@ -180,7 +184,9 @@ export default function DashboardLayout({
   if (userRole === 'ADMIN_GET') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <AdminGetSidebar pathname={pathname} onLogout={logout} />
+        <Suspense fallback={null}>
+          <AdminGetSidebar pathname={pathname} onLogout={logout} />
+        </Suspense>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
         </main>
@@ -191,7 +197,9 @@ export default function DashboardLayout({
   if (userRole === 'MINISTRY') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <MinistrySidebar pathname={pathname} onLogout={logout} />
+        <Suspense fallback={null}>
+          <MinistrySidebar pathname={pathname} onLogout={logout} />
+        </Suspense>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
         </main>
@@ -233,6 +241,26 @@ export default function DashboardLayout({
   );
 }
 
+function useCurrentDashboardUrl(pathname: string) {
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}
+
+function isNavigationActive(currentUrl: string, href: string) {
+  const [currentPath, currentSearch = ''] = currentUrl.split('?');
+  const [targetPath, targetSearch = ''] = href.split('?');
+  if (targetSearch) {
+    return currentPath === targetPath && currentSearch === targetSearch;
+  }
+  const isDashboardRoot =
+    /^\/dashboard\/(student|school|teacher|admin|ministry)$/.test(targetPath);
+  return (
+    currentPath === targetPath ||
+    (!isDashboardRoot && currentPath.startsWith(`${targetPath}/`))
+  );
+}
+
 function TeacherSidebar({
   pathname,
   displayName,
@@ -242,6 +270,7 @@ function TeacherSidebar({
   displayName: string;
   onLogout: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const items = [
     { label: 'Tableau de bord', icon: Home, href: '/dashboard/teacher' },
     {
@@ -309,9 +338,7 @@ function TeacherSidebar({
       <nav className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.href === '/dashboard/teacher' &&
-            pathname === '/dashboard/teacher';
+          const active = isNavigationActive(currentUrl, item.href);
           return (
             <Link
               key={item.label}
@@ -336,15 +363,13 @@ function TeacherSidebar({
             Professeur · Informatique
           </p>
         </div>
-        <button
-          onClick={() =>
-            window.location.assign('/dashboard/teacher?view=settings')
-          }
-          className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-white"
+        <Link
+          href="/dashboard/teacher?view=settings"
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs ${isNavigationActive(currentUrl, '/dashboard/teacher?view=settings') ? 'bg-white/15 text-white' : 'text-blue-100 hover:text-white'}`}
         >
           <Settings className="size-4" />
           Paramètres
-        </button>
+        </Link>
         <button
           onClick={onLogout}
           className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-rose-300"
@@ -366,6 +391,7 @@ function SchoolSidebar({
   displayName: string;
   onLogout: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const academic = [
     {
       label: 'Étudiants',
@@ -434,15 +460,23 @@ function SchoolSidebar({
           href="/dashboard/school"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/school'}
+          active={isNavigationActive(currentUrl, '/dashboard/school')}
         />
-        <SidebarGroup label="Gestion académique" items={academic} />
-        <SidebarGroup label="Administration" items={admin} />
+        <SidebarGroup
+          label="Gestion académique"
+          items={academic}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Administration"
+          items={admin}
+          currentUrl={currentUrl}
+        />
         <SchoolNav
           href="/dashboard/school/settings"
           label="Paramètres"
           icon={Settings}
-          active={pathname === '/dashboard/school/settings'}
+          active={isNavigationActive(currentUrl, '/dashboard/school/settings')}
         />
       </nav>
       <div className="mt-auto space-y-4">
@@ -494,6 +528,7 @@ function SchoolSidebar({
 function SidebarGroup({
   label,
   items,
+  currentUrl,
 }: {
   label: string;
   items: Array<{
@@ -502,6 +537,7 @@ function SidebarGroup({
     href: string;
     badge?: string;
   }>;
+  currentUrl: string;
 }) {
   return (
     <div className="py-3">
@@ -509,7 +545,11 @@ function SidebarGroup({
         {label}
       </p>
       {items.map((item) => (
-        <SchoolNav key={item.label} {...item} active={false} />
+        <SchoolNav
+          key={item.label}
+          {...item}
+          active={isNavigationActive(currentUrl, item.href)}
+        />
       ))}
     </div>
   );
@@ -551,6 +591,7 @@ function AdminGetSidebar({
   pathname: string;
   onLogout: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const global = [
     {
       label: 'Établissements',
@@ -635,11 +676,23 @@ function AdminGetSidebar({
           href="/dashboard/admin"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/admin'}
+          active={isNavigationActive(currentUrl, '/dashboard/admin')}
         />
-        <SidebarGroup label="Gestion globale" items={global} />
-        <SidebarGroup label="Paiements & finances" items={finances} />
-        <SidebarGroup label="Communication" items={communication} />
+        <SidebarGroup
+          label="Gestion globale"
+          items={global}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Paiements & finances"
+          items={finances}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Communication"
+          items={communication}
+          currentUrl={currentUrl}
+        />
         <SidebarGroup
           label="Analytiques"
           items={[
@@ -654,6 +707,7 @@ function AdminGetSidebar({
               href: '/dashboard/admin?section=dashboards',
             },
           ]}
+          currentUrl={currentUrl}
         />
         <div className="pt-3">
           <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">
@@ -663,13 +717,16 @@ function AdminGetSidebar({
             href="/dashboard/admin/settings"
             label="Paramètres généraux"
             icon={Settings}
-            active={pathname === '/dashboard/admin/settings'}
+            active={isNavigationActive(currentUrl, '/dashboard/admin/settings')}
           />
           <SchoolNav
             href="/dashboard/admin?section=activity"
             label="Journal d’activité"
             icon={ScrollText}
-            active={false}
+            active={isNavigationActive(
+              currentUrl,
+              '/dashboard/admin?section=activity',
+            )}
           />
         </div>
       </nav>
@@ -713,6 +770,7 @@ function MinistrySidebar({
   pathname: string;
   onLogout: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const national = [
     {
       label: 'Établissements',
@@ -789,7 +847,7 @@ function MinistrySidebar({
           href="/dashboard/ministry"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/ministry'}
+          active={isNavigationActive(currentUrl, '/dashboard/ministry')}
         />
         <p className="px-3 pb-2 pt-5 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
           Menu principal
@@ -798,18 +856,18 @@ function MinistrySidebar({
           <MinistryNav
             key={item.label}
             {...item}
-            active={
-              pathname === item.href.split('?')[0] && item.href.includes('?')
-                ? false
-                : pathname === item.href
-            }
+            active={isNavigationActive(currentUrl, item.href)}
           />
         ))}
         <p className="px-3 pb-2 pt-5 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
           Paramètres
         </p>
         {settings.map((item) => (
-          <MinistryNav key={item.label} {...item} active={false} />
+          <MinistryNav
+            key={item.label}
+            {...item}
+            active={isNavigationActive(currentUrl, item.href)}
+          />
         ))}
       </nav>
       <div className="mt-auto border-t border-white/10 pt-4">
