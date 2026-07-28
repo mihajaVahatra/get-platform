@@ -1,4 +1,12 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
@@ -10,6 +18,7 @@ export class PaymentService {
   constructor(
     private prisma: PrismaService,
     @Inject('PaymentProvider') private paymentProvider: PaymentProvider,
+    private config: ConfigService,
   ) {}
 
   async initiatePayment(studentId: string, dto: InitiatePaymentDto) {
@@ -26,9 +35,11 @@ export class PaymentService {
         include: { offer: true },
       });
       if (!application) throw new NotFoundException('Application not found');
-      if (!dto.amount) {
-        amount = application.offer.tuitionFees;
-      }
+      if (application.studentId !== studentId)
+        throw new ForbiddenException(
+          'Cette candidature ne vous appartient pas',
+        );
+      amount = application.offer.tuitionFees;
     }
 
     const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
@@ -72,15 +83,24 @@ export class PaymentService {
     };
   }
 
-  async handleWebhook(dto: PaymentWebhookDto) {
+  async handleWebhook(dto: PaymentWebhookDto, signature?: string) {
+    this.assertValidWebhookSignature(dto, signature);
     const payment = await this.prisma.payment.findFirst({
       where: { providerRef: dto.providerReference },
     });
     if (!payment) {
-      throw new NotFoundException('Payment not found for this provider reference');
+      throw new NotFoundException(
+        'Payment not found for this provider reference',
+      );
+    }
+    if (payment.status === 'COMPLETED') return payment;
+    if (dto.amount !== undefined && dto.amount !== payment.amount) {
+      throw new BadRequestException('Montant de webhook incohérent');
     }
 
-    const confirmation = await this.paymentProvider.confirmPayment(dto.providerReference);
+    const confirmation = await this.paymentProvider.confirmPayment(
+      dto.providerReference,
+    );
 
     const status = confirmation.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
 
@@ -118,7 +138,7 @@ export class PaymentService {
     return updatedPayment;
   }
 
-  async getPayment(paymentId: string, userId: string) {
+  async getPayment(paymentId: string, userId: string, role: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -142,10 +162,14 @@ export class PaymentService {
     });
     if (!payment) throw new NotFoundException('Payment not found');
 
-    // Vérification d'autorisation simplifiée
-    if (payment.student.userId !== userId) {
-      // On pourrait vérifier si l'utilisateur est ADMIN_GET ou MINISTRY
-      // Pour l'instant, on autorise
+    if (
+      payment.student.userId !== userId &&
+      role !== 'ADMIN_GET' &&
+      role !== 'MINISTRY'
+    ) {
+      throw new ForbiddenException(
+        'Vous n’êtes pas autorisé à consulter ce paiement',
+      );
     }
 
     return payment;
@@ -181,8 +205,12 @@ export class PaymentService {
     };
   }
 
-  async generateReceipt(paymentId: string, userId: string): Promise<Buffer> {
-    const payment = await this.getPayment(paymentId, userId);
+  async generateReceipt(
+    paymentId: string,
+    userId: string,
+    role: string,
+  ): Promise<Buffer> {
+    const payment = await this.getPayment(paymentId, userId, role);
     // Pour le moment, on retourne un simple texte
     // Plus tard, on générera un vrai PDF avec PDFKit
     return Buffer.from(`
@@ -231,5 +259,26 @@ export class PaymentService {
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
       byMethod: byMethod.map((m) => ({ method: m.method, count: m._count })),
     };
+  }
+
+  private assertValidWebhookSignature(
+    dto: PaymentWebhookDto,
+    signature?: string,
+  ) {
+    const secret = this.config.get<string>('PAYMENT_WEBHOOK_SECRET');
+    if (!secret || !signature)
+      throw new ForbiddenException('Signature webhook manquante');
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(JSON.stringify(dto))
+      .digest('hex');
+    const received = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    if (
+      received.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(received, expectedBuffer)
+    ) {
+      throw new ForbiddenException('Signature webhook invalide');
+    }
   }
 }

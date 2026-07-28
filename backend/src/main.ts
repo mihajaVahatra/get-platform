@@ -13,9 +13,29 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
+  app.disable('x-powered-by');
+  app.use((_, response, next) => {
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('X-Frame-Options', 'DENY');
+    response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.setHeader(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=()',
+    );
+    if (configService.get('NODE_ENV') === 'production') {
+      response.setHeader(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains',
+      );
+    }
+    next();
+  });
+
   // CORS
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: (
+      configService.get('FRONTEND_URL') || 'http://localhost:3000'
+    ).split(','),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -27,11 +47,13 @@ async function bootstrap() {
   });
 
   // Validation globale
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   // Filtres globaux
   app.useGlobalFilters(new AllExceptionsFilter());
@@ -68,18 +90,26 @@ async function bootstrap() {
       'access-token',
     )
     .addSecurityRequirements('access-token')
-    .addServer(`http://localhost:${configService.get('PORT', 3001)}`, 'Development')
+    .addServer(
+      `http://localhost:${configService.get('PORT', 3001)}`,
+      'Development',
+    )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      docExpansion: 'none',
-      filter: true,
-      showRequestDuration: true,
-    },
-  });
+  if (
+    configService.get('NODE_ENV') !== 'production' ||
+    configService.get('ENABLE_SWAGGER') === 'true'
+  ) {
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        docExpansion: 'none',
+        filter: true,
+        showRequestDuration: true,
+      },
+    });
+  }
 
   const port = configService.get('PORT', 3001);
   await app.listen(port);

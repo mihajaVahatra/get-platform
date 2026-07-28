@@ -61,28 +61,18 @@ export default function DashboardLayout({
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
-    const token = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('accessToken='))
-      ?.split('=')[1];
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      Promise.resolve().then(() => {
-        setUserRole(payload.role || 'STUDENT');
+    apiClient
+      .get('/auth/me')
+      .then((response) => {
+        const sessionUser = response.data.data.user;
+        setUserRole(sessionUser.role || 'STUDENT');
         setUser({
-          firstName: payload.firstName || '',
-          lastName: payload.lastName || '',
-          gender: payload.gender || 'MALE',
+          firstName: sessionUser.firstName || '',
+          lastName: sessionUser.lastName || '',
+          gender: sessionUser.gender || 'MALE',
         });
-      });
-    } catch {
-      Promise.resolve().then(() => setUserRole('STUDENT'));
-    }
+      })
+      .catch(() => router.replace('/auth/login'));
   }, [router]);
 
   useEffect(() => {
@@ -116,15 +106,26 @@ export default function DashboardLayout({
       window.removeEventListener('messages:updated', refreshUnreadMessages);
   }, [userRole, pathname]);
 
-  const logout = () => {
-    document.cookie = 'accessToken=; path=/; max-age=0';
-    router.push('/auth/login');
+  const logout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } finally {
+      router.replace('/auth/login');
+    }
   };
 
   const initials =
     `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName =
     `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Étudiant';
+
+  if (!userRole) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#fbfbff] text-sm text-slate-500">
+        Chargement de votre session…
+      </div>
+    );
+  }
 
   if (userRole === 'STUDENT') {
     return (

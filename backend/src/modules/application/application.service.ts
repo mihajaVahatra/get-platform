@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
-import { UpdateApplicationStatusDto, ScheduleInterviewDto, ApplicationStatus } from './dto/update-application-status.dto';
+import {
+  UpdateApplicationStatusDto,
+  ScheduleInterviewDto,
+  ApplicationStatus,
+} from './dto/update-application-status.dto';
 
 @Injectable()
 export class ApplicationService {
@@ -107,7 +116,12 @@ export class ApplicationService {
 
   async getSchoolApplications(
     schoolAdminId: string,
-    options?: { status?: ApplicationStatus; offerId?: string; page?: number; limit?: number },
+    options?: {
+      status?: ApplicationStatus;
+      offerId?: string;
+      page?: number;
+      limit?: number;
+    },
   ) {
     const admin = await this.prisma.schoolAdmin.findUnique({
       where: { userId: schoolAdminId },
@@ -166,7 +180,11 @@ export class ApplicationService {
     };
   }
 
-  async getApplicationById(applicationId: string, userId: string, role: string) {
+  async getApplicationById(
+    applicationId: string,
+    userId: string,
+    role: string,
+  ) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
       include: {
@@ -189,17 +207,23 @@ export class ApplicationService {
       },
     });
     if (!application) throw new NotFoundException('Application not found');
+    await this.ensureCanAccessApplication(application, userId, role);
     return application;
   }
 
   // ========== STATUS MANAGEMENT ==========
 
-  async updateStatus(applicationId: string, dto: UpdateApplicationStatusDto, userId: string) {
+  async updateStatus(
+    applicationId: string,
+    dto: UpdateApplicationStatusDto,
+    userId: string,
+  ) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
       include: { offer: { include: { school: true } } },
     });
     if (!application) throw new NotFoundException('Application not found');
+    await this.ensureCanManageApplication(application, userId);
 
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
@@ -223,12 +247,27 @@ export class ApplicationService {
     return updated;
   }
 
-  async scheduleTest(applicationId: string, data: { date: Date; type: string; details?: string }, userId: string) {
+  async scheduleTest(
+    applicationId: string,
+    data: { date: Date; type: string; details?: string },
+    userId: string,
+  ) {
+    const applicationToManage = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { offer: true },
+    });
+    if (!applicationToManage)
+      throw new NotFoundException('Application not found');
+    await this.ensureCanManageApplication(applicationToManage, userId);
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
         status: ApplicationStatus.TEST_SCHEDULED,
-        testResults: { type: data.type, details: data.details, scheduledAt: data.date },
+        testResults: {
+          type: data.type,
+          details: data.details,
+          scheduledAt: data.date,
+        },
       },
     });
 
@@ -244,7 +283,18 @@ export class ApplicationService {
     return application;
   }
 
-  async scheduleInterview(applicationId: string, dto: ScheduleInterviewDto, userId: string) {
+  async scheduleInterview(
+    applicationId: string,
+    dto: ScheduleInterviewDto,
+    userId: string,
+  ) {
+    const applicationToManage = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { offer: true },
+    });
+    if (!applicationToManage)
+      throw new NotFoundException('Application not found');
+    await this.ensureCanManageApplication(applicationToManage, userId);
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -266,7 +316,18 @@ export class ApplicationService {
     return application;
   }
 
-  async recordScore(applicationId: string, data: { score: number; comments?: string }, userId: string) {
+  async recordScore(
+    applicationId: string,
+    data: { score: number; comments?: string },
+    userId: string,
+  ) {
+    const applicationToManage = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: { offer: true },
+    });
+    if (!applicationToManage)
+      throw new NotFoundException('Application not found');
+    await this.ensureCanManageApplication(applicationToManage, userId);
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -293,7 +354,8 @@ export class ApplicationService {
   async getStats(filters?: { from?: Date; to?: Date; schoolId?: string }) {
     const where: any = {};
     if (filters?.from) where.submittedAt = { gte: filters.from };
-    if (filters?.to) where.submittedAt = { ...where.submittedAt, lte: filters.to };
+    if (filters?.to)
+      where.submittedAt = { ...where.submittedAt, lte: filters.to };
     if (filters?.schoolId) {
       where.offer = { schoolId: filters.schoolId };
     }
@@ -309,5 +371,39 @@ export class ApplicationService {
       total,
       byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
     };
+  }
+
+  private async ensureCanAccessApplication(
+    application: any,
+    userId: string,
+    role: string,
+  ) {
+    if (role === 'ADMIN_GET' || role === 'MINISTRY') return;
+    if (role === 'STUDENT' && application.student.userId === userId) return;
+    if (role === 'SCHOOL_ADMIN') {
+      const admin = await this.prisma.schoolAdmin.findUnique({
+        where: { userId },
+      });
+      if (admin?.schoolId === application.offer.schoolId) return;
+    }
+    throw new ForbiddenException(
+      'Vous n’êtes pas autorisé à consulter ce dossier',
+    );
+  }
+
+  private async ensureCanManageApplication(application: any, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true, schoolAdmin: true },
+    });
+    if (user?.role?.name === 'ADMIN_GET') return;
+    if (
+      user?.role?.name === 'SCHOOL_ADMIN' &&
+      user.schoolAdmin?.schoolId === application.offer.schoolId
+    )
+      return;
+    throw new ForbiddenException(
+      'Vous n’êtes pas autorisé à modifier ce dossier',
+    );
   }
 }

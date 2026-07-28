@@ -11,7 +11,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private prisma: PrismaService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (request) =>
+          request?.headers?.cookie
+            ?.split('; ')
+            .find((cookie: string) => cookie.startsWith('access_token='))
+            ?.split('=')[1],
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('JWT_SECRET')!,
     });
@@ -22,7 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: {
         student: true,
-        schoolAdmin: true,   //Ajouté pour les admins école
+        schoolAdmin: true, //Ajouté pour les admins école
         role: true,
       },
     });

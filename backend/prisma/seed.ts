@@ -5,6 +5,12 @@ import { randomUUID } from 'crypto';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.ALLOW_DEMO_SEED !== 'true'
+  ) {
+    throw new Error('Le seed de démonstration est désactivé en production');
+  }
   console.log('🌱 Seeding database...');
 
   const studentRole = await prisma.role.upsert({
@@ -127,7 +133,12 @@ async function main() {
   const ministryPassword = await bcrypt.hash('Ministere123!', 10);
   await prisma.user.upsert({
     where: { email: 'ministere@mesupres.gov.mg' },
-    update: { password: ministryPassword, roleId: ministryRole.id, isVerified: true, gender: 'FEMALE' },
+    update: {
+      password: ministryPassword,
+      roleId: ministryRole.id,
+      isVerified: true,
+      gender: 'FEMALE',
+    },
     create: {
       email: 'ministere@mesupres.gov.mg',
       password: ministryPassword,
@@ -136,12 +147,19 @@ async function main() {
       gender: 'FEMALE',
     },
   });
-  console.log('✅ Utilisateur Ministère créé: ministere@mesupres.gov.mg / Ministere123!');
+  console.log(
+    '✅ Utilisateur Ministère créé: ministere@mesupres.gov.mg / Ministere123!',
+  );
 
   const teacherPassword = await bcrypt.hash('Professeur123!', 10);
   await prisma.user.upsert({
     where: { email: 'prof.rakoto@espa.mg' },
-    update: { password: teacherPassword, roleId: teacherRole.id, isVerified: true, gender: 'MALE' },
+    update: {
+      password: teacherPassword,
+      roleId: teacherRole.id,
+      isVerified: true,
+      gender: 'MALE',
+    },
     create: {
       email: 'prof.rakoto@espa.mg',
       password: teacherPassword,
@@ -178,7 +196,12 @@ async function main() {
   const candidatePassword = await bcrypt.hash('Candidat123!', 10);
   const candidate = await prisma.user.upsert({
     where: { email: 'candidat@get.mg' },
-    update: { password: candidatePassword, roleId: studentRole.id, isVerified: true, gender: 'FEMALE' },
+    update: {
+      password: candidatePassword,
+      roleId: studentRole.id,
+      isVerified: true,
+      gender: 'FEMALE',
+    },
     create: {
       email: 'candidat@get.mg',
       password: candidatePassword,
@@ -189,10 +212,25 @@ async function main() {
   });
   await prisma.student.upsert({
     where: { userId: candidate.id },
-    update: { firstName: 'Mialy', lastName: 'Ranaivo', city: 'Antananarivo', region: 'Analamanga', enrolledSchoolId: null, enrolledYear: null },
-    create: { userId: candidate.id, firstName: 'Mialy', lastName: 'Ranaivo', city: 'Antananarivo', region: 'Analamanga' },
+    update: {
+      firstName: 'Mialy',
+      lastName: 'Ranaivo',
+      city: 'Antananarivo',
+      region: 'Analamanga',
+      enrolledSchoolId: null,
+      enrolledYear: null,
+    },
+    create: {
+      userId: candidate.id,
+      firstName: 'Mialy',
+      lastName: 'Ranaivo',
+      city: 'Antananarivo',
+      region: 'Analamanga',
+    },
   });
-  console.log('✅ Étudiante non inscrite créée: candidat@get.mg / Candidat123!');
+  console.log(
+    '✅ Étudiante non inscrite créée: candidat@get.mg / Candidat123!',
+  );
 
   const enrolledPassword = await bcrypt.hash('Enrolled123!', 10);
   const enrolledStudent = await prisma.user.upsert({
@@ -230,28 +268,98 @@ async function main() {
   console.log('✅ Étudiant inscrit créé: enrolled@test.com / Enrolled123!');
 
   const schoolStudents = [
-    { email: 'lina.ist@get.mg', firstName: 'Lina', lastName: 'Razanakoto', school: seededSchools[0], year: '1ʳᵉ année Informatique', gender: 'FEMALE' },
-    { email: 'hery.ist@get.mg', firstName: 'Hery', lastName: 'Andrianina', school: seededSchools[0], year: '2ᵉ année Génie Civil', gender: 'MALE' },
-    { email: 'mamy.inscae@get.mg', firstName: 'Mamy', lastName: 'Rakotondrabe', school: seededSchools[1], year: '1ʳᵉ année Management', gender: 'MALE' },
-    { email: 'saholy.inscae@get.mg', firstName: 'Saholy', lastName: 'Rasoanaivo', school: seededSchools[1], year: '2ᵉ année Finance', gender: 'FEMALE' },
-    { email: 'fanja.toamasina@get.mg', firstName: 'Fanja', lastName: 'Ravelomanana', school: seededSchools[2], year: '1ʳᵉ année Sciences de la santé', gender: 'FEMALE' },
-    { email: 'toky.toamasina@get.mg', firstName: 'Toky', lastName: 'Randriamihaja', school: seededSchools[2], year: '2ᵉ année Économie', gender: 'MALE' },
+    {
+      email: 'lina.ist@get.mg',
+      firstName: 'Lina',
+      lastName: 'Razanakoto',
+      school: seededSchools[0],
+      year: '1ʳᵉ année Informatique',
+      gender: 'FEMALE',
+    },
+    {
+      email: 'hery.ist@get.mg',
+      firstName: 'Hery',
+      lastName: 'Andrianina',
+      school: seededSchools[0],
+      year: '2ᵉ année Génie Civil',
+      gender: 'MALE',
+    },
+    {
+      email: 'mamy.inscae@get.mg',
+      firstName: 'Mamy',
+      lastName: 'Rakotondrabe',
+      school: seededSchools[1],
+      year: '1ʳᵉ année Management',
+      gender: 'MALE',
+    },
+    {
+      email: 'saholy.inscae@get.mg',
+      firstName: 'Saholy',
+      lastName: 'Rasoanaivo',
+      school: seededSchools[1],
+      year: '2ᵉ année Finance',
+      gender: 'FEMALE',
+    },
+    {
+      email: 'fanja.toamasina@get.mg',
+      firstName: 'Fanja',
+      lastName: 'Ravelomanana',
+      school: seededSchools[2],
+      year: '1ʳᵉ année Sciences de la santé',
+      gender: 'FEMALE',
+    },
+    {
+      email: 'toky.toamasina@get.mg',
+      firstName: 'Toky',
+      lastName: 'Randriamihaja',
+      school: seededSchools[2],
+      year: '2ᵉ année Économie',
+      gender: 'MALE',
+    },
   ] as const;
 
   const enrolledDemoPassword = await bcrypt.hash('Etudiant123!', 10);
   for (const entry of schoolStudents) {
     const user = await prisma.user.upsert({
       where: { email: entry.email },
-      update: { password: enrolledDemoPassword, roleId: studentRole.id, isVerified: true, gender: entry.gender },
-      create: { email: entry.email, password: enrolledDemoPassword, roleId: studentRole.id, isVerified: true, gender: entry.gender },
+      update: {
+        password: enrolledDemoPassword,
+        roleId: studentRole.id,
+        isVerified: true,
+        gender: entry.gender,
+      },
+      create: {
+        email: entry.email,
+        password: enrolledDemoPassword,
+        roleId: studentRole.id,
+        isVerified: true,
+        gender: entry.gender,
+      },
     });
     await prisma.student.upsert({
       where: { userId: user.id },
-      update: { firstName: entry.firstName, lastName: entry.lastName, city: entry.school.city, region: entry.school.region, enrolledSchoolId: entry.school.id, enrolledYear: entry.year },
-      create: { userId: user.id, firstName: entry.firstName, lastName: entry.lastName, city: entry.school.city, region: entry.school.region, enrolledSchoolId: entry.school.id, enrolledYear: entry.year },
+      update: {
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        city: entry.school.city,
+        region: entry.school.region,
+        enrolledSchoolId: entry.school.id,
+        enrolledYear: entry.year,
+      },
+      create: {
+        userId: user.id,
+        firstName: entry.firstName,
+        lastName: entry.lastName,
+        city: entry.school.city,
+        region: entry.school.region,
+        enrolledSchoolId: entry.school.id,
+        enrolledYear: entry.year,
+      },
     });
   }
-  console.log('✅ 6 étudiants inscrits dans les nouveaux établissements (mot de passe : Etudiant123!)');
+  console.log(
+    '✅ 6 étudiants inscrits dans les nouveaux établissements (mot de passe : Etudiant123!)',
+  );
 
   const demoMessages = [
     {
@@ -278,11 +386,15 @@ async function main() {
     });
 
     if (!existingMessage) {
-      const directKey = [message.senderId, message.recipientId].sort().join(':');
+      const directKey = [message.senderId, message.recipientId]
+        .sort()
+        .join(':');
       const now = new Date();
       const newConversationId = randomUUID();
       await prisma.$executeRaw`INSERT INTO "conversations" ("id", "directKey", "lastMessageAt", "createdAt") VALUES (${newConversationId}, ${directKey}, ${now}, ${now}) ON CONFLICT ("directKey") DO UPDATE SET "lastMessageAt" = EXCLUDED."lastMessageAt"`;
-      const conversations = await prisma.$queryRaw<{ id: string }[]>`SELECT "id" FROM "conversations" WHERE "directKey" = ${directKey}`;
+      const conversations = await prisma.$queryRaw<
+        { id: string }[]
+      >`SELECT "id" FROM "conversations" WHERE "directKey" = ${directKey}`;
       const conversationId = conversations[0].id;
       await prisma.$executeRaw`INSERT INTO "conversation_participants" ("conversationId", "userId") VALUES (${conversationId}, ${message.senderId}), (${conversationId}, ${message.recipientId}) ON CONFLICT DO NOTHING`;
       await prisma.$executeRaw`INSERT INTO "messages" ("id", "conversationId", "senderId", "recipientId", "subject", "body", "isRead", "createdAt") VALUES (${randomUUID()}, ${conversationId}, ${message.senderId}, ${message.recipientId}, ${message.subject}, ${message.body}, false, ${now})`;

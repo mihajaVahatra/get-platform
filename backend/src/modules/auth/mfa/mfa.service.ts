@@ -2,10 +2,14 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
+import { EncryptionService } from '../../../common/services/encryption.service';
 
 @Injectable()
 export class MfaService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encryption: EncryptionService,
+  ) {}
 
   async generateSecret(userId: string) {
     const secret = speakeasy.generateSecret({
@@ -15,7 +19,7 @@ export class MfaService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        mfaSecret: secret.base32,
+        mfaSecret: this.encryption.encrypt(secret.base32),
         mfaEnabled: false,
       },
     });
@@ -42,7 +46,7 @@ export class MfaService {
     }
 
     const verified = speakeasy.totp.verify({
-      secret: user.mfaSecret,
+      secret: this.decryptMfaSecret(user.mfaSecret),
       encoding: 'base32',
       token: code,
       window: 2,
@@ -70,7 +74,7 @@ export class MfaService {
     }
 
     return speakeasy.totp.verify({
-      secret: user.mfaSecret,
+      secret: this.decryptMfaSecret(user.mfaSecret),
       encoding: 'base32',
       token: code,
       window: 2,
@@ -92,5 +96,13 @@ export class MfaService {
     });
 
     return { success: true };
+  }
+
+  private decryptMfaSecret(secret: string) {
+    try {
+      return this.encryption.decrypt(secret);
+    } catch {
+      return secret;
+    }
   }
 }
