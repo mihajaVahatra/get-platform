@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
-  Clock3,
   FileText,
   Mail,
   MoreVertical,
@@ -18,6 +17,7 @@ import {
   Plus,
   Search,
   Send,
+  UsersRound,
 } from 'lucide-react';
 
 type View =
@@ -123,63 +123,200 @@ function Dashboard() {
       title="Bonjour, Prof. Andrianiarina 👋"
       subtitle="Voici un aperçu de votre activité aujourd’hui."
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric
-          icon={BookOpen}
-          label="Cours enseignés"
-          value="5"
-          tone="violet"
-          detail="Ce semestre"
-        />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           icon={CalendarDays}
-          label="Étudiants suivis"
-          value="120"
-          tone="blue"
-          detail="↗ +5 ce mois"
-        />
-        <Metric
-          icon={ClipboardCheck}
-          label="Évaluations créées"
-          value="12"
-          tone="green"
-          detail="↗ +3 ce mois"
+          label="Cours aujourd’hui"
+          value="3"
+          tone="violet"
+          detail="Prochain à 08:00"
         />
         <Metric
           icon={FileText}
-          label="Devoirs à corriger"
+          label="À corriger"
           value="18"
           tone="orange"
-          detail="↗ 7 en retard"
+          detail="7 devoirs en retard"
+        />
+        <Metric
+          icon={UsersRound}
+          label="Étudiants à suivre"
+          value="4"
+          tone="blue"
+          detail="Absences ou résultats faibles"
         />
         <Metric
           icon={Mail}
           label="Messages non lus"
           value="3"
           tone="violet"
-          detail="Voir les messages"
+          detail="2 conversations de groupe"
         />
       </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.05fr_1.2fr_.9fr]">
-        <Card title="Prochains cours aujourd’hui">
-          <Timeline />
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_.9fr_.9fr]">
+        <Card title="Prochain cours" action="Voir l’emploi du temps">
+          <div className="rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 p-4 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-100">
+                  Dans 35 minutes · 08:00 – 10:00
+                </p>
+                <h2 className="mt-2 text-lg font-extrabold">
+                  Algorithmique et Programmation
+                </h2>
+                <p className="mt-1 text-xs text-violet-100">
+                  L3 Informatique · Groupe A · Salle 2.3
+                </p>
+              </div>
+              <span className="grid size-10 place-items-center rounded-xl bg-white/15">
+                <BookOpen className="size-5" />
+              </span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-violet-700">
+                Ouvrir le cours
+              </button>
+              <button className="rounded-lg border border-white/30 px-3 py-2 text-[10px] font-bold text-white">
+                Faire l’appel
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500">
+            <span>28 étudiants inscrits</span>
+            <span>Dernier contenu : Chapitre 3</span>
+          </div>
         </Card>
-        <Card title="Répartition des notes" action="Voir le détail">
-          <GradeDistribution />
+        <Card title="À traiter" action="Tout voir">
+          <div className="space-y-2">
+            {[
+              [
+                'Corriger le TP Base de données',
+                '24 copies · Échéance aujourd’hui',
+                'Urgent',
+              ],
+              [
+                'Saisir les notes du contrôle 2',
+                'Algorithmique · Groupe A',
+                'À faire',
+              ],
+              [
+                'Publier le corrigé de l’exercice',
+                'Génie Logiciel · 26 étudiants',
+                'À faire',
+              ],
+              [
+                'Répondre aux demandes d’étudiants',
+                '3 messages en attente',
+                'Nouveau',
+              ],
+            ].map(([title, detail, status]) => (
+              <div
+                className="flex gap-3 rounded-lg bg-slate-50 p-2.5"
+                key={title}
+              >
+                <span className="grid size-7 place-items-center rounded-lg bg-white text-violet-600">
+                  <ClipboardCheck className="size-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-[#26305e]">
+                    {title}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">{detail}</p>
+                </div>
+                <Status value={status} />
+              </div>
+            ))}
+          </div>
         </Card>
-        <Card title="Activités récentes">
-          <Activities />
+        <Card title="Alertes étudiants" action="Voir les étudiants">
+          <div className="space-y-3">
+            {[
+              [
+                'Rabeharisoa Lala',
+                'Moyenne 10,25/20 · À accompagner',
+                'bg-orange-100 text-orange-600',
+              ],
+              [
+                'Rakotovo Hery',
+                '3 absences sur les 2 dernières semaines',
+                'bg-rose-100 text-rose-600',
+              ],
+              [
+                'Groupe L3 – A',
+                '5 rendus manquants sur le TP en cours',
+                'bg-violet-100 text-violet-600',
+              ],
+            ].map(([name, detail, tone]) => (
+              <div className="flex items-start gap-3" key={name}>
+                <span
+                  className={`grid size-8 place-items-center rounded-full text-[10px] font-bold ${tone}`}
+                >
+                  {name.slice(0, 1)}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#26305e]">{name}</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                    {detail}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.2fr_.9fr]">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_.9fr]">
+        <Card title="Planning de la journée" action="Voir la semaine">
+          <Timeline />
+        </Card>
         <Card title="Mes cours" action="Voir tout">
           <CourseMiniList />
         </Card>
-        <Card title="Étudiants récents" action="Voir tout">
-          <RecentStudents />
+        <Card title="Messages récents" action="Voir les messages">
+          <div className="space-y-3">
+            {[
+              [
+                'Groupe Algorithmique A',
+                'Question sur les arbres binaires',
+                '11:20',
+              ],
+              [
+                'Rasolonjatoavo Tina',
+                'Demande de précision sur le TP',
+                '10:35',
+              ],
+              [
+                'Génie Logiciel – Groupe A',
+                'Travail en groupe · 4 réponses',
+                'Hier',
+              ],
+            ].map(([sender, text, time]) => (
+              <div className="flex gap-2" key={sender}>
+                <span className="grid size-8 place-items-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-600">
+                  {sender.slice(0, 1)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-[#26305e]">
+                    {sender}
+                  </p>
+                  <p className="truncate text-[10px] text-slate-500">{text}</p>
+                </div>
+                <span className="text-[9px] text-slate-400">{time}</span>
+              </div>
+            ))}
+          </div>
         </Card>
-        <Card title="Moyenne générale">
+      </div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
+        <Card title="Suivi pédagogique" action="Voir les notes">
           <LineChart />
+          <div className="mt-6 grid grid-cols-3 gap-3 text-center">
+            <MiniStat value="12,45 /20" label="Moyenne globale" />
+            <MiniStat value="85%" label="Présence moyenne" />
+            <MiniStat value="76%" label="Devoirs corrigés" />
+          </div>
+        </Card>
+        <Card title="Répartition des notes" action="Voir le détail">
+          <GradeDistribution />
         </Card>
       </div>
     </Page>
@@ -1021,20 +1158,6 @@ function GradeDistribution() {
     </div>
   );
 }
-function Activities() {
-  return (
-    <List
-      icon={Clock3}
-      items={[
-        'Devoir ‘TP Base de données’ publié',
-        'Notes de ‘Algorithmique’ saisies',
-        'Nouvelle ressource ajoutée',
-        'Annonce ‘Changement de salle’ publiée',
-        'Absence signalée · 2 étudiants',
-      ]}
-    />
-  );
-}
 function CourseMiniList() {
   return (
     <List
@@ -1043,21 +1166,6 @@ function CourseMiniList() {
         (course) => `${course[0]} · ${course[1]} · ${course[3]} étudiants`,
       )}
     />
-  );
-}
-function RecentStudents() {
-  return (
-    <div className="space-y-3">
-      {students.map((student) => (
-        <div className="flex items-center gap-2" key={student[0]}>
-          <StudentName name={student[0]} />
-          <div className="min-w-0 flex-1">
-            <Progress value={student[4]} />
-          </div>
-          <b className="text-xs text-violet-600">{student[5]}</b>
-        </div>
-      ))}
-    </div>
   );
 }
 function LineChart() {
