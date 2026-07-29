@@ -80,24 +80,6 @@ export class SchoolController {
     };
   }
 
-  @Public()
-  @Get(':id')
-  @ApiOperation({ summary: 'Get school details' })
-  @ApiParam({ name: 'id', description: 'School ID' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'School details' })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'School not found',
-  })
-  async getSchool(@Param('id') id: string) {
-    const school = await this.schoolService.findOne(id);
-    return {
-      success: true,
-      data: school,
-      message: 'School retrieved successfully',
-    };
-  }
-
   // ========== ADMIN ROUTES ==========
 
   @Post()
@@ -267,6 +249,24 @@ export class SchoolController {
       success: true,
       data: school,
       message: 'School info retrieved successfully',
+    };
+  }
+
+  @Public()
+  @Get(':id')
+  @ApiOperation({ summary: 'Get school details' })
+  @ApiParam({ name: 'id', description: 'School ID' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'School details' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'School not found',
+  })
+  async getSchool(@Param('id') id: string) {
+    const school = await this.schoolService.findOne(id);
+    return {
+      success: true,
+      data: school,
+      message: 'School retrieved successfully',
     };
   }
 
