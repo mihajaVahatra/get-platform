@@ -46,7 +46,9 @@ export class NotificationController {
   @Post('send')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'MINISTRY')
-  @ApiOperation({ summary: 'Send a notification to a user (Admin/Ministry only)' })
+  @ApiOperation({
+    summary: 'Send a notification to a user (Admin/Ministry only)',
+  })
   @ApiBody({ type: SendNotificationDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Notification sent' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
@@ -69,7 +71,10 @@ export class NotificationController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiPaginatedResponse(NotificationResponseDto)
-  @ApiResponse({ status: HttpStatus.OK, description: 'Notifications retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Notifications retrieved',
+  })
   async getMyNotifications(
     @GetUser('id') userId: string,
     @Query('isRead') isRead?: boolean,
@@ -96,8 +101,14 @@ export class NotificationController {
   @Put(':id/read')
   @ApiOperation({ summary: 'Mark a notification as read' })
   @ApiParam({ name: 'id', description: 'Notification ID' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Notification marked as read' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Notification not found' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Notification marked as read',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Notification not found',
+  })
   async markAsRead(@Param('id') id: string, @GetUser('id') userId: string) {
     const result = await this.notificationService.markAsRead(id, userId);
     return {
@@ -109,7 +120,10 @@ export class NotificationController {
 
   @Put('me/read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'All notifications marked as read' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'All notifications marked as read',
+  })
   async markAllAsRead(@GetUser('id') userId: string) {
     const result = await this.notificationService.markAllAsRead(userId);
     return {
@@ -127,7 +141,8 @@ export class NotificationController {
   @ApiOperation({ summary: 'Get my notification preferences' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Preferences retrieved' })
   async getPreferences(@GetUser('id') userId: string) {
-    const preferences = await this.notificationService.getUserPreferences(userId);
+    const preferences =
+      await this.notificationService.getUserPreferences(userId);
     return {
       success: true,
       data: preferences,
@@ -143,7 +158,10 @@ export class NotificationController {
     @GetUser('id') userId: string,
     @Body() dto: NotificationPreferencesDto,
   ) {
-    const result = await this.notificationService.updatePreferences(userId, dto);
+    const result = await this.notificationService.updatePreferences(
+      userId,
+      dto,
+    );
     return {
       success: true,
       data: result,
@@ -159,8 +177,13 @@ export class NotificationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
   @ApiOperation({ summary: 'Send welcome email (Admin only)' })
-  @ApiBody({ schema: { properties: { userId: { type: 'string', example: 'user-123' } } } })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Welcome email sent' })
+  @ApiBody({
+    schema: { properties: { userId: { type: 'string', example: 'user-123' } } },
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Welcome email sent',
+  })
   async sendWelcomeEmail(@Body('userId') userId: string) {
     const result = await this.notificationService.sendWelcomeEmail(userId);
     return {
@@ -183,13 +206,20 @@ export class NotificationController {
       },
     },
   })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Payment confirmation sent' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Payment confirmation sent',
+  })
   async sendPaymentConfirmation(
     @Body('userId') userId: string,
     @Body('paymentId') paymentId: string,
     @Body('amount') amount: number,
   ) {
-    const result = await this.notificationService.sendPaymentConfirmation(userId, paymentId, amount);
+    const result = await this.notificationService.sendPaymentConfirmation(
+      userId,
+      paymentId,
+      amount,
+    );
     return {
       success: true,
       data: result,
@@ -200,7 +230,9 @@ export class NotificationController {
   @Post('status-update')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN')
-  @ApiOperation({ summary: 'Send application status update (Admin/School Admin)' })
+  @ApiOperation({
+    summary: 'Send application status update (Admin/School Admin)',
+  })
   @ApiBody({
     schema: {
       properties: {
@@ -210,7 +242,10 @@ export class NotificationController {
       },
     },
   })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Status update sent' })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Status update sent',
+  })
   async sendStatusUpdate(
     @Body('userId') userId: string,
     @Body('applicationId') applicationId: string,
@@ -266,7 +301,9 @@ export class NotificationController {
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'MINISTRY')
-  @ApiOperation({ summary: 'Get notification statistics (Admin/Ministry only)' })
+  @ApiOperation({
+    summary: 'Get notification statistics (Admin/Ministry only)',
+  })
   @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
   async getStats(@GetUser('id') userId: string) {
     const total = await this.prisma.notification.count({

@@ -11,7 +11,9 @@ export class CreateSchoolDto {
   @IsString()
   name: string;
 
-  @ApiPropertyOptional({ example: 'Training in management and international business' })
+  @ApiPropertyOptional({
+    example: 'Training in management and international business',
+  })
   @IsOptional()
   @IsString()
   description?: string;

@@ -177,7 +177,10 @@ export class AuditService {
     return {
       total,
       byAction: byAction.map((a) => ({ action: a.action, count: a._count })),
-      byResource: byResource.map((r) => ({ resource: r.resource, count: r._count })),
+      byResource: byResource.map((r) => ({
+        resource: r.resource,
+        count: r._count,
+      })),
     };
   }
 }

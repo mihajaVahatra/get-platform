@@ -3,9 +3,9 @@ import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
 
 // Les différents types de rapports possibles
 export enum ReportType {
-  NATIONAL = 'NATIONAL',      // Rapport national
-  REGIONAL = 'REGIONAL',      // Rapport par région
-  SECTORIAL = 'SECTORIAL',    // Rapport par filière
+  NATIONAL = 'NATIONAL', // Rapport national
+  REGIONAL = 'REGIONAL', // Rapport par région
+  SECTORIAL = 'SECTORIAL', // Rapport par filière
 }
 
 // Les périodes possibles
@@ -55,7 +55,10 @@ export class GenerateReportDto {
   @IsEnum(ExportFormat)
   format: ExportFormat;
 
-  @ApiPropertyOptional({ type: [String], example: ['applications', 'schools', 'payments'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['applications', 'schools', 'payments'],
+  })
   @IsOptional()
   sections?: string[];
 }

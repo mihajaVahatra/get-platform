@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
@@ -27,11 +31,16 @@ export class SchoolService {
     return school;
   }
 
-  async findAll(page = 1, limit = 20, filters?: { city?: string; type?: string; search?: string }) {
+  async findAll(
+    page = 1,
+    limit = 20,
+    filters?: { city?: string; type?: string; search?: string },
+  ) {
     const skip = (page - 1) * limit;
     const where: any = { deletedAt: null };
 
-    if (filters?.city) where.city = { contains: filters.city, mode: 'insensitive' };
+    if (filters?.city)
+      where.city = { contains: filters.city, mode: 'insensitive' };
     if (filters?.type) where.type = filters.type;
     if (filters?.search) {
       where.OR = [
@@ -83,7 +92,9 @@ export class SchoolService {
 
   async update(id: string, dto: UpdateSchoolDto, userId: string) {
     await this.findOne(id);
-    const slug = dto.name ? slugify(dto.name, { lower: true, strict: true }) : undefined;
+    const slug = dto.name
+      ? slugify(dto.name, { lower: true, strict: true })
+      : undefined;
     return this.prisma.school.update({
       where: { id },
       data: {

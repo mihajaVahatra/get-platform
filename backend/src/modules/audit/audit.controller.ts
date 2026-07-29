@@ -36,7 +36,9 @@ export class AuditController {
   // ============================================================
 
   @Get()
-  @ApiOperation({ summary: 'Get audit logs with filters (Admin/Ministry only)' })
+  @ApiOperation({
+    summary: 'Get audit logs with filters (Admin/Ministry only)',
+  })
   @ApiPaginatedResponse(AuditLogDto)
   @ApiResponse({ status: HttpStatus.OK, description: 'Audit logs retrieved' })
   async getLogs(@Query() query: AuditQueryDto) {
@@ -55,9 +57,15 @@ export class AuditController {
 
   @Get('resource/:resource/:id')
   @ApiOperation({ summary: 'Get audit logs for a specific resource' })
-  @ApiParam({ name: 'resource', enum: ['user', 'student', 'school', 'offer', 'application', 'payment'] })
+  @ApiParam({
+    name: 'resource',
+    enum: ['user', 'student', 'school', 'offer', 'application', 'payment'],
+  })
   @ApiParam({ name: 'id', description: 'Resource ID' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Resource audit logs retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Resource audit logs retrieved',
+  })
   async getLogsForResource(
     @Param('resource') resource: string,
     @Param('id') resourceId: string,
@@ -82,7 +90,10 @@ export class AuditController {
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiResponse({ status: HttpStatus.OK, description: 'User audit logs retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User audit logs retrieved',
+  })
   async getLogsForUser(
     @Param('userId') userId: string,
     @Query('page') page = 1,
@@ -103,7 +114,10 @@ export class AuditController {
 
   @Get('stats')
   @ApiOperation({ summary: 'Get audit statistics (Admin/Ministry only)' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Audit statistics retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Audit statistics retrieved',
+  })
   async getStats() {
     const stats = await this.auditService.getStats();
     return {
@@ -121,7 +135,10 @@ export class AuditController {
   @ApiOperation({ summary: 'Get my own audit logs' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiResponse({ status: HttpStatus.OK, description: 'My audit logs retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'My audit logs retrieved',
+  })
   async getMyLogs(
     @GetUser('id') userId: string,
     @Query('page') page = 1,

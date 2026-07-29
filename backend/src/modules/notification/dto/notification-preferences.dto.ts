@@ -18,7 +18,9 @@ export class NotificationPreferencesDto {
   @IsBoolean()
   inAppEnabled: boolean;
 
-  @ApiProperty({ example: ['APPLICATION_SUBMITTED', 'PAYMENT_CONFIRMED', 'STATUS_CHANGED'] })
+  @ApiProperty({
+    example: ['APPLICATION_SUBMITTED', 'PAYMENT_CONFIRMED', 'STATUS_CHANGED'],
+  })
   @IsArray()
   @IsString({ each: true })
   categories: string[];

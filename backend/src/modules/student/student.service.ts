@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
@@ -57,7 +62,10 @@ export class StudentService {
         try {
           decryptedPhone = this.encryption.decrypt(student.phone);
         } catch (e) {
-          console.warn('⚠️ Erreur décryptage phone, utilisation de la valeur brute:', e.message);
+          console.warn(
+            '⚠️ Erreur décryptage phone, utilisation de la valeur brute:',
+            e.message,
+          );
           decryptedPhone = student.phone;
         }
       }
@@ -66,7 +74,10 @@ export class StudentService {
         try {
           decryptedCin = this.encryption.decrypt(student.cin);
         } catch (e) {
-          console.warn('⚠️ Erreur décryptage cin, utilisation de la valeur brute:', e.message);
+          console.warn(
+            '⚠️ Erreur décryptage cin, utilisation de la valeur brute:',
+            e.message,
+          );
           decryptedCin = student.cin;
         }
       }
@@ -92,7 +103,10 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const profileCompleted = this.calculateProfileCompletion({ ...student, ...dto });
+    const profileCompleted = this.calculateProfileCompletion({
+      ...student,
+      ...dto,
+    });
 
     const data: any = {
       firstName: dto.firstName,
@@ -114,7 +128,10 @@ export class StudentService {
       try {
         data.phone = this.encryption.encrypt(dto.phone);
       } catch (e) {
-        console.warn('⚠️ Erreur chiffrement phone, stockage en clair:', e.message);
+        console.warn(
+          '⚠️ Erreur chiffrement phone, stockage en clair:',
+          e.message,
+        );
         data.phone = dto.phone;
       }
     }
@@ -122,7 +139,10 @@ export class StudentService {
       try {
         data.cin = this.encryption.encrypt(dto.cin);
       } catch (e) {
-        console.warn('⚠️ Erreur chiffrement cin, stockage en clair:', e.message);
+        console.warn(
+          '⚠️ Erreur chiffrement cin, stockage en clair:',
+          e.message,
+        );
         data.cin = dto.cin;
       }
     }
@@ -146,8 +166,10 @@ export class StudentService {
       student.city,
       student.bio,
     ];
-    const filled = fields.filter(f => f !== null && f !== undefined && f !== '').length;
-    return (filled / fields.length) >= 0.7;
+    const filled = fields.filter(
+      (f) => f !== null && f !== undefined && f !== '',
+    ).length;
+    return filled / fields.length >= 0.7;
   }
 
   // ========== DOCUMENTS ==========
@@ -264,7 +286,9 @@ export class StudentService {
     }
 
     if (!student.interests?.length) {
-      throw new BadRequestException('Please complete the orientation questionnaire first');
+      throw new BadRequestException(
+        'Please complete the orientation questionnaire first',
+      );
     }
 
     const dto: OrientationQuestionnaireDto = {
@@ -276,7 +300,9 @@ export class StudentService {
     return this.generateOrientationSuggestions(dto);
   }
 
-  private async generateOrientationSuggestions(dto: OrientationQuestionnaireDto) {
+  private async generateOrientationSuggestions(
+    dto: OrientationQuestionnaireDto,
+  ) {
     const offers = await this.prisma.offer.findMany({
       where: {
         isOpen: true,
@@ -291,7 +317,11 @@ export class StudentService {
     const suggestions = offers.map((offer) => {
       let matchScore = 0;
 
-      if (dto.interests.some((i) => offer.title.toLowerCase().includes(i.toLowerCase()))) {
+      if (
+        dto.interests.some((i) =>
+          offer.title.toLowerCase().includes(i.toLowerCase()),
+        )
+      ) {
         matchScore += 30;
       }
 
@@ -299,11 +329,17 @@ export class StudentService {
         matchScore += 20;
       }
 
-      if (dto.preferredDomain && offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())) {
+      if (
+        dto.preferredDomain &&
+        offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())
+      ) {
         matchScore += 30;
       }
 
-      if (dto.interestedInInternational && offer.title.toLowerCase().includes('international')) {
+      if (
+        dto.interestedInInternational &&
+        offer.title.toLowerCase().includes('international')
+      ) {
         matchScore += 20;
       }
 
@@ -323,10 +359,17 @@ export class StudentService {
       .slice(0, 5);
   }
 
-  private generateMatchReasons(offer: any, dto: OrientationQuestionnaireDto): string[] {
+  private generateMatchReasons(
+    offer: any,
+    dto: OrientationQuestionnaireDto,
+  ): string[] {
     const reasons: string[] = [];
 
-    if (dto.interests.some((i) => offer.title.toLowerCase().includes(i.toLowerCase()))) {
+    if (
+      dto.interests.some((i) =>
+        offer.title.toLowerCase().includes(i.toLowerCase()),
+      )
+    ) {
       reasons.push('Matches your interests');
     }
 
@@ -334,7 +377,10 @@ export class StudentService {
       reasons.push(`Matching diploma: ${offer.diploma}`);
     }
 
-    if (dto.preferredDomain && offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())) {
+    if (
+      dto.preferredDomain &&
+      offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())
+    ) {
       reasons.push(`Matches your preferred domain: ${dto.preferredDomain}`);
     }
 
@@ -369,9 +415,12 @@ export class StudentService {
 
     return {
       totalApplications: applications.length,
-      pendingApplications: applications.filter((a) => a.status === 'PENDING').length,
-      acceptedApplications: applications.filter((a) => a.status === 'ACCEPTED').length,
-      rejectedApplications: applications.filter((a) => a.status === 'REJECTED').length,
+      pendingApplications: applications.filter((a) => a.status === 'PENDING')
+        .length,
+      acceptedApplications: applications.filter((a) => a.status === 'ACCEPTED')
+        .length,
+      rejectedApplications: applications.filter((a) => a.status === 'REJECTED')
+        .length,
       documentsUploaded: documents.length,
       profileCompletion: this.calculateProfileCompletion(student),
     };
