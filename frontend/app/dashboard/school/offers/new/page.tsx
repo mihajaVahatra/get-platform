@@ -11,6 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const DIPLOMAS = {
+  LICENCE: { label: 'Licence', duration: 36, tuitionFees: 3500000 },
+  MASTER_1: { label: 'Master 1', duration: 12, tuitionFees: 4000000 },
+  MASTER_2: { label: 'Master 2', duration: 12, tuitionFees: 4500000 },
+  DOCTORAT: { label: 'Doctorat', duration: 36, tuitionFees: 5000000 },
+} as const;
 
 const schema = z.object({
   title: z.string().min(3, 'Titre trop court'),
@@ -29,9 +37,14 @@ export default function NewSchoolOfferPage() {
   const router = useRouter();
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<OfferForm>({
+  const currentYear = new Date().getFullYear();
+  const academicYears = Array.from({ length: 4 }, (_, index) => {
+    const year = currentYear + index;
+    return `${year}-${year + 1}`;
+  });
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<OfferForm>({
     resolver: zodResolver(schema),
-    defaultValues: { academicYear: '2026-2027' },
+    defaultValues: { academicYear: academicYears[0] },
   });
 
   useEffect(() => {
@@ -75,14 +88,30 @@ export default function NewSchoolOfferPage() {
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            <Field label="Titre de l’offre *" error={errors.title?.message}><Input {...register('title')} placeholder="Licence Informatique" /></Field>
+            <Field label="Titre de l’offre" required error={errors.title?.message}><Input {...register('title')} placeholder="Licence Informatique" /></Field>
             <Field label="Description"><Input {...register('description')} placeholder="Présentez brièvement la formation" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Diplôme *" error={errors.diploma?.message}><Input {...register('diploma')} placeholder="Licence" /></Field>
-              <Field label="Durée (mois) *" error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>
-              <Field label="Frais de scolarité (MGA) *" error={errors.tuitionFees?.message}><Input type="number" {...register('tuitionFees', { valueAsNumber: true })} /></Field>
+              <Field label="Diplôme" required error={errors.diploma?.message}>
+                <Select onValueChange={(value) => {
+                  const option = DIPLOMAS[value as keyof typeof DIPLOMAS];
+                  if (!option) return;
+                  setValue('diploma', option.label, { shouldValidate: true });
+                  setValue('duration', option.duration, { shouldValidate: true });
+                  setValue('tuitionFees', option.tuitionFees, { shouldValidate: true });
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner un diplôme" /></SelectTrigger>
+                  <SelectContent>{Object.entries(DIPLOMAS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>
+              <Field label="Frais de scolarité (MGA)" required error={errors.tuitionFees?.message}><Input type="number" {...register('tuitionFees', { valueAsNumber: true })} /><p className="text-xs text-muted-foreground">Prérempli selon le diplôme, modifiable si nécessaire.</p></Field>
               <Field label="Capacité"><Input type="number" {...register('capacity', { valueAsNumber: true })} /></Field>
-              <Field label="Année académique *" error={errors.academicYear?.message}><Input {...register('academicYear')} /></Field>
+              <Field label="Année académique" required error={errors.academicYear?.message}>
+                <Select defaultValue={academicYears[0]} onValueChange={(value) => setValue('academicYear', value ?? academicYears[0], { shouldValidate: true })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
               <Field label="Date limite"><Input type="date" {...register('applicationDeadline')} /></Field>
             </div>
             <Field label="Prérequis"><Input {...register('prerequisites')} placeholder="Baccalauréat, dossier académique" /></Field>
@@ -97,6 +126,6 @@ export default function NewSchoolOfferPage() {
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return <div className="space-y-2"><Label>{label}</Label>{children}{error && <p className="text-sm text-red-500">{error}</p>}</div>;
+function Field({ label, required = false, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+  return <div className="space-y-2"><Label>{label}{required && <span className="ml-1 text-red-500">*</span>}</Label>{children}{error && <p className="text-sm text-red-500">{error}</p>}</div>;
 }
