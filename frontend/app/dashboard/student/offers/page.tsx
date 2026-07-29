@@ -73,7 +73,11 @@ export default function StudentOffersPage() {
     try {
       const response = await apiClient.get('/applications/me');
       const apps = response.data.data || [];
-      const appliedIds = new Set(apps.map((app: any) => app.offerId));
+      const appliedIds = new Set<string>(
+        apps
+          .map((app: { offerId?: string }) => app.offerId)
+          .filter((offerId: string | undefined): offerId is string => Boolean(offerId)),
+      );
       setAppliedOffers(appliedIds);
     } catch (error) {
       console.error('Erreur chargement candidatures:', error);
@@ -243,13 +247,11 @@ export default function StudentOffersPage() {
                       setIsDialogOpen(open);
                       if (!open) setSelectedOffer(null);
                     }}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          className="bg-blue-600 text-white hover:bg-blue-700"
-                          onClick={() => setSelectedOffer(offer)}
-                        >
-                          📨 Postuler
-                        </Button>
+                      <DialogTrigger
+                        render={<Button className="bg-blue-600 text-white hover:bg-blue-700" />}
+                        onClick={() => setSelectedOffer(offer)}
+                      >
+                        📨 Postuler
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>

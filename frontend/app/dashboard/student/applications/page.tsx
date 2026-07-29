@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +67,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function StudentApplicationsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-8">Chargement des candidatures...</div>}>
+      <StudentApplicationsContent />
+    </Suspense>
+  );
+}
+
+function StudentApplicationsContent() {
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get('status') || 'ALL';
 
@@ -140,7 +148,7 @@ export default function StudentApplicationsPage() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">Filtrer :</span>
-          <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setPage(1); }}>
+          <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value ?? 'ALL'); setPage(1); }}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>

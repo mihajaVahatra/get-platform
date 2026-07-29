@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -63,6 +63,14 @@ function getPasswordLabel(password: string): string {
 // COMPOSANT PRINCIPAL
 // ============================================================
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Chargement…</div>}>
+      <ResetPasswordForm />
+    </Suspense>
+  );
+}
+
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');

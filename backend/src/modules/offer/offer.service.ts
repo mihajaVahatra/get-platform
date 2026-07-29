@@ -21,6 +21,15 @@ export class OfferService {
 
     await this.ensureCanManageSchool(userId, dto.schoolId);
 
+    if (dto.requirementIds?.length) {
+      const count = await this.prisma.schoolRequirement.count({
+        where: { id: { in: dto.requirementIds }, schoolId: dto.schoolId, isActive: true },
+      });
+      if (count !== dto.requirementIds.length) {
+        throw new ForbiddenException('Un ou plusieurs prérequis sont invalides');
+      }
+    }
+
     const slug = slugify(dto.title, { lower: true, strict: true });
 
     return this.prisma.offer.create({
@@ -39,6 +48,9 @@ export class OfferService {
         academicYear: dto.academicYear,
         isOpen: dto.isOpen ?? true,
         schoolId: dto.schoolId,
+        requirements: dto.requirementIds?.length
+          ? { create: dto.requirementIds.map((requirementId) => ({ requirementId })) }
+          : undefined,
       },
       include: {
         school: true,

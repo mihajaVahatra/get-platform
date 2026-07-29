@@ -35,7 +35,7 @@ export default function SchoolOffersPage() {
   const fetchOffers = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/offers?schoolId=me');
+      const response = await apiClient.get('/offers/mine');
       setOffers(response.data.data || []);
     } catch (error) {
       console.error('Erreur chargement offres:', error);

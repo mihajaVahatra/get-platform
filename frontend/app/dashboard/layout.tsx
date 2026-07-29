@@ -427,6 +427,11 @@ function SchoolSidebar({
   ];
   const admin = [
     {
+      label: 'Offres & admissions',
+      icon: BriefcaseBusiness,
+      href: '/dashboard/school/offers',
+    },
+    {
       label: 'Inscriptions',
       icon: ClipboardList,
       href: '/dashboard/school?section=enrollments',

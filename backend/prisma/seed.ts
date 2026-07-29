@@ -130,6 +130,95 @@ async function main() {
   );
   console.log('✅ 3 établissements supplémentaires créés');
 
+  await prisma.schoolAdmin.upsert({
+    where: { userId: schoolAdmin.id },
+    update: {
+      schoolId: school.id,
+      permissions: ['OFFERS_MANAGE', 'STUDENTS_MANAGE', 'PAYMENTS_VIEW'],
+    },
+    create: {
+      userId: schoolAdmin.id,
+      schoolId: school.id,
+      permissions: ['OFFERS_MANAGE', 'STUDENTS_MANAGE', 'PAYMENTS_VIEW'],
+    },
+  });
+
+  const demoOffers = [
+    {
+      schoolId: school.id,
+      slug: 'licence-informatique-espa-2026',
+      title: 'Licence Informatique',
+      description: 'Formation en informatique, algorithmique et développement logiciel.',
+      diploma: 'Licence',
+      duration: 36,
+      tuitionFees: 3500000,
+      prerequisites: ['Baccalauréat scientifique', 'Dossier académique'],
+      capacity: 120,
+      academicYear: '2026-2027',
+      isFeatured: true,
+    },
+    {
+      schoolId: school.id,
+      slug: 'master-genie-civil-espa-2026',
+      title: 'Master Génie Civil',
+      description: 'Spécialisation en conception et gestion des infrastructures.',
+      diploma: 'Master',
+      duration: 24,
+      tuitionFees: 4800000,
+      prerequisites: ['Licence Génie Civil ou équivalent'],
+      capacity: 45,
+      academicYear: '2026-2027',
+      isFeatured: false,
+    },
+    {
+      schoolId: seededSchools[0].id,
+      slug: 'dut-systemes-informatiques-ist-2026',
+      title: 'DUT Systèmes Informatiques',
+      description: 'Formation professionnalisante en systèmes et réseaux.',
+      diploma: 'DUT',
+      duration: 24,
+      tuitionFees: 2200000,
+      prerequisites: ['Baccalauréat'],
+      capacity: 80,
+      academicYear: '2026-2027',
+      isFeatured: true,
+    },
+    {
+      schoolId: seededSchools[1].id,
+      slug: 'master-management-inscae-2026',
+      title: 'Master Management',
+      description: 'Programme de management, stratégie et entrepreneuriat.',
+      diploma: 'Master',
+      duration: 24,
+      tuitionFees: 5200000,
+      prerequisites: ['Licence ou équivalent'],
+      capacity: 60,
+      academicYear: '2026-2027',
+      isFeatured: false,
+    },
+  ];
+
+  await Promise.all(
+    demoOffers.map((offer) =>
+      prisma.offer.upsert({
+        where: { slug: offer.slug },
+        update: {
+          ...offer,
+          isOpen: true,
+          applicationDeadline: new Date('2026-12-31T23:59:59.000Z'),
+          deletedAt: null,
+        },
+        create: {
+          ...offer,
+          currency: 'MGA',
+          isOpen: true,
+          applicationDeadline: new Date('2026-12-31T23:59:59.000Z'),
+        },
+      }),
+    ),
+  );
+  console.log('✅ 4 offres de démonstration créées');
+
   const ministryPassword = await bcrypt.hash('Ministere123!', 10);
   await prisma.user.upsert({
     where: { email: 'ministere@mesupres.gov.mg' },

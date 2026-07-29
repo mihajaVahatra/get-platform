@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 
@@ -32,20 +31,32 @@ type Payment = {
   };
 };
 
+type PaymentApplication = {
+  id: string;
+  status: string;
+  offer: {
+    title: string;
+    tuitionFees: number;
+    currency?: string;
+    school: { name: string };
+  };
+};
+
 export default function StudentPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [applications, setApplications] = useState<PaymentApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInitiating, setIsInitiating] = useState(false);
   const [paymentData, setPaymentData] = useState({
     applicationId: '',
-    amount: '',
     method: '',
   });
 
   useEffect(() => {
     fetchPayments();
+    fetchApplications();
   }, []);
 
   const fetchPayments = async () => {
@@ -58,6 +69,16 @@ export default function StudentPaymentsPage() {
       toast.error('Erreur lors du chargement des paiements');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchApplications = async () => {
+    try {
+      const response = await apiClient.get('/applications/me?limit=100');
+      setApplications(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement candidatures:', error);
+      toast.error('Impossible de charger les candidatures disponibles');
     }
   };
 
@@ -120,22 +141,21 @@ export default function StudentPaymentsPage() {
   };
 
   const handleInitiatePayment = async () => {
-    if (!paymentData.amount || !paymentData.method) {
-      toast.error('Veuillez remplir tous les champs');
+    if (!paymentData.applicationId || !paymentData.method) {
+      toast.error('Sélectionnez une candidature et une méthode de paiement');
       return;
     }
 
     setIsInitiating(true);
     try {
       const response = await apiClient.post('/payments/initiate', {
-        amount: parseFloat(paymentData.amount),
         method: paymentData.method,
-        applicationId: paymentData.applicationId || undefined,
+        applicationId: paymentData.applicationId,
       });
       
       toast.success('Paiement initié avec succès !');
       setIsDialogOpen(false);
-      setPaymentData({ applicationId: '', amount: '', method: '' });
+      setPaymentData({ applicationId: '', method: '' });
       
       if (response.data.data?.redirectUrl) {
         window.location.href = response.data.data.redirectUrl;
@@ -200,20 +220,35 @@ export default function StudentPaymentsPage() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Montant (MGA)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="4500000"
-                    value={paymentData.amount}
-                    onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
-                  />
+                  <Label htmlFor="applicationId">Candidature</Label>
+                  <Select
+                    value={paymentData.applicationId}
+                    onValueChange={(value) =>
+                      setPaymentData({ ...paymentData, applicationId: value ?? '' })
+                    }
+                  >
+                    <SelectTrigger id="applicationId">
+                      <SelectValue placeholder="Choisir une candidature" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {applications.map((application) => (
+                        <SelectItem key={application.id} value={application.id}>
+                          {application.offer.title} — {application.offer.school.name} ({formatAmount(application.offer.tuitionFees)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {applications.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Aucune candidature disponible pour un paiement.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="method">Méthode de paiement</Label>
                   <Select
                     value={paymentData.method}
-                    onValueChange={(value) => setPaymentData({ ...paymentData, method: value })}
+                    onValueChange={(value) => setPaymentData({ ...paymentData, method: value ?? '' })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choisir une méthode" />
@@ -225,15 +260,6 @@ export default function StudentPaymentsPage() {
                       <SelectItem value="BANK_TRANSFER">Virement bancaire</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="applicationId">Candidature (optionnel)</Label>
-                  <Input
-                    id="applicationId"
-                    placeholder="ID de la candidature"
-                    value={paymentData.applicationId}
-                    onChange={(e) => setPaymentData({ ...paymentData, applicationId: e.target.value })}
-                  />
                 </div>
               </div>
               <DialogFooter>
