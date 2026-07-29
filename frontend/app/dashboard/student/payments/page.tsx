@@ -213,7 +213,7 @@ export default function StudentPaymentsPage() {
                   <Label htmlFor="method">Méthode de paiement</Label>
                   <Select
                     value={paymentData.method}
-                    onValueChange={(value) => setPaymentData({ ...paymentData, method: value })}
+                    onValueChange={(value) => setPaymentData({ ...paymentData, method: value ?? '' })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choisir une méthode" />

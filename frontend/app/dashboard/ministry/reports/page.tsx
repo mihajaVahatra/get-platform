@@ -121,8 +121,8 @@ export default function ReportsPage() {
           <p className="text-gray-500 text-sm">{reports.length} rapport(s) généré(s)</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>➕ Générer un rapport</Button>
+          <DialogTrigger render={<Button />}>
+            ➕ Générer un rapport
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -143,7 +143,7 @@ export default function ReportsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v ?? 'NATIONAL' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un type" />
                   </SelectTrigger>
@@ -156,7 +156,7 @@ export default function ReportsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="period">Période</Label>
-                <Select value={formData.period} onValueChange={(v) => setFormData({ ...formData, period: v })}>
+                <Select value={formData.period} onValueChange={(v) => setFormData({ ...formData, period: v ?? 'MONTHLY' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une période" />
                   </SelectTrigger>
@@ -191,7 +191,7 @@ export default function ReportsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="format">Format d'export</Label>
-                <Select value={formData.format} onValueChange={(v) => setFormData({ ...formData, format: v })}>
+                <Select value={formData.format} onValueChange={(v) => setFormData({ ...formData, format: v ?? 'PDF' })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un format" />
                   </SelectTrigger>
