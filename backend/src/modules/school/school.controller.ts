@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Patch,
   HttpStatus,
   UseGuards,
   ForbiddenException,
@@ -40,6 +41,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('schools')
 @Controller('schools')
@@ -47,6 +49,7 @@ export class SchoolController {
   constructor(
     private readonly schoolService: SchoolService,
     private readonly storageService: StorageService,
+    private readonly prisma: PrismaService,
   ) {}
 
   // ========== PUBLIC ROUTES ==========
@@ -250,6 +253,34 @@ export class SchoolController {
       data: school,
       message: 'School info retrieved successfully',
     };
+  }
+
+  @Get('me/requirements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  async getMyRequirements(@GetUser('id') userId: string, @Query('diploma') diploma?: string) {
+    const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
+    if (!admin) throw new ForbiddenException('Profil administrateur introuvable');
+    return this.prisma.schoolRequirement.findMany({ where: { schoolId: admin.schoolId, isActive: true, ...(diploma ? { OR: [{ diploma }, { diploma: null }] } : {}) }, orderBy: { name: 'asc' } });
+  }
+
+  @Post('me/requirements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  async createMyRequirement(@GetUser('id') userId: string, @Body() body: { name: string; description?: string; type?: string; diploma?: string; isRequired?: boolean }) {
+    const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
+    if (!admin) throw new ForbiddenException('Profil administrateur introuvable');
+    return this.prisma.schoolRequirement.create({ data: { schoolId: admin.schoolId, name: body.name, description: body.description, type: body.type || 'DOCUMENT', diploma: body.diploma, isRequired: body.isRequired ?? true } });
+  }
+
+  @Patch('me/requirements/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  async updateMyRequirement(@GetUser('id') userId: string, @Param('id') id: string, @Body() body: { name?: string; description?: string; type?: string; isRequired?: boolean; isActive?: boolean }) {
+    const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
+    const item = await this.prisma.schoolRequirement.findFirst({ where: { id, schoolId: admin?.schoolId } });
+    if (!item) throw new ForbiddenException('Prérequis introuvable');
+    return this.prisma.schoolRequirement.update({ where: { id }, data: body });
   }
 
   @Public()

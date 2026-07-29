@@ -36,6 +36,8 @@ type OfferForm = z.infer<typeof schema>;
 export default function NewSchoolOfferPage() {
   const router = useRouter();
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [requirements, setRequirements] = useState<{ id: string; name: string; isRequired: boolean }[]>([]);
+  const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const currentYear = new Date().getFullYear();
   const academicYears = Array.from({ length: 4 }, (_, index) => {
@@ -54,6 +56,7 @@ export default function NewSchoolOfferPage() {
         toast.error('Impossible de charger votre établissement');
         router.replace('/dashboard/school/offers');
       });
+    apiClient.get('/schools/me/requirements').then((response) => setRequirements(response.data.data ?? response.data ?? [])).catch(() => undefined);
   }, [router]);
 
   const onSubmit = async (data: OfferForm) => {
@@ -63,6 +66,7 @@ export default function NewSchoolOfferPage() {
       await apiClient.post('/offers', {
         ...data,
         schoolId,
+        requirementIds: selectedRequirements,
         duration: Number(data.duration),
         tuitionFees: Number(data.tuitionFees),
         capacity: data.capacity ? Number(data.capacity) : undefined,
@@ -115,6 +119,10 @@ export default function NewSchoolOfferPage() {
               <Field label="Date limite"><Input type="date" {...register('applicationDeadline')} /></Field>
             </div>
             <Field label="Prérequis"><Input {...register('prerequisites')} placeholder="Baccalauréat, dossier académique" /></Field>
+            <div className="space-y-2">
+              <Label>Pièces et prérequis du dossier</Label>
+              {requirements.length ? requirements.map((requirement) => <label key={requirement.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedRequirements.includes(requirement.id)} onChange={() => setSelectedRequirements((current) => current.includes(requirement.id) ? current.filter((id) => id !== requirement.id) : [...current, requirement.id])} />{requirement.name}{requirement.isRequired && <span className="text-red-500">*</span>}</label>) : <p className="text-sm text-muted-foreground">Aucun prérequis configuré. Ajoutez-les dans Paramètres.</p>}
+            </div>
           </CardContent>
           <CardFooter className="justify-between">
             <Button type="button" variant="outline" onClick={() => router.push('/dashboard/school/offers')}>Annuler</Button>

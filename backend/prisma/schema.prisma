@@ -121,6 +121,7 @@ model School {
 
   admins             SchoolAdmin[]
   offers             Offer[]
+  requirements       SchoolRequirement[]
   teacherAssignments TeacherSchool[]
   courses            Course[]
 
@@ -343,9 +344,40 @@ model Offer {
   deletedAt           DateTime?
 
   applications Application[]
+  requirements OfferRequirement[]
 
   @@index([schoolId, isOpen, createdAt])
   @@map("offers")
+}
+
+model SchoolRequirement {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        String   @default("DOCUMENT")
+  diploma     String?
+  isRequired  Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  offers      OfferRequirement[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
+  @@map("school_requirements")
+}
+
+model OfferRequirement {
+  offerId       String
+  offer         Offer             @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  requirementId String
+  requirement   SchoolRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  isRequired    Boolean           @default(true)
+
+  @@id([offerId, requirementId])
+  @@map("offer_requirements")
 }
 
 model Application {
