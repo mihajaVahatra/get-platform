@@ -10,6 +10,7 @@ import {
   Patch,
   HttpStatus,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -30,11 +31,15 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('offers')
 @Controller('offers')
 export class OfferController {
-  constructor(private readonly offerService: OfferService) {}
+  constructor(
+    private readonly offerService: OfferService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Public()
   @Get()
@@ -74,6 +79,38 @@ export class OfferController {
       data: result.items,
       meta: result.meta,
       message: 'Offers retrieved successfully',
+    };
+  }
+
+  @Get('mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get offers for the authenticated school' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiPaginatedResponse(OfferResponseDto)
+  async getMySchoolOffers(
+    @GetUser('id') userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    const schoolAdmin = await this.prisma.schoolAdmin.findUnique({
+      where: { userId },
+      select: { schoolId: true },
+    });
+    if (!schoolAdmin) {
+      throw new ForbiddenException('Profil administrateur d’établissement introuvable');
+    }
+
+    const result = await this.offerService.findAll(page, limit, {
+      schoolId: schoolAdmin.schoolId,
+    });
+    return {
+      success: true,
+      data: result.items,
+      meta: result.meta,
+      message: 'School offers retrieved successfully',
     };
   }
 
