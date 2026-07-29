@@ -1,16 +1,13 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, Min, IsIn } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsIn, IsUUID } from 'class-validator';
 
 export class InitiatePaymentDto {
-  @ApiPropertyOptional({ example: 'app-123', description: 'Application ID' })
-  @IsOptional()
-  @IsString()
-  applicationId?: string;
-
-  @ApiProperty({ example: 4500000 })
-  @IsNumber()
-  @Min(100)
-  amount: number;
+  @ApiProperty({
+    example: '5d965c6d-7324-4c5b-ac04-5846f20bba66',
+    description: 'Candidature concernée par le paiement',
+  })
+  @IsUUID()
+  applicationId: string;
 
   @ApiProperty({ enum: ['ORANGE_MONEY', 'MVOLA', 'CARD', 'BANK_TRANSFER'] })
   @IsIn(['ORANGE_MONEY', 'MVOLA', 'CARD', 'BANK_TRANSFER'])

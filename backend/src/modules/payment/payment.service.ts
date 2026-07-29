@@ -27,19 +27,34 @@ export class PaymentService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
-    let amount = dto.amount;
+    const application = await this.prisma.application.findUnique({
+      where: { id: dto.applicationId },
+      include: { offer: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.studentId !== studentId) {
+      throw new ForbiddenException('Cette candidature ne vous appartient pas');
+    }
 
-    if (dto.applicationId) {
-      const application = await this.prisma.application.findUnique({
-        where: { id: dto.applicationId },
-        include: { offer: true },
-      });
-      if (!application) throw new NotFoundException('Application not found');
-      if (application.studentId !== studentId)
-        throw new ForbiddenException(
-          'Cette candidature ne vous appartient pas',
-        );
-      amount = application.offer.tuitionFees;
+    // Le tarif ne vient jamais du client : l'offre est la source de vérité.
+    const amount = application.offer.tuitionFees;
+    if (amount <= 0) {
+      throw new BadRequestException('Montant de paiement invalide');
+    }
+
+    const existingPayment = await this.prisma.payment.findFirst({
+      where: {
+        applicationId: application.id,
+        status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+      },
+      select: { id: true, status: true },
+    });
+    if (existingPayment) {
+      throw new BadRequestException(
+        existingPayment.status === 'COMPLETED'
+          ? 'Cette candidature a déjà été payée'
+          : 'Un paiement est déjà en cours pour cette candidature',
+      );
     }
 
     const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
@@ -47,7 +62,7 @@ export class PaymentService {
     const payment = await this.prisma.payment.create({
       data: {
         studentId,
-        applicationId: dto.applicationId,
+        applicationId: application.id,
         amount,
         currency: 'MGA',
         method: dto.method,
@@ -63,7 +78,7 @@ export class PaymentService {
       currency: 'MGA',
       studentId,
       reference,
-      description: `Paiement pour la candidature ${dto.applicationId || 'N/A'}`,
+      description: `Paiement pour la candidature ${application.id}`,
     });
 
     await this.prisma.payment.update({
