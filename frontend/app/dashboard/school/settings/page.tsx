@@ -45,6 +45,8 @@ type Requirement = {
   diploma?: string;
   isRequired: boolean;
 };
+type Program = { id: string; name: string; diploma: string; durationYears: number; isActive: boolean };
+type AcademicYear = { id: string; label: string; enrollmentOpensAt: string; enrollmentClosesAt: string; isCurrent: boolean };
 
 const EMPTY_FORM: SchoolForm = {
   name: '',
@@ -67,6 +69,12 @@ export default function SchoolSettingsPage() {
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [requirementName, setRequirementName] = useState('');
   const [isRequirementRequired, setIsRequirementRequired] = useState(true);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [programForm, setProgramForm] = useState({ name: '', diploma: 'Licence', durationYears: '3' });
+  const [academicForm, setAcademicForm] = useState({ label: '', enrollmentOpensAt: '', enrollmentClosesAt: '' });
+  const [subjects, setSubjects] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
+  const [subjectName, setSubjectName] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +130,12 @@ export default function SchoolSettingsPage() {
       cancelled = true;
     };
   }, [diploma]);
+
+  const refreshPrograms = async () => { const response = await apiClient.get('/schools/me/programs'); setPrograms(response.data.data || []); };
+  const refreshAcademicYears = async () => { const response = await apiClient.get('/schools/me/academic-years'); setAcademicYears(response.data.data || []); };
+  useEffect(() => { void Promise.all([refreshPrograms(), refreshAcademicYears()]).catch(() => toast.error('Impossible de charger les filières et années académiques')); }, []);
+  const refreshSubjects = async () => { const response = await apiClient.get('/schools/me/subjects'); setSubjects(response.data.data || []); };
+  useEffect(() => { void refreshSubjects().catch(() => toast.error('Impossible de charger les matières')); }, []);
 
   const updateField = (field: keyof SchoolForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -189,6 +203,13 @@ export default function SchoolSettingsPage() {
       toast.error('Impossible d’archiver le prérequis');
     }
   };
+  const addProgram = async () => { if (!programForm.name.trim()) return toast.error('Le nom de la filière est obligatoire'); try { await apiClient.post('/schools/me/programs', { ...programForm, durationYears: Number(programForm.durationYears) }); setProgramForm({ name: '', diploma: 'Licence', durationYears: '3' }); await refreshPrograms(); toast.success('Filière ajoutée'); } catch { toast.error("Impossible d'ajouter la filière"); } };
+  const toggleProgram = async (program: Program) => { try { await apiClient.patch(`/schools/me/programs/${program.id}`, { isActive: !program.isActive }); await refreshPrograms(); toast.success(program.isActive ? 'Filière archivée' : 'Filière réactivée'); } catch { toast.error('Impossible de modifier la filière'); } };
+  const addAcademicYear = async () => { if (!academicForm.label || !academicForm.enrollmentOpensAt || !academicForm.enrollmentClosesAt) return toast.error('Tous les champs sont obligatoires'); if (academicForm.enrollmentClosesAt < academicForm.enrollmentOpensAt) return toast.error("La fermeture doit être postérieure à l'ouverture"); try { await apiClient.post('/schools/me/academic-years', academicForm); setAcademicForm({ label: '', enrollmentOpensAt: '', enrollmentClosesAt: '' }); await refreshAcademicYears(); toast.success('Année académique ajoutée'); } catch { toast.error("Impossible d'ajouter l'année académique"); } };
+  const setCurrentAcademicYear = async (id: string) => { try { await apiClient.patch(`/schools/me/academic-years/${id}`, { isCurrent: true }); await refreshAcademicYears(); toast.success('Année académique courante mise à jour'); } catch { toast.error("Impossible de définir l'année courante"); } };
+  const addSubject = async () => { if (!subjectName.trim()) return toast.error('Le nom de la matière est obligatoire'); try { await apiClient.post('/schools/me/subjects', { name: subjectName.trim() }); setSubjectName(''); await refreshSubjects(); toast.success('Matière ajoutée'); } catch { toast.error("Impossible d'ajouter la matière"); } };
+  const toggleSubject = async (subject: { id: string; isActive: boolean }) => { try { await apiClient.patch(`/schools/me/subjects/${subject.id}`, { isActive: !subject.isActive }); await refreshSubjects(); } catch { toast.error('Impossible de modifier la matière'); } };
+  const enrollmentOpen = (year?: AcademicYear) => !!year && new Date(year.enrollmentOpensAt) <= new Date() && new Date(year.enrollmentClosesAt) >= new Date();
 
   if (loading) {
     return <div className="flex justify-center p-8">Chargement des paramètres...</div>;
@@ -261,6 +282,11 @@ export default function SchoolSettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      <Card><CardHeader><CardTitle>Filières</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-2 sm:grid-cols-4"><Input value={programForm.name} onChange={(event) => setProgramForm({ ...programForm, name: event.target.value })} placeholder="Nom" /><Input value={programForm.diploma} onChange={(event) => setProgramForm({ ...programForm, diploma: event.target.value })} placeholder="Diplôme" /><Select value={programForm.durationYears} onValueChange={(value) => setProgramForm({ ...programForm, durationYears: value ?? '3' })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 8 }, (_, index) => <SelectItem key={index + 1} value={String(index + 1)}>{index + 1} an(s)</SelectItem>)}</SelectContent></Select><Button type="button" onClick={addProgram}>Ajouter</Button></div><div className="space-y-2">{programs.length === 0 ? <p className="text-sm text-slate-500">Aucune filière configurée.</p> : programs.map((program) => <div className="flex items-center justify-between rounded-lg border p-3" key={program.id}><span>{program.name} · {program.diploma} · {program.durationYears} ans {!program.isActive && <em className="ml-2 text-slate-500">Archivée</em>}</span><Button type="button" variant="ghost" onClick={() => void toggleProgram(program)}>{program.isActive ? 'Archiver' : 'Réactiver'}</Button></div>)}</div></CardContent></Card>
+      <Card><CardHeader><CardTitle>Matières</CardTitle></CardHeader><CardContent className="space-y-3"><div className="flex gap-2"><Input value={subjectName} onChange={(event) => setSubjectName(event.target.value)} placeholder="Ex. Algorithmique" /><Button type="button" onClick={addSubject}>Ajouter</Button></div>{subjects.map((subject) => <div className="flex justify-between rounded-lg border p-3" key={subject.id}><span>{subject.name} {!subject.isActive && <em className="text-slate-500">Archivée</em>}</span><Button type="button" variant="ghost" onClick={() => void toggleSubject(subject)}>{subject.isActive ? 'Archiver' : 'Réactiver'}</Button></div>)}</CardContent></Card>
+
+      <Card><CardHeader><CardTitle>Années académiques & inscriptions</CardTitle></CardHeader><CardContent className="space-y-4">{(() => { const current = academicYears.find((year) => year.isCurrent); return current ? <p className={`rounded-lg p-3 text-sm font-medium ${enrollmentOpen(current) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>● Inscriptions {enrollmentOpen(current) ? 'OUVERTES' : 'FERMÉES'} · {current.label}</p> : <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Aucune année académique courante.</p>; })()}<div className="grid gap-2 sm:grid-cols-4"><Input value={academicForm.label} onChange={(event) => setAcademicForm({ ...academicForm, label: event.target.value })} placeholder="2025-2026" /><Input type="date" value={academicForm.enrollmentOpensAt} onChange={(event) => setAcademicForm({ ...academicForm, enrollmentOpensAt: event.target.value })} /><Input type="date" value={academicForm.enrollmentClosesAt} onChange={(event) => setAcademicForm({ ...academicForm, enrollmentClosesAt: event.target.value })} /><Button type="button" onClick={addAcademicYear}>Ajouter</Button></div><div className="space-y-2">{academicYears.map((year) => <div className="flex items-center justify-between rounded-lg border p-3" key={year.id}><span>{year.label} {year.isCurrent && <b className="ml-2 text-emerald-600">Courante</b>}<small className="ml-2 text-slate-500">{new Date(year.enrollmentOpensAt).toLocaleDateString('fr-FR')} → {new Date(year.enrollmentClosesAt).toLocaleDateString('fr-FR')}</small></span>{!year.isCurrent && <Button type="button" variant="ghost" onClick={() => void setCurrentAcademicYear(year.id)}>Définir comme courante</Button>}</div>)}</div></CardContent></Card>
 
       <Card>
         <CardHeader>

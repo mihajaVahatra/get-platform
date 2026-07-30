@@ -35,9 +35,10 @@ type AssignmentForm = {
   teacherId: string;
   department: string;
   specialty: string;
+  subjectIds: string[];
 };
 
-const EMPTY_FORM: AssignmentForm = { teacherId: '', department: '', specialty: '' };
+const EMPTY_FORM: AssignmentForm = { teacherId: '', department: '', specialty: '', subjectIds: [] };
 
 export function TeacherDirectory() {
   const [teachers, setTeachers] = useState<TeacherAssignment[]>([]);
@@ -47,6 +48,8 @@ export function TeacherDirectory() {
   const [selected, setSelected] = useState<TeacherAssignment | null>(null);
   const [form, setForm] = useState<AssignmentForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [teacherEmail, setTeacherEmail] = useState('');
+  const [subjects, setSubjects] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -69,6 +72,7 @@ export function TeacherDirectory() {
       active = false;
     };
   }, [fetchTeachers]);
+  useEffect(() => { void apiClient.get('/schools/me/subjects').then((response) => setSubjects((response.data.data || []).filter((item: { isActive: boolean }) => item.isActive))); }, []);
 
   const filteredTeachers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -85,8 +89,10 @@ export function TeacherDirectory() {
   const openAssignDialog = () => {
     setForm(EMPTY_FORM);
     setSelected(null);
+    setTeacherEmail('');
     setActiveDialog('assign');
   };
+  const searchTeacher = async () => { try { const response = await apiClient.get(`/schools/me/teachers/search?email=${encodeURIComponent(teacherEmail)}`); setForm((current) => ({ ...current, teacherId: response.data.data.id })); toast.success(`Professeur trouvé : ${response.data.data.user.email}`); } catch (error: unknown) { toast.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Aucun compte professeur trouvé pour cet e-mail'); } };
 
   const openEditDialog = (assignment: TeacherAssignment) => {
     setSelected(assignment);
@@ -94,6 +100,7 @@ export function TeacherDirectory() {
       teacherId: assignment.teacherId,
       department: assignment.department || '',
       specialty: assignment.specialty || '',
+      subjectIds: [],
     });
     setActiveDialog('edit');
   };
@@ -110,6 +117,7 @@ export function TeacherDirectory() {
           await apiClient.patch(`/schools/me/teachers/${selected.id}`, {
             department: form.department || undefined,
             specialty: form.specialty || undefined,
+            subjectIds: form.subjectIds,
           });
           toast.success('Affectation mise à jour');
         }
@@ -189,11 +197,12 @@ export function TeacherDirectory() {
               <DialogDescription>{activeDialog === 'assign' ? 'Saisissez l’identifiant d’un professeur déjà enregistré.' : 'Mettez à jour le département et la spécialité de ce professeur.'}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              {activeDialog === 'assign' && <div className="space-y-2"><Label htmlFor="teacher-id">Identifiant du professeur</Label><Input id="teacher-id" required value={form.teacherId} onChange={(event) => setForm({ ...form, teacherId: event.target.value })} placeholder="UUID du professeur" /></div>}
+              {activeDialog === 'assign' && <div className="space-y-2"><Label htmlFor="teacher-email">E-mail du professeur</Label><div className="flex gap-2"><Input id="teacher-email" type="email" value={teacherEmail} onChange={(event) => setTeacherEmail(event.target.value)} placeholder="professeur@exemple.com" /><Button type="button" onClick={() => void searchTeacher()}>Rechercher</Button></div>{form.teacherId && <p className="text-xs text-emerald-600">Professeur identifié.</p>}</div>}
+              <fieldset className="space-y-2"><legend className="text-sm font-medium">Matières enseignées</legend>{subjects.map((subject) => <label key={subject.id} className="mr-3 inline-flex items-center gap-1 text-sm"><input type="checkbox" checked={form.subjectIds.includes(subject.id)} onChange={() => setForm((current) => ({ ...current, subjectIds: current.subjectIds.includes(subject.id) ? current.subjectIds.filter((id) => id !== subject.id) : [...current.subjectIds, subject.id] }))} />{subject.name}</label>)}</fieldset>
               <div className="space-y-2"><Label htmlFor="teacher-department">Département</Label><Input id="teacher-department" value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} placeholder="Ex. Informatique" /></div>
               <div className="space-y-2"><Label htmlFor="teacher-specialty">Spécialité</Label><Input id="teacher-specialty" value={form.specialty} onChange={(event) => setForm({ ...form, specialty: event.target.value })} placeholder="Ex. Algorithmique" /></div>
             </div>
-            <DialogFooter><Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button><Button type="submit" disabled={saving}>{saving ? 'Enregistrement...' : activeDialog === 'assign' ? 'Affecter' : 'Enregistrer'}</Button></DialogFooter>
+            <DialogFooter><Button type="button" variant="outline" onClick={() => setActiveDialog(null)}>Annuler</Button><Button type="submit" disabled={saving || !form.teacherId}>{saving ? 'Enregistrement...' : activeDialog === 'assign' ? 'Affecter' : 'Enregistrer'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateTeacherAssignmentDto {
   @ApiPropertyOptional()
@@ -16,4 +16,5 @@ export class UpdateTeacherAssignmentDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+  @IsOptional() @IsArray() @IsUUID('all', { each: true }) subjectIds?: string[];
 }

@@ -16,16 +16,20 @@ export class CreateSchoolCourseDto {
   @IsString()
   code: string;
 
-  @IsString()
-  title: string;
+  @IsUUID()
+  subjectId: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   description?: string;
 
-  @IsString()
-  level: string;
+  @IsUUID()
+  programId: string;
+
+  @IsInt()
+  @Min(1)
+  programLevel: number;
 
   @ApiPropertyOptional()
   @IsOptional()
