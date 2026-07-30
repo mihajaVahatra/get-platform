@@ -77,7 +77,13 @@ const PAGE_SIZE = 10;
 
 export default function SchoolApplicationsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center p-8">Chargement des candidatures...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center p-8">
+          Chargement des candidatures...
+        </div>
+      }
+    >
       <SchoolApplicationsContent />
     </Suspense>
   );
@@ -122,11 +128,16 @@ function SchoolApplicationsContent() {
 
     const loadApplications = async () => {
       try {
-        const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(PAGE_SIZE),
+        });
         if (offerId !== 'ALL') params.set('offerId', offerId);
         if (status !== 'ALL') params.set('status', status);
 
-        const response = await apiClient.get(`/applications/school/me?${params.toString()}`);
+        const response = await apiClient.get(
+          `/applications/school/me?${params.toString()}`,
+        );
         if (cancelled) return;
 
         setApplications(response.data.data || []);
@@ -168,7 +179,11 @@ function SchoolApplicationsContent() {
     });
 
   if (loading) {
-    return <div className="flex justify-center p-8">Chargement des candidatures...</div>;
+    return (
+      <div className="flex justify-center p-8">
+        Chargement des candidatures...
+      </div>
+    );
   }
 
   return (
@@ -176,21 +191,47 @@ function SchoolApplicationsContent() {
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold">📋 Candidatures reçues</h1>
-          <p className="text-sm text-gray-500">{totalItems} candidature(s) au total</p>
+          <p className="text-sm text-gray-500">
+            {totalItems} candidature(s) au total
+          </p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-          <Select value={offerId} onValueChange={(value) => updateFilters(status, value ?? 'ALL')}>
+          <Select
+            items={[
+              { value: 'ALL', label: 'Toutes les offres' },
+              ...offers.map((offer) => ({
+                value: offer.id,
+                label: offer.title,
+              })),
+            ]}
+            value={offerId}
+            onValueChange={(value) => updateFilters(status, value ?? 'ALL')}
+          >
             <SelectTrigger className="w-full sm:w-56">
               <SelectValue placeholder="Toutes les offres" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Toutes les offres</SelectItem>
               {offers.map((offer) => (
-                <SelectItem key={offer.id} value={offer.id}>{offer.title}</SelectItem>
+                <SelectItem key={offer.id} value={offer.id}>
+                  {offer.title}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={status} onValueChange={(value) => updateFilters(value ?? 'ALL', offerId)}>
+          <Select
+            items={[
+              { value: 'ALL', label: 'Tous les statuts' },
+              { value: 'PENDING', label: 'En attente' },
+              { value: 'PRESELECTED', label: 'Présélectionnées' },
+              { value: 'TEST_SCHEDULED', label: 'Tests planifiés' },
+              { value: 'INTERVIEW_SCHEDULED', label: 'Entretiens planifiés' },
+              { value: 'ACCEPTED', label: 'Acceptées' },
+              { value: 'REJECTED', label: 'Refusées' },
+            ]}
+            value={status}
+            onValueChange={(value) => updateFilters(value ?? 'ALL', offerId)}
+          >
             <SelectTrigger className="w-full sm:w-52">
               <SelectValue placeholder="Tous les statuts" />
             </SelectTrigger>
@@ -199,7 +240,9 @@ function SchoolApplicationsContent() {
               <SelectItem value="PENDING">En attente</SelectItem>
               <SelectItem value="PRESELECTED">Présélectionnées</SelectItem>
               <SelectItem value="TEST_SCHEDULED">Tests planifiés</SelectItem>
-              <SelectItem value="INTERVIEW_SCHEDULED">Entretiens planifiés</SelectItem>
+              <SelectItem value="INTERVIEW_SCHEDULED">
+                Entretiens planifiés
+              </SelectItem>
               <SelectItem value="ACCEPTED">Acceptées</SelectItem>
               <SelectItem value="REJECTED">Refusées</SelectItem>
             </SelectContent>
@@ -211,7 +254,9 @@ function SchoolApplicationsContent() {
         <Card>
           <CardContent className="p-8 text-center">
             <FileTextIcon className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-            <p className="text-gray-500">Aucune candidature ne correspond à ces filtres.</p>
+            <p className="text-gray-500">
+              Aucune candidature ne correspond à ces filtres.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -232,27 +277,43 @@ function SchoolApplicationsContent() {
                     key={application.id}
                     className="cursor-pointer transition-colors hover:bg-violet-50 focus-visible:bg-violet-50"
                     tabIndex={0}
-                    onClick={() => router.push(`/dashboard/school/applications/${application.id}`)}
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/school/applications/${application.id}`,
+                      )
+                    }
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        router.push(`/dashboard/school/applications/${application.id}`);
+                        router.push(
+                          `/dashboard/school/applications/${application.id}`,
+                        );
                       }
                     }}
                   >
                     <td className="px-5 py-4">
                       <p className="font-medium text-slate-900">
-                        {application.student.firstName} {application.student.lastName}
+                        {application.student.firstName}{' '}
+                        {application.student.lastName}
                       </p>
-                      <p className="text-slate-500">{application.student.user.email}</p>
+                      <p className="text-slate-500">
+                        {application.student.user.email}
+                      </p>
                     </td>
-                    <td className="px-5 py-4 font-medium text-violet-700">{application.offer.title}</td>
+                    <td className="px-5 py-4 font-medium text-violet-700">
+                      {application.offer.title}
+                    </td>
                     <td className="px-5 py-4">
-                      <Badge className={`${STATUS_COLORS[application.status] || 'bg-gray-500'} text-white`}>
-                        {STATUS_LABELS[application.status] || application.status}
+                      <Badge
+                        className={`${STATUS_COLORS[application.status] || 'bg-gray-500'} text-white`}
+                      >
+                        {STATUS_LABELS[application.status] ||
+                          application.status}
                       </Badge>
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{formatDate(application.submittedAt)}</td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {formatDate(application.submittedAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -274,20 +335,22 @@ function SchoolApplicationsContent() {
                 className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
               />
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-              <PaginationItem key={pageNumber}>
-                <PaginationLink
-                  href="#"
-                  isActive={page === pageNumber}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setPage(pageNumber);
-                  }}
-                >
-                  {pageNumber}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+              (pageNumber) => (
+                <PaginationItem key={pageNumber}>
+                  <PaginationLink
+                    href="#"
+                    isActive={page === pageNumber}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setPage(pageNumber);
+                    }}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                </PaginationItem>
+              ),
+            )}
             <PaginationItem>
               <PaginationNext
                 href="#"
@@ -295,7 +358,9 @@ function SchoolApplicationsContent() {
                   event.preventDefault();
                   if (page < totalPages) setPage(page + 1);
                 }}
-                className={page >= totalPages ? 'pointer-events-none opacity-50' : ''}
+                className={
+                  page >= totalPages ? 'pointer-events-none opacity-50' : ''
+                }
               />
             </PaginationItem>
           </PaginationContent>

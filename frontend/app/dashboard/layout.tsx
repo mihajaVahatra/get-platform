@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   WalletCards,
   UsersRound,
-  Layers3,
   ReceiptText,
   Megaphone,
   ChartNoAxesCombined,
@@ -418,11 +417,6 @@ function SchoolSidebar({
       label: 'Salles & Emplois du temps',
       icon: CalendarDays,
       href: '/dashboard/school/schedule',
-    },
-    {
-      label: 'Programmes',
-      icon: Layers3,
-      href: '/dashboard/school/settings',
     },
   ];
   const admin = [

@@ -2,12 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import toast from 'react-hot-toast';
 
 type Payment = {
@@ -82,12 +102,11 @@ export default function StudentPaymentsPage() {
     }
   };
 
-  const filteredPayments = filter === 'ALL' 
-    ? payments 
-    : payments.filter(p => p.status === filter);
+  const filteredPayments =
+    filter === 'ALL' ? payments : payments.filter((p) => p.status === filter);
 
   const totalAmount = payments
-    .filter(p => p.status === 'COMPLETED')
+    .filter((p) => p.status === 'COMPLETED')
     .reduce((sum, p) => sum + p.amount, 0);
 
   const getStatusColor = (status: string) => {
@@ -152,18 +171,19 @@ export default function StudentPaymentsPage() {
         method: paymentData.method,
         applicationId: paymentData.applicationId,
       });
-      
+
       toast.success('Paiement initié avec succès !');
       setIsDialogOpen(false);
       setPaymentData({ applicationId: '', method: '' });
-      
+
       if (response.data.data?.redirectUrl) {
         window.location.href = response.data.data.redirectUrl;
       } else {
         fetchPayments();
       }
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Erreur lors de l\'initiation';
+      const message =
+        error.response?.data?.message || "Erreur lors de l'initiation";
       toast.error(message);
     } finally {
       setIsInitiating(false);
@@ -189,7 +209,9 @@ export default function StudentPaymentsPage() {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-8">Chargement des paiements...</div>;
+    return (
+      <div className="flex justify-center p-8">Chargement des paiements...</div>
+    );
   }
 
   return (
@@ -205,7 +227,9 @@ export default function StudentPaymentsPage() {
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm text-gray-500">Total payé</p>
-            <p className="text-xl font-bold text-green-600">{formatAmount(totalAmount)}</p>
+            <p className="text-xl font-bold text-green-600">
+              {formatAmount(totalAmount)}
+            </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
@@ -222,9 +246,16 @@ export default function StudentPaymentsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="applicationId">Candidature</Label>
                   <Select
+                    items={applications.map((application) => ({
+                      value: application.id,
+                      label: `${application.offer.title} — ${application.offer.school.name} (${formatAmount(application.offer.tuitionFees)})`,
+                    }))}
                     value={paymentData.applicationId}
                     onValueChange={(value) =>
-                      setPaymentData({ ...paymentData, applicationId: value ?? '' })
+                      setPaymentData({
+                        ...paymentData,
+                        applicationId: value ?? '',
+                      })
                     }
                   >
                     <SelectTrigger id="applicationId">
@@ -233,7 +264,9 @@ export default function StudentPaymentsPage() {
                     <SelectContent>
                       {applications.map((application) => (
                         <SelectItem key={application.id} value={application.id}>
-                          {application.offer.title} — {application.offer.school.name} ({formatAmount(application.offer.tuitionFees)})
+                          {application.offer.title} —{' '}
+                          {application.offer.school.name} (
+                          {formatAmount(application.offer.tuitionFees)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -247,8 +280,16 @@ export default function StudentPaymentsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="method">Méthode de paiement</Label>
                   <Select
+                    items={[
+                      { value: 'ORANGE_MONEY', label: 'Orange Money' },
+                      { value: 'MVOLA', label: 'Mvola' },
+                      { value: 'CARD', label: 'Carte bancaire' },
+                      { value: 'BANK_TRANSFER', label: 'Virement bancaire' },
+                    ]}
                     value={paymentData.method}
-                    onValueChange={(value) => setPaymentData({ ...paymentData, method: value ?? '' })}
+                    onValueChange={(value) =>
+                      setPaymentData({ ...paymentData, method: value ?? '' })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choisir une méthode" />
@@ -257,13 +298,18 @@ export default function StudentPaymentsPage() {
                       <SelectItem value="ORANGE_MONEY">Orange Money</SelectItem>
                       <SelectItem value="MVOLA">Mvola</SelectItem>
                       <SelectItem value="CARD">Carte bancaire</SelectItem>
-                      <SelectItem value="BANK_TRANSFER">Virement bancaire</SelectItem>
+                      <SelectItem value="BANK_TRANSFER">
+                        Virement bancaire
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Annuler
                 </Button>
                 <Button onClick={handleInitiatePayment} disabled={isInitiating}>
@@ -297,8 +343,8 @@ export default function StudentPaymentsPage() {
         <Card>
           <CardContent className="p-8 text-center">
             <p className="text-gray-500">
-              {payments.length === 0 
-                ? 'Vous n\'avez pas encore effectué de paiement.' 
+              {payments.length === 0
+                ? "Vous n'avez pas encore effectué de paiement."
                 : 'Aucun paiement ne correspond à ce filtre.'}
             </p>
           </CardContent>
@@ -306,19 +352,25 @@ export default function StudentPaymentsPage() {
       ) : (
         <div className="grid gap-4">
           {filteredPayments.map((payment) => (
-            <Card key={payment.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={payment.id}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="text-lg flex items-center gap-3">
                       {payment.reference}
-                      <Badge className={`${getStatusColor(payment.status)} text-white`}>
+                      <Badge
+                        className={`${getStatusColor(payment.status)} text-white`}
+                      >
                         {getStatusLabel(payment.status)}
                       </Badge>
                     </CardTitle>
                     <CardDescription>
-                      {payment.application?.offer?.school?.name || 'Paiement direct'} • 
-                      {payment.application?.offer?.title || 'Sans candidature'}
+                      {payment.application?.offer?.school?.name ||
+                        'Paiement direct'}{' '}
+                      •{payment.application?.offer?.title || 'Sans candidature'}
                     </CardDescription>
                   </div>
                   <div className="text-right">
@@ -335,18 +387,24 @@ export default function StudentPaymentsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
                   <div className="flex items-center gap-4">
                     <span className="text-gray-500">
-                      Méthode : <span className="font-medium">{getMethodLabel(payment.method)}</span>
+                      Méthode :{' '}
+                      <span className="font-medium">
+                        {getMethodLabel(payment.method)}
+                      </span>
                     </span>
                     {payment.paidAt && (
                       <span className="text-gray-500">
-                        Payé le : <span className="font-medium">{formatDate(payment.paidAt)}</span>
+                        Payé le :{' '}
+                        <span className="font-medium">
+                          {formatDate(payment.paidAt)}
+                        </span>
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     {payment.status === 'COMPLETED' && payment.receiptUrl && (
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleDownloadReceipt(payment.id)}
                       >
@@ -359,8 +417,8 @@ export default function StudentPaymentsPage() {
                       </span>
                     )}
                     {payment.status === 'FAILED' && (
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="text-red-600"
                       >

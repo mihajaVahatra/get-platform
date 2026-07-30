@@ -253,7 +253,8 @@ export class SchoolController {
   // ========== SCHOOL ADMIN ROUTES ==========
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get current school info (School Admin only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'School info retrieved' })
@@ -396,7 +397,8 @@ export class SchoolController {
   }
 
   @Get('me/students')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get enrolled students for my school' })
   @ApiQuery({ name: 'search', required: false, example: 'Rakoto' })
@@ -617,7 +619,8 @@ export class SchoolController {
   }
 
   @Get('me/teachers')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get active teacher assignments for my school' })
   async getMySchoolTeachers(@GetUser() user: SchoolAdminSession) {
@@ -638,7 +641,8 @@ export class SchoolController {
   }
 
   @Post('me/teachers')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Assign an existing teacher to my school' })
   async assignMySchoolTeacher(
@@ -663,7 +667,8 @@ export class SchoolController {
   }
 
   @Patch('me/teachers/:teacherSchoolId')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update a teacher assignment for my school' })
   async updateMySchoolTeacher(
@@ -917,7 +922,8 @@ export class SchoolController {
   }
 
   @Get('me/stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Get current school statistics (School Admin only)',
