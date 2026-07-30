@@ -1,38 +1,378 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
-import { Bell, BookOpen, CalendarDays, ChevronRight, ClipboardCheck, FileBadge, GraduationCap, Layers3, Mail, MoreHorizontal, ReceiptText, UserRound, UsersRound, WalletCards } from 'lucide-react';
+import {
+  CheckCircle2Icon,
+  ClipboardListIcon,
+  Clock3Icon,
+  CreditCardIcon,
+  GraduationCapIcon,
+  Layers3Icon,
+  XCircleIcon,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
 
-const registrations = [
-  ['Rasolonjatoavo T.', 'Informatique', 'L1', '10 mai 2025', 'Validée'], ['Rakotoarivelo M.', 'Génie Civil', 'L1', '09 mai 2025', 'Validée'], ['Andriamiadana F.', 'Management', 'L2', '08 mai 2025', 'En attente'], ['Rabeharisoa L.', 'Informatique', 'L1', '07 mai 2025', 'Validée'], ['Rakotomalala J.', 'Électrotechnique', 'L1', '06 mai 2025', 'Validée'],
-] as const;
+type SchoolStats = {
+  totalOffers: number;
+  openOffers: number;
+  totalApplications: number;
+  pendingApplications: number;
+  acceptedApplications: number;
+  rejectedApplications: number;
+};
 
-const tasks: { label: string; count: string; icon: LucideIcon }[] = [
-  { label: 'Demandes d’inscription à valider', count: '12', icon: ClipboardCheck }, { label: 'Paiements à confirmer', count: '18', icon: ReceiptText }, { label: 'Attestations à générer', count: '25', icon: FileBadge }, { label: 'Demandes de documents', count: '7', icon: FileBadge }, { label: 'Messages non lus', count: '4', icon: Mail },
-];
+type PaymentSummary = {
+  totalPayments: number;
+  completedPayments: number;
+  pendingPayments: number;
+  failedPayments: number;
+  completedAmount: number;
+};
 
-const shortcuts: { label: string; icon: LucideIcon }[] = [
-  { label: 'Ajouter un étudiant', icon: UsersRound }, { label: 'Créer un cours', icon: BookOpen }, { label: 'Ajouter un professeur', icon: UserRound }, { label: 'Emploi du temps', icon: CalendarDays }, { label: 'Importer des notes', icon: GraduationCap }, { label: 'Rapport personnalisé', icon: ClipboardCheck }, { label: 'Envoyer une annonce', icon: Mail }, { label: 'Plus d’outils', icon: MoreHorizontal },
-];
+type SchoolPayment = {
+  id: string;
+  amount: number;
+  currency: string;
+  method: string;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+  student: { firstName: string; lastName: string; user: { email: string } };
+  application: { offer: { title: string } } | null;
+};
+
+type PaymentsResponse = {
+  summary: PaymentSummary;
+  payments: SchoolPayment[];
+};
+
+type OperationalStats = {
+  totalStudents: number;
+  totalCourses: number;
+  totalTeachers: number;
+};
 
 export default function SchoolDashboardPage() {
-  return <div className="mx-auto max-w-[1500px] space-y-4">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">Bonjour Andriamihaja 👋</h1><p className="mt-1 text-sm text-violet-600">Voici un aperçu général de votre établissement.</p></div><div className="flex items-center gap-4"><button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600"><CalendarDays className="size-4 text-violet-600" />Année académique 2024 – 2025</button><AlertIcon icon={Bell} value="6" /><AlertIcon icon={Mail} value="3" /></div></header>
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Kpi icon={UsersRound} tone="violet" label="Étudiants inscrits" value="2 456" detail="+8,5% vs année dernière" /><Kpi icon={BookOpen} tone="green" label="Cours actifs" value="156" detail="+12 nouveaux ce mois" /><Kpi icon={UserRound} tone="blue" label="Professeurs" value="98" detail="+5 nouveaux ce mois" /><Kpi icon={Layers3} tone="orange" label="Programmes" value="28" detail="—" /><Kpi icon={WalletCards} tone="violet" label="Revenus totaux" value="1 245 000 000 Ar" detail="+15,4% ce semestre" /></section>
-    <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]"><Card title="Inscriptions récentes" action="Voir tout"><div className="overflow-x-auto"><table className="w-full text-left text-[11px]"><thead className="border-b border-slate-100 text-slate-400"><tr>{['Étudiant', 'Filière', 'Niveau', 'Date', 'Statut'].map((name) => <th key={name} className="pb-3 font-semibold">{name}</th>)}</tr></thead><tbody>{registrations.map(([student, field, level, date, status]) => <tr key={student} className="border-b border-slate-50 text-slate-600"><td className="py-3 font-semibold text-[#28315e]">{student}</td><td>{field}</td><td>{level}</td><td>{date}</td><td><Status value={status} /></td></tr>)}</tbody></table></div><Link href="/dashboard/school?section=enrollments" className="mt-3 block text-center text-xs font-bold text-violet-600">Voir toutes les inscriptions</Link></Card><DistributionCard /><NewsCard /></section>
-    <section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]"><CourseLoad /><Teachers /><Card title="Tâches administratives"><div className="space-y-2">{tasks.map(({ label, count, icon: Icon }) => <button key={label} className="flex w-full items-center gap-3 rounded-lg bg-violet-50/60 px-3 py-2.5 text-left"><span className="grid size-7 place-items-center rounded bg-white text-violet-600"><Icon className="size-4" /></span><span className="flex-1 text-xs font-semibold text-[#3c466d]">{label}</span><span className="font-bold text-violet-600">{count}</span><ChevronRight className="size-4 text-slate-400" /></button>)}</div></Card></section>
-    <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr_1fr]"><Payments /><Events /><Card title="Accès rapides"><div className="grid grid-cols-4 gap-4 text-center">{shortcuts.map(({ label, icon: Icon }) => <button key={label} className="group"><span className="mx-auto grid size-11 place-items-center rounded-xl bg-violet-50 text-violet-600 transition group-hover:bg-violet-600 group-hover:text-white"><Icon className="size-5" /></span><p className="mt-2 text-[10px] font-semibold leading-4 text-slate-600">{label}</p></button>)}</div></Card></section>
-  </div>;
+  const [stats, setStats] = useState<SchoolStats | null>(null);
+  const [payments, setPayments] = useState<PaymentsResponse | null>(null);
+  const [operationalStats, setOperationalStats] =
+    useState<OperationalStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadStats = async () => {
+      try {
+        const [
+          statsResponse,
+          paymentsResponse,
+          studentsResponse,
+          coursesResponse,
+          teachersResponse,
+        ] = await Promise.all([
+          apiClient.get('/schools/me/stats'),
+          apiClient.get('/schools/me/payments?limit=5'),
+          apiClient.get('/schools/me/students?page=1&limit=1'),
+          apiClient.get('/schools/me/courses'),
+          apiClient.get('/schools/me/teachers'),
+        ]);
+        const receivedStats = statsResponse.data.data as
+          SchoolStats | undefined;
+        const receivedPayments = paymentsResponse.data.data as
+          PaymentsResponse | undefined;
+        if (!receivedStats)
+          throw new Error('Statistiques absentes de la réponse');
+        if (!receivedPayments)
+          throw new Error('Paiements absents de la réponse');
+        if (!cancelled) {
+          setStats(receivedStats);
+          setPayments(receivedPayments);
+          setOperationalStats({
+            totalStudents: studentsResponse.data.meta?.total ?? 0,
+            totalCourses: (coursesResponse.data.data ?? []).length,
+            totalTeachers: (teachersResponse.data.data ?? []).length,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Erreur chargement statistiques école:', error);
+          toast.error('Impossible de charger les statistiques de l’école');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8">
+        Chargement des statistiques...
+      </div>
+    );
+  }
+
+  if (!stats || !payments || !operationalStats) {
+    return (
+      <div className="rounded-xl border border-slate-100 bg-white p-8 text-center shadow-sm">
+        <p className="text-slate-500">
+          Les statistiques sont indisponibles pour le moment.
+        </p>
+      </div>
+    );
+  }
+
+  const acceptanceRate = stats.totalApplications
+    ? Math.round((stats.acceptedApplications / stats.totalApplications) * 100)
+    : 0;
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-6">
+      <header>
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
+          Tableau de bord
+        </h1>
+        <p className="mt-1 text-sm text-violet-600">
+          Pilotage de vos offres et candidatures en temps réel.
+        </p>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Kpi
+          icon={Layers3Icon}
+          tone="violet"
+          label="Offres publiées"
+          value={stats.totalOffers}
+          detail={`${stats.openOffers} actuellement ouverte(s)`}
+        />
+        <Kpi
+          icon={ClipboardListIcon}
+          tone="blue"
+          label="Candidatures reçues"
+          value={stats.totalApplications}
+          detail={`${stats.pendingApplications} à traiter`}
+        />
+        <Kpi
+          icon={CheckCircle2Icon}
+          tone="green"
+          label="Candidatures acceptées"
+          value={stats.acceptedApplications}
+          detail={`Taux d’acceptation : ${acceptanceRate} %`}
+        />
+        <Kpi
+          icon={Clock3Icon}
+          tone="orange"
+          label="Candidatures en attente"
+          value={stats.pendingApplications}
+          detail="À traiter"
+        />
+        <Kpi
+          icon={XCircleIcon}
+          tone="rose"
+          label="Candidatures refusées"
+          value={stats.rejectedApplications}
+          detail="Décision enregistrée"
+        />
+        <Kpi
+          icon={CreditCardIcon}
+          tone="violet"
+          label="Paiements reçus"
+          value={payments.summary.completedPayments}
+          detail={`${formatCurrency(payments.summary.completedAmount)} encaissés`}
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h2 className="font-extrabold text-[#17204e]">Accès rapides</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/dashboard/school/offers"
+              className="rounded-lg border border-violet-100 bg-violet-50 p-4 transition hover:bg-violet-100"
+            >
+              <Layers3Icon className="size-5 text-violet-600" />
+              <p className="mt-3 font-semibold text-[#28315e]">
+                Gérer les offres
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Créer, modifier ou fermer une offre.
+              </p>
+            </Link>
+            <Link
+              href="/dashboard/school/applications"
+              className="rounded-lg border border-violet-100 bg-violet-50 p-4 transition hover:bg-violet-100"
+            >
+              <ClipboardListIcon className="size-5 text-violet-600" />
+              <p className="mt-3 font-semibold text-[#28315e]">
+                Traiter les candidatures
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Consulter les dossiers et faire avancer leur statut.
+              </p>
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-extrabold text-[#17204e]">
+                Paiements des candidatures
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {payments.summary.pendingPayments} en attente ·{' '}
+                {payments.summary.failedPayments} échoué(s)
+              </p>
+            </div>
+            <CreditCardIcon className="size-6 text-violet-600" />
+          </div>
+          <div className="mt-4 space-y-3">
+            {payments.payments.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Aucun paiement lié à vos candidatures.
+              </p>
+            ) : (
+              payments.payments.map((payment) => (
+                <div
+                  key={payment.id}
+                  className="border-t border-slate-100 pt-3 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-[#28315e]">
+                      {payment.student.firstName} {payment.student.lastName}
+                    </p>
+                    <PaymentStatus status={payment.status} />
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {payment.application?.offer.title ?? 'Candidature'} ·{' '}
+                    {payment.student.user.email}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-slate-600">
+                    {formatCurrency(payment.amount, payment.currency)} ·{' '}
+                    {payment.method}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="font-extrabold text-[#17204e]">
+          Indicateurs de votre établissement
+        </h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Kpi
+            icon={GraduationCapIcon}
+            tone="blue"
+            label="Étudiants inscrits"
+            value={operationalStats.totalStudents}
+            detail="Inscription(s) active(s)"
+          />
+          <Kpi
+            icon={Layers3Icon}
+            tone="violet"
+            label="Cours"
+            value={operationalStats.totalCourses}
+            detail="Cours configuré(s)"
+          />
+          <Kpi
+            icon={ClipboardListIcon}
+            tone="green"
+            label="Professeurs"
+            value={operationalStats.totalTeachers}
+            detail="Professeur(s) affecté(s)"
+          />
+          <Kpi
+            icon={CreditCardIcon}
+            tone="orange"
+            label="Revenus encaissés"
+            value={formatCurrency(payments.summary.completedAmount)}
+            detail={`${payments.summary.completedPayments} paiement(s) reçu(s)`}
+          />
+        </div>
+      </section>
+    </div>
+  );
 }
 
-function AlertIcon({ icon: Icon, value }: { icon: LucideIcon; value: string }) { return <span className="relative"><Icon className="size-5 text-[#17204e]" /><i className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-rose-500 text-[9px] not-italic text-white">{value}</i></span>; }
-function Kpi({ icon: Icon, tone, label, value, detail }: { icon: LucideIcon; tone: 'violet' | 'green' | 'blue' | 'orange'; label: string; value: string; detail: string }) { const tones = { violet: 'bg-violet-100 text-violet-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' }; return <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"><div className="flex items-center gap-4"><span className={`grid size-12 place-items-center rounded-xl ${tones[tone]}`}><Icon className="size-6" /></span><div><p className="text-xs font-bold text-[#28315e]">{label}</p><p className="mt-1 text-2xl font-extrabold text-[#111949]">{value}</p></div></div><p className="mt-3 text-[10px] font-semibold text-emerald-600">↗ {detail}</p></div>; }
-function Card({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) { return <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><h2 className="font-extrabold text-[#17204e]">{title}</h2>{action && <button className="text-xs font-bold text-violet-600">{action}</button>}</div><div className="mt-4">{children}</div></section>; }
-function Status({ value }: { value: string }) { return <span className={`rounded px-2 py-1 text-[10px] font-bold ${value === 'Validée' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-500'}`}>{value}</span>; }
-function DistributionCard() { const data = [['Informatique', '35% (860)', 'bg-violet-500'], ['Génie Civil', '25% (614)', 'bg-teal-400'], ['Management', '20% (491)', 'bg-orange-400'], ['Électrotechnique', '10% (246)', 'bg-blue-400'], ['Autres', '10% (245)', 'bg-slate-300']]; return <Card title="Répartition des étudiants" action="Voir le rapport"><div className="flex items-center justify-center gap-7 py-8"><div className="grid size-36 place-items-center rounded-full" style={{ background: 'conic-gradient(#5b42e9 0 35%, #3dc3ad 35% 60%, #ff9b27 60% 80%, #429bea 80% 90%, #dce1ec 90% 100%)' }}><div className="grid size-24 place-items-center rounded-full bg-white text-center"><strong className="text-2xl text-[#121949]">2 456</strong><span className="text-xs text-slate-500">Total</span></div></div><ul className="space-y-3 text-[11px] text-slate-600">{data.map(([name, value, color]) => <li key={name} className="flex items-center gap-2"><i className={`size-2.5 rounded-full ${color}`} /><span className="min-w-24">{name}</span><span>{value}</span></li>)}</ul></div></Card>; }
-function NewsCard() { const news = [['IMPORTANT', 'Réinscription 2025–2026', 'La réinscription en ligne est ouverte jusqu’au 30 juin 2025.', '10 mai 2025'], ['', 'Calendrier des examens S1', 'Période dans la section Documents', '08 mai 2025'], ['', 'Réunion pédagogique', 'Vendredi 16 mai 2025 à 14h00 – Salle A201', '07 mai 2025'], ['', 'Nouvelle salle informatique', 'Salle INFO 3 disponible à partir du 12 mai.', '05 mai 2025']]; return <Card title="Actualités & Annonces" action="Voir tout"><div className="space-y-2">{news.map(([tag, title, text, date]) => <div key={title} className="flex gap-3 border-b border-slate-100 py-2.5 last:border-0"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600"><Bell className="size-4" /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#202856]">{tag && <span className="mr-1 rounded bg-violet-600 px-1.5 py-0.5 text-[9px] text-white">{tag}</span>}{title}</p><p className="mt-1 text-[10px] text-slate-500">{text}</p></div><span className="text-[10px] text-slate-400">{date}</span></div>)}</div></Card>; }
-function CourseLoad() { const values = [68, 74, 61, 57, 48]; return <Card title="Chargement des cours (ce semestre)" action="Voir tout"><div className="mt-5 flex h-44 items-end justify-around gap-3 border-b border-l border-slate-100 px-5 pb-4">{values.map((height) => <div key={height} className="flex h-full flex-1 items-end justify-center gap-1"><span className="w-3 rounded-t bg-violet-600" style={{ height: `${height}%` }} /><span className="w-3 rounded-t bg-emerald-400" style={{ height: `${height - 13}%` }} /></div>)}</div><div className="mt-3 flex justify-around text-[10px] text-slate-500"><span>Info.</span><span>Génie Civil</span><span>Management</span><span>Électro.</span><span>Autres</span></div></Card>; }
-function Teachers() { const people = [['Dr. Rakotomalala L.', 'Informatique', '120h', 95], ['M. Andriamihaja R.', 'Génie Civil', '98h', 90], ['Mme. Rasoavelo H.', 'Management', '85h', 85], ['M. Randrianarison P.', 'Électrotechnique', '76h', 80], ['Dr. Raharimalala T.', 'Informatique', '72h', 75]] as const; return <Card title="Professeurs les plus actifs" action="Voir tout"><div className="space-y-3">{people.map(([name, field, hours, rate], index) => <div key={name} className="flex items-center gap-2"><span className="grid size-7 place-items-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">{index + 1}</span><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#28315e]">{name}</p><p className="text-[10px] text-slate-500">{field}</p></div><span className="text-xs font-semibold">{hours}</span><div className="w-24"><div className="h-1 rounded bg-slate-100"><div className="h-1 rounded bg-emerald-500" style={{ width: `${rate}%` }} /></div></div><span className="text-[10px] text-slate-500">{rate}%</span></div>)}</div></Card>; }
-function Payments() { return <Card title="Paiements (ce mois)" action="Voir le rapport"><div className="grid grid-cols-[1fr_1fr_100px] gap-3 pt-4"><div className="rounded-lg bg-emerald-50 p-4"><p className="text-xs text-slate-500">Total collecté</p><p className="mt-3 text-lg font-extrabold text-emerald-600">125 400 000 Ar</p><p className="mt-2 text-[10px] text-emerald-600">↗ +12,6% vs mois dernier</p></div><div className="rounded-lg bg-violet-50 p-4"><p className="text-xs text-slate-500">En attente</p><p className="mt-3 text-lg font-extrabold text-violet-600">18 750 000 Ar</p><p className="mt-2 text-[10px] text-slate-500">23 transactions</p></div><div className="grid place-items-center"><div className="grid size-24 place-items-center rounded-full" style={{ background: 'conic-gradient(#5b42e9 0 86%, #e8e8f6 86% 100%)' }}><div className="grid size-16 place-items-center rounded-full bg-white text-center"><b>86%</b><span className="text-[8px]">Taux</span></div></div></div></div></Card>; }
-function Events() { const events = [['16', 'MAI', 'Réunion pédagogique', 'Salle A201 · 14:00', 'Dans 2 jours'], ['20', 'MAI', 'Début des examens S1', 'Toutes les salles', 'Dans 6 jours'], ['30', 'MAI', 'Date limite réinscription', 'En ligne', 'Dans 16 jours']]; return <Card title="Événements à venir" action="Voir tout"><div className="space-y-2">{events.map(([day, month, title, text, when]) => <div key={title} className="flex items-center gap-3 rounded-lg bg-slate-50 px-2 py-2"><span className="w-9 text-center"><b className="block text-xl text-violet-600">{day}</b><small className="text-[9px] font-bold text-violet-600">{month}</small></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#28315e]">{title}</p><p className="text-[10px] text-slate-500">{text}</p></div><span className="rounded bg-violet-100 px-2 py-1 text-[9px] font-bold text-violet-600">{when}</span></div>)}</div></Card>; }
+function formatCurrency(amount: number, currency = 'MGA') {
+  return new Intl.NumberFormat('fr-MG', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function PaymentStatus({ status }: { status: string }) {
+  const labels: Record<string, string> = {
+    COMPLETED: 'Payé',
+    PENDING: 'En attente',
+    PROCESSING: 'En cours',
+    FAILED: 'Échoué',
+  };
+  const tones: Record<string, string> = {
+    COMPLETED: 'bg-emerald-50 text-emerald-700',
+    PENDING: 'bg-amber-50 text-amber-700',
+    PROCESSING: 'bg-blue-50 text-blue-700',
+    FAILED: 'bg-rose-50 text-rose-700',
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-xs font-semibold ${tones[status] ?? 'bg-slate-100 text-slate-600'}`}
+    >
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+function Kpi({
+  icon: Icon,
+  tone,
+  label,
+  value,
+  detail,
+}: {
+  icon: LucideIcon;
+  tone: 'violet' | 'green' | 'blue' | 'orange' | 'rose';
+  label: string;
+  value: number | string;
+  detail: string;
+}) {
+  const tones = {
+    violet: 'bg-violet-100 text-violet-600',
+    green: 'bg-emerald-100 text-emerald-600',
+    blue: 'bg-blue-100 text-blue-500',
+    orange: 'bg-orange-100 text-orange-500',
+    rose: 'bg-rose-100 text-rose-500',
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-4">
+        <span
+          className={`grid size-12 place-items-center rounded-xl ${tones[tone]}`}
+        >
+          <Icon className="size-6" />
+        </span>
+        <div>
+          <p className="text-xs font-bold text-[#28315e]">{label}</p>
+          <p className="mt-1 text-2xl font-extrabold text-[#111949]">
+            {typeof value === 'number' ? value.toLocaleString('fr-FR') : value}
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-xs font-medium text-slate-500">{detail}</p>
+    </div>
+  );
+}

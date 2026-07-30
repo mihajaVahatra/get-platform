@@ -9,12 +9,14 @@ import { EncryptionService } from '../../common/services/encryption.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class StudentService {
   constructor(
     private prisma: PrismaService,
     private encryption: EncryptionService,
+    private storageService: StorageService,
   ) {}
 
   // ========== PROFILE ==========
@@ -205,7 +207,10 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const fileUrl = `https://storage.get.mg/documents/${student.id}/${Date.now()}-${file.originalname}`;
+    const { url: fileUrl } = await this.storageService.uploadDocument(
+      file,
+      student.id,
+    );
 
     return this.prisma.document.create({
       data: {

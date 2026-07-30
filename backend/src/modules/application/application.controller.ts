@@ -148,6 +148,36 @@ export class ApplicationController {
 
   // ========== DETAIL (Authorized) ==========
 
+  @Get(':id/documents')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get documents for an authorized application' })
+  @ApiParam({ name: 'id', description: 'Application ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Application documents retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Application not found',
+  })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
+  async getApplicationDocuments(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    const documents = await this.applicationService.getApplicationDocuments(
+      id,
+      userId,
+      role,
+    );
+    return {
+      success: true,
+      data: documents,
+      message: 'Application documents retrieved successfully',
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })

@@ -211,6 +211,31 @@ export class ApplicationService {
     return application;
   }
 
+  async getApplicationDocuments(
+    applicationId: string,
+    userId: string,
+    role: string,
+  ) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        student: true,
+        offer: true,
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    await this.ensureCanAccessApplication(application, userId, role);
+
+    return this.prisma.document.findMany({
+      where: {
+        studentId: application.studentId,
+        deletedAt: null,
+      },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
   // ========== STATUS MANAGEMENT ==========
 
   async updateStatus(
@@ -243,6 +268,18 @@ export class ApplicationService {
         createdBy: userId,
       },
     });
+
+    if ((dto.status === ApplicationStatus.ACCEPTED || dto.status === ApplicationStatus.ENROLLED) && application.offer.programId) {
+      const [program, academicYear] = await Promise.all([
+        this.prisma.schoolProgram.findFirst({ where: { id: application.offer.programId, schoolId: application.offer.schoolId, isActive: true } }),
+        this.prisma.schoolAcademicYear.findFirst({ where: { schoolId: application.offer.schoolId, isCurrent: true } }),
+      ]);
+      if (program && academicYear) {
+        const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+        await this.prisma.student.update({ where: { id: application.studentId }, data: { enrolledSchoolId: application.offer.schoolId, programId: program.id, programLevel: 1, academicYearId: academicYear.id, enrolledYear, enrollmentStatus: 'ACTIVE' } });
+        await this.prisma.applicationTimeline.create({ data: { applicationId, status: dto.status, note: `Étudiant inscrit automatiquement : ${enrolledYear}`, createdBy: userId } });
+      }
+    }
 
     return updated;
   }

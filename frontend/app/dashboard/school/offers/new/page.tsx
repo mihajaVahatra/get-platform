@@ -30,6 +30,7 @@ const schema = z.object({
   applicationDeadline: z.string().optional(),
   academicYear: z.string().min(4, 'Année académique requise'),
   prerequisites: z.string().optional(),
+  programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 type OfferForm = z.infer<typeof schema>;
 
@@ -39,6 +40,7 @@ export default function NewSchoolOfferPage() {
   const [requirements, setRequirements] = useState<{ id: string; name: string; isRequired: boolean }[]>([]);
   const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [programs, setPrograms] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const currentYear = new Date().getFullYear();
   const academicYears = Array.from({ length: 4 }, (_, index) => {
     const year = currentYear + index;
@@ -57,6 +59,7 @@ export default function NewSchoolOfferPage() {
         router.replace('/dashboard/school/offers');
       });
     apiClient.get('/schools/me/requirements').then((response) => setRequirements(response.data.data ?? response.data ?? [])).catch(() => undefined);
+    apiClient.get('/schools/me/programs').then((response) => setPrograms((response.data.data || []).filter((program: { isActive: boolean }) => program.isActive))).catch(() => toast.error('Impossible de charger les filières'));
   }, [router]);
 
   const onSubmit = async (data: OfferForm) => {
@@ -96,7 +99,7 @@ export default function NewSchoolOfferPage() {
             <Field label="Description"><Input {...register('description')} placeholder="Présentez brièvement la formation" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Diplôme" required error={errors.diploma?.message}>
-                <Select onValueChange={(value) => {
+                <Select items={Object.entries(DIPLOMAS).map(([value, option]) => ({ value, label: option.label }))} onValueChange={(value) => {
                   const option = DIPLOMAS[value as keyof typeof DIPLOMAS];
                   if (!option) return;
                   setValue('diploma', option.label, { shouldValidate: true });
@@ -107,11 +110,17 @@ export default function NewSchoolOfferPage() {
                   <SelectContent>{Object.entries(DIPLOMAS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
+              <Field label="Filière associée" required error={errors.programId?.message}>
+                <Select items={programs.map((program) => ({ value: program.id, label: program.name }))} onValueChange={(value) => setValue('programId', String(value ?? ''), { shouldValidate: true })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionnez la filière correspondante" /></SelectTrigger>
+                  <SelectContent>{programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
               <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>
               <Field label="Frais de scolarité (MGA)" required error={errors.tuitionFees?.message}><Input type="number" {...register('tuitionFees', { valueAsNumber: true })} /><p className="text-xs text-muted-foreground">Prérempli selon le diplôme, modifiable si nécessaire.</p></Field>
               <Field label="Capacité"><Input type="number" {...register('capacity', { valueAsNumber: true })} /></Field>
               <Field label="Année académique" required error={errors.academicYear?.message}>
-                <Select defaultValue={academicYears[0]} onValueChange={(value) => setValue('academicYear', value ?? academicYears[0], { shouldValidate: true })}>
+                <Select items={academicYears.map((year) => ({ value: year, label: year }))} defaultValue={academicYears[0]} onValueChange={(value) => setValue('academicYear', value ?? academicYears[0], { shouldValidate: true })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{academicYears.map((year) => <SelectItem key={year} value={year}>{year}</SelectItem>)}</SelectContent>
                 </Select>

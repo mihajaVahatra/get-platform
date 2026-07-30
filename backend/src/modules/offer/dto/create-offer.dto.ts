@@ -12,6 +12,8 @@ import {
 } from 'class-validator';
 
 export class CreateOfferDto {
+  @IsUUID()
+  programId: string;
   @ApiProperty({ example: 'Master Finance' })
   @IsString()
   title: string;

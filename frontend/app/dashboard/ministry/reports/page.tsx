@@ -5,10 +5,24 @@ import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import toast from 'react-hot-toast';
 
 type Report = {
@@ -65,7 +79,14 @@ export default function ReportsPage() {
       await apiClient.post('/ministry/reports/generate', formData);
       toast.success('Rapport en cours de génération');
       setIsDialogOpen(false);
-      setFormData({ name: '', type: 'NATIONAL', period: 'MONTHLY', periodStart: '', periodEnd: '', format: 'PDF' });
+      setFormData({
+        name: '',
+        type: 'NATIONAL',
+        period: 'MONTHLY',
+        periodStart: '',
+        periodEnd: '',
+        format: 'PDF',
+      });
       fetchReports();
     } catch (error) {
       toast.error('Erreur lors de la génération');
@@ -76,13 +97,19 @@ export default function ReportsPage() {
 
   const handleDownload = async (reportId: string, format: string) => {
     try {
-      const response = await apiClient.get(`/ministry/reports/${reportId}/export?format=${format}`, {
-        responseType: 'blob',
-      });
+      const response = await apiClient.get(
+        `/ministry/reports/${reportId}/export?format=${format}`,
+        {
+          responseType: 'blob',
+        },
+      );
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `rapport-${reportId}.${format.toLowerCase()}`);
+      link.setAttribute(
+        'download',
+        `rapport-${reportId}.${format.toLowerCase()}`,
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -118,7 +145,9 @@ export default function ReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">📋 Rapports</h1>
-          <p className="text-gray-500 text-sm">{reports.length} rapport(s) généré(s)</p>
+          <p className="text-gray-500 text-sm">
+            {reports.length} rapport(s) généré(s)
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger render={<Button />}>
@@ -138,12 +167,24 @@ export default function ReportsPage() {
                   id="name"
                   placeholder="Rapport annuel 2024"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v ?? 'NATIONAL' })}>
+                <Select
+                  items={[
+                    { value: 'NATIONAL', label: 'National' },
+                    { value: 'REGIONAL', label: 'Régional' },
+                    { value: 'SECTORIAL', label: 'Sectoriel' },
+                  ]}
+                  value={formData.type}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, type: v ?? 'NATIONAL' })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un type" />
                   </SelectTrigger>
@@ -156,7 +197,19 @@ export default function ReportsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="period">Période</Label>
-                <Select value={formData.period} onValueChange={(v) => setFormData({ ...formData, period: v ?? 'MONTHLY' })}>
+                <Select
+                  items={[
+                    { value: 'DAILY', label: 'Quotidien' },
+                    { value: 'WEEKLY', label: 'Hebdomadaire' },
+                    { value: 'MONTHLY', label: 'Mensuel' },
+                    { value: 'QUARTERLY', label: 'Trimestriel' },
+                    { value: 'ANNUAL', label: 'Annuel' },
+                  ]}
+                  value={formData.period}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, period: v ?? 'MONTHLY' })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner une période" />
                   </SelectTrigger>
@@ -176,7 +229,9 @@ export default function ReportsPage() {
                     id="periodStart"
                     type="date"
                     value={formData.periodStart}
-                    onChange={(e) => setFormData({ ...formData, periodStart: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, periodStart: e.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -185,13 +240,26 @@ export default function ReportsPage() {
                     id="periodEnd"
                     type="date"
                     value={formData.periodEnd}
-                    onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, periodEnd: e.target.value })
+                    }
                   />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="format">Format d'export</Label>
-                <Select value={formData.format} onValueChange={(v) => setFormData({ ...formData, format: v ?? 'PDF' })}>
+                <Select
+                  items={[
+                    { value: 'PDF', label: 'PDF' },
+                    { value: 'EXCEL', label: 'Excel' },
+                    { value: 'CSV', label: 'CSV' },
+                    { value: 'JSON', label: 'JSON' },
+                  ]}
+                  value={formData.format}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, format: v ?? 'PDF' })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Sélectionner un format" />
                   </SelectTrigger>
@@ -244,17 +312,30 @@ export default function ReportsPage() {
                   <div className="text-sm text-gray-500">
                     {report.description && <span>📝 {report.description}</span>}
                     <span className="ml-4">
-                      📅 {formatDate(report.periodStart)} → {formatDate(report.periodEnd)}
+                      📅 {formatDate(report.periodStart)} →{' '}
+                      {formatDate(report.periodEnd)}
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(report.id, 'PDF')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(report.id, 'PDF')}
+                    >
                       PDF
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(report.id, 'EXCEL')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(report.id, 'EXCEL')}
+                    >
                       Excel
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDownload(report.id, 'CSV')}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(report.id, 'CSV')}
+                    >
                       CSV
                     </Button>
                   </div>

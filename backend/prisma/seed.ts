@@ -299,7 +299,7 @@ async function main() {
       specialty: 'Algorithmique',
     },
   });
-  await prisma.course.upsert({
+  const firstCourse = await prisma.course.upsert({
     where: {
       schoolId_code_group: {
         schoolId: school.id,
@@ -320,7 +320,7 @@ async function main() {
       schedule: 'Lun 08:00 – 10:00; Mer 08:00 – 10:00',
     },
   });
-  await prisma.course.upsert({
+  const secondCourse = await prisma.course.upsert({
     where: {
       schoolId_code_group: {
         schoolId: seededSchools[0].id,
@@ -340,6 +340,45 @@ async function main() {
       room: 'Salle Informatique 1',
       schedule: 'Mar 13:00 – 16:00',
     },
+  });
+  await prisma.courseSlot.upsert({
+    where: {
+      courseId_dayOfWeek_startTime_endTime_room: {
+        courseId: firstCourse.id,
+        dayOfWeek: 1,
+        startTime: '08:00',
+        endTime: '10:00',
+        room: 'Salle 2.3',
+      },
+    },
+    update: {},
+    create: { courseId: firstCourse.id, dayOfWeek: 1, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
+  });
+  await prisma.courseSlot.upsert({
+    where: {
+      courseId_dayOfWeek_startTime_endTime_room: {
+        courseId: firstCourse.id,
+        dayOfWeek: 3,
+        startTime: '08:00',
+        endTime: '10:00',
+        room: 'Salle 2.3',
+      },
+    },
+    update: {},
+    create: { courseId: firstCourse.id, dayOfWeek: 3, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
+  });
+  await prisma.courseSlot.upsert({
+    where: {
+      courseId_dayOfWeek_startTime_endTime_room: {
+        courseId: secondCourse.id,
+        dayOfWeek: 2,
+        startTime: '13:00',
+        endTime: '16:00',
+        room: 'Salle Informatique 1',
+      },
+    },
+    update: {},
+    create: { courseId: secondCourse.id, dayOfWeek: 2, startTime: '13:00', endTime: '16:00', room: 'Salle Informatique 1' },
   });
   console.log('✅ Professeur créé et affecté à ESPA + IST Mahajanga: prof.rakoto@espa.mg / Professeur123!');
 
