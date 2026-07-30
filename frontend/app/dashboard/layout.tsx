@@ -415,14 +415,14 @@ function SchoolSidebar({
       href: '/dashboard/school/teachers',
     },
     {
-      label: 'Programmes',
-      icon: Layers3,
-      href: '/dashboard/school?section=programs',
-    },
-    {
       label: 'Salles & Emplois du temps',
       icon: CalendarDays,
       href: '/dashboard/school/schedule',
+    },
+    {
+      label: 'Programmes',
+      icon: Layers3,
+      href: '/dashboard/school/programs',
     },
   ];
   const admin = [
@@ -432,30 +432,29 @@ function SchoolSidebar({
       href: '/dashboard/school/offers',
     },
     {
-      label: 'Inscriptions',
+      label: 'Candidatures',
       icon: ClipboardList,
-      href: '/dashboard/school?section=enrollments',
+      href: '/dashboard/school/applications',
     },
     {
       label: 'Paiements',
       icon: ReceiptText,
-      href: '/dashboard/school?section=payments',
+      href: '/dashboard/school/payments',
     },
     {
       label: 'Documents',
       icon: FileText,
-      href: '/dashboard/school?section=documents',
+      href: '/dashboard/school/documents',
     },
     {
       label: 'Communications',
       icon: Megaphone,
-      href: '/dashboard/school?section=communications',
-      badge: '4',
+      href: '/dashboard/school/communications',
     },
     {
       label: 'Rapports & Statistiques',
       icon: ChartNoAxesCombined,
-      href: '/dashboard/school?section=reports',
+      href: '/dashboard/school/reports',
     },
   ];
   return (

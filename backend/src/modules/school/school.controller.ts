@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -42,6 +43,21 @@ import { Public } from '../../common/decorators/public.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { AssignTeacherDto } from './dto/assign-teacher.dto';
+import { UpdateTeacherAssignmentDto } from './dto/update-teacher-assignment.dto';
+import {
+  CreateSchoolCourseDto,
+  UpdateSchoolCourseDto,
+} from './dto/create-school-course.dto';
+import { CreateCourseSlotDto, UpdateCourseSlotDto } from './dto/course-slot.dto';
+import { EnrollStudentDto } from './dto/enroll-student.dto';
+import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+
+type SchoolAdminSession = {
+  schoolAdmin?: {
+    schoolId: string;
+  };
+};
 
 @ApiTags('schools')
 @Controller('schools')
@@ -211,6 +227,8 @@ export class SchoolController {
       );
     }
 
+    await this.schoolService.findOne(schoolId);
+
     if (!file) {
       throw new BadRequestException('Aucun fichier uploadé');
     }
@@ -255,6 +273,519 @@ export class SchoolController {
     };
   }
 
+  @Get('me/students/classes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get enrolled student classes for my school' })
+  async getMyStudentClasses(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const classes = await this.schoolService.getStudentClasses(
+      user.schoolAdmin.schoolId,
+    );
+    return { success: true, data: classes };
+  }
+
+  @Get('me/documents')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get documents for enrolled students in my school' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'enrolledYear', required: false })
+  @ApiQuery({ name: 'type', required: false, enum: ['CV', 'LETTER', 'ID', 'DIPLOMA', 'PHOTO', 'OTHER'] })
+  @ApiQuery({ name: 'search', required: false })
+  async getMyStudentDocuments(
+    @GetUser() user: SchoolAdminSession,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('enrolledYear') enrolledYear?: string,
+    @Query('type') type?: string,
+    @Query('search') search?: string,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.schoolService.getStudentDocuments(
+      user.schoolAdmin.schoolId,
+      page,
+      limit,
+      enrolledYear,
+      type,
+      search,
+    );
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
+  @Get('me/students')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get enrolled students for my school' })
+  @ApiQuery({ name: 'search', required: false, example: 'Rakoto' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Enrolled students retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Access denied - School Admin required',
+  })
+  async getMySchoolStudents(
+    @GetUser() user: SchoolAdminSession,
+    @Query('search') search?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+
+    const result = await this.schoolService.getEnrolledStudents(
+      user.schoolAdmin.schoolId,
+      page,
+      limit,
+      search,
+    );
+    return {
+      success: true,
+      data: result.items,
+      meta: result.meta,
+      message: 'Enrolled students retrieved successfully',
+    };
+  }
+
+  @Post('me/students/enroll')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Enroll an existing student in my school' })
+  async enrollMySchoolStudent(
+    @GetUser() user: SchoolAdminSession,
+    @Body() dto: EnrollStudentDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const student = await this.schoolService.enrollStudent(
+      user.schoolAdmin.schoolId,
+      dto,
+    );
+    return {
+      success: true,
+      data: student,
+      message: 'Student enrolled successfully',
+    };
+  }
+
+  @Post('me/announcements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Send an announcement to my enrolled students' })
+  async sendMySchoolAnnouncement(
+    @GetUser() user: SchoolAdminSession & { id: string },
+    @Body() dto: CreateAnnouncementDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.schoolService.createAnnouncement(
+      user.schoolAdmin.schoolId,
+      user.id,
+      dto,
+    );
+    return {
+      success: true,
+      data: result,
+      message: 'Announcement sent successfully',
+    };
+  }
+
+  @Get('me/announcements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get announcement history for my school' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getMySchoolAnnouncements(
+    @GetUser() user: SchoolAdminSession,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.schoolService.getAnnouncements(
+      user.schoolAdmin.schoolId,
+      page,
+      limit,
+    );
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
+  @Get('me/reports/pipeline')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get application pipeline aggregates for my school' })
+  async getMySchoolReportPipeline(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Cette fonctionnalité est réservée aux administrateurs d'école");
+    }
+    return { success: true, data: await this.schoolService.getReportPipeline(user.schoolAdmin.schoolId) };
+  }
+
+  @Get('me/reports/outcomes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get application outcome aggregates for my school' })
+  async getMySchoolReportOutcomes(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Cette fonctionnalité est réservée aux administrateurs d'école");
+    }
+    return { success: true, data: await this.schoolService.getReportOutcomes(user.schoolAdmin.schoolId) };
+  }
+
+  @Get('me/reports/trend')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get monthly application trend for my school' })
+  @ApiQuery({ name: 'months', required: false, example: 6 })
+  async getMySchoolReportTrend(
+    @GetUser() user: SchoolAdminSession,
+    @Query('months') months = 6,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Cette fonctionnalité est réservée aux administrateurs d'école");
+    }
+    return { success: true, data: await this.schoolService.getReportTrend(user.schoolAdmin.schoolId, months) };
+  }
+
+  @Get('me/reports/by-class')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get enrolled student counts by class for my school' })
+  async getMySchoolReportByClass(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Cette fonctionnalité est réservée aux administrateurs d'école");
+    }
+    return { success: true, data: await this.schoolService.getReportByClass(user.schoolAdmin.schoolId) };
+  }
+
+  @Get('me/reports/by-offer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get top application counts by offer for my school' })
+  async getMySchoolReportByOffer(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Cette fonctionnalité est réservée aux administrateurs d'école");
+    }
+    return { success: true, data: await this.schoolService.getReportByOffer(user.schoolAdmin.schoolId) };
+  }
+
+  @Get('me/reports/export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Export school applications or enrolled students as CSV' })
+  @ApiQuery({ name: 'type', enum: ['applications', 'students'], required: true })
+  async exportMySchoolReport(
+    @GetUser() user: SchoolAdminSession,
+    @Query('type') type?: string,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    if (type !== 'applications' && type !== 'students') {
+      throw new BadRequestException('Type de rapport invalide');
+    }
+    const buffer = await this.schoolService.exportCsv(
+      user.schoolAdmin.schoolId,
+      type,
+    );
+    return new StreamableFile(buffer, {
+      type: 'text/csv; charset=utf-8',
+      disposition: `attachment; filename="${type}-${new Date().toISOString().slice(0, 10)}.csv"`,
+    });
+  }
+
+  @Get('me/teachers')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get active teacher assignments for my school' })
+  async getMySchoolTeachers(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+
+    const teachers = await this.schoolService.getTeacherAssignments(
+      user.schoolAdmin.schoolId,
+    );
+    return {
+      success: true,
+      data: teachers,
+      message: 'Teacher assignments retrieved successfully',
+    };
+  }
+
+  @Post('me/teachers')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Assign an existing teacher to my school' })
+  async assignMySchoolTeacher(
+    @GetUser() user: SchoolAdminSession,
+    @Body() dto: AssignTeacherDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+
+    const assignment = await this.schoolService.assignTeacher(
+      user.schoolAdmin.schoolId,
+      dto,
+    );
+    return {
+      success: true,
+      data: assignment,
+      message: 'Teacher assigned successfully',
+    };
+  }
+
+  @Patch('me/teachers/:teacherSchoolId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a teacher assignment for my school' })
+  async updateMySchoolTeacher(
+    @GetUser() user: SchoolAdminSession,
+    @Param('teacherSchoolId') teacherSchoolId: string,
+    @Body() dto: UpdateTeacherAssignmentDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+
+    const assignment = await this.schoolService.updateTeacherAssignment(
+      user.schoolAdmin.schoolId,
+      teacherSchoolId,
+      dto,
+    );
+    return {
+      success: true,
+      data: assignment,
+      message: 'Teacher assignment updated successfully',
+    };
+  }
+
+  @Get('me/courses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get courses for my school' })
+  async getMySchoolCourses(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const courses = await this.schoolService.getCourses(user.schoolAdmin.schoolId);
+    return { success: true, data: courses, message: 'Courses retrieved successfully' };
+  }
+
+  @Post('me/courses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a course for my school' })
+  async createMySchoolCourse(
+    @GetUser() user: SchoolAdminSession,
+    @Body() dto: CreateSchoolCourseDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const course = await this.schoolService.createCourse(
+      user.schoolAdmin.schoolId,
+      dto,
+    );
+    return { success: true, data: course, message: 'Course created successfully' };
+  }
+
+  @Put('me/courses/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a course for my school' })
+  async updateMySchoolCourse(
+    @GetUser() user: SchoolAdminSession,
+    @Param('id') id: string,
+    @Body() dto: UpdateSchoolCourseDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const course = await this.schoolService.updateCourse(
+      user.schoolAdmin.schoolId,
+      id,
+      dto,
+    );
+    return { success: true, data: course, message: 'Course updated successfully' };
+  }
+
+  @Get('me/schedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get structured schedule slots for my school' })
+  async getMySchoolSchedule(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const slots = await this.schoolService.getSchedule(user.schoolAdmin.schoolId);
+    return { success: true, data: slots, message: 'Schedule retrieved successfully' };
+  }
+
+  @Post('me/courses/:courseId/slots')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a structured slot for one of my courses' })
+  async createMyCourseSlot(
+    @GetUser() user: SchoolAdminSession,
+    @Param('courseId') courseId: string,
+    @Body() dto: CreateCourseSlotDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const slot = await this.schoolService.createCourseSlot(
+      user.schoolAdmin.schoolId,
+      courseId,
+      dto,
+    );
+    return { success: true, data: slot, message: 'Course slot created successfully' };
+  }
+
+  @Patch('me/courses/:courseId/slots/:slotId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a structured slot for one of my courses' })
+  async updateMyCourseSlot(
+    @GetUser() user: SchoolAdminSession,
+    @Param('courseId') courseId: string,
+    @Param('slotId') slotId: string,
+    @Body() dto: UpdateCourseSlotDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const slot = await this.schoolService.updateCourseSlot(
+      user.schoolAdmin.schoolId,
+      courseId,
+      slotId,
+      dto,
+    );
+    return { success: true, data: slot, message: 'Course slot updated successfully' };
+  }
+
+  @Delete('me/courses/:courseId/slots/:slotId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a structured slot for one of my courses' })
+  async deleteMyCourseSlot(
+    @GetUser() user: SchoolAdminSession,
+    @Param('courseId') courseId: string,
+    @Param('slotId') slotId: string,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    await this.schoolService.deleteCourseSlot(
+      user.schoolAdmin.schoolId,
+      courseId,
+      slotId,
+    );
+    return { success: true, message: 'Course slot deleted successfully' };
+  }
+
+  @Get('me/payments')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get payment summary and transaction details for my school',
+  })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 5 })
+  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] })
+  async getMySchoolPayments(
+    @GetUser() user: SchoolAdminSession,
+    @Query('page') page = 1,
+    @Query('limit') limit = 5,
+    @Query('status') status?: string,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.schoolService.getPayments(
+      user.schoolAdmin.schoolId,
+      page,
+      limit,
+      status,
+    );
+    return {
+      success: true,
+      data: { summary: result.summary, payments: result.items },
+      meta: result.meta,
+      message: 'School payments retrieved successfully',
+    };
+  }
+
   @Get('me/requirements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -278,7 +809,8 @@ export class SchoolController {
   @Roles('SCHOOL_ADMIN')
   async updateMyRequirement(@GetUser('id') userId: string, @Param('id') id: string, @Body() body: { name?: string; description?: string; type?: string; isRequired?: boolean; isActive?: boolean }) {
     const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
-    const item = await this.prisma.schoolRequirement.findFirst({ where: { id, schoolId: admin?.schoolId } });
+    if (!admin) throw new ForbiddenException('Profil administrateur introuvable');
+    const item = await this.prisma.schoolRequirement.findFirst({ where: { id, schoolId: admin.schoolId } });
     if (!item) throw new ForbiddenException('Prérequis introuvable');
     return this.prisma.schoolRequirement.update({ where: { id }, data: body });
   }
@@ -315,23 +847,50 @@ export class SchoolController {
     status: HttpStatus.FORBIDDEN,
     description: 'Access denied - School Admin required',
   })
-  async getMySchoolStats(@GetUser() user: any) {
+  async getMySchoolStats(@GetUser() user: SchoolAdminSession) {
     if (!user.schoolAdmin) {
       throw new ForbiddenException(
         "Cette fonctionnalité est réservée aux administrateurs d'école",
       );
     }
     const schoolId = user.schoolAdmin.schoolId;
+    const offerWhere = { schoolId, deletedAt: null };
+    const applicationWhere = {
+      deletedAt: null,
+      offer: { schoolId },
+    };
+    const [
+      totalOffers,
+      openOffers,
+      totalApplications,
+      pendingApplications,
+      acceptedApplications,
+      rejectedApplications,
+    ] = await Promise.all([
+      this.prisma.offer.count({ where: offerWhere }),
+      this.prisma.offer.count({ where: { ...offerWhere, isOpen: true } }),
+      this.prisma.application.count({ where: applicationWhere }),
+      this.prisma.application.count({
+        where: { ...applicationWhere, status: 'PENDING' },
+      }),
+      this.prisma.application.count({
+        where: { ...applicationWhere, status: 'ACCEPTED' },
+      }),
+      this.prisma.application.count({
+        where: { ...applicationWhere, status: 'REJECTED' },
+      }),
+    ]);
+
     return {
       success: true,
       data: {
         schoolId,
-        totalOffers: 0,
-        openOffers: 0,
-        totalApplications: 0,
-        pendingApplications: 0,
-        acceptedApplications: 0,
-        rejectedApplications: 0,
+        totalOffers,
+        openOffers,
+        totalApplications,
+        pendingApplications,
+        acceptedApplications,
+        rejectedApplications,
       },
       message: 'School statistics retrieved successfully',
     };

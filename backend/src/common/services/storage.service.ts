@@ -44,20 +44,22 @@ export class StorageService {
     },
   ): Promise<{ id: string; url: string }> {
     this.assertSafeImage(file);
+    this.assertSafeEntityId(options.entityId);
     const fileName = this.generateFileName(file.originalname);
     const folder = options.entityType.toLowerCase();
     const subFolder = options.type.toLowerCase();
     const entityFolder = options.entityId || 'system';
-    const fullPath = path.join(this.uploadDir, folder, subFolder, entityFolder);
+    const fullPath = this.resolveUploadPath(folder, subFolder, entityFolder);
 
     if (!fs.existsSync(fullPath)) {
       fs.mkdirSync(fullPath, { recursive: true });
     }
 
-    const filePath = path.join(fullPath, fileName);
+    const filePath = this.resolveUploadPath(folder, subFolder, entityFolder, fileName);
     fs.writeFileSync(filePath, file.buffer);
 
-    const baseUrl = this.config.get('STORAGE_URL') || 'http://localhost:3001';
+    const baseUrl =
+      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
     const url = `${baseUrl}/uploads/${folder}/${subFolder}/${entityFolder}/${fileName}`;
 
     const image = await this.prisma.image.create({
@@ -72,6 +74,26 @@ export class StorageService {
     });
 
     return { id: image.id, url: image.url };
+  }
+
+  uploadDocument(
+    file: Express.Multer.File,
+    studentId: string,
+  ): { url: string } {
+    this.assertSafeDocument(file);
+    this.assertSafeEntityId(studentId);
+
+    const fileName = this.generateFileName(file.originalname);
+    const fullPath = this.resolveUploadPath('documents', studentId);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+    }
+
+    fs.writeFileSync(this.resolveUploadPath('documents', studentId, fileName), file.buffer);
+
+    const baseUrl =
+      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
+    return { url: `${baseUrl}/uploads/documents/${studentId}/${fileName}` };
   }
 
   async getImage(
@@ -100,6 +122,30 @@ export class StorageService {
     return `${base}${ext.toLowerCase()}`;
   }
 
+  private assertSafeEntityId(entityId?: string) {
+    if (!entityId) return;
+
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuid.test(entityId)) {
+      throw new BadRequestException('Identifiant de dossier invalide');
+    }
+  }
+
+  private resolveUploadPath(...segments: string[]) {
+    const root = path.resolve(this.uploadDir);
+    const resolved = path.resolve(root, ...segments);
+    const relative = path.relative(root, resolved);
+    if (
+      relative === '..' ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    ) {
+      throw new BadRequestException('Chemin de stockage invalide');
+    }
+    return resolved;
+  }
+
   private assertSafeImage(file: Express.Multer.File) {
     const supported = new Set(['image/jpeg', 'image/png', 'image/webp']);
     if (!supported.has(file.mimetype))
@@ -123,5 +169,54 @@ export class StorageService {
       throw new BadRequestException(
         'Le contenu du fichier ne correspond pas à une image valide',
       );
+  }
+
+  private assertSafeDocument(file: Express.Multer.File) {
+    const allowedMimes = new Set([
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+    if (!allowedMimes.has(file.mimetype)) {
+      throw new BadRequestException('Format de document non autorisé');
+    }
+
+    const bytes = file.buffer;
+    const isPdf =
+      bytes.length >= 5 && bytes.subarray(0, 5).toString() === '%PDF-';
+    const isPng =
+      bytes.length >= 8 &&
+      bytes
+        .subarray(0, 8)
+        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    const isJpeg =
+      bytes.length >= 3 &&
+      bytes[0] === 0xff &&
+      bytes[1] === 0xd8 &&
+      bytes[2] === 0xff;
+    const isDoc =
+      bytes.length >= 8 &&
+      bytes
+        .subarray(0, 8)
+        .equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+    const isDocx =
+      bytes.length >= 4 && bytes.subarray(0, 4).toString() === 'PK\x03\x04';
+
+    const contentMatchesMime =
+      (file.mimetype === 'application/pdf' && isPdf) ||
+      (file.mimetype === 'image/png' && isPng) ||
+      (file.mimetype === 'image/jpeg' && isJpeg) ||
+      (file.mimetype === 'application/msword' && isDoc) ||
+      (file.mimetype ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+        isDocx);
+
+    if (!contentMatchesMime) {
+      throw new BadRequestException(
+        'Le contenu du fichier ne correspond pas à son format déclaré',
+      );
+    }
   }
 }

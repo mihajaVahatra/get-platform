@@ -1,2 +1,5 @@
-import { SchoolManagementView } from '@/components/school-portal/school-management-view';
-export default function SchedulePage() { return <SchoolManagementView view="schedule" />; }
+import { ScheduleBoard } from '@/components/school-portal/schedule-board';
+
+export default function SchedulePage() {
+  return <ScheduleBoard />;
+}

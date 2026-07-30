@@ -124,6 +124,7 @@ model School {
   requirements       SchoolRequirement[]
   teacherAssignments TeacherSchool[]
   courses            Course[]
+  announcements      Announcement[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -196,10 +197,28 @@ model Course {
   enrollments CourseEnrollment[]
   evaluations Evaluation[]
   assignments Assignment[]
+  slots       CourseSlot[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
   @@map("courses")
+}
+
+model CourseSlot {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  room      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, dayOfWeek, startTime, endTime, room])
+  @@index([courseId])
+  @@index([dayOfWeek, room, startTime, endTime])
+  @@map("course_slots")
 }
 
 model CourseEnrollment {
@@ -507,9 +526,38 @@ model Notification {
   sentAt      DateTime?
   deliveredAt DateTime?
   createdAt   DateTime  @default(now())
+  announcementRecipient AnnouncementRecipient?
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+model Announcement {
+  id            String                  @id @default(uuid())
+  schoolId      String
+  school        School                  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  authorId      String
+  title         String
+  body          String
+  targetType    String
+  targetClasses String[]                @default([])
+  createdAt     DateTime                @default(now())
+  recipients    AnnouncementRecipient[]
+
+  @@index([schoolId, createdAt])
+  @@map("announcements")
+}
+
+model AnnouncementRecipient {
+  id             String       @id @default(uuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  notificationId String       @unique
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_recipients")
 }
 
 model Message {

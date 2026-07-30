@@ -211,6 +211,31 @@ export class ApplicationService {
     return application;
   }
 
+  async getApplicationDocuments(
+    applicationId: string,
+    userId: string,
+    role: string,
+  ) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      include: {
+        student: true,
+        offer: true,
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    await this.ensureCanAccessApplication(application, userId, role);
+
+    return this.prisma.document.findMany({
+      where: {
+        studentId: application.studentId,
+        deletedAt: null,
+      },
+      orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
   // ========== STATUS MANAGEMENT ==========
 
   async updateStatus(

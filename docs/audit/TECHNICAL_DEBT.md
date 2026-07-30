@@ -7,6 +7,7 @@ Classée par domaine. L'effort suit l'échelle : XS < 2h · S = 2h-1j · M = 1-3
 | **Frontend — fonctionnalités** | Espace Admin GET (6 écrans) 100 % mocké, sans appel API, endpoints backend manquants | Le rôle le plus élevé de la plateforme ne peut rien administrer réellement | P0/P1 | XL |
 | **Frontend — fonctionnalités** | Espace Professeur (1559 lignes) 100 % mocké alors que l'API `teaching` existe et fonctionne | Effort perdu côté backend, aucune valeur livrée aux enseignants | P0/P1 | L (câblage seul) |
 | **Frontend — fonctionnalités** | Gestion académique École (étudiants/profs/cours/planning/paramètres) mockée, sauvegarde `localStorage` | Aucune collaboration multi-utilisateur possible, données non partagées, non persistées | P0/P1 | XL |
+| **Backend — scalabilité** | Les annonces École créent actuellement une notification par destinataire, avec suivi `AnnouncementRecipient` | Une annonce vers des milliers d'étudiants nécessitera une file de tâches ou une stratégie de diffusion asynchrone | P2 | M |
 | **Backend — fonctionnalités** | `forgotPassword` ne délivre jamais le jeton | Flux de récupération de compte totalement bloqué | P0 | S–M |
 | **Backend — fonctionnalités** | Upload de documents étudiants ne stocke aucun fichier réel | Perte silencieuse des pièces d'admission | P0 | S |
 | **Backend — fonctionnalités** | Passerelle de paiement 100 % simulée (`Math.random`) | Aucun paiement réel possible ; les statistiques financières sont fictives | P1 | L |
