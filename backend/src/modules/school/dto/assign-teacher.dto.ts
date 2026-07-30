@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class AssignTeacherDto {
   @IsUUID()
@@ -14,4 +14,5 @@ export class AssignTeacherDto {
   @IsOptional()
   @IsString()
   specialty?: string;
+  @IsOptional() @IsArray() @IsUUID('all', { each: true }) subjectIds?: string[];
 }

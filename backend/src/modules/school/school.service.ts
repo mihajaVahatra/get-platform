@@ -17,6 +17,8 @@ import {
 import { CreateCourseSlotDto, UpdateCourseSlotDto } from './dto/course-slot.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import { CreateSchoolProgramDto, UpdateSchoolProgramDto } from './dto/school-program.dto';
+import { CreateSchoolAcademicYearDto, UpdateSchoolAcademicYearDto } from './dto/school-academic-year.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/send-notification.dto';
 import slugify from 'slugify';
@@ -187,6 +189,91 @@ export class SchoolService {
     return rows.flatMap((row) => (row.enrolledYear ? [row.enrolledYear] : []));
   }
 
+  async getPrograms(schoolId: string) {
+    return this.prisma.schoolProgram.findMany({
+      where: { schoolId },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    });
+  }
+
+  async createProgram(schoolId: string, dto: CreateSchoolProgramDto) {
+    return this.prisma.schoolProgram.create({
+      data: { schoolId, name: dto.name.trim(), diploma: dto.diploma.trim(), durationYears: dto.durationYears },
+    });
+  }
+
+  async updateProgram(schoolId: string, id: string, dto: UpdateSchoolProgramDto) {
+    const program = await this.prisma.schoolProgram.findFirst({ where: { id, schoolId } });
+    if (!program) throw new NotFoundException('Filière introuvable');
+    if (dto.durationYears && dto.durationYears < program.durationYears) {
+      const higherLevelStudent = await this.prisma.student.findFirst({ where: { programId: id, programLevel: { gt: dto.durationYears }, deletedAt: null } });
+      if (higherLevelStudent) throw new BadRequestException('La durée ne peut pas être inférieure au niveau d’un étudiant inscrit');
+    }
+    const updated = await this.prisma.schoolProgram.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.diploma !== undefined ? { diploma: dto.diploma.trim() } : {}),
+        ...(dto.durationYears !== undefined ? { durationYears: dto.durationYears } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      },
+    });
+    if (dto.name !== undefined) await this.refreshProgramEnrollmentLabels(id, updated.name);
+    return updated;
+  }
+
+  async getAcademicYears(schoolId: string) {
+    return this.prisma.schoolAcademicYear.findMany({ where: { schoolId }, orderBy: [{ isCurrent: 'desc' }, { enrollmentOpensAt: 'desc' }] });
+  }
+
+  async createAcademicYear(schoolId: string, dto: CreateSchoolAcademicYearDto) {
+    this.assertEnrollmentPeriod(dto.enrollmentOpensAt, dto.enrollmentClosesAt);
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isCurrent) await tx.schoolAcademicYear.updateMany({ where: { schoolId, isCurrent: true }, data: { isCurrent: false } });
+      return tx.schoolAcademicYear.create({ data: { schoolId, label: dto.label.trim(), enrollmentOpensAt: new Date(dto.enrollmentOpensAt), enrollmentClosesAt: new Date(dto.enrollmentClosesAt), isCurrent: dto.isCurrent ?? false } });
+    });
+  }
+
+  async updateAcademicYear(schoolId: string, id: string, dto: UpdateSchoolAcademicYearDto) {
+    const academicYear = await this.prisma.schoolAcademicYear.findFirst({ where: { id, schoolId } });
+    if (!academicYear) throw new NotFoundException('Année académique introuvable');
+    const opensAt = dto.enrollmentOpensAt || academicYear.enrollmentOpensAt.toISOString();
+    const closesAt = dto.enrollmentClosesAt || academicYear.enrollmentClosesAt.toISOString();
+    this.assertEnrollmentPeriod(opensAt, closesAt);
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.isCurrent) await tx.schoolAcademicYear.updateMany({ where: { schoolId, isCurrent: true, id: { not: id } }, data: { isCurrent: false } });
+      return tx.schoolAcademicYear.update({
+        where: { id },
+        data: {
+          ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
+          ...(dto.enrollmentOpensAt !== undefined ? { enrollmentOpensAt: new Date(dto.enrollmentOpensAt) } : {}),
+          ...(dto.enrollmentClosesAt !== undefined ? { enrollmentClosesAt: new Date(dto.enrollmentClosesAt) } : {}),
+          ...(dto.isCurrent !== undefined ? { isCurrent: dto.isCurrent } : {}),
+        },
+      });
+    });
+    if (dto.label !== undefined) await this.refreshAcademicYearEnrollmentLabels(id, updated.label);
+    return updated;
+  }
+
+  private assertEnrollmentPeriod(opensAt: string, closesAt: string) {
+    if (new Date(closesAt).getTime() < new Date(opensAt).getTime()) throw new BadRequestException("La date de fermeture doit être postérieure à la date d'ouverture");
+  }
+
+  private async refreshProgramEnrollmentLabels(programId: string, programName: string) {
+    const students = await this.prisma.student.findMany({ where: { programId, deletedAt: null }, select: { id: true, programLevel: true, academicYear: { select: { label: true } } } });
+    await this.prisma.$transaction(students.map((student) => this.prisma.student.update({ where: { id: student.id }, data: { enrolledYear: this.enrollmentLabel(programName, student.programLevel, student.academicYear?.label) } })));
+  }
+
+  private async refreshAcademicYearEnrollmentLabels(academicYearId: string, academicYearLabel: string) {
+    const students = await this.prisma.student.findMany({ where: { academicYearId, deletedAt: null }, select: { id: true, programLevel: true, program: { select: { name: true } } } });
+    await this.prisma.$transaction(students.map((student) => this.prisma.student.update({ where: { id: student.id }, data: { enrolledYear: this.enrollmentLabel(student.program?.name, student.programLevel, academicYearLabel) } })));
+  }
+
+  private enrollmentLabel(programName?: string | null, level?: number | null, academicYearLabel?: string | null) {
+    return programName && level && academicYearLabel ? `Année ${level} · ${programName} · ${academicYearLabel}` : null;
+  }
+
   async getStudentDocuments(
     schoolId: string,
     page = 1,
@@ -267,9 +354,17 @@ export class SchoolService {
       );
     }
 
+    const academicYear = await this.prisma.schoolAcademicYear.findFirst({ where: { id: dto.academicYearId, schoolId } });
+    if (!academicYear) throw new NotFoundException('Année académique introuvable');
+    const now = new Date();
+    if (now < academicYear.enrollmentOpensAt || now > academicYear.enrollmentClosesAt) throw new ForbiddenException(`Les inscriptions pour cette année académique ne sont pas ouvertes actuellement (période : ${academicYear.enrollmentOpensAt.toLocaleDateString('fr-FR')} – ${academicYear.enrollmentClosesAt.toLocaleDateString('fr-FR')}).`);
+    const program = await this.prisma.schoolProgram.findFirst({ where: { id: dto.programId, schoolId, isActive: true } });
+    if (!program) throw new NotFoundException('Filière introuvable ou archivée');
+    if (dto.level > program.durationYears) throw new BadRequestException(`Ce programme ne compte que ${program.durationYears} année(s)`);
+    const enrolledYear = this.enrollmentLabel(program.name, dto.level, academicYear.label);
     return this.prisma.student.update({
       where: { id: user.student.id },
-      data: { enrolledSchoolId: schoolId, enrolledYear: dto.enrolledYear },
+      data: { enrolledSchoolId: schoolId, programId: dto.programId, programLevel: dto.level, academicYearId: dto.academicYearId, enrolledYear },
       include: { user: { select: { email: true } } },
     });
   }
@@ -518,10 +613,15 @@ export class SchoolService {
             },
           },
         },
+        subjects: { include: { subject: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async getSubjects(schoolId: string) { return this.prisma.schoolSubject.findMany({ where: { schoolId }, orderBy: [{ isActive: 'desc' }, { name: 'asc' }] }); }
+  async createSubject(schoolId: string, name: string) { return this.prisma.schoolSubject.create({ data: { schoolId, name: name.trim() } }); }
+  async updateSubject(schoolId: string, id: string, isActive: boolean) { const subject = await this.prisma.schoolSubject.findFirst({ where: { id, schoolId } }); if (!subject) throw new NotFoundException('Matière introuvable'); return this.prisma.schoolSubject.update({ where: { id }, data: { isActive } }); }
 
   async assignTeacher(schoolId: string, dto: AssignTeacherDto) {
     const teacher = await this.prisma.teacher.findUnique({
@@ -529,7 +629,7 @@ export class SchoolService {
     });
     if (!teacher) throw new NotFoundException('Teacher not found');
 
-    return this.prisma.teacherSchool.upsert({
+    const assignment = await this.prisma.teacherSchool.upsert({
       where: {
         teacherId_schoolId: {
           teacherId: dto.teacherId,
@@ -554,9 +654,11 @@ export class SchoolService {
               select: { email: true },
             },
           },
-        },
+        }, subjects: { include: { subject: true } },
       },
     });
+    if (dto.subjectIds) await this.syncTeacherSubjects(schoolId, assignment.id, dto.subjectIds);
+    return this.prisma.teacherSchool.findUnique({ where: { id: assignment.id }, include: { teacher: { include: { user: { select: { email: true } } } }, subjects: { include: { subject: true } } } });
   }
 
   async updateTeacherAssignment(
@@ -569,7 +671,7 @@ export class SchoolService {
     });
     if (!assignment) throw new NotFoundException('Teacher assignment not found');
 
-    return this.prisma.teacherSchool.update({
+    const updated = await this.prisma.teacherSchool.update({
       where: { id: teacherSchoolId },
       data: {
         department: dto.department,
@@ -583,10 +685,15 @@ export class SchoolService {
               select: { email: true },
             },
           },
-        },
+        }, subjects: { include: { subject: true } },
       },
     });
+    if (dto.subjectIds) await this.syncTeacherSubjects(schoolId, teacherSchoolId, dto.subjectIds);
+    return updated;
   }
+
+  async findTeacherByEmail(email: string) { const teacher = await this.prisma.teacher.findFirst({ where: { user: { email: { equals: email.trim(), mode: 'insensitive' } } }, include: { user: true } }); if (!teacher) throw new NotFoundException('Aucun compte professeur trouvé pour cet e-mail'); return teacher; }
+  private async syncTeacherSubjects(schoolId: string, teacherSchoolId: string, subjectIds: string[]) { const subjects = await this.prisma.schoolSubject.findMany({ where: { id: { in: subjectIds }, schoolId, isActive: true }, select: { id: true } }); await this.prisma.$transaction([this.prisma.teacherSchoolSubject.deleteMany({ where: { teacherSchoolId } }), this.prisma.teacherSchoolSubject.createMany({ data: subjects.map((subject) => ({ teacherSchoolId, subjectId: subject.id })), skipDuplicates: true })]); }
 
   async getCourses(schoolId: string) {
     return this.prisma.course.findMany({
@@ -742,15 +849,19 @@ export class SchoolService {
 
   async createCourse(schoolId: string, dto: CreateSchoolCourseDto) {
     await this.ensureActiveTeacherAssignment(schoolId, dto.teacherId);
+    const subject = await this.prisma.schoolSubject.findFirst({ where: { id: dto.subjectId, schoolId, isActive: true } });
+    const program = await this.prisma.schoolProgram.findFirst({ where: { id: dto.programId, schoolId, isActive: true } });
+    if (!subject || !program) throw new NotFoundException('Matière ou filière introuvable');
+    if (dto.programLevel > program.durationYears) throw new BadRequestException(`Ce programme ne compte que ${program.durationYears} année(s)`);
 
     return this.prisma.course.create({
       data: {
         schoolId,
         teacherId: dto.teacherId,
         code: dto.code,
-        title: dto.title,
+        title: subject.name, subjectId: subject.id, programId: program.id, programLevel: dto.programLevel,
         description: dto.description,
-        level: dto.level,
+        level: `Année ${dto.programLevel} · ${program.name}`,
         group: dto.group,
         credits: dto.credits ?? 0,
         room: dto.room,
@@ -778,14 +889,20 @@ export class SchoolService {
     const teacherId = dto.teacherId ?? course.teacherId;
     await this.ensureActiveTeacherAssignment(schoolId, teacherId);
 
+    const subject = dto.subjectId ? await this.prisma.schoolSubject.findFirst({ where: { id: dto.subjectId, schoolId, isActive: true } }) : null;
+    const program = dto.programId ? await this.prisma.schoolProgram.findFirst({ where: { id: dto.programId, schoolId, isActive: true } }) : null;
+    if (dto.subjectId && !subject || dto.programId && !program) throw new NotFoundException('Matière ou filière introuvable');
     return this.prisma.course.update({
       where: { id: courseId },
       data: {
         teacherId,
         code: dto.code,
-        title: dto.title,
+        title: subject?.name,
+        subjectId: dto.subjectId,
+        programId: dto.programId,
+        programLevel: dto.programLevel,
         description: dto.description,
-        level: dto.level,
+        level: program && dto.programLevel ? `Année ${dto.programLevel} · ${program.name}` : undefined,
         group: dto.group,
         credits: dto.credits,
         room: dto.room,
