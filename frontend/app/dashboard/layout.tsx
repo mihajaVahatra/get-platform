@@ -422,7 +422,7 @@ function SchoolSidebar({
     {
       label: 'Programmes',
       icon: Layers3,
-      href: '/dashboard/school/programs',
+      href: '/dashboard/school/settings',
     },
   ];
   const admin = [

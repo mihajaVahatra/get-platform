@@ -48,6 +48,7 @@ export function StudentImportDirectory() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [programId, setProgramId] = useState(''); const [level, setLevel] = useState(''); const [academicYearId, setAcademicYearId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [bulkReport, setBulkReport] = useState<{ succeeded: string[]; failed: { row: { email?: string }; reason: string }[] } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +125,7 @@ export function StudentImportDirectory() {
       }
     })();
   };
+  const importCsv = async (file?: File) => { if (!file) return; const text = await file.text(); const rows = text.trim().split(/\r?\n/).slice(1).map((line) => { const [email, programName, level, academicYearLabel] = line.split(',').map((cell) => cell.trim()); return { email, programName, level: Number(level), academicYearLabel }; }); try { const response = await apiClient.post('/schools/me/students/enroll/bulk', { rows }); setBulkReport(response.data.data); setRefreshKey((value) => value + 1); toast.success('Import terminé'); } catch { toast.error("Impossible d'importer le CSV"); } };
 
   return (
     <div className="mx-auto max-w-[1500px]">
@@ -137,6 +139,7 @@ export function StudentImportDirectory() {
             <UsersRound className="size-4" /> {totalItems} étudiant(s)
           </div>
           <Button onClick={() => setEnrollOpen(true)}><PlusIcon /> Inscrire un étudiant</Button>
+          <label><input className="hidden" type="file" accept=".csv,text/csv" onChange={(event) => void importCsv(event.target.files?.[0])} /><Button type="button" variant="outline" onClick={(event) => (event.currentTarget.parentElement?.querySelector('input') as HTMLInputElement)?.click()}>Importer CSV</Button></label>
         </div>
       </header>
 
@@ -182,7 +185,7 @@ export function StudentImportDirectory() {
                       <td>{student.phone || 'Non renseigné'}</td>
                       <td>{student.city || 'Non renseignée'}</td>
                       <td>{student.enrolledYear || 'Non renseignée'}</td>
-                      <td><Status /></td>
+                      <td><Status /><Button className="ml-2" size="sm" variant="ghost" onClick={() => { if (window.confirm(`Clôturer l’inscription de ${name} ?`)) void apiClient.patch(`/schools/me/students/${student.id}`, { status: 'WITHDRAWN' }).then(() => { toast.success('Inscription clôturée'); setRefreshKey((value) => value + 1); }).catch(() => toast.error('Impossible de clôturer l’inscription')); }}>Clôturer</Button></td>
                     </tr>
                   );
                 })}
@@ -209,6 +212,7 @@ export function StudentImportDirectory() {
           </Pagination>
         )}
       </section>
+      {bulkReport && <section className="mt-4 rounded-xl border p-4 text-sm"><p className="text-emerald-700">{bulkReport.succeeded.length} inscription(s) réussie(s)</p>{bulkReport.failed.map((failure, index) => <p className="mt-1 text-red-700" key={index}>{failure.row.email || 'Ligne'} : {failure.reason}</p>)}</section>}
 
       <Dialog open={enrollOpen} onOpenChange={setEnrollOpen}>
         <DialogContent>

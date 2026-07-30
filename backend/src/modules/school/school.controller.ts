@@ -461,6 +461,18 @@ export class SchoolController {
     };
   }
 
+  @Patch('me/students/:studentId') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async updateMySchoolStudentEnrollment(@GetUser() user: SchoolAdminSession, @Param('studentId') studentId: string, @Body() body: { programId?: string; level?: number; academicYearId?: string; status: 'ACTIVE' | 'WITHDRAWN' | 'GRADUATED' }) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.updateEnrollment(user.schoolAdmin.schoolId, studentId, body) };
+  }
+
+  @Post('me/students/enroll/bulk') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async bulkEnrollMySchoolStudents(@GetUser() user: SchoolAdminSession, @Body('rows') rows: Array<{ email: string; programName: string; level: number; academicYearLabel: string }>) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.bulkEnrollStudents(user.schoolAdmin.schoolId, Array.isArray(rows) ? rows : []) };
+  }
+
   @Post('me/announcements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')

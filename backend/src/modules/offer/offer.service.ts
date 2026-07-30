@@ -20,6 +20,8 @@ export class OfferService {
     if (!school) throw new NotFoundException('School not found');
 
     await this.ensureCanManageSchool(userId, dto.schoolId);
+    const program = await this.prisma.schoolProgram.findFirst({ where: { id: dto.programId, schoolId: dto.schoolId, isActive: true } });
+    if (!program) throw new ForbiddenException('Sélectionnez la filière correspondante');
 
     if (dto.requirementIds?.length) {
       const count = await this.prisma.schoolRequirement.count({
@@ -38,6 +40,7 @@ export class OfferService {
         slug,
         description: dto.description,
         diploma: dto.diploma,
+        programId: dto.programId,
         duration: dto.duration,
         tuitionFees: dto.tuitionFees,
         prerequisites: dto.prerequisites || [],

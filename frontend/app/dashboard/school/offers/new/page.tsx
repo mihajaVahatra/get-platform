@@ -30,6 +30,7 @@ const schema = z.object({
   applicationDeadline: z.string().optional(),
   academicYear: z.string().min(4, 'Année académique requise'),
   prerequisites: z.string().optional(),
+  programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 type OfferForm = z.infer<typeof schema>;
 
@@ -39,6 +40,7 @@ export default function NewSchoolOfferPage() {
   const [requirements, setRequirements] = useState<{ id: string; name: string; isRequired: boolean }[]>([]);
   const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [programs, setPrograms] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
   const currentYear = new Date().getFullYear();
   const academicYears = Array.from({ length: 4 }, (_, index) => {
     const year = currentYear + index;
@@ -57,6 +59,7 @@ export default function NewSchoolOfferPage() {
         router.replace('/dashboard/school/offers');
       });
     apiClient.get('/schools/me/requirements').then((response) => setRequirements(response.data.data ?? response.data ?? [])).catch(() => undefined);
+    apiClient.get('/schools/me/programs').then((response) => setPrograms((response.data.data || []).filter((program: { isActive: boolean }) => program.isActive))).catch(() => toast.error('Impossible de charger les filières'));
   }, [router]);
 
   const onSubmit = async (data: OfferForm) => {
@@ -105,6 +108,12 @@ export default function NewSchoolOfferPage() {
                 }}>
                   <SelectTrigger><SelectValue placeholder="Sélectionner un diplôme" /></SelectTrigger>
                   <SelectContent>{Object.entries(DIPLOMAS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="Filière associée" required error={errors.programId?.message}>
+                <Select onValueChange={(value) => setValue('programId', String(value ?? ''), { shouldValidate: true })}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionnez la filière correspondante" /></SelectTrigger>
+                  <SelectContent>{programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>
