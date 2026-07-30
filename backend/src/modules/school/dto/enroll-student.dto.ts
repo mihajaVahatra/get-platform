@@ -1,11 +1,21 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class EnrollStudentDto {
   @IsEmail()
   email: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  enrolledYear?: string;
+  @IsUUID()
+  @IsOptional()
+  programId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(8)
+  programLevel?: number;
+
+  @IsUUID()
+  @IsOptional()
+  academicYearId?: string;
 }

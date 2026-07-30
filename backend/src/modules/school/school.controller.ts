@@ -52,6 +52,8 @@ import {
 import { CreateCourseSlotDto, UpdateCourseSlotDto } from './dto/course-slot.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import { CreateSchoolProgramDto, UpdateSchoolProgramDto } from './dto/school-program.dto';
+import { CreateSchoolAcademicYearDto, UpdateSchoolAcademicYearDto } from './dto/school-academic-year.dto';
 
 type SchoolAdminSession = {
   schoolAdmin?: {
@@ -288,6 +290,66 @@ export class SchoolController {
       user.schoolAdmin.schoolId,
     );
     return { success: true, data: classes };
+  }
+
+  @Get('me/programs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get school programs for my school' })
+  async getMyPrograms(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.getPrograms(user.schoolAdmin.schoolId) };
+  }
+
+  @Post('me/programs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a school program for my school' })
+  async createMyProgram(@GetUser() user: SchoolAdminSession, @Body() dto: CreateSchoolProgramDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.createProgram(user.schoolAdmin.schoolId, dto) };
+  }
+
+  @Patch('me/programs/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a school program for my school' })
+  async updateMyProgram(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() dto: UpdateSchoolProgramDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.updateProgram(user.schoolAdmin.schoolId, id, dto) };
+  }
+
+  @Get('me/academic-years')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get academic years for my school' })
+  async getMyAcademicYears(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.getAcademicYears(user.schoolAdmin.schoolId) };
+  }
+
+  @Post('me/academic-years')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create an academic year for my school' })
+  async createMyAcademicYear(@GetUser() user: SchoolAdminSession, @Body() dto: CreateSchoolAcademicYearDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.createAcademicYear(user.schoolAdmin.schoolId, dto) };
+  }
+
+  @Patch('me/academic-years/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update an academic year for my school' })
+  async updateMyAcademicYear(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() dto: UpdateSchoolAcademicYearDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
+    return { success: true, data: await this.schoolService.updateAcademicYear(user.schoolAdmin.schoolId, id, dto) };
   }
 
   @Get('me/documents')

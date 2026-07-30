@@ -78,7 +78,14 @@ model Student {
   // ════════════════════════════════════════════
   enrolledSchoolId String?
   enrolledSchool   School? @relation("EnrolledStudents", fields: [enrolledSchoolId], references: [id])
-  enrolledYear     String? // ex: "2ᵉ année Informatique"
+  // Libellé calculé automatiquement depuis program/programLevel/academicYear.
+  // Conservé pour les listes et filtres existants, il ne doit pas être saisi librement.
+  enrolledYear     String?
+  programId        String?
+  program          SchoolProgram? @relation(fields: [programId], references: [id])
+  programLevel     Int?
+  academicYearId   String?
+  academicYear     SchoolAcademicYear? @relation(fields: [academicYearId], references: [id])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -125,11 +132,45 @@ model School {
   teacherAssignments TeacherSchool[]
   courses            Course[]
   announcements      Announcement[]
+  programs           SchoolProgram[]
+  academicYears      SchoolAcademicYear[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
 
   @@map("schools")
+}
+
+model SchoolProgram {
+  id            String    @id @default(uuid())
+  schoolId      String
+  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name          String
+  diploma       String
+  durationYears Int
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  students      Student[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
+  @@map("school_programs")
+}
+
+model SchoolAcademicYear {
+  id                String    @id @default(uuid())
+  schoolId          String
+  school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  label             String
+  enrollmentOpensAt DateTime
+  enrollmentClosesAt DateTime
+  isCurrent         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  students          Student[]
+
+  @@unique([schoolId, label])
+  @@index([schoolId, isCurrent])
+  @@map("school_academic_years")
 }
 
 model SchoolAdmin {
