@@ -119,6 +119,7 @@ export class SchoolService {
     const searchTerms = search?.trim().split(/\s+/).filter(Boolean) || [];
     const where = {
       enrolledSchoolId: schoolId,
+      enrollmentStatus: 'ACTIVE',
       deletedAt: null,
       ...(searchTerms.length
         ? {
@@ -367,6 +368,30 @@ export class SchoolService {
       data: { enrolledSchoolId: schoolId, programId: dto.programId, programLevel: dto.level, academicYearId: dto.academicYearId, enrolledYear },
       include: { user: { select: { email: true } } },
     });
+  }
+
+  async updateEnrollment(schoolId: string, studentId: string, data: { programId?: string; level?: number; academicYearId?: string; status: 'ACTIVE' | 'WITHDRAWN' | 'GRADUATED' }) {
+    const student = await this.prisma.student.findFirst({ where: { id: studentId, enrolledSchoolId: schoolId, deletedAt: null } });
+    if (!student) throw new NotFoundException('Étudiant inscrit introuvable');
+    if (data.status !== 'ACTIVE') return this.prisma.student.update({ where: { id: studentId }, data: { enrollmentStatus: data.status } });
+    const programId = data.programId ?? student.programId;
+    const academicYearId = data.academicYearId ?? student.academicYearId;
+    const level = data.level ?? student.programLevel;
+    const [program, academicYear] = await Promise.all([this.prisma.schoolProgram.findFirst({ where: { id: programId || '', schoolId } }), this.prisma.schoolAcademicYear.findFirst({ where: { id: academicYearId || '', schoolId } })]);
+    if (!program || !academicYear || !level || level > program.durationYears) throw new BadRequestException('Filière, niveau ou année académique invalide');
+    return this.prisma.student.update({ where: { id: studentId }, data: { programId: program.id, programLevel: level, academicYearId: academicYear.id, enrolledYear: `Année ${level} · ${program.name} · ${academicYear.label}`, enrollmentStatus: 'ACTIVE' } });
+  }
+
+  async bulkEnrollStudents(schoolId: string, rows: Array<{ email: string; programName: string; level: number; academicYearLabel: string }>) {
+    const succeeded: string[] = []; const failed: Array<{ row: unknown; reason: string }> = [];
+    for (const row of rows) {
+      try {
+        const [program, academicYear] = await Promise.all([this.prisma.schoolProgram.findFirst({ where: { schoolId, name: { equals: row.programName.trim(), mode: 'insensitive' }, isActive: true } }), this.prisma.schoolAcademicYear.findFirst({ where: { schoolId, label: { equals: row.academicYearLabel.trim(), mode: 'insensitive' } } })]);
+        if (!program) throw new NotFoundException('Filière introuvable'); if (!academicYear) throw new NotFoundException('Année académique introuvable');
+        await this.enrollStudent(schoolId, { email: row.email, programId: program.id, level: Number(row.level), academicYearId: academicYear.id }); succeeded.push(row.email);
+      } catch (error) { failed.push({ row, reason: error instanceof Error ? error.message : 'Erreur inconnue' }); }
+    }
+    return { succeeded, failed };
   }
 
   async createAnnouncement(

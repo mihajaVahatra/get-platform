@@ -81,6 +81,7 @@ model Student {
   // Libellé calculé automatiquement depuis program/programLevel/academicYear.
   // Conservé pour les listes et filtres existants, il ne doit pas être saisi librement.
   enrolledYear     String?
+  enrollmentStatus String              @default("ACTIVE")
   programId        String?
   program          SchoolProgram?      @relation(fields: [programId], references: [id])
   programLevel     Int?
@@ -152,6 +153,7 @@ model SchoolProgram {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   students      Student[]
+  offers        Offer[]
   Course        Course[]
 
   @@unique([schoolId, name])
@@ -416,24 +418,26 @@ model SchoolSubscription {
 }
 
 model Offer {
-  id                  String    @id @default(uuid())
+  id                  String         @id @default(uuid())
   schoolId            String
-  school              School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school              School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   title               String
-  slug                String    @unique
+  slug                String         @unique
   description         String?
   diploma             String
+  programId           String?
+  program             SchoolProgram? @relation(fields: [programId], references: [id])
   duration            Int
   tuitionFees         Float
-  currency            String    @default("MGA")
+  currency            String         @default("MGA")
   prerequisites       String[]
   capacity            Int?
   applicationDeadline DateTime?
   academicYear        String
-  isOpen              Boolean   @default(true)
-  isFeatured          Boolean   @default(false)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  isOpen              Boolean        @default(true)
+  isFeatured          Boolean        @default(false)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   deletedAt           DateTime?
 
   applications Application[]
