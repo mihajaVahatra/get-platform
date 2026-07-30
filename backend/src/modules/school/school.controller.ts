@@ -292,6 +292,15 @@ export class SchoolController {
     return { success: true, data: classes };
   }
 
+  @Get('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async getMySubjects(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getSubjects(user.schoolAdmin.schoolId) }; }
+  @Get('me/teachers/search') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async searchMyTeacher(@Query('email') email: string) { return { success: true, data: await this.schoolService.findTeacherByEmail(email) }; }
+  @Post('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async createMySubject(@GetUser() user: SchoolAdminSession, @Body() body: { name: string }) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.createSubject(user.schoolAdmin.schoolId, body.name) }; }
+  @Patch('me/subjects/:id') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async updateMySubject(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() body: { isActive: boolean }) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.updateSubject(user.schoolAdmin.schoolId, id, body.isActive) }; }
+
   @Get('me/programs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')

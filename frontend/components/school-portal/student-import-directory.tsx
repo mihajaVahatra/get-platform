@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Pagination,
   PaginationContent,
@@ -30,6 +31,8 @@ type Student = {
 };
 
 const PAGE_SIZE = 20;
+type Program = { id: string; name: string; durationYears: number; isActive: boolean };
+type AcademicYear = { id: string; label: string; enrollmentOpensAt: string; enrollmentClosesAt: string; isCurrent: boolean };
 
 export function StudentImportDirectory() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -41,7 +44,9 @@ export function StudentImportDirectory() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [email, setEmail] = useState('');
-  const [enrolledYear, setEnrolledYear] = useState('');
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [programId, setProgramId] = useState(''); const [level, setLevel] = useState(''); const [academicYearId, setAcademicYearId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
 
   useEffect(() => {
@@ -79,6 +84,8 @@ export function StudentImportDirectory() {
       window.clearTimeout(timer);
     };
   }, [page, refreshKey, search]);
+  useEffect(() => { void Promise.all([apiClient.get('/schools/me/programs'), apiClient.get('/schools/me/academic-years')]).then(([programResponse, yearResponse]) => { setPrograms((programResponse.data.data || []).filter((program: Program) => program.isActive)); const years = yearResponse.data.data || []; setAcademicYears(years); setAcademicYearId(years.find((year: AcademicYear) => year.isCurrent)?.id || ''); }).catch(() => toast.error('Impossible de charger les options d’inscription')); }, [enrollOpen]);
+  const selectedProgram = programs.find((program) => program.id === programId); const selectedYear = academicYears.find((year) => year.id === academicYearId); const periodOpen = !!selectedYear && new Date(selectedYear.enrollmentOpensAt) <= new Date() && new Date(selectedYear.enrollmentClosesAt) >= new Date();
 
   const updateSearch = (value: string) => {
     setSearch(value);
@@ -97,13 +104,12 @@ export function StudentImportDirectory() {
       setEnrolling(true);
       try {
         await apiClient.post('/schools/me/students/enroll', {
-          email,
-          enrolledYear: enrolledYear || undefined,
+          email, programId, level: Number(level), academicYearId,
         });
         toast.success('Étudiant inscrit avec succès');
         setEnrollOpen(false);
         setEmail('');
-        setEnrolledYear('');
+        setProgramId(''); setLevel('');
         setSearch('');
         setPage(1);
         setLoading(true);
@@ -218,14 +224,11 @@ export function StudentImportDirectory() {
                 <Label htmlFor="enroll-email">E-mail de l’étudiant</Label>
                 <Input id="enroll-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="enroll-year">Année d’inscription</Label>
-                <Input id="enroll-year" value={enrolledYear} onChange={(event) => setEnrolledYear(event.target.value)} placeholder="Ex. 2026–2027" />
-              </div>
+              {programs.length === 0 ? <p className="text-sm text-red-600">Configurez d’abord vos filières dans <a className="underline" href="/dashboard/school/settings">Paramètres</a>.</p> : <><div className="space-y-2"><Label>Filière</Label><Select value={programId} onValueChange={(value) => { setProgramId(value ?? ''); setLevel(''); }}><SelectTrigger><SelectValue placeholder="Choisir une filière" /></SelectTrigger><SelectContent>{programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Niveau</Label><Select value={level} onValueChange={(value) => setLevel(value ?? '')} disabled={!selectedProgram}><SelectTrigger><SelectValue placeholder="Choisir un niveau" /></SelectTrigger><SelectContent>{Array.from({ length: selectedProgram?.durationYears || 0 }, (_, index) => <SelectItem key={index + 1} value={String(index + 1)}>Année {index + 1}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Année académique</Label><Select value={academicYearId} onValueChange={(value) => setAcademicYearId(value ?? '')}><SelectTrigger><SelectValue placeholder="Choisir une année" /></SelectTrigger><SelectContent>{academicYears.map((year) => <SelectItem key={year.id} value={year.id}>{year.label}</SelectItem>)}</SelectContent></Select>{selectedYear && !periodOpen && <p className="text-sm text-red-600">Inscriptions fermées pour {selectedYear.label} depuis le {new Date(selectedYear.enrollmentClosesAt).toLocaleDateString('fr-FR')}.</p>}</div></>}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEnrollOpen(false)}>Annuler</Button>
-              <Button type="submit" disabled={enrolling}>{enrolling ? 'Inscription...' : 'Inscrire'}</Button>
+              <Button type="submit" disabled={enrolling || !programId || !level || !academicYearId || !periodOpen}>{enrolling ? 'Inscription...' : 'Inscrire'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

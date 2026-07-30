@@ -77,12 +77,12 @@ model Student {
   //  RELATION AVEC L'ÉCOLE (INSCRIPTION)
   // ════════════════════════════════════════════
   enrolledSchoolId String?
-  enrolledSchool   School? @relation("EnrolledStudents", fields: [enrolledSchoolId], references: [id])
+  enrolledSchool   School?             @relation("EnrolledStudents", fields: [enrolledSchoolId], references: [id])
   // Libellé calculé automatiquement depuis program/programLevel/academicYear.
   // Conservé pour les listes et filtres existants, il ne doit pas être saisi librement.
   enrolledYear     String?
   programId        String?
-  program          SchoolProgram? @relation(fields: [programId], references: [id])
+  program          SchoolProgram?      @relation(fields: [programId], references: [id])
   programLevel     Int?
   academicYearId   String?
   academicYear     SchoolAcademicYear? @relation(fields: [academicYearId], references: [id])
@@ -134,6 +134,7 @@ model School {
   announcements      Announcement[]
   programs           SchoolProgram[]
   academicYears      SchoolAcademicYear[]
+  subjects           SchoolSubject[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -151,6 +152,7 @@ model SchoolProgram {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   students      Student[]
+  Course        Course[]
 
   @@unique([schoolId, name])
   @@index([schoolId, isActive])
@@ -158,15 +160,15 @@ model SchoolProgram {
 }
 
 model SchoolAcademicYear {
-  id                String    @id @default(uuid())
-  schoolId          String
-  school            School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  label             String
-  enrollmentOpensAt DateTime
+  id                 String    @id @default(uuid())
+  schoolId           String
+  school             School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  label              String
+  enrollmentOpensAt  DateTime
   enrollmentClosesAt DateTime
-  isCurrent         Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  students          Student[]
+  isCurrent          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  students           Student[]
 
   @@unique([schoolId, label])
   @@index([schoolId, isCurrent])
@@ -201,44 +203,75 @@ model Teacher {
 /// Affectation d'un professeur dans un établissement. Un professeur peut
 /// enseigner dans plusieurs établissements, avec une spécialité propre à chacun.
 model TeacherSchool {
-  id         String   @id @default(uuid())
+  id         String                 @id @default(uuid())
   teacherId  String
-  teacher    Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher    Teacher                @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   schoolId   String
-  school     School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school     School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   department String?
   specialty  String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  isActive   Boolean                @default(true)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  subjects   TeacherSchoolSubject[]
 
   @@unique([teacherId, schoolId])
   @@index([schoolId, isActive])
   @@map("teacher_schools")
 }
 
+model SchoolSubject {
+  id                    String                 @id @default(uuid())
+  schoolId              String
+  school                School                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name                  String
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  teacherQualifications TeacherSchoolSubject[]
+  courses               Course[]
+
+  @@unique([schoolId, name])
+  @@map("school_subjects")
+}
+
+model TeacherSchoolSubject {
+  id              String        @id @default(uuid())
+  teacherSchoolId String
+  teacherSchool   TeacherSchool @relation(fields: [teacherSchoolId], references: [id], onDelete: Cascade)
+  subjectId       String
+  subject         SchoolSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherSchoolId, subjectId])
+  @@map("teacher_school_subjects")
+}
+
 model Course {
-  id          String             @id @default(uuid())
-  schoolId    String
-  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  teacherId   String
-  teacher     Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  code        String
-  title       String
-  description String?
-  level       String
-  group       String?
-  credits     Int                @default(0)
-  room        String?
-  schedule    String?
-  isPublished Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  chapters    CourseChapter[]
-  enrollments CourseEnrollment[]
-  evaluations Evaluation[]
-  assignments Assignment[]
-  slots       CourseSlot[]
+  id           String             @id @default(uuid())
+  schoolId     String
+  school       School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId    String
+  teacher      Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  code         String
+  title        String
+  description  String?
+  level        String
+  subjectId    String?
+  subject      SchoolSubject?     @relation(fields: [subjectId], references: [id])
+  programId    String?
+  program      SchoolProgram?     @relation(fields: [programId], references: [id])
+  programLevel Int?
+  group        String?
+  credits      Int                @default(0)
+  room         String?
+  schedule     String?
+  isPublished  Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  chapters     CourseChapter[]
+  enrollments  CourseEnrollment[]
+  evaluations  Evaluation[]
+  assignments  Assignment[]
+  slots        CourseSlot[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
@@ -411,17 +444,17 @@ model Offer {
 }
 
 model SchoolRequirement {
-  id          String   @id @default(uuid())
+  id          String             @id @default(uuid())
   schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school      School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  type        String   @default("DOCUMENT")
+  type        String             @default("DOCUMENT")
   diploma     String?
-  isRequired  Boolean  @default(true)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isRequired  Boolean            @default(true)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   offers      OfferRequirement[]
 
   @@unique([schoolId, name])
@@ -555,18 +588,18 @@ model Document {
 }
 
 model Notification {
-  id          String    @id @default(uuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String
-  title       String
-  body        String
-  data        Json?
-  isRead      Boolean   @default(false)
-  readAt      DateTime?
-  sentAt      DateTime?
-  deliveredAt DateTime?
-  createdAt   DateTime  @default(now())
+  id                    String                 @id @default(uuid())
+  userId                String
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                  String
+  title                 String
+  body                  String
+  data                  Json?
+  isRead                Boolean                @default(false)
+  readAt                DateTime?
+  sentAt                DateTime?
+  deliveredAt           DateTime?
+  createdAt             DateTime               @default(now())
   announcementRecipient AnnouncementRecipient?
 
   @@index([userId, isRead])
