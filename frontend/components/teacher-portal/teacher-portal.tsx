@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { TeacherAssignments } from './teacher-assignments';
 import { TeacherSchedule } from './teacher-schedule';
 import { MessagesScreen } from '@/components/messages/messages-screen';
@@ -169,6 +178,8 @@ function applyTheme(theme: string) {
       window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.classList.toggle('dark', isDark);
 }
+
+const LIST_PAGE_SIZE = 25;
 
 export function TeacherPortal() {
   const params = useSearchParams();
@@ -549,7 +560,16 @@ function CourseContent({
   const [editingResourceTitle, setEditingResourceTitle] = useState('');
   const [editingResourceUrl, setEditingResourceUrl] = useState('');
   const [editingResourceType, setEditingResourceType] = useState('PDF');
+  const [chapterToDelete, setChapterToDelete] = useState<CourseChapter | null>(
+    null,
+  );
+  const [resourceToDelete, setResourceToDelete] = useState<{
+    chapterId: string;
+    resource: CourseResource;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingChapter, setDeletingChapter] = useState(false);
+  const [deletingResource, setDeletingResource] = useState(false);
   const [publishingChapterId, setPublishingChapterId] = useState<string | null>(
     null,
   );
@@ -702,28 +722,27 @@ function CourseContent({
     })();
   };
 
-  const deleteChapter = (chapter: CourseChapter) => {
-    if (
-      !window.confirm(
-        `Supprimer le chapitre « ${chapter.title} » et toutes ses ressources ?`,
-      )
-    )
-      return;
-    void (async () => {
-      try {
-        await apiClient.delete(
-          `/teacher/courses/${course.id}/chapters/${chapter.id}`,
-        );
-        onCourseChange({
-          ...course,
-          chapters: course.chapters.filter((item) => item.id !== chapter.id),
-        });
-        toast.success('Chapitre supprimé');
-      } catch (error) {
-        console.error('Erreur suppression chapitre:', error);
-        toast.error('Impossible de supprimer le chapitre');
-      }
-    })();
+  const deleteChapter = async () => {
+    if (!chapterToDelete) return;
+    setDeletingChapter(true);
+    try {
+      await apiClient.delete(
+        `/teacher/courses/${course.id}/chapters/${chapterToDelete.id}`,
+      );
+      onCourseChange({
+        ...course,
+        chapters: course.chapters.filter(
+          (item) => item.id !== chapterToDelete.id,
+        ),
+      });
+      setChapterToDelete(null);
+      toast.success('Chapitre supprimé');
+    } catch (error) {
+      console.error('Erreur suppression chapitre:', error);
+      toast.error('Impossible de supprimer le chapitre');
+    } finally {
+      setDeletingChapter(false);
+    }
   };
 
   const openEditResource = (chapterId: string, resource: CourseResource) => {
@@ -774,32 +793,34 @@ function CourseContent({
     })();
   };
 
-  const deleteResource = (chapterId: string, resource: CourseResource) => {
-    if (!window.confirm(`Supprimer la ressource « ${resource.title} » ?`)) return;
-    void (async () => {
-      try {
-        await apiClient.delete(
-          `/teacher/courses/${course.id}/chapters/${chapterId}/resources/${resource.id}`,
-        );
-        onCourseChange({
-          ...course,
-          chapters: course.chapters.map((chapter) =>
-            chapter.id === chapterId
-              ? {
-                  ...chapter,
-                  resources: chapter.resources.filter(
-                    (item) => item.id !== resource.id,
-                  ),
-                }
-              : chapter,
-          ),
-        });
-        toast.success('Ressource supprimée');
-      } catch (error) {
-        console.error('Erreur suppression ressource:', error);
-        toast.error('Impossible de supprimer la ressource');
-      }
-    })();
+  const deleteResource = async () => {
+    if (!resourceToDelete) return;
+    setDeletingResource(true);
+    try {
+      await apiClient.delete(
+        `/teacher/courses/${course.id}/chapters/${resourceToDelete.chapterId}/resources/${resourceToDelete.resource.id}`,
+      );
+      onCourseChange({
+        ...course,
+        chapters: course.chapters.map((chapter) =>
+          chapter.id === resourceToDelete.chapterId
+            ? {
+                ...chapter,
+                resources: chapter.resources.filter(
+                  (item) => item.id !== resourceToDelete.resource.id,
+                ),
+              }
+            : chapter,
+        ),
+      });
+      setResourceToDelete(null);
+      toast.success('Ressource supprimée');
+    } catch (error) {
+      console.error('Erreur suppression ressource:', error);
+      toast.error('Impossible de supprimer la ressource');
+    } finally {
+      setDeletingResource(false);
+    }
   };
 
   return (
@@ -865,7 +886,7 @@ function CourseContent({
                     <button
                       aria-label={`Supprimer ${chapter.title}`}
                       className="min-h-11 min-w-11 rounded p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                      onClick={() => deleteChapter(chapter)}
+                      onClick={() => setChapterToDelete(chapter)}
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -905,7 +926,12 @@ function CourseContent({
                             <button
                               aria-label={`Supprimer ${resource.title}`}
                               className="min-h-11 min-w-11 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                              onClick={() => deleteResource(chapter.id, resource)}
+                              onClick={() =>
+                                setResourceToDelete({
+                                  chapterId: chapter.id,
+                                  resource,
+                                })
+                              }
                             >
                               <Trash2 className="size-3" />
                             </button>
@@ -1164,6 +1190,75 @@ function CourseContent({
           </form>
         </DialogContent>
       </Dialog>
+      <Dialog
+        open={chapterToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingChapter) setChapterToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer le chapitre</DialogTitle>
+            <DialogDescription>
+              Le chapitre « {chapterToDelete?.title} » et ses{' '}
+              {chapterToDelete?.resources.length ?? 0} ressource(s) seront
+              supprimés définitivement. Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingChapter}
+              onClick={() => setChapterToDelete(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingChapter}
+              onClick={() => void deleteChapter()}
+            >
+              {deletingChapter ? 'Suppression…' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={resourceToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingResource) setResourceToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer la ressource</DialogTitle>
+            <DialogDescription>
+              La ressource « {resourceToDelete?.resource.title} » sera
+              supprimée définitivement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingResource}
+              onClick={() => setResourceToDelete(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingResource}
+              onClick={() => void deleteResource()}
+            >
+              {deletingResource ? 'Suppression…' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1172,8 +1267,71 @@ function CourseStudents({ courseId }: { courseId: string }) {
   return <CourseStudentList courseId={courseId} />;
 }
 
+function ListPagination({
+  page,
+  totalItems,
+  onPageChange,
+}: {
+  page: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.ceil(totalItems / LIST_PAGE_SIZE);
+  const currentPage = Math.min(page, totalPages);
+
+  if (totalItems <= LIST_PAGE_SIZE) return null;
+
+  return (
+    <Pagination className="mt-5">
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            className={
+              currentPage === 1 ? 'pointer-events-none opacity-50' : ''
+            }
+            onClick={(event) => {
+              event.preventDefault();
+              if (currentPage > 1) onPageChange(currentPage - 1);
+            }}
+          />
+        </PaginationItem>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+          (pageNumber) => (
+            <PaginationItem key={pageNumber}>
+              <PaginationLink
+                href="#"
+                isActive={currentPage === pageNumber}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onPageChange(pageNumber);
+                }}
+              >
+                {pageNumber}
+              </PaginationLink>
+            </PaginationItem>
+          ),
+        )}
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            className={
+              currentPage === totalPages ? 'pointer-events-none opacity-50' : ''
+            }
+            onClick={(event) => {
+              event.preventDefault();
+              if (currentPage < totalPages) onPageChange(currentPage + 1);
+            }}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+
 function CourseStudentList({ courseId }: { courseId: string }) {
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -1185,6 +1343,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
         `/teacher/courses/${courseId}/students`,
       );
       setEnrollments(response.data.data || []);
+      setPage(1);
     } catch (error) {
       console.error('Erreur chargement étudiants cours:', error);
       setFailed(true);
@@ -1215,6 +1374,11 @@ function CourseStudentList({ courseId }: { courseId: string }) {
       />
     );
 
+  const paginatedEnrollments = enrollments.slice(
+    (page - 1) * LIST_PAGE_SIZE,
+    page * LIST_PAGE_SIZE,
+  );
+
   return (
     <Card title={`Étudiants inscrits (${enrollments.length})`}>
       <div className="overflow-x-auto">
@@ -1226,7 +1390,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
             </tr>
           </thead>
           <tbody>
-            {enrollments.map(({ id, student }) => {
+            {paginatedEnrollments.map(({ id, student }) => {
               const name = `${student.firstName} ${student.lastName}`;
               return (
                 <tr
@@ -1243,6 +1407,11 @@ function CourseStudentList({ courseId }: { courseId: string }) {
           </tbody>
         </table>
       </div>
+      <ListPagination
+        page={page}
+        totalItems={enrollments.length}
+        onPageChange={setPage}
+      />
     </Card>
   );
 }
@@ -1355,22 +1524,32 @@ function Students() {
         />
       ) : (
         <div className="space-y-5">
-          <label className="block max-w-xl">
-            <span className="mb-1 block text-xs font-bold text-[#34406b]">
-              Cours
-            </span>
-            <select
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
-              value={selectedCourseId}
-              onChange={(event) => setSelectedCourseId(event.target.value)}
-            >
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title} · {course.school.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex max-w-xl flex-wrap items-end gap-3">
+            <label className="min-w-60 flex-1">
+              <span className="mb-1 block text-xs font-bold text-[#34406b]">
+                Cours
+              </span>
+              <select
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+                value={selectedCourseId}
+                onChange={(event) => setSelectedCourseId(event.target.value)}
+              >
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title} · {course.school.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedCourseId && (
+              <Link
+                href={`/dashboard/teacher?view=course-detail&courseId=${selectedCourseId}&tab=students`}
+                className="h-10 rounded-lg border border-violet-200 px-3 py-2 text-xs font-bold text-violet-600 transition hover:bg-violet-50"
+              >
+                Ouvrir la fiche du cours
+              </Link>
+            )}
+          </div>
           {selectedCourseId && (
             <CourseStudentList courseId={selectedCourseId} />
           )}
@@ -1880,6 +2059,7 @@ function GradeBook({ courseId }: { courseId: string }) {
   const [loadingEvaluations, setLoadingEvaluations] = useState(true);
   const [evaluationsFailed, setEvaluationsFailed] = useState(false);
   const [entries, setEntries] = useState<EvaluationGradeEntry[]>([]);
+  const [page, setPage] = useState(1);
   const [loadingGrades, setLoadingGrades] = useState(false);
   const [gradesFailed, setGradesFailed] = useState(false);
 
@@ -1914,6 +2094,7 @@ function GradeBook({ courseId }: { courseId: string }) {
         `/teacher/evaluations/${selectedEvaluationId}/grades`,
       );
       setEntries(response.data.data || []);
+      setPage(1);
     } catch (error) {
       console.error('Erreur chargement notes:', error);
       setGradesFailed(true);
@@ -1971,6 +2152,11 @@ function GradeBook({ courseId }: { courseId: string }) {
       />
     );
 
+  const paginatedEntries = entries.slice(
+    (page - 1) * LIST_PAGE_SIZE,
+    page * LIST_PAGE_SIZE,
+  );
+
   return (
     <div className="space-y-5">
       <label className="block max-w-xl">
@@ -2013,7 +2199,7 @@ function GradeBook({ courseId }: { courseId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry) => {
+                {paginatedEntries.map((entry) => {
                   const name = `${entry.student.firstName} ${entry.student.lastName}`;
                   return (
                     <tr
@@ -2038,6 +2224,11 @@ function GradeBook({ courseId }: { courseId: string }) {
             </table>
           </div>
         )}
+        <ListPagination
+          page={page}
+          totalItems={entries.length}
+          onPageChange={setPage}
+        />
       </Card>
     </div>
   );
@@ -2112,6 +2303,7 @@ function Assignments() {
 
 function Resources() {
   const [resources, setResources] = useState<TeacherResource[]>([]);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -2120,7 +2312,10 @@ function Resources() {
     void apiClient
       .get('/teacher/courses/resources')
       .then((response) => {
-        if (active) setResources(response.data.data);
+        if (active) {
+          setResources(response.data.data);
+          setPage(1);
+        }
       })
       .catch(() => {
         if (active) {
@@ -2135,6 +2330,11 @@ function Resources() {
       active = false;
     };
   }, []);
+
+  const paginatedResources = resources.slice(
+    (page - 1) * LIST_PAGE_SIZE,
+    page * LIST_PAGE_SIZE,
+  );
 
   return (
     <Page
@@ -2161,7 +2361,7 @@ function Resources() {
       ) : (
         <TableCard
           headers={['Nom', 'Cours · Chapitre', 'Type', 'Date', 'Actions']}
-          rows={resources.map((resource) => [
+          rows={paginatedResources.map((resource) => [
             resource.title,
             `${resource.chapter.course.title} · ${resource.chapter.title}`,
             resource.type,
@@ -2178,6 +2378,11 @@ function Resources() {
           ])}
         />
       )}
+      <ListPagination
+        page={page}
+        totalItems={resources.length}
+        onPageChange={setPage}
+      />
     </Page>
   );
 }
