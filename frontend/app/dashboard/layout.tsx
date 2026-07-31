@@ -464,7 +464,7 @@ function TeacherSidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex flex-col' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/teacher" className="mb-7 px-3">
@@ -604,7 +604,7 @@ function SchoolSidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex flex-col' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none`}
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/school" className="mb-6 px-3">
@@ -827,7 +827,7 @@ function AdminGetSidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex flex-col' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none`}
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/admin" className="mb-6 px-3">
@@ -1005,7 +1005,7 @@ function MinistrySidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex flex-col' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/ministry" className="mb-8 px-3">
@@ -1170,7 +1170,7 @@ function StudentSidebar({
 
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-7 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex flex-col' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-7 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none`}
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/student" className="mb-7 px-3">
