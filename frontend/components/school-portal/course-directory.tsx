@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Edit3Icon, PlusIcon } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ArchiveIcon, Edit3Icon, PlusIcon, SearchIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import {
   Select,
   SelectContent,
@@ -75,9 +83,12 @@ const EMPTY_FORM: CourseForm = {
   schedule: '',
   isPublished: 'true',
 };
+const PAGE_SIZE = 10;
 
 export function CourseDirectory() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [teachers, setTeachers] = useState<TeacherAssignment[]>([]);
   const [programs, setPrograms] = useState<
     { id: string; name: string; durationYears: number; isActive: boolean }[]
@@ -85,8 +96,10 @@ export function CourseDirectory() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseToDeactivate, setCourseToDeactivate] = useState<Course | null>(null);
   const [form, setForm] = useState<CourseForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,6 +134,22 @@ export function CourseDirectory() {
     };
   }, [fetchData]);
 
+  const filteredCourses = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return courses;
+    return courses.filter((course) =>
+      [course.code, course.title, course.teacher.user.email].some((value) =>
+        value.toLowerCase().includes(query),
+      ),
+    );
+  }, [courses, search]);
+  const totalPages = Math.max(1, Math.ceil(filteredCourses.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedCourses = filteredCourses.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const openCreate = () => {
     setSelectedCourse(null);
     setForm(EMPTY_FORM);
@@ -144,6 +173,25 @@ export function CourseDirectory() {
       isPublished: String(course.isPublished),
     });
     setDialogOpen(true);
+  };
+  const deactivateCourse = async () => {
+    if (!courseToDeactivate) return;
+    setDeactivating(true);
+    try {
+      await apiClient.put(`/schools/me/courses/${courseToDeactivate.id}`, {
+        isPublished: false,
+      });
+      toast.success('Cours désactivé');
+      setCourseToDeactivate(null);
+      await fetchData();
+    } catch (error: unknown) {
+      const responseMessage = (
+        error as { response?: { data?: { message?: string } } }
+      ).response?.data?.message;
+      toast.error(responseMessage || 'Impossible de désactiver le cours');
+    } finally {
+      setDeactivating(false);
+    }
   };
   const setField = (field: keyof CourseForm, value: string) =>
     setForm((current) => ({ ...current, [field]: value }));
@@ -204,32 +252,127 @@ export function CourseDirectory() {
         <CardContent className="p-5">
           {loading ? (
             'Chargement...'
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-[640px] w-full text-sm">
-                <tbody>
-                  {courses.map((course) => (
-                    <tr key={course.id}>
-                      <td>{course.code}</td>
-                      <td>{course.title}</td>
-                      <td>{course.level}</td>
-                      <td>{course.teacher.user.email}</td>
-                      <td>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="min-h-11 min-w-11"
-                          aria-label="Modifier le cours"
-                          onClick={() => openEdit(course)}
-                        >
-                          <Edit3Icon />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          ) : courses.length === 0 ? (
+            <div className="py-12 text-center text-sm text-slate-500">
+              Aucun cours n&apos;est actuellement configuré.
             </div>
+          ) : (
+            <>
+              <label className="relative mb-6 block">
+                <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
+                  className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+                  placeholder="Rechercher par code, titre ou professeur..."
+                />
+              </label>
+              {filteredCourses.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-500">
+                  Aucun cours ne correspond à votre recherche.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-left text-sm">
+                    <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                      <tr>
+                        <th className="pb-3 font-semibold">Code</th>
+                        <th className="pb-3 font-semibold">Titre</th>
+                        <th className="pb-3 font-semibold">Niveau</th>
+                        <th className="pb-3 font-semibold">Professeur</th>
+                        <th className="pb-3 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedCourses.map((course) => (
+                        <tr key={course.id}>
+                          <td>{course.code}</td>
+                          <td>{course.title}</td>
+                          <td>{course.level}</td>
+                          <td>{course.teacher.user.email}</td>
+                          <td>
+                            <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="min-h-11 min-w-11"
+                              aria-label="Modifier le cours"
+                              onClick={() => openEdit(course)}
+                            >
+                              <Edit3Icon />
+                            </Button>
+                            {course.isPublished && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="min-h-11 min-w-11 text-red-600"
+                                aria-label={`Désactiver ${course.title}`}
+                                onClick={() => setCourseToDeactivate(course)}
+                              >
+                                <ArchiveIcon />
+                              </Button>
+                            )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {totalPages > 1 && (
+                <Pagination className="mt-5">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        className={
+                          currentPage === 1 ? 'pointer-events-none opacity-50' : ''
+                        }
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (currentPage > 1) setPage(currentPage - 1);
+                        }}
+                      />
+                    </PaginationItem>
+                    {Array.from(
+                      { length: totalPages },
+                      (_, index) => index + 1,
+                    ).map((pageNumber) => (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          href="#"
+                          isActive={currentPage === pageNumber}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setPage(pageNumber);
+                          }}
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        className={
+                          currentPage === totalPages
+                            ? 'pointer-events-none opacity-50'
+                            : ''
+                        }
+                        onClick={(event) => {
+                          event.preventDefault();
+                          if (currentPage < totalPages) setPage(currentPage + 1);
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -240,6 +383,10 @@ export function CourseDirectory() {
               <DialogTitle>
                 {selectedCourse ? 'Modifier le cours' : 'Créer un cours'}
               </DialogTitle>
+              <DialogDescription>
+                Choisissez d&apos;abord un professeur puis une filière pour débloquer
+                les champs suivants.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <Label>
@@ -295,12 +442,16 @@ export function CourseDirectory() {
                     ))}
                   </SelectContent>
                 </Select>
-                {form.teacherId && !teacherSubjects.length && (
+                {!form.teacherId ? (
+                  <p className="text-xs text-slate-500">
+                    Sélectionnez d&apos;abord un professeur.
+                  </p>
+                ) : !teacherSubjects.length ? (
                   <p className="text-xs text-red-600">
                     Ce professeur n’a aucune matière renseignée — modifiez son
                     affectation dans Professeurs.
                   </p>
-                )}
+                ) : null}
               </Label>
               <Label>
                 Filière
@@ -360,6 +511,11 @@ export function CourseDirectory() {
                     )}
                   </SelectContent>
                 </Select>
+                {!selectedProgram && (
+                  <p className="text-xs text-slate-500">
+                    Sélectionnez d&apos;abord une filière.
+                  </p>
+                )}
               </Label>
               <Field
                 label="Code"
@@ -410,6 +566,40 @@ export function CourseDirectory() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={courseToDeactivate !== null}
+        onOpenChange={(open) => {
+          if (!open && !deactivating) setCourseToDeactivate(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Désactiver le cours</DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment désactiver le cours « {courseToDeactivate?.title} » ?
+              Les étudiants ayant une inscription active empêchent cette action.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deactivating}
+              onClick={() => setCourseToDeactivate(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deactivating}
+              onClick={() => void deactivateCourse()}
+            >
+              {deactivating ? 'Désactivation...' : 'Désactiver'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

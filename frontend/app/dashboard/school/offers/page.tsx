@@ -5,8 +5,24 @@ import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  ClipboardListIcon,
+  Edit3Icon,
+  LockIcon,
+  MegaphoneIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 type Offer = {
@@ -27,6 +43,8 @@ export default function SchoolOffersPage() {
   const router = useRouter();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
+  const [deletingOffer, setDeletingOffer] = useState(false);
 
   useEffect(() => {
     fetchOffers();
@@ -45,14 +63,18 @@ export default function SchoolOffersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Voulez-vous vraiment supprimer cette offre ?')) return;
+  const handleDelete = async () => {
+    if (!offerToDelete) return;
+    setDeletingOffer(true);
     try {
-      await apiClient.delete(`/offers/${id}`);
+      await apiClient.delete(`/offers/${offerToDelete.id}`);
       toast.success('Offre supprimée');
+      setOfferToDelete(null);
       fetchOffers();
     } catch (error) {
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setDeletingOffer(false);
     }
   };
 
@@ -87,18 +109,18 @@ export default function SchoolOffersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Mes offres</h1>
-          <p className="text-gray-500 text-sm">{offers.length} offre(s)</p>
+          <h1 className="text-2xl font-extrabold">Mes offres</h1>
+          <p className="text-sm text-violet-600">{offers.length} offre(s)</p>
         </div>
         <Link href="/dashboard/school/offers/new">
-          <Button>➕ Nouvelle offre</Button>
+          <Button><PlusIcon /> Nouvelle offre</Button>
         </Link>
       </div>
 
       {offers.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-gray-500">Vous n'avez pas encore créé d'offre.</p>
+            <p className="text-slate-500">Vous n'avez pas encore créé d'offre.</p>
             <Link href="/dashboard/school/offers/new">
               <Button className="mt-4">Créer votre première offre</Button>
             </Link>
@@ -117,7 +139,7 @@ export default function SchoolOffersPage() {
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={offer.isOpen ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'}>
+                    <Badge className={offer.isOpen ? 'bg-green-500 text-white' : 'bg-slate-500 text-white'}>
                       {offer.isOpen ? 'Ouvert' : 'Fermé'}
                     </Badge>
                     <Badge variant="outline" className="text-blue-600">
@@ -128,10 +150,10 @@ export default function SchoolOffersPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap items-center gap-4 text-sm">
-                  <span className="text-gray-500">
+                  <span className="text-slate-500">
                     Frais : <span className="font-medium text-blue-600">{formatAmount(offer.tuitionFees)}</span>
                   </span>
-                  <span className="text-gray-500">
+                  <span className="text-slate-500">
                     Date limite : <span className="font-medium">{formatDate(offer.applicationDeadline)}</span>
                   </span>
                 </div>
@@ -144,23 +166,23 @@ export default function SchoolOffersPage() {
                     onClick={() => handleToggleStatus(offer.id, offer.isOpen)}
                     className={!offer.isOpen ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
                   >
-                    {offer.isOpen ? '🔒 Fermer' : '📢 Ouvrir'}
+                    {offer.isOpen ? <><LockIcon /> Fermer</> : <><MegaphoneIcon /> Ouvrir</>}
                   </Button>
                   <Link href={`/dashboard/school/offers/${offer.id}`}>
-                    <Button variant="outline" size="sm">✏️ Modifier</Button>
+                    <Button variant="outline" size="sm"><Edit3Icon /> Modifier</Button>
                   </Link>
                 </div>
                 <div className="flex items-center gap-2">
                   <Link href={`/dashboard/school/applications?offerId=${offer.id}`}>
-                    <Button variant="ghost" size="sm">📋 Voir candidatures</Button>
+                    <Button variant="ghost" size="sm"><ClipboardListIcon /> Voir candidatures</Button>
                   </Link>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-red-600 hover:text-red-700"
-                    onClick={() => handleDelete(offer.id)}
+                    onClick={() => setOfferToDelete(offer)}
                   >
-                    🗑️ Supprimer
+                    <Trash2Icon /> Supprimer
                   </Button>
                 </div>
               </div>
@@ -168,6 +190,40 @@ export default function SchoolOffersPage() {
           ))}
         </div>
       )}
+      <Dialog
+        open={offerToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingOffer) setOfferToDelete(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer l’offre</DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment supprimer l’offre « {offerToDelete?.title} » ?
+              Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingOffer}
+              onClick={() => setOfferToDelete(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingOffer}
+              onClick={() => void handleDelete()}
+            >
+              {deletingOffer ? 'Suppression...' : 'Supprimer'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
