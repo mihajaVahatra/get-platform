@@ -35,6 +35,11 @@ import { UploadDocumentDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 
+type CurrentStudentUser = {
+  id: string;
+  student?: { id: string } | null;
+};
+
 @ApiTags('students')
 @Controller('students')
 @UseGuards(JwtAuthGuard)
@@ -162,6 +167,93 @@ export class StudentController {
       data: { avatarUrl: result.url },
       message: 'Avatar uploaded successfully',
     };
+  }
+
+  // ========== COURS ET DEVOIRS ==========
+
+  @Get('me/courses')
+  @ApiOperation({ summary: 'Get courses the current student is enrolled in' })
+  async getCourses(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const courses = await this.studentService.getCourses(user.id);
+    return { success: true, data: courses, message: 'Courses retrieved' };
+  }
+
+  @Get('me/courses/:courseId/assignments')
+  @ApiOperation({ summary: 'Get published assignments for an enrolled course' })
+  async getCourseAssignments(
+    @GetUser() user: CurrentStudentUser,
+    @Param('courseId') courseId: string,
+  ) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const assignments = await this.studentService.getCourseAssignments(
+      user.id,
+      courseId,
+    );
+    return {
+      success: true,
+      data: assignments,
+      message: 'Assignments retrieved',
+    };
+  }
+
+  @Post('me/assignments/:assignmentId/submit')
+  @ApiOperation({
+    summary: 'Submit or replace an ungraded assignment submission',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        if (allowedMimes.includes(file.mimetype)) return cb(null, true);
+        return cb(
+          new BadRequestException(
+            'Formats acceptés : PDF, JPG, PNG, DOC, DOCX',
+          ),
+          false,
+        );
+      },
+    }),
+  )
+  async submitAssignment(
+    @GetUser() user: CurrentStudentUser,
+    @Param('assignmentId') assignmentId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    if (!file) throw new BadRequestException('Aucun fichier uploadé');
+    const submission = await this.studentService.submitAssignment(
+      user.id,
+      assignmentId,
+      file,
+    );
+    return { success: true, data: submission, message: 'Assignment submitted' };
   }
 
   // ========== DOCUMENTS ==========

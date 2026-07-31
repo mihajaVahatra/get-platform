@@ -332,7 +332,7 @@ function StudentApplicationsContent() {
 
       {/* Modale de détails */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Détails de la candidature</DialogTitle>
             <DialogDescription>
@@ -342,7 +342,7 @@ function StudentApplicationsContent() {
 
           {selectedApp && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <p className="text-gray-500">Statut</p>
                   <Badge

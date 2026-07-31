@@ -194,6 +194,10 @@ model Teacher {
   id          String          @id @default(uuid())
   userId      String          @unique
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  avatarUrl   String?
+  phone       String?
   assignments TeacherSchool[]
   courses     Course[]
   createdAt   DateTime        @default(now())
@@ -274,6 +278,7 @@ model Course {
   evaluations  Evaluation[]
   assignments  Assignment[]
   slots        CourseSlot[]
+  announcements Announcement[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
@@ -618,11 +623,14 @@ model Announcement {
   title         String
   body          String
   targetType    String
+  courseId      String?
+  course        Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
   targetClasses String[]                @default([])
   createdAt     DateTime                @default(now())
   recipients    AnnouncementRecipient[]
 
   @@index([schoolId, createdAt])
+  @@index([courseId, createdAt])
   @@map("announcements")
 }
 

@@ -15,6 +15,36 @@ import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 export class NotificationService {
   constructor(private prisma: PrismaService) {}
 
+  async sendInAppBatch(
+    userIds: string[],
+    content: { title: string; body: string },
+  ): Promise<Array<{ userId: string; notificationId: string }>> {
+    const recipientIds = [...new Set(userIds)];
+    const recipients: Array<{ userId: string; notificationId: string }> = [];
+    const batchSize = 25;
+
+    for (let index = 0; index < recipientIds.length; index += batchSize) {
+      const results = await Promise.all(
+        recipientIds.slice(index, index + batchSize).map(async (userId) => ({
+          userId,
+          result: (await this.send({
+            userId,
+            type: NotificationType.IN_APP,
+            title: content.title,
+            body: content.body,
+          })) as { success: boolean; notificationId?: string },
+        })),
+      );
+      for (const { userId, result } of results) {
+        if (result.success && result.notificationId) {
+          recipients.push({ userId, notificationId: result.notificationId });
+        }
+      }
+    }
+
+    return recipients;
+  }
+
   // ============================================================
   // 1. ENVOI DE NOTIFICATION (principal)
   // ============================================================

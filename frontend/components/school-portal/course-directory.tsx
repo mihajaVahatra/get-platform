@@ -205,27 +205,31 @@ export function CourseDirectory() {
           {loading ? (
             'Chargement...'
           ) : (
-            <table className="w-full text-sm">
-              <tbody>
-                {courses.map((course) => (
-                  <tr key={course.id}>
-                    <td>{course.code}</td>
-                    <td>{course.title}</td>
-                    <td>{course.level}</td>
-                    <td>{course.teacher.user.email}</td>
-                    <td>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={() => openEdit(course)}
-                      >
-                        <Edit3Icon />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="min-w-[640px] w-full text-sm">
+                <tbody>
+                  {courses.map((course) => (
+                    <tr key={course.id}>
+                      <td>{course.code}</td>
+                      <td>{course.title}</td>
+                      <td>{course.level}</td>
+                      <td>{course.teacher.user.email}</td>
+                      <td>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="min-h-11 min-w-11"
+                          aria-label="Modifier le cours"
+                          onClick={() => openEdit(course)}
+                        >
+                          <Edit3Icon />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>

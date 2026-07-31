@@ -7,6 +7,7 @@ import { PrismaService } from '../../modules/prisma/prisma.service';
 
 export enum ImageEntityType {
   STUDENT = 'STUDENT',
+  TEACHER = 'TEACHER',
   SCHOOL = 'SCHOOL',
   ADMIN = 'ADMIN',
   MINISTRY = 'MINISTRY',
@@ -96,6 +97,31 @@ export class StorageService {
     return { url: `${baseUrl}/uploads/documents/${studentId}/${fileName}` };
   }
 
+  uploadCourseMaterial(
+    file: Express.Multer.File,
+    courseId: string,
+  ): { url: string } {
+    this.assertSafeDocument(file, { allowCourseMaterials: true });
+    this.assertSafeEntityId(courseId);
+
+    const fileName = this.generateFileName(file.originalname);
+    const fullPath = this.resolveUploadPath('course-materials', courseId);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+    }
+
+    fs.writeFileSync(
+      this.resolveUploadPath('course-materials', courseId, fileName),
+      file.buffer,
+    );
+
+    const baseUrl =
+      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
+    return {
+      url: `${baseUrl}/uploads/course-materials/${courseId}/${fileName}`,
+    };
+  }
+
   async getImage(
     entityType: ImageEntityType,
     entityId: string,
@@ -171,13 +197,25 @@ export class StorageService {
       );
   }
 
-  private assertSafeDocument(file: Express.Multer.File) {
+  private assertSafeDocument(
+    file: Express.Multer.File,
+    options: { allowCourseMaterials?: boolean } = {},
+  ) {
     const allowedMimes = new Set([
       'application/pdf',
       'image/jpeg',
       'image/png',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ...(options.allowCourseMaterials
+        ? [
+            'image/webp',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/zip',
+            'application/x-zip-compressed',
+          ]
+        : []),
     ]);
     if (!allowedMimes.has(file.mimetype)) {
       throw new BadRequestException('Format de document non autorisé');
@@ -186,16 +224,10 @@ export class StorageService {
     const bytes = file.buffer;
     const isPdf =
       bytes.length >= 5 && bytes.subarray(0, 5).toString() === '%PDF-';
-    const isPng =
-      bytes.length >= 8 &&
-      bytes
-        .subarray(0, 8)
-        .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-    const isJpeg =
-      bytes.length >= 3 &&
-      bytes[0] === 0xff &&
-      bytes[1] === 0xd8 &&
-      bytes[2] === 0xff;
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      this.assertSafeImage(file);
+      return;
+    }
     const isDoc =
       bytes.length >= 8 &&
       bytes
@@ -206,11 +238,17 @@ export class StorageService {
 
     const contentMatchesMime =
       (file.mimetype === 'application/pdf' && isPdf) ||
-      (file.mimetype === 'image/png' && isPng) ||
-      (file.mimetype === 'image/jpeg' && isJpeg) ||
       (file.mimetype === 'application/msword' && isDoc) ||
       (file.mimetype ===
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+        isDocx) ||
+      (options.allowCourseMaterials &&
+        [
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/zip',
+          'application/x-zip-compressed',
+        ].includes(file.mimetype) &&
         isDocx);
 
     if (!contentMatchesMime) {

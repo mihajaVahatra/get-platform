@@ -467,7 +467,7 @@ function GenericTable({
 }
 function Actions() {
   return (
-    <span className="flex gap-2 text-violet-600">
+    <span aria-hidden="true" className="flex gap-2 text-violet-600">
       <Edit3 className="size-4" />
       <MoreHorizontal className="size-4" />
     </span>

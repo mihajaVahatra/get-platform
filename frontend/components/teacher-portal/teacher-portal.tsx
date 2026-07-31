@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Bell,
@@ -9,16 +10,28 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  ClipboardCheck,
   FileText,
-  Mail,
-  MoreVertical,
-  Paperclip,
+  Pencil,
   Plus,
   Search,
-  Send,
-  UsersRound,
+  Settings,
+  Trash2,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { TeacherAssignments } from './teacher-assignments';
+import { TeacherSchedule } from './teacher-schedule';
+import { MessagesScreen } from '@/components/messages/messages-screen';
+import { TeacherDashboard } from './teacher-dashboard';
+import { AvatarUpload } from '@/components/AvatarUpload';
 
 type View =
   | 'dashboard'
@@ -43,78 +56,119 @@ type CourseTab =
   | 'grades'
   | 'settings';
 
-const courses = [
-  [
-    'Algorithmique et Programmation',
-    'L3 Informatique',
-    'Groupe A',
-    '28',
-    '14,25',
-  ],
-  ['Base de données', 'L2 Informatique', 'Groupe B', '24', '12,50'],
-  ['Génie Logiciel', 'L3 Informatique', 'Groupe A', '26', '16,75'],
-  ['Atelier Projet', 'L3 Informatique', 'Groupe B', '22', '15,00'],
-  ["Systèmes d'information", 'L2 Informatique', 'Groupe A', '20', '11,80'],
-] as const;
+type CourseSummary = {
+  id: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  level: string;
+  group?: string | null;
+  credits: number;
+  room?: string | null;
+  schedule?: string | null;
+  isPublished: boolean;
+  school: { id: string; name: string; slug: string };
+  _count: {
+    enrollments: number;
+    chapters: number;
+    evaluations: number;
+    assignments: number;
+  };
+};
 
-const students = [
-  [
-    'Rasolonjatoavo Tina',
-    '2301/INFO/001',
-    'tina.raso@get.mg',
-    'Algorithmique',
-    '85%',
-    '14,25',
-  ],
-  [
-    'Rakotoarivelo Mamy',
-    '2301/INFO/002',
-    'mamy.rakoto@get.mg',
-    'Base de données',
-    '78%',
-    '12,50',
-  ],
-  [
-    'Andriamalala Fanja',
-    '2301/INFO/003',
-    'fanja.andria@get.mg',
-    'Génie Logiciel',
-    '92%',
-    '16,75',
-  ],
-  [
-    'Rabeharisoa Lala',
-    '2301/INFO/004',
-    'lala.rabe@get.mg',
-    'Algorithmique',
-    '65%',
-    '10,25',
-  ],
-  [
-    'Rakotovo Hery',
-    '2301/INFO/005',
-    'hery.rakoto@get.mg',
-    'Atelier Projet',
-    '80%',
-    '15,00',
-  ],
-] as const;
+type TeacherSchool = {
+  school: { id: string; name: string; slug: string };
+};
 
-const grades = [
-  ['Rasolonjatoavo Tina', '13,00', '15,00', '12,00', '16,00', '15,00', '14,25'],
-  ['Rakotoarivelo Mamy', '11,00', '12,00', '14,00', '15,00', '14,00', '12,50'],
-  ['Andriamalala Fanja', '16,00', '17,00', '15,00', '17,00', '16,00', '16,75'],
-  ['Rabeharisoa Lala', '9,00', '11,00', '10,00', '12,00', '10,00', '10,25'],
-  ['Rakotovo Hery', '14,00', '16,00', '13,00', '15,00', '17,00', '15,00'],
-] as const;
+type CourseResource = {
+  id: string;
+  title: string;
+  url: string;
+  type: string;
+};
+
+type TeacherResource = CourseResource & {
+  createdAt: string;
+  chapter: { title: string; course: { id: string; title: string } };
+};
+
+type CourseChapter = {
+  id: string;
+  title: string;
+  description?: string | null;
+  position: number;
+  isPublished: boolean;
+  publishedAt?: string | null;
+  resources: CourseResource[];
+};
+
+type CourseDetailData = Omit<CourseSummary, 'school' | '_count'> & {
+  schoolId: string;
+  chapters: CourseChapter[];
+  evaluations: unknown[];
+  assignments: unknown[];
+  _count: { enrollments: number };
+};
+
+type CourseEnrollment = {
+  id: string;
+  student: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    user: { email: string };
+  };
+};
+
+type Evaluation = {
+  id: string;
+  courseId: string;
+  title: string;
+  type: string;
+  scheduledAt?: string | null;
+  coefficient: number;
+};
+
+type EvaluationGrade = {
+  id: string;
+  studentId: string;
+  value: number;
+  comment?: string | null;
+};
+
+type EvaluationGradeEntry = {
+  studentId: string;
+  student: CourseEnrollment['student'];
+  grade: EvaluationGrade | null;
+};
+
+type TeacherAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  recipientCount: number;
+  readCount: number;
+};
+
+type TeacherProfile = {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+  phone?: string | null;
+  user: { email: string };
+};
 
 export function TeacherPortal() {
   const params = useSearchParams();
   const view = (params.get('view') || 'dashboard') as View;
-  const courseTab = (params.get('tab') || 'overview') as CourseTab;
+  const courseTab = (params.get('tab') || 'content') as CourseTab;
+  const courseId = params.get('courseId');
 
   if (view === 'courses') return <Courses />;
-  if (view === 'course-detail') return <CourseDetail tab={courseTab} />;
+  if (view === 'course-detail')
+    return <CourseDetail courseId={courseId} tab={courseTab} />;
   if (view === 'students') return <Students />;
   if (view === 'evaluations') return <Evaluations />;
   if (view === 'grades') return <Grades />;
@@ -130,267 +184,248 @@ export function TeacherPortal() {
 function Dashboard() {
   return (
     <Page
-      title="Bonjour, Prof. Andrianiarina 👋"
-      subtitle="Voici un aperçu de votre activité aujourd’hui."
+      title="Bonjour 👋"
+      subtitle="Voici un aperçu de votre activité pédagogique."
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          icon={CalendarDays}
-          label="Cours aujourd’hui"
-          value="3"
-          tone="violet"
-          detail="Prochain à 08:00"
-        />
-        <Metric
-          icon={FileText}
-          label="À corriger"
-          value="18"
-          tone="orange"
-          detail="7 devoirs en retard"
-        />
-        <Metric
-          icon={UsersRound}
-          label="Étudiants à suivre"
-          value="4"
-          tone="blue"
-          detail="Absences ou résultats faibles"
-        />
-        <Metric
-          icon={Mail}
-          label="Messages non lus"
-          value="3"
-          tone="violet"
-          detail="2 conversations de groupe"
-        />
-      </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_.9fr_.9fr]">
-        <Card title="Prochain cours" action="Voir l’emploi du temps">
-          <div className="rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 p-4 text-white">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-100">
-                  Dans 35 minutes · 08:00 – 10:00
-                </p>
-                <h2 className="mt-2 text-lg font-extrabold">
-                  Algorithmique et Programmation
-                </h2>
-                <p className="mt-1 text-xs text-violet-100">
-                  L3 Informatique · Groupe A · Salle 2.3
-                </p>
-              </div>
-              <span className="grid size-10 place-items-center rounded-xl bg-white/15">
-                <BookOpen className="size-5" />
-              </span>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-violet-700">
-                Ouvrir le cours
-              </button>
-              <button className="rounded-lg border border-white/30 px-3 py-2 text-[10px] font-bold text-white">
-                Faire l’appel
-              </button>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500">
-            <span>28 étudiants inscrits</span>
-            <span>Dernier contenu : Chapitre 3</span>
-          </div>
-        </Card>
-        <Card title="À traiter" action="Tout voir">
-          <div className="space-y-2">
-            {[
-              [
-                'Corriger le TP Base de données',
-                '24 copies · Échéance aujourd’hui',
-                'Urgent',
-              ],
-              [
-                'Saisir les notes du contrôle 2',
-                'Algorithmique · Groupe A',
-                'À faire',
-              ],
-              [
-                'Publier le corrigé de l’exercice',
-                'Génie Logiciel · 26 étudiants',
-                'À faire',
-              ],
-              [
-                'Répondre aux demandes d’étudiants',
-                '3 messages en attente',
-                'Nouveau',
-              ],
-            ].map(([title, detail, status]) => (
-              <div
-                className="flex gap-3 rounded-lg bg-slate-50 p-2.5"
-                key={title}
-              >
-                <span className="grid size-7 place-items-center rounded-lg bg-white text-violet-600">
-                  <ClipboardCheck className="size-3.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-bold text-[#26305e]">
-                    {title}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{detail}</p>
-                </div>
-                <Status value={status} />
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card title="Alertes étudiants" action="Voir les étudiants">
-          <div className="space-y-3">
-            {[
-              [
-                'Rabeharisoa Lala',
-                'Moyenne 10,25/20 · À accompagner',
-                'bg-orange-100 text-orange-600',
-              ],
-              [
-                'Rakotovo Hery',
-                '3 absences sur les 2 dernières semaines',
-                'bg-rose-100 text-rose-600',
-              ],
-              [
-                'Groupe L3 – A',
-                '5 rendus manquants sur le TP en cours',
-                'bg-violet-100 text-violet-600',
-              ],
-            ].map(([name, detail, tone]) => (
-              <div className="flex items-start gap-3" key={name}>
-                <span
-                  className={`grid size-8 place-items-center rounded-full text-[10px] font-bold ${tone}`}
-                >
-                  {name.slice(0, 1)}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#26305e]">{name}</p>
-                  <p className="mt-1 text-[10px] leading-4 text-slate-500">
-                    {detail}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_.9fr]">
-        <Card title="Planning de la journée" action="Voir la semaine">
-          <Timeline />
-        </Card>
-        <Card title="Mes cours" action="Voir tout">
-          <CourseMiniList />
-        </Card>
-        <Card title="Messages récents" action="Voir les messages">
-          <div className="space-y-3">
-            {[
-              [
-                'Groupe Algorithmique A',
-                'Question sur les arbres binaires',
-                '11:20',
-              ],
-              [
-                'Rasolonjatoavo Tina',
-                'Demande de précision sur le TP',
-                '10:35',
-              ],
-              [
-                'Génie Logiciel – Groupe A',
-                'Travail en groupe · 4 réponses',
-                'Hier',
-              ],
-            ].map(([sender, text, time]) => (
-              <div className="flex gap-2" key={sender}>
-                <span className="grid size-8 place-items-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-600">
-                  {sender.slice(0, 1)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-bold text-[#26305e]">
-                    {sender}
-                  </p>
-                  <p className="truncate text-[10px] text-slate-500">{text}</p>
-                </div>
-                <span className="text-[9px] text-slate-400">{time}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <Card title="Suivi pédagogique" action="Voir les notes">
-          <LineChart />
-          <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-            <MiniStat value="12,45 /20" label="Moyenne globale" />
-            <MiniStat value="85%" label="Présence moyenne" />
-            <MiniStat value="76%" label="Devoirs corrigés" />
-          </div>
-        </Card>
-        <Card title="Répartition des notes" action="Voir le détail">
-          <GradeDistribution />
-        </Card>
-      </div>
+      <TeacherDashboard />
     </Page>
   );
 }
 
 function Courses() {
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [schools, setSchools] = useState<TeacherSchool[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const [coursesResponse, schoolsResponse] = await Promise.all([
+        apiClient.get('/teacher/courses'),
+        apiClient.get('/teacher/courses/schools'),
+      ]);
+      setCourses(coursesResponse.data.data || []);
+      setSchools(schoolsResponse.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement cours professeur:', error);
+      setFailed(true);
+      toast.error('Impossible de charger vos cours');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchCourses();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchCourses]);
+
+  const displayedCourses =
+    selectedSchoolId === 'all'
+      ? courses
+      : courses.filter((course) => course.school.id === selectedSchoolId);
+
   return (
     <Page
       title="Mes cours"
       subtitle="Gérez et consultez tous les cours que vous enseignez."
     >
-      <Tabs labels={['Actifs (5)', 'Archivés (0)']} />
-      <TableCard
-        headers={[
-          'Cours',
-          'Niveau',
-          'Groupe',
-          'Étudiants',
-          'Moyenne',
-          'Actions',
-        ]}
-        rows={courses.map((course) => [
-          <Link
-            className="font-bold text-[#16204d] hover:text-violet-600"
-            href="/dashboard/teacher?view=course-detail&tab=overview"
-            key={course[0]}
+      {schools.length > 1 && (
+        <label className="mb-5 block max-w-sm">
+          <span className="mb-1 block text-xs font-bold text-[#34406b]">
+            Établissement
+          </span>
+          <select
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            value={selectedSchoolId}
+            onChange={(event) => setSelectedSchoolId(event.target.value)}
           >
-            {course[0]}
-            <small className="mt-1 block font-normal text-slate-400">
-              {course[1]}
-            </small>
-          </Link>,
-          tag(course[1].slice(0, 2)),
-          course[2],
-          course[3],
-          course[4],
-          <MoreVertical className="size-4 text-violet-600" key="actions" />,
-        ])}
-      />
+            <option value="all">Tous les établissements</option>
+            {schools.map(({ school }) => (
+              <option key={school.id} value={school.id}>
+                {school.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {loading ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Chargement de vos cours…
+        </p>
+      ) : failed ? (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+          <p>Vos cours n’ont pas pu être chargés.</p>
+          <button
+            className="mt-3 text-xs font-bold text-violet-600"
+            onClick={() => void fetchCourses()}
+          >
+            Réessayer
+          </button>
+        </div>
+      ) : displayedCourses.length === 0 ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Aucun cours ne vous est actuellement affecté.
+        </p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {displayedCourses.map((course) => (
+            <Link
+              key={course.id}
+              href={`/dashboard/teacher?view=course-detail&courseId=${course.id}&tab=content`}
+              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-[#17204e]">
+                    {course.title}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {course.code} · {course.level}
+                    {course.group ? ` · ${course.group}` : ''}
+                  </p>
+                </div>
+                <BookOpen className="size-5 shrink-0 text-violet-600" />
+              </div>
+              <span className="mt-4 inline-flex rounded bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+                {course.school.name}
+              </span>
+              <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-600">
+                <span className="rounded bg-slate-50 px-2 py-1">
+                  {course._count.enrollments} étudiant
+                  {course._count.enrollments > 1 ? 's' : ''}
+                </span>
+                <span className="rounded bg-slate-50 px-2 py-1">
+                  {course._count.chapters} chapitre
+                  {course._count.chapters > 1 ? 's' : ''}
+                </span>
+                <span className="rounded bg-slate-50 px-2 py-1">
+                  {course._count.evaluations} évaluation
+                  {course._count.evaluations > 1 ? 's' : ''}
+                </span>
+                <span className="rounded bg-slate-50 px-2 py-1">
+                  {course._count.assignments} devoir
+                  {course._count.assignments > 1 ? 's' : ''}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </Page>
   );
 }
 
-function CourseDetail({ tab }: { tab: CourseTab }) {
+function CourseDetail({
+  tab,
+  courseId,
+}: {
+  tab: CourseTab;
+  courseId: string | null;
+}) {
+  const [course, setCourse] = useState<CourseDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const fetchCourse = useCallback(async () => {
+    if (!courseId) {
+      setLoading(false);
+      setFailed(true);
+      return;
+    }
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get(`/teacher/courses/${courseId}`);
+      setCourse(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement détail cours:', error);
+      setFailed(true);
+      toast.error('Impossible de charger ce cours');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchCourse();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchCourse]);
+
+  if (loading)
+    return (
+      <Page
+        title="Cours"
+        subtitle="Chargement du contenu pédagogique…"
+        back="/dashboard/teacher?view=courses"
+      >
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Chargement du cours…
+        </p>
+      </Page>
+    );
+
+  if (failed || !course)
+    return (
+      <Page
+        title="Cours introuvable"
+        subtitle="Ce cours n’est pas accessible avec votre compte."
+        back="/dashboard/teacher?view=courses"
+      >
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+          <p>Le détail du cours n’a pas pu être chargé.</p>
+          {courseId && (
+            <button
+              className="mt-3 text-xs font-bold text-violet-600"
+              onClick={() => void fetchCourse()}
+            >
+              Réessayer
+            </button>
+          )}
+        </div>
+      </Page>
+    );
+
   return (
     <Page
-      title="Algorithmique et Programmation"
-      subtitle="L3 Informatique · Groupe A"
+      title={course.title}
+      subtitle={`${course.code} · ${course.level}${course.group ? ` · ${course.group}` : ''}`}
       back="/dashboard/teacher?view=courses"
     >
-      <CourseTabs active={tab} />
-      {tab === 'overview' && <CourseOverview />}
-      {tab === 'content' && <CourseContent />}
-      {tab === 'students' && <CourseStudents />}
-      {tab === 'evaluations' && <CourseEvaluations />}
-      {tab === 'assignments' && <CourseAssignments />}
-      {tab === 'grades' && <CourseGrades />}
+      <CourseTabs active={tab} courseId={course.id} />
+      {tab === 'overview' && <CourseOverview course={course} />}
+      {tab === 'content' && (
+        <CourseContent course={course} onCourseChange={setCourse} />
+      )}
+      {tab === 'students' && <CourseStudents courseId={course.id} />}
+      {tab === 'evaluations' && <CourseEvaluations courseId={course.id} />}
+      {tab === 'assignments' && <CourseAssignments courseId={course.id} />}
+      {tab === 'grades' && <CourseGrades courseId={course.id} />}
       {tab === 'settings' && <CourseSettings />}
     </Page>
   );
 }
 
-function CourseTabs({ active }: { active: CourseTab }) {
+function CourseTabs({
+  active,
+  courseId,
+}: {
+  active: CourseTab;
+  courseId: string;
+}) {
   const tabs: Array<[CourseTab, string]> = [
     ['overview', 'Aperçu'],
     ['content', 'Contenu'],
@@ -405,7 +440,7 @@ function CourseTabs({ active }: { active: CourseTab }) {
       {tabs.map(([key, label]) => (
         <Link
           key={key}
-          href={`/dashboard/teacher?view=course-detail&tab=${key}`}
+          href={`/dashboard/teacher?view=course-detail&courseId=${courseId}&tab=${key}`}
           className={`whitespace-nowrap border-b-2 px-1 py-3 ${active === key ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
         >
           {label}
@@ -415,39 +450,56 @@ function CourseTabs({ active }: { active: CourseTab }) {
   );
 }
 
-function CourseOverview() {
+function CourseOverview({ course }: { course: CourseDetailData }) {
+  const resources = course.chapters.flatMap((chapter) => chapter.resources);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
       <Card title="Informations générales">
         <Info
           rows={[
-            ['Code du cours', 'INFO301'],
-            ['Niveau', 'Licence 3'],
-            ['Crédits', '6'],
-            ['Enseignant', 'Prof. Andrianiarina'],
-            ['Salle', 'Salle 2.3'],
-            ['Horaires', 'Lun 08:00 – 10:00\nMer 08:00 – 10:00'],
+            ['Code du cours', course.code],
+            ['Niveau', course.level],
+            ['Crédits', String(course.credits)],
+            ['Salle', course.room || 'Non renseignée'],
+            ['Horaires', course.schedule || 'Non renseignés'],
             [
               'Description',
-              'Ce cours couvre les concepts fondamentaux de la programmation et des algorithmes.',
+              course.description || 'Aucune description renseignée.',
             ],
           ]}
         />
       </Card>
       <div className="space-y-4">
         <Card title="Statistiques du cours">
-          <div className="grid grid-cols-2 gap-3">
-            <MiniStat value="28" label="Étudiants inscrits" />
-            <MiniStat value="24" label="Présents (85%)" />
-            <MiniStat value="12,45" label="Moyenne générale" />
-            <MiniStat value="85%" label="Taux de réussite" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <MiniStat
+              value={String(course._count.enrollments)}
+              label="Étudiants inscrits"
+            />
+            <MiniStat
+              value={String(course.chapters.length)}
+              label="Chapitres"
+            />
+            <MiniStat
+              value={String(course.evaluations.length)}
+              label="Évaluations"
+            />
+            <MiniStat
+              value={String(course.assignments.length)}
+              label="Devoirs"
+            />
           </div>
         </Card>
         <Card title="Ressources récentes">
-          <List
-            items={['Cours_Algo_Chapitre3.pdf', 'Slides_Complexité.pdf']}
-            icon={FileText}
-          />
+          {resources.length === 0 ? (
+            <p className="text-xs text-slate-500">Aucune ressource publiée.</p>
+          ) : (
+            <List
+              items={resources.slice(-4).map((resource) => resource.title)}
+              icon={FileText}
+            />
+          )}
           <Link
             href="/dashboard/teacher?view=resources"
             className="mt-4 block text-xs font-bold text-violet-600"
@@ -460,178 +512,760 @@ function CourseOverview() {
   );
 }
 
-function CourseContent() {
-  const chapters = [
-    ['Chapitre 1 · Fondamentaux', 'Publié le 04 mai · 3 ressources'],
-    ['Chapitre 2 · Structures de contrôle', 'Publié le 08 mai · 4 ressources'],
-    [
-      'Chapitre 3 · Complexité algorithmique',
-      'Publié le 12 mai · 2 ressources',
-    ],
-    ['Chapitre 4 · Arbres et graphes', 'Brouillon · Non visible aux étudiants'],
-  ];
+function CourseContent({
+  course,
+  onCourseChange,
+}: {
+  course: CourseDetailData;
+  onCourseChange: (course: CourseDetailData) => void;
+}) {
+  const [chapterDialogOpen, setChapterDialogOpen] = useState(false);
+  const [resourceChapter, setResourceChapter] = useState<CourseChapter | null>(
+    null,
+  );
+  const [chapterTitle, setChapterTitle] = useState('');
+  const [chapterDescription, setChapterDescription] = useState('');
+  const [resourceTitle, setResourceTitle] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  const [resourceFile, setResourceFile] = useState<File | null>(null);
+  const [resourceType, setResourceType] = useState('PDF');
+  const [editingChapter, setEditingChapter] = useState<CourseChapter | null>(
+    null,
+  );
+  const [editingChapterTitle, setEditingChapterTitle] = useState('');
+  const [editingChapterDescription, setEditingChapterDescription] =
+    useState('');
+  const [editingResource, setEditingResource] = useState<{
+    chapterId: string;
+    resource: CourseResource;
+  } | null>(null);
+  const [editingResourceTitle, setEditingResourceTitle] = useState('');
+  const [editingResourceUrl, setEditingResourceUrl] = useState('');
+  const [editingResourceType, setEditingResourceType] = useState('PDF');
+  const [saving, setSaving] = useState(false);
+  const [publishingChapterId, setPublishingChapterId] = useState<string | null>(
+    null,
+  );
+
+  const submitChapter = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void (async () => {
+      try {
+        setSaving(true);
+        const response = await apiClient.post(
+          `/teacher/courses/${course.id}/chapters`,
+          {
+            title: chapterTitle,
+            description: chapterDescription || undefined,
+          },
+        );
+        const chapter = response.data.data as CourseChapter;
+        onCourseChange({
+          ...course,
+          chapters: [
+            ...course.chapters,
+            { ...chapter, resources: chapter.resources || [] },
+          ].sort((first, second) => first.position - second.position),
+        });
+        setChapterDialogOpen(false);
+        setChapterTitle('');
+        setChapterDescription('');
+        toast.success('Chapitre ajouté');
+      } catch (error) {
+        console.error('Erreur ajout chapitre:', error);
+        toast.error('Impossible d’ajouter le chapitre');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const publishChapter = (chapterId: string) => {
+    void (async () => {
+      try {
+        setPublishingChapterId(chapterId);
+        const response = await apiClient.patch(
+          `/teacher/courses/${course.id}/chapters/${chapterId}/publish`,
+        );
+        const publishedChapter = response.data.data as CourseChapter;
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.map((chapter) =>
+            chapter.id === chapterId
+              ? {
+                  ...chapter,
+                  ...publishedChapter,
+                  resources: chapter.resources,
+                }
+              : chapter,
+          ),
+        });
+        toast.success('Chapitre publié');
+      } catch (error) {
+        console.error('Erreur publication chapitre:', error);
+        toast.error('Impossible de publier le chapitre');
+      } finally {
+        setPublishingChapterId(null);
+      }
+    })();
+  };
+
+  const submitResource = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!resourceChapter) return;
+    void (async () => {
+      try {
+        setSaving(true);
+        const endpoint = `/teacher/courses/${course.id}/chapters/${resourceChapter.id}/resources`;
+        const response = resourceFile
+          ? await (() => {
+              const formData = new FormData();
+              formData.append('title', resourceTitle);
+              formData.append('type', resourceType);
+              formData.append('file', resourceFile);
+              return apiClient.post(endpoint, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+              });
+            })()
+          : await apiClient.post(endpoint, {
+              title: resourceTitle,
+              url: resourceUrl,
+              type: resourceType,
+            });
+        const resource = response.data.data as CourseResource;
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.map((chapter) =>
+            chapter.id === resourceChapter.id
+              ? { ...chapter, resources: [...chapter.resources, resource] }
+              : chapter,
+          ),
+        });
+        setResourceChapter(null);
+        setResourceTitle('');
+        setResourceUrl('');
+        setResourceFile(null);
+        setResourceType('PDF');
+        toast.success('Ressource ajoutée');
+      } catch (error) {
+        console.error('Erreur ajout ressource:', error);
+        toast.error('Impossible d’ajouter la ressource');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const openEditChapter = (chapter: CourseChapter) => {
+    setEditingChapter(chapter);
+    setEditingChapterTitle(chapter.title);
+    setEditingChapterDescription(chapter.description || '');
+  };
+
+  const submitChapterEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingChapter) return;
+    void (async () => {
+      try {
+        setSaving(true);
+        const response = await apiClient.patch(
+          `/teacher/courses/${course.id}/chapters/${editingChapter.id}`,
+          {
+            title: editingChapterTitle,
+            description: editingChapterDescription || undefined,
+          },
+        );
+        const updatedChapter = response.data.data as CourseChapter;
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.map((chapter) =>
+            chapter.id === updatedChapter.id
+              ? { ...updatedChapter, resources: chapter.resources }
+              : chapter,
+          ),
+        });
+        setEditingChapter(null);
+        toast.success('Chapitre modifié');
+      } catch (error) {
+        console.error('Erreur modification chapitre:', error);
+        toast.error('Impossible de modifier le chapitre');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const deleteChapter = (chapter: CourseChapter) => {
+    if (
+      !window.confirm(
+        `Supprimer le chapitre « ${chapter.title} » et toutes ses ressources ?`,
+      )
+    )
+      return;
+    void (async () => {
+      try {
+        await apiClient.delete(
+          `/teacher/courses/${course.id}/chapters/${chapter.id}`,
+        );
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.filter((item) => item.id !== chapter.id),
+        });
+        toast.success('Chapitre supprimé');
+      } catch (error) {
+        console.error('Erreur suppression chapitre:', error);
+        toast.error('Impossible de supprimer le chapitre');
+      }
+    })();
+  };
+
+  const openEditResource = (chapterId: string, resource: CourseResource) => {
+    setEditingResource({ chapterId, resource });
+    setEditingResourceTitle(resource.title);
+    setEditingResourceUrl(resource.url);
+    setEditingResourceType(resource.type);
+  };
+
+  const submitResourceEdit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingResource) return;
+    void (async () => {
+      try {
+        setSaving(true);
+        const response = await apiClient.patch(
+          `/teacher/courses/${course.id}/chapters/${editingResource.chapterId}/resources/${editingResource.resource.id}`,
+          {
+            title: editingResourceTitle,
+            url: editingResourceUrl,
+            type: editingResourceType,
+          },
+        );
+        const updatedResource = response.data.data as CourseResource;
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.map((chapter) =>
+            chapter.id === editingResource.chapterId
+              ? {
+                  ...chapter,
+                  resources: chapter.resources.map((resource) =>
+                    resource.id === updatedResource.id
+                      ? updatedResource
+                      : resource,
+                  ),
+                }
+              : chapter,
+          ),
+        });
+        setEditingResource(null);
+        toast.success('Ressource modifiée');
+      } catch (error) {
+        console.error('Erreur modification ressource:', error);
+        toast.error('Impossible de modifier la ressource');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const deleteResource = (chapterId: string, resource: CourseResource) => {
+    if (!window.confirm(`Supprimer la ressource « ${resource.title} » ?`)) return;
+    void (async () => {
+      try {
+        await apiClient.delete(
+          `/teacher/courses/${course.id}/chapters/${chapterId}/resources/${resource.id}`,
+        );
+        onCourseChange({
+          ...course,
+          chapters: course.chapters.map((chapter) =>
+            chapter.id === chapterId
+              ? {
+                  ...chapter,
+                  resources: chapter.resources.filter(
+                    (item) => item.id !== resource.id,
+                  ),
+                }
+              : chapter,
+          ),
+        });
+        toast.success('Ressource supprimée');
+      } catch (error) {
+        console.error('Erreur suppression ressource:', error);
+        toast.error('Impossible de supprimer la ressource');
+      }
+    })();
+  };
+
   return (
     <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
-      <Card title="Contenu pédagogique" action="Ajouter un chapitre">
+      <Card title="Contenu pédagogique">
+        <div className="mb-4 flex justify-end">
+          <button
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white"
+            onClick={() => setChapterDialogOpen(true)}
+          >
+            <Plus className="size-4" /> Ajouter un chapitre
+          </button>
+        </div>
         <div className="space-y-3">
-          {chapters.map(([title, detail], index) => (
-            <div
-              className="flex items-center gap-3 rounded-lg border border-slate-100 p-3"
-              key={title}
-            >
-              <span className="grid size-8 place-items-center rounded-lg bg-violet-50 text-xs font-bold text-violet-600">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-[#26305e]">{title}</p>
-                <p className="mt-1 text-[10px] text-slate-500">{detail}</p>
+          {course.chapters.length === 0 ? (
+            <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+              Aucun chapitre pour le moment.
+            </p>
+          ) : (
+            course.chapters.map((chapter) => (
+              <div
+                className="rounded-lg border border-slate-100 p-3"
+                key={chapter.id}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-xs font-bold text-violet-600">
+                    {chapter.position}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs font-bold text-[#26305e]">
+                        {chapter.title}
+                      </p>
+                      <Status
+                        value={chapter.isPublished ? 'Publié' : 'Brouillon'}
+                      />
+                    </div>
+                    {chapter.description && (
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        {chapter.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!chapter.isPublished && (
+                      <button
+                        className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
+                        disabled={publishingChapterId === chapter.id}
+                        onClick={() => publishChapter(chapter.id)}
+                      >
+                        {publishingChapterId === chapter.id
+                          ? 'Publication…'
+                          : 'Publier'}
+                      </button>
+                    )}
+                    <button
+                      aria-label={`Modifier ${chapter.title}`}
+                      className="min-h-11 min-w-11 rounded p-2 text-slate-500 hover:bg-violet-50 hover:text-violet-600"
+                      onClick={() => openEditChapter(chapter)}
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      aria-label={`Supprimer ${chapter.title}`}
+                      className="min-h-11 min-w-11 rounded p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                      onClick={() => deleteChapter(chapter)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  {chapter.resources.length === 0 ? (
+                    <p className="text-[10px] text-slate-400">
+                      Aucune ressource.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {chapter.resources.map((resource) => (
+                        <li
+                          key={resource.id}
+                          className="flex items-center justify-between gap-2 text-[10px]"
+                        >
+                          <a
+                            className="truncate font-semibold text-violet-600 hover:underline"
+                            href={resource.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {resource.title}
+                          </a>
+                          <div className="flex items-center gap-1">
+                            <span className="rounded bg-slate-50 px-2 py-1 text-slate-500">
+                              {resource.type}
+                            </span>
+                            <button
+                              aria-label={`Modifier ${resource.title}`}
+                              className="min-h-11 min-w-11 rounded p-1 text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                              onClick={() => openEditResource(chapter.id, resource)}
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                            <button
+                              aria-label={`Supprimer ${resource.title}`}
+                              className="min-h-11 min-w-11 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                              onClick={() => deleteResource(chapter.id, resource)}
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button
+                    className="mt-3 text-[10px] font-bold text-violet-600"
+                    onClick={() => setResourceChapter(chapter)}
+                  >
+                    Ajouter une ressource
+                  </button>
+                </div>
               </div>
-              <MoreVertical className="size-4 text-violet-600" />
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
-      <Card title="À publier">
-        <List
-          icon={FileText}
-          items={[
-            'Corrigé TP · Structures de données',
-            'Exemples de parcours d’arbres',
-            'Quiz de révision · Chapitre 3',
-          ]}
-        />
-        <button className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
-          Publier une ressource
-        </button>
+      <Card title="Résumé du cours">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <MiniStat
+            value={String(course._count.enrollments)}
+            label="Étudiants inscrits"
+          />
+          <MiniStat value={String(course.chapters.length)} label="Chapitres" />
+          <MiniStat
+            value={String(course.evaluations.length)}
+            label="Évaluations"
+          />
+          <MiniStat value={String(course.assignments.length)} label="Devoirs" />
+        </div>
       </Card>
+      <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
+        <DialogContent>
+          <form onSubmit={submitChapter}>
+            <DialogHeader>
+              <DialogTitle>Ajouter un chapitre</DialogTitle>
+              <DialogDescription>
+                Le chapitre sera créé en brouillon et pourra être publié
+                ensuite.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <label className="text-xs font-bold text-[#34406b]">
+                Titre
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={chapterTitle}
+                  onChange={(event) => setChapterTitle(event.target.value)}
+                  maxLength={160}
+                  required
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Description (facultative)
+                <textarea
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-violet-500"
+                  value={chapterDescription}
+                  onChange={(event) =>
+                    setChapterDescription(event.target.value)
+                  }
+                  maxLength={5000}
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                type="submit"
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? 'Ajout…' : 'Ajouter'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(resourceChapter)}
+        onOpenChange={(open) => !open && setResourceChapter(null)}
+      >
+        <DialogContent>
+          <form onSubmit={submitResource}>
+            <DialogHeader>
+              <DialogTitle>Ajouter une ressource</DialogTitle>
+              <DialogDescription>
+                {resourceChapter
+                  ? `Chapitre : ${resourceChapter.title}. Ajoutez un lien externe ou un fichier.`
+                  : ''}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <label className="text-xs font-bold text-[#34406b]">
+                Titre
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={resourceTitle}
+                  onChange={(event) => setResourceTitle(event.target.value)}
+                  maxLength={160}
+                  required
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Lien externe
+                <input
+                  type="url"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  placeholder="https://…"
+                  value={resourceUrl}
+                  onChange={(event) => setResourceUrl(event.target.value)}
+                  required={!resourceFile}
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Fichier (PDF, image, PPTX, DOCX, XLSX ou ZIP)
+                <input
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.pptx,.docx,.xlsx,.zip"
+                  className="mt-1 block w-full text-xs font-normal"
+                  onChange={(event) =>
+                    setResourceFile(event.target.files?.[0] ?? null)
+                  }
+                  type="file"
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Type
+                <select
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-violet-500"
+                  value={resourceType}
+                  onChange={(event) => setResourceType(event.target.value)}
+                >
+                  <option value="PDF">PDF</option>
+                  <option value="Lien">Lien</option>
+                  <option value="Vidéo">Vidéo</option>
+                  <option value="Document">Document</option>
+                </select>
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                type="submit"
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? 'Ajout…' : 'Ajouter'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(editingChapter)}
+        onOpenChange={(open) => !open && setEditingChapter(null)}
+      >
+        <DialogContent>
+          <form onSubmit={submitChapterEdit}>
+            <DialogHeader>
+              <DialogTitle>Modifier le chapitre</DialogTitle>
+              <DialogDescription>
+                Corrigez le titre ou la description du chapitre.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <label className="text-xs font-bold text-[#34406b]">
+                Titre
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  maxLength={160}
+                  onChange={(event) => setEditingChapterTitle(event.target.value)}
+                  required
+                  value={editingChapterTitle}
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Description (facultative)
+                <textarea
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-violet-500"
+                  maxLength={5000}
+                  onChange={(event) =>
+                    setEditingChapterDescription(event.target.value)
+                  }
+                  value={editingChapterDescription}
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                disabled={saving}
+                type="submit"
+              >
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(editingResource)}
+        onOpenChange={(open) => !open && setEditingResource(null)}
+      >
+        <DialogContent>
+          <form onSubmit={submitResourceEdit}>
+            <DialogHeader>
+              <DialogTitle>Modifier la ressource</DialogTitle>
+              <DialogDescription>
+                Corrigez son titre, son lien ou son type.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <label className="text-xs font-bold text-[#34406b]">
+                Titre
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  maxLength={160}
+                  onChange={(event) => setEditingResourceTitle(event.target.value)}
+                  required
+                  value={editingResourceTitle}
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Lien
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  onChange={(event) => setEditingResourceUrl(event.target.value)}
+                  required
+                  type="url"
+                  value={editingResourceUrl}
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Type
+                <select
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-violet-500"
+                  onChange={(event) => setEditingResourceType(event.target.value)}
+                  value={editingResourceType}
+                >
+                  <option value="PDF">PDF</option>
+                  <option value="Lien">Lien</option>
+                  <option value="Vidéo">Vidéo</option>
+                  <option value="Document">Document</option>
+                </select>
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                disabled={saving}
+                type="submit"
+              >
+                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function CourseStudents() {
-  return (
-    <TableCard
-      headers={[
-        'Étudiant',
-        'Matricule',
-        'Présence',
-        'Dernière activité',
-        'Moyenne',
-        'Suivi',
-      ]}
-      rows={students.slice(0, 4).map((student) => [
-        <StudentName key={student[0]} name={student[0]} />,
-        student[1],
-        <Progress key={`${student[0]}-presence`} value={student[4]} />,
-        'Il y a 2 jours',
-        student[5],
-        <span
-          key={`${student[0]}-follow`}
-          className="text-[10px] font-bold text-violet-600"
+function CourseStudents({ courseId }: { courseId: string }) {
+  return <CourseStudentList courseId={courseId} />;
+}
+
+function CourseStudentList({ courseId }: { courseId: string }) {
+  const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const fetchStudents = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get(
+        `/teacher/courses/${courseId}/students`,
+      );
+      setEnrollments(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement étudiants cours:', error);
+      setFailed(true);
+      toast.error('Impossible de charger les étudiants de ce cours');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchStudents();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchStudents]);
+
+  if (loading)
+    return (
+      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Chargement des étudiants…
+      </p>
+    );
+
+  if (failed)
+    return (
+      <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+        <p>Les étudiants de ce cours n’ont pas pu être chargés.</p>
+        <button
+          className="mt-3 text-xs font-bold text-violet-600"
+          onClick={() => void fetchStudents()}
         >
-          Voir le suivi
-        </span>,
-      ])}
-    />
-  );
-}
-
-function CourseEvaluations() {
-  const rows = [
-    ['Contrôle 2 · Algorithmes', 'Contrôle', '28 mai 2025', '2', '12,90'],
-    ['TP · Structures de données', 'TP', '03 juin 2025', '3', '14,00'],
-    ['Mini-projet · Parcours de graphes', 'Projet', '18 juin 2025', '4', '—'],
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
-          Créer une évaluation
+          Réessayer
         </button>
       </div>
-      <TableCard
-        headers={[
-          'Évaluation',
-          'Type',
-          'Date',
-          'Coefficient',
-          'Moyenne',
-          'Actions',
-        ]}
-        rows={rows.map((row) => [
-          ...row,
-          <MoreVertical className="size-4 text-violet-600" key={row[0]} />,
-        ])}
-      />
-    </div>
+    );
+
+  if (enrollments.length === 0)
+    return (
+      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Aucun étudiant n’est inscrit à ce cours.
+      </p>
+    );
+
+  return (
+    <Card title={`Étudiants inscrits (${enrollments.length})`}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-left text-xs">
+          <thead className="border-b border-slate-100 text-slate-400">
+            <tr>
+              <th className="pb-3 font-semibold">Étudiant</th>
+              <th className="pb-3 font-semibold">E-mail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {enrollments.map(({ id, student }) => {
+              const name = `${student.firstName} ${student.lastName}`;
+              return (
+                <tr
+                  className="border-b border-slate-50 text-slate-600"
+                  key={id}
+                >
+                  <td className="py-3 pr-3">
+                    <StudentName name={name} />
+                  </td>
+                  <td className="py-3 pr-3">{student.user.email}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
-function CourseAssignments() {
-  const rows = [
-    [
-      'TP · Base de données #1',
-      '25 mai 2025',
-      '20 / 28 remis',
-      '4 à corriger',
-      'En cours',
-    ],
-    [
-      'Exercice · Tri et recherche',
-      '02 juin 2025',
-      '28 / 28 remis',
-      '0 à corriger',
-      'Corrigé',
-    ],
-    ['Mini-projet · Graphes', '18 juin 2025', '12 / 28 remis', '—', 'À venir'],
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
-          Créer un devoir
-        </button>
-      </div>
-      <TableCard
-        headers={['Devoir', 'Date limite', 'Remises', 'À corriger', 'Statut']}
-        rows={rows.map((row) => [
-          ...row.slice(0, 4),
-          <Status key={row[0]} value={row[4]} />,
-        ])}
-      />
-    </div>
-  );
+function CourseEvaluations({ courseId }: { courseId: string }) {
+  return <EvaluationPanel courseId={courseId} />;
 }
 
-function CourseGrades() {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg bg-violet-50 p-3 text-xs text-violet-700">
-        <b>Saisie des notes</b>
-        <span className="ml-2 text-violet-500">
-          Les moyennes sont calculées automatiquement. L’export est réservé à
-          l’administration de l’établissement.
-        </span>
-      </div>
-      <TableCard
-        headers={[
-          'Étudiant',
-          'Contrôle 1',
-          'TP',
-          'Contrôle 2',
-          'Projet',
-          'Moyenne',
-        ]}
-        rows={grades.slice(0, 4).map((grade) => [
-          <StudentName key={grade[0]} name={grade[0]} />,
-          ...grade.slice(1, 5),
-          <b className="text-violet-600" key={`${grade[0]}-average`}>
-            {grade[6]}
-          </b>,
-        ])}
-      />
-    </div>
-  );
+function CourseAssignments({ courseId }: { courseId: string }) {
+  return <TeacherAssignments courseId={courseId} />;
+}
+
+function CourseGrades({ courseId }: { courseId: string }) {
+  return <GradeBook courseId={courseId} />;
 }
 
 function CourseSettings() {
@@ -683,470 +1317,1139 @@ function CourseSettings() {
 }
 
 function Students() {
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get('/teacher/courses');
+      const assignedCourses = (response.data.data || []) as CourseSummary[];
+      setCourses(assignedCourses);
+      setSelectedCourseId((current) => current || assignedCourses[0]?.id || '');
+    } catch (error) {
+      console.error('Erreur chargement cours professeur:', error);
+      setFailed(true);
+      toast.error('Impossible de charger vos cours');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchCourses();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchCourses]);
+
   return (
     <Page
       title="Étudiants"
-      subtitle="Consultez et gérez la liste des étudiants."
+      subtitle="Consultez les étudiants inscrits à chacun de vos cours."
     >
-      <TableCard
-        headers={[
-          'Étudiant',
-          'Matricule',
-          'Email',
-          'Cours',
-          'Progression',
-          'Moyenne',
-          'Actions',
-        ]}
-        rows={students.map((s) => [
-          <StudentName key={s[0]} name={s[0]} />,
-          s[1],
-          s[2],
-          s[3],
-          <Progress key={`${s[0]}-p`} value={s[4]} />,
-          s[5],
-          <MoreVertical className="size-4 text-violet-600" key="a" />,
-        ])}
-      />
+      {loading ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Chargement de vos cours…
+        </p>
+      ) : failed ? (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+          <p>Vos cours n’ont pas pu être chargés.</p>
+          <button
+            className="mt-3 text-xs font-bold text-violet-600"
+            onClick={() => void fetchCourses()}
+          >
+            Réessayer
+          </button>
+        </div>
+      ) : courses.length === 0 ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Aucun cours ne vous est actuellement affecté.
+        </p>
+      ) : (
+        <div className="space-y-5">
+          <label className="block max-w-xl">
+            <span className="mb-1 block text-xs font-bold text-[#34406b]">
+              Cours
+            </span>
+            <select
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+              value={selectedCourseId}
+              onChange={(event) => setSelectedCourseId(event.target.value)}
+            >
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title} · {course.school.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedCourseId && (
+            <CourseStudentList courseId={selectedCourseId} />
+          )}
+        </div>
+      )}
     </Page>
   );
 }
 
+function useTeacherCourses() {
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const fetchCourses = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get('/teacher/courses');
+      const assignedCourses = (response.data.data || []) as CourseSummary[];
+      setCourses(assignedCourses);
+      setSelectedCourseId((current) =>
+        assignedCourses.some((course) => course.id === current)
+          ? current
+          : assignedCourses[0]?.id || '',
+      );
+    } catch (error) {
+      console.error('Erreur chargement cours professeur:', error);
+      setFailed(true);
+      toast.error('Impossible de charger vos cours');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchCourses();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchCourses]);
+
+  return {
+    courses,
+    selectedCourseId,
+    setSelectedCourseId,
+    loading,
+    failed,
+    fetchCourses,
+  };
+}
+
+function CourseSelect({
+  courses,
+  value,
+  onChange,
+}: {
+  courses: CourseSummary[];
+  value: string;
+  onChange: (courseId: string) => void;
+}) {
+  return (
+    <label className="block max-w-xl">
+      <span className="mb-1 block text-xs font-bold text-[#34406b]">Cours</span>
+      <select
+        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {courses.map((course) => (
+          <option key={course.id} value={course.id}>
+            {course.title} · {course.school.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function CourseLoadingState({
+  loading,
+  failed,
+  empty,
+  onRetry,
+}: {
+  loading: boolean;
+  failed: boolean;
+  empty: boolean;
+  onRetry: () => void;
+}) {
+  if (loading)
+    return (
+      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Chargement de vos cours…
+      </p>
+    );
+  if (failed)
+    return (
+      <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+        <p>Vos cours n’ont pas pu être chargés.</p>
+        <button
+          className="mt-3 text-xs font-bold text-violet-600"
+          onClick={onRetry}
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  if (empty)
+    return (
+      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Aucun cours ne vous est actuellement affecté.
+      </p>
+    );
+  return null;
+}
+
 function Evaluations() {
-  const rows = [
-    [
-      'Contrôle 1 – Variables',
-      'Contrôle',
-      'Algorithmique et Prog.',
-      '15/01/2025',
-      '2',
-      '12,90',
-    ],
-    [
-      'TP – Structures de données',
-      'TP',
-      'Algorithmique et Prog.',
-      '20/01/2025',
-      '3',
-      '14,00',
-    ],
-    [
-      'Contrôle 2 – Algorithmes',
-      'Contrôle',
-      'Algorithmique et Prog.',
-      '28/01/2025',
-      '2',
-      '11,75',
-    ],
-    [
-      'Projet – Mini application',
-      'Projet',
-      'Génie Logiciel',
-      '10/02/2025',
-      '4',
-      '15,00',
-    ],
-    [
-      'Examen final',
-      'Examen',
-      'Algorithmique et Prog.',
-      '25/02/2025',
-      '5',
-      '13,80',
-    ],
-  ];
+  const courseState = useTeacherCourses();
+  const unavailable = (
+    <CourseLoadingState
+      loading={courseState.loading}
+      failed={courseState.failed}
+      empty={courseState.courses.length === 0}
+      onRetry={() => void courseState.fetchCourses()}
+    />
+  );
+
   return (
     <Page
       title="Évaluations"
-      subtitle="Gérez les évaluations et consultez les résultats."
-      action="Nouvelle évaluation"
+      subtitle="Créez et consultez les évaluations de vos cours."
     >
-      <Tabs
-        labels={[
-          'Toutes (12)',
-          'Contrôles (5)',
-          'Examens (2)',
-          'Projets (3)',
-          'Quiz (1)',
-        ]}
-      />
-      <TableCard
-        headers={[
-          'Titre',
-          'Type',
-          'Cours',
-          'Date',
-          'Coefficient',
-          'Moyenne',
-          'Actions',
-        ]}
-        rows={rows.map((r) => [
-          ...r,
-          <MoreVertical className="size-4 text-violet-600" key={r[0]} />,
-        ])}
-      />
+      {courseState.loading ||
+      courseState.failed ||
+      courseState.courses.length === 0 ? (
+        unavailable
+      ) : (
+        <div className="space-y-5">
+          <CourseSelect
+            courses={courseState.courses}
+            value={courseState.selectedCourseId}
+            onChange={courseState.setSelectedCourseId}
+          />
+          {courseState.selectedCourseId && (
+            <EvaluationPanel courseId={courseState.selectedCourseId} />
+          )}
+        </div>
+      )}
     </Page>
+  );
+}
+
+function EvaluationPanel({ courseId }: { courseId: string }) {
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('Contrôle');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [coefficient, setCoefficient] = useState('1');
+  const [saving, setSaving] = useState(false);
+
+  const fetchEvaluations = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get(
+        `/teacher/courses/${courseId}/evaluations`,
+      );
+      setEvaluations(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement évaluations:', error);
+      setFailed(true);
+      toast.error('Impossible de charger les évaluations');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchEvaluations();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchEvaluations]);
+
+  const createEvaluation = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void (async () => {
+      try {
+        setSaving(true);
+        const response = await apiClient.post(
+          `/teacher/courses/${courseId}/evaluations`,
+          {
+            title,
+            type,
+            scheduledAt: scheduledAt || undefined,
+            coefficient: Number(coefficient),
+          },
+        );
+        const evaluation = response.data.data as Evaluation;
+        setEvaluations((current) =>
+          [...current, evaluation].sort((first, second) =>
+            (first.scheduledAt || '').localeCompare(second.scheduledAt || ''),
+          ),
+        );
+        setDialogOpen(false);
+        setTitle('');
+        setType('Contrôle');
+        setScheduledAt('');
+        setCoefficient('1');
+        toast.success('Évaluation créée');
+      } catch (error) {
+        console.error('Erreur création évaluation:', error);
+        toast.error('Impossible de créer l’évaluation');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  return (
+    <>
+      <Card title="Évaluations">
+        <div className="mb-4 flex justify-end">
+          <button
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white"
+            onClick={() => setDialogOpen(true)}
+          >
+            <Plus className="size-4" /> Nouvelle évaluation
+          </button>
+        </div>
+        {loading ? (
+          <p className="text-xs text-slate-500">Chargement des évaluations…</p>
+        ) : failed ? (
+          <button
+            className="text-xs font-bold text-violet-600"
+            onClick={() => void fetchEvaluations()}
+          >
+            Réessayer de charger les évaluations
+          </button>
+        ) : evaluations.length === 0 ? (
+          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+            Aucune évaluation pour ce cours.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead className="border-b border-slate-100 text-slate-400">
+                <tr>
+                  <th className="pb-3 font-semibold">Titre</th>
+                  <th className="pb-3 font-semibold">Type</th>
+                  <th className="pb-3 font-semibold">Date</th>
+                  <th className="pb-3 font-semibold">Coefficient</th>
+                </tr>
+              </thead>
+              <tbody>
+                {evaluations.map((evaluation) => (
+                  <tr
+                    className="border-b border-slate-50 text-slate-600"
+                    key={evaluation.id}
+                  >
+                    <td className="py-3 pr-3 font-semibold text-[#26305e]">
+                      {evaluation.title}
+                    </td>
+                    <td className="py-3 pr-3">{evaluation.type}</td>
+                    <td className="py-3 pr-3">
+                      {evaluation.scheduledAt
+                        ? new Date(evaluation.scheduledAt).toLocaleDateString(
+                            'fr-FR',
+                          )
+                        : 'Non planifiée'}
+                    </td>
+                    <td className="py-3 pr-3">{evaluation.coefficient}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <form onSubmit={createEvaluation}>
+            <DialogHeader>
+              <DialogTitle>Nouvelle évaluation</DialogTitle>
+              <DialogDescription>
+                Elle sera ajoutée au cours sélectionné.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <label className="text-xs font-bold text-[#34406b]">
+                Titre
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  maxLength={160}
+                  required
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Type
+                <input
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={type}
+                  onChange={(event) => setType(event.target.value)}
+                  maxLength={50}
+                  required
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Date (facultative)
+                <input
+                  type="date"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={scheduledAt}
+                  onChange={(event) => setScheduledAt(event.target.value)}
+                />
+              </label>
+              <label className="text-xs font-bold text-[#34406b]">
+                Coefficient
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  value={coefficient}
+                  onChange={(event) => setCoefficient(event.target.value)}
+                  required
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <button
+                type="submit"
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                disabled={saving}
+              >
+                {saving ? 'Création…' : 'Créer'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
 function Grades() {
+  const courseState = useTeacherCourses();
+  const unavailable = (
+    <CourseLoadingState
+      loading={courseState.loading}
+      failed={courseState.failed}
+      empty={courseState.courses.length === 0}
+      onRetry={() => void courseState.fetchCourses()}
+    />
+  );
+
   return (
     <Page
       title="Notes & Bulletins"
-      subtitle="Consultez et gérez les notes des étudiants."
+      subtitle="Saisissez les notes évaluation par évaluation."
     >
-      <Tabs labels={['Algorithmique et Programmation']} />
-      <TableCard
-        headers={[
-          'Étudiant',
-          'Contrôle 1 (20)',
-          'TP (20)',
-          'Contrôle 2 (20)',
-          'Projet (20)',
-          'Examen (20)',
-          'Moyenne /20',
-        ]}
-        rows={grades.map((grade) => [
-          <StudentName key={grade[0]} name={grade[0]} />,
-          ...grade.slice(1).map((v, i) => (
-            <span
-              className={i === 5 ? 'font-extrabold text-violet-600' : ''}
-              key={`${grade[0]}-${i}`}
-            >
-              {v}
-            </span>
-          )),
-        ])}
-      />
+      {courseState.loading ||
+      courseState.failed ||
+      courseState.courses.length === 0 ? (
+        unavailable
+      ) : (
+        <div className="space-y-5">
+          <CourseSelect
+            courses={courseState.courses}
+            value={courseState.selectedCourseId}
+            onChange={courseState.setSelectedCourseId}
+          />
+          {courseState.selectedCourseId && (
+            <GradeBook
+              key={courseState.selectedCourseId}
+              courseId={courseState.selectedCourseId}
+            />
+          )}
+        </div>
+      )}
     </Page>
   );
 }
 
+function GradeBook({ courseId }: { courseId: string }) {
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [selectedEvaluationId, setSelectedEvaluationId] = useState('');
+  const [loadingEvaluations, setLoadingEvaluations] = useState(true);
+  const [evaluationsFailed, setEvaluationsFailed] = useState(false);
+  const [entries, setEntries] = useState<EvaluationGradeEntry[]>([]);
+  const [loadingGrades, setLoadingGrades] = useState(false);
+  const [gradesFailed, setGradesFailed] = useState(false);
+
+  const fetchEvaluations = useCallback(async () => {
+    try {
+      setLoadingEvaluations(true);
+      setEvaluationsFailed(false);
+      const response = await apiClient.get(
+        `/teacher/courses/${courseId}/evaluations`,
+      );
+      const courseEvaluations = (response.data.data || []) as Evaluation[];
+      setEvaluations(courseEvaluations);
+      setSelectedEvaluationId(courseEvaluations[0]?.id || '');
+    } catch (error) {
+      console.error('Erreur chargement évaluations:', error);
+      setEvaluationsFailed(true);
+      toast.error('Impossible de charger les évaluations');
+    } finally {
+      setLoadingEvaluations(false);
+    }
+  }, [courseId]);
+
+  const fetchGrades = useCallback(async () => {
+    if (!selectedEvaluationId) {
+      setEntries([]);
+      return;
+    }
+    try {
+      setLoadingGrades(true);
+      setGradesFailed(false);
+      const response = await apiClient.get(
+        `/teacher/evaluations/${selectedEvaluationId}/grades`,
+      );
+      setEntries(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement notes:', error);
+      setGradesFailed(true);
+      toast.error('Impossible de charger les notes');
+    } finally {
+      setLoadingGrades(false);
+    }
+  }, [selectedEvaluationId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchEvaluations();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchEvaluations]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchGrades();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchGrades]);
+
+  const saveGrade = async (studentId: string, value: number) => {
+    const response = await apiClient.post(
+      `/teacher/evaluations/${selectedEvaluationId}/grades`,
+      { studentId, value },
+    );
+    const grade = response.data.data as EvaluationGrade;
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.studentId === studentId ? { ...entry, grade } : entry,
+      ),
+    );
+  };
+
+  if (loadingEvaluations)
+    return (
+      <p className="text-xs text-slate-500">Chargement des évaluations…</p>
+    );
+  if (evaluationsFailed)
+    return (
+      <button
+        className="text-xs font-bold text-violet-600"
+        onClick={() => void fetchEvaluations()}
+      >
+        Réessayer de charger les évaluations
+      </button>
+    );
+  if (evaluations.length === 0)
+    return (
+      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+        Créez d’abord une évaluation pour saisir des notes.
+      </p>
+    );
+
+  return (
+    <div className="space-y-5">
+      <label className="block max-w-xl">
+        <span className="mb-1 block text-xs font-bold text-[#34406b]">
+          Évaluation
+        </span>
+        <select
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+          value={selectedEvaluationId}
+          onChange={(event) => setSelectedEvaluationId(event.target.value)}
+        >
+          {evaluations.map((evaluation) => (
+            <option key={evaluation.id} value={evaluation.id}>
+              {evaluation.title} · {evaluation.type}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Card title="Saisie des notes">
+        <p className="mb-4 text-xs text-slate-500">
+          Chaque note est enregistrée lorsque vous quittez son champ.
+        </p>
+        {loadingGrades ? (
+          <p className="text-xs text-slate-500">Chargement des étudiants…</p>
+        ) : gradesFailed ? (
+          <button
+            className="text-xs font-bold text-violet-600"
+            onClick={() => void fetchGrades()}
+          >
+            Réessayer de charger les notes
+          </button>
+        ) : entries.length === 0 ? (
+          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+            Aucun étudiant n’est inscrit à ce cours.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead className="border-b border-slate-100 text-slate-400">
+                <tr>
+                  <th className="pb-3 font-semibold">Étudiant</th>
+                  <th className="pb-3 font-semibold">E-mail</th>
+                  <th className="pb-3 font-semibold">Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((entry) => {
+                  const name = `${entry.student.firstName} ${entry.student.lastName}`;
+                  return (
+                    <tr
+                      className="border-b border-slate-50 text-slate-600"
+                      key={entry.studentId}
+                    >
+                      <td className="py-3 pr-3">
+                        <StudentName name={name} />
+                      </td>
+                      <td className="py-3 pr-3">{entry.student.user.email}</td>
+                      <td className="py-3 pr-3">
+                        <GradeInput
+                          key={`${entry.studentId}-${entry.grade?.value ?? 'empty'}`}
+                          value={entry.grade?.value ?? null}
+                          onSave={(value) => saveGrade(entry.studentId, value)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function GradeInput({
+  value,
+  onSave,
+}: {
+  value: number | null;
+  onSave: (value: number) => Promise<void>;
+}) {
+  const initialValue = value === null ? '' : String(value);
+  const [draft, setDraft] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+
+  const saveOnBlur = () => {
+    const parsedValue = Number(draft);
+    if (!draft.trim()) return;
+    if (!Number.isFinite(parsedValue)) {
+      toast.error('La note doit être un nombre');
+      setDraft(initialValue);
+      return;
+    }
+    if (parsedValue === value) return;
+    void (async () => {
+      try {
+        setSaving(true);
+        await onSave(parsedValue);
+      } catch (error) {
+        console.error('Erreur enregistrement note:', error);
+        toast.error('Impossible d’enregistrer cette note');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  return (
+    <div className="w-28">
+      <input
+        type="number"
+        step="0.01"
+        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={saveOnBlur}
+        aria-label="Note"
+      />
+      {saving && (
+        <span className="text-[9px] text-slate-400">Enregistrement…</span>
+      )}
+    </div>
+  );
+}
+
 function Schedule() {
-  const days = ['Lun 12', 'Mar 13', 'Mer 14', 'Jeu 15', 'Ven 16', 'Sam 17'];
-  const slots = [
-    ['08:00', 0, 'Algo. & Prog.\nL3 · Groupe A'],
-    ['10:00', 1, 'Base de données\nL2 · Groupe B'],
-    ['12:00', 3, 'Génie Logiciel\nL3 · Groupe A'],
-    ['14:00', 4, 'Atelier Projet\nL3 · Groupe B'],
-  ];
   return (
     <Page title="Emploi du temps" subtitle="Consultez votre planning de cours.">
-      <Card title="12 – 18 mai 2025" action="Aujourd’hui">
-        <div className="grid grid-cols-[64px_repeat(6,minmax(105px,1fr))] overflow-x-auto border-l border-t border-slate-100 text-[10px]">
-          <div className="border-b border-r border-slate-100 p-3" />
-          {days.map((d) => (
-            <div
-              className="border-b border-r border-slate-100 p-3 text-center font-bold text-slate-500"
-              key={d}
-            >
-              {d}
-            </div>
-          ))}
-          {['08:00', '10:00', '12:00', '14:00', '16:00'].map((time) => (
-            <div className="contents" key={time}>
-              <div className="border-b border-r border-slate-100 p-4 text-slate-400">
-                {time}
-              </div>
-              {days.map((_, column) => {
-                const slot = slots.find(
-                  ([slotTime, index]) => slotTime === time && index === column,
-                );
-                return (
-                  <div
-                    className="min-h-24 border-b border-r border-slate-100 p-1"
-                    key={`${time}-${column}`}
-                  >
-                    {slot && (
-                      <div className="rounded-lg bg-violet-100 p-2 font-semibold text-violet-700 whitespace-pre-line">
-                        {slot[2]}
-                        <small className="mt-1 block font-normal">
-                          Salle 2.3
-                        </small>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </Card>
+      <TeacherSchedule />
     </Page>
   );
 }
 
 function Assignments() {
-  const rows = [
-    [
-      'TP Base de données #1',
-      'L2 Base de données',
-      '25/05/2025',
-      '20/24',
-      '4',
-      'En cours',
-    ],
-    [
-      'Exercice – Tri et Recherche',
-      'L3 Algo & Prog.',
-      '15/05/2025',
-      '26/28',
-      '2',
-      'En cours',
-    ],
-    [
-      'Mini projet – Interface',
-      'L3 Génie Logiciel',
-      '05/06/2025',
-      '18/26',
-      '8',
-      'À corriger',
-    ],
-    [
-      'Étude de cas',
-      'L3 Atelier Projet',
-      '10/06/2025',
-      '22/22',
-      '0',
-      'Corrigé',
-    ],
-  ];
   return (
-    <Page
-      title="Devoirs"
-      subtitle="Gérez les devoirs et consultez les remises."
-      action="Nouveau devoir"
-    >
-      <Tabs
-        labels={[
-          'Tous (10)',
-          'À corriger (8)',
-          'En retard (5)',
-          'Corrigés (25)',
-        ]}
-      />
-      <TableCard
-        headers={[
-          'Titre',
-          'Cours',
-          'Date limite',
-          'Remis',
-          'À corriger',
-          'Statut',
-        ]}
-        rows={rows.map((r) => [
-          ...r.slice(0, 5),
-          <Status key={r[0]} value={r[5]} />,
-        ])}
-      />
+    <Page title="Devoirs" subtitle="Créez, publiez et notez les devoirs.">
+      <TeacherAssignments />
     </Page>
   );
 }
 
 function Resources() {
-  const rows = [
-    [
-      'Cours_Algorithmique_Chap1-3.pdf',
-      'Algorithmique et Prog.',
-      'PDF',
-      '10/05/2025',
-    ],
-    [
-      'Slides_Complexité_Algorithmes.pptx',
-      'Algorithmique et Prog.',
-      'PPTX',
-      '08/05/2025',
-    ],
-    [
-      'TP_Structures_de_données.zip',
-      'Algorithmique et Prog.',
-      'ZIP',
-      '03/04/2025',
-    ],
-    ['Exemples_SQL.pdf', 'Base de données', 'PDF', '28/04/2025'],
-    ['Guide_Génie_Logiciel.pdf', 'Génie Logiciel', 'PDF', '25/04/2025'],
-  ];
+  const [resources, setResources] = useState<TeacherResource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void apiClient
+      .get('/teacher/courses/resources')
+      .then((response) => {
+        if (active) setResources(response.data.data);
+      })
+      .catch(() => {
+        if (active) {
+          setFailed(true);
+          toast.error('Impossible de charger les ressources');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Page
       title="Ressources pédagogiques"
-      subtitle="Gérez et partagez vos ressources."
-      action="Ajouter une ressource"
+      subtitle="Retrouvez les ressources de vos cours."
     >
-      <TableCard
-        headers={['Nom', 'Cours', 'Type', 'Date', 'Actions']}
-        rows={rows.map((r) => [
-          ...r,
-          <span className="text-[10px] font-semibold text-slate-400" key={r[0]}>
-            Consultation
-          </span>,
-        ])}
-      />
+      <p className="mb-4 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-xs text-violet-800">
+        Ajoutez une ressource depuis la{' '}
+        <Link
+          href="/dashboard/teacher?view=courses"
+          className="font-bold underline underline-offset-2"
+        >
+          page d&apos;un cours
+        </Link>
+        , dans le chapitre concerné.
+      </p>
+      {loading ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Chargement des ressources…
+        </p>
+      ) : failed ? (
+        <p className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+          Les ressources n&apos;ont pas pu être chargées.
+        </p>
+      ) : resources.length === 0 ? (
+        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+          Aucune ressource n&apos;a encore été ajoutée à vos cours.
+        </p>
+      ) : (
+        <TableCard
+          headers={['Nom', 'Cours · Chapitre', 'Type', 'Date', 'Actions']}
+          rows={resources.map((resource) => [
+            resource.title,
+            `${resource.chapter.course.title} · ${resource.chapter.title}`,
+            resource.type,
+            new Date(resource.createdAt).toLocaleDateString('fr-FR'),
+            <a
+              className="text-[10px] font-bold text-violet-600 hover:underline"
+              href={resource.url}
+              key={resource.id}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Ouvrir
+            </a>,
+          ])}
+        />
+      )}
     </Page>
   );
 }
 
 function Messages() {
-  return (
-    <Page title="Messages" subtitle="Communiquez avec vos étudiants.">
-      <div className="grid min-h-[530px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm lg:grid-cols-[280px_1fr]">
-        <aside className="border-r border-slate-100 p-4">
-          <label className="relative block">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              className="h-9 w-full rounded-lg bg-slate-50 pl-9 text-xs outline-none"
-              placeholder="Rechercher un message…"
-            />
-          </label>
-          <div className="mt-4 space-y-2">
-            {[
-              'Groupe Algorithmique A',
-              'Rasolonjatoavo Tina',
-              'Rakotoarivelo Mamy',
-              'Andriamalala Fanja',
-              'Génie Logiciel – Groupe A',
-              'Administration GET',
-            ].map((name, i) => (
-              <button
-                key={name}
-                className={`flex w-full gap-2 rounded-lg p-2 text-left ${i === 0 ? 'bg-violet-50' : 'hover:bg-slate-50'}`}
-              >
-                <span className="grid size-8 place-items-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-600">
-                  {name.slice(0, 1)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <b className="block truncate text-xs text-[#1d2754]">
-                    {name}
-                  </b>
-                  <small className="block truncate text-slate-500">
-                    Bonjour Professeur, pourriez-vous…
-                  </small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </aside>
-        <section className="flex flex-col">
-          <header className="border-b border-slate-100 p-4">
-            <b className="text-sm text-[#17204e]">Groupe Algorithmique A</b>
-            <p className="text-[10px] text-slate-500">28 participants</p>
-          </header>
-          <div className="flex-1 space-y-4 p-5 text-xs">
-            <div className="max-w-72 rounded-xl bg-slate-100 p-3 text-slate-600">
-              Bonjour Professeur, pourriez-vous avoir plus de détails sur la
-              partie “arbres binaires” du TP ?
-            </div>
-            <div className="ml-auto max-w-72 rounded-xl bg-violet-100 p-3 text-violet-700">
-              Bonjour à tous, je publie un complément de cours cet après-midi.
-            </div>
-            <div className="max-w-72 rounded-xl bg-slate-100 p-3 text-slate-600">
-              Merci beaucoup !
-            </div>
-          </div>
-          <div className="border-t border-slate-100 p-3">
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3">
-              <Paperclip className="size-4 text-slate-400" />
-              <input
-                className="h-10 flex-1 bg-transparent text-xs outline-none"
-                placeholder="Écrire un message…"
-              />
-              <button className="grid size-7 place-items-center rounded-full bg-violet-600 text-white">
-                <Send className="size-3" />
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
-    </Page>
-  );
+  return <MessagesScreen />;
 }
 
 function Announcements() {
-  const announcements = [
-    [
-      'Changement de salle – Algorithmique',
-      'Algorithmique et Programmation',
-      'Publiée',
-      '10/05/2025',
-    ],
-    ['Rappel : contrôle continu', 'Base de données', 'Publiée', '08/05/2025'],
-    ['Consignes du mini-projet', 'Génie Logiciel', 'Brouillon', '05/05/2025'],
-  ];
+  const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [courseId, setCourseId] = useState('');
+  const [announcements, setAnnouncements] = useState<TeacherAnnouncement[]>(
+    [],
+  );
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+
+  const loadAnnouncements = useCallback(async () => {
+    if (!courseId) return;
+    try {
+      setLoading(true);
+      const response = await apiClient.get(
+        `/teacher/courses/${courseId}/announcements`,
+      );
+      setAnnouncements(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement annonces:', error);
+      toast.error('Impossible de charger les annonces');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(async () => {
+      try {
+        const response = await apiClient.get('/teacher/courses');
+        if (!active) return;
+        const teacherCourses = response.data.data as CourseSummary[];
+        setCourses(teacherCourses);
+        setCourseId(teacherCourses[0]?.id ?? '');
+      } catch (error) {
+        console.error('Erreur chargement cours annonces:', error);
+        if (active) toast.error('Impossible de charger vos cours');
+      } finally {
+        if (active) setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if (courseId) {
+      void Promise.resolve().then(() => {
+        if (active) return loadAnnouncements();
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [courseId, loadAnnouncements]);
+
+  const submitAnnouncement = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!courseId || !title.trim() || !body.trim()) return;
+    try {
+      setSending(true);
+      await apiClient.post(`/teacher/courses/${courseId}/announcements`, {
+        title,
+        body,
+      });
+      setTitle('');
+      setBody('');
+      toast.success('Annonce envoyée aux étudiants inscrits au cours');
+      await loadAnnouncements();
+    } catch (error) {
+      console.error('Erreur envoi annonce:', error);
+      toast.error("L'annonce n'a pas pu être envoyée");
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <Page
       title="Annonces"
-      subtitle="Informez vos groupes et vos étudiants."
-      action="Nouvelle annonce"
+      subtitle="Informez uniquement les étudiants inscrits à un cours."
     >
-      <TableCard
-        headers={['Annonce', 'Cours / Groupe', 'Statut', 'Date', 'Actions']}
-        rows={announcements.map((announcement) => [
-          announcement[0],
-          announcement[1],
-          <Status key={announcement[0]} value={announcement[2]} />,
-          announcement[3],
-          <MoreVertical
-            className="size-4 text-violet-600"
-            key={`${announcement[0]}-actions`}
-          />,
-        ])}
-      />
+      <div className="space-y-4">
+        <Card title="Nouvelle annonce">
+          {courses.length === 0 && !loading ? (
+            <p className="text-sm text-slate-500">
+              Aucun cours accessible pour envoyer une annonce.
+            </p>
+          ) : (
+            <form className="space-y-3" onSubmit={submitAnnouncement}>
+              <label className="block text-xs font-bold text-slate-700">
+                Cours destinataire
+                <select
+                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+                  onChange={(event) => setCourseId(event.target.value)}
+                  value={courseId}
+                >
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title} · {course.school.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-bold text-slate-700">
+                Titre
+                <input
+                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+                  onChange={(event) => setTitle(event.target.value)}
+                  required
+                  value={title}
+                />
+              </label>
+              <label className="block text-xs font-bold text-slate-700">
+                Message
+                <textarea
+                  className="mt-1.5 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-violet-500"
+                  onChange={(event) => setBody(event.target.value)}
+                  required
+                  value={body}
+                />
+              </label>
+              <div className="flex justify-end">
+                <button
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={sending || !courseId}
+                  type="submit"
+                >
+                  {sending ? 'Envoi…' : 'Envoyer aux étudiants du cours'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Card>
+        <Card title="Historique du cours">
+          {loading ? (
+            <p className="text-sm text-slate-500">Chargement des annonces…</p>
+          ) : announcements.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Aucune annonce n&apos;a encore été envoyée pour ce cours.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {announcements.map((announcement) => (
+                <article className="py-4" key={announcement.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h2 className="text-sm font-extrabold text-[#17204e]">
+                        {announcement.title}
+                      </h2>
+                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                        {announcement.body}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+                      {announcement.readCount}/{announcement.recipientCount} lus
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[10px] text-slate-400">
+                    Envoyée le{' '}
+                    {new Date(announcement.createdAt).toLocaleString('fr-FR')}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
     </Page>
   );
 }
 
 function SettingsView() {
+  const [activeTab, setActiveTab] = useState<
+    'profile' | 'security' | 'notifications' | 'preferences'
+  >('profile');
+  const tabs = [
+    ['profile', 'Mon profil'],
+    ['security', 'Sécurité'],
+    ['notifications', 'Notifications'],
+    ['preferences', 'Préférences'],
+  ] as const;
+
   return (
     <Page
       title="Profil & Paramètres"
       subtitle="Gérez vos informations et préférences."
     >
-      <Tabs
-        labels={['Mon profil', 'Sécurité', 'Notifications', 'Préférences']}
-      />
-      <div className="grid gap-4 xl:grid-cols-[300px_1fr]">
-        <Card title="Prof. Andrianiarina">
-          <div className="text-center">
-            <span className="mx-auto grid size-20 place-items-center rounded-full bg-violet-100 text-xl font-black text-violet-600">
-              PA
-            </span>
-            <p className="mt-3 font-bold text-[#16204d]">Prof. Andrianiarina</p>
-            <p className="text-xs text-slate-500">
-              Enseignant · Département Informatique
-            </p>
-            <button className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
-              Changer la photo
-            </button>
-          </div>
-          <Info
-            rows={[
-              ['Email', 'andrianiarina.prof@get.mg'],
-              ['Téléphone', '+261 34 12 345 67'],
-              ['Salle / Bureau', 'Bâtiment A · Salle 2.3'],
-            ]}
-          />
-        </Card>
-        <Card title="Informations professionnelles">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Nom complet" value="Prof. Andrianiarina" />
-            <Field label="Spécialité" value="Informatique" />
-            <Field label="Grade" value="Maître de Conférences" />
-            <Field
-              label="Biographie"
-              value="Enseignant en informatique avec 8 ans d’expérience dans l’enseignement supérieur."
-              wide
+      <nav className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
+        {tabs.map(([id, label]) => (
+          <button
+            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+            key={id}
+            onClick={() => setActiveTab(id)}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      {activeTab === 'profile' ? (
+        <TeacherProfileSettings />
+      ) : (
+        <TeacherSettingsComingSoon
+          title={tabs.find(([id]) => id === activeTab)?.[1] ?? ''}
+        />
+      )}
+    </Page>
+  );
+}
+
+function TeacherProfileSettings() {
+  const [profile, setProfile] = useState<TeacherProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(async () => {
+      try {
+        const response = await apiClient.get('/teacher/profile');
+        if (!active) return;
+        const teacher = response.data.data as TeacherProfile;
+        setProfile(teacher);
+        setFirstName(teacher.firstName ?? '');
+        setLastName(teacher.lastName ?? '');
+        setPhone(teacher.phone ?? '');
+      } catch (error) {
+        console.error('Erreur chargement profil professeur:', error);
+        if (active) toast.error('Impossible de charger votre profil');
+      } finally {
+        if (active) setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      setSaving(true);
+      const response = await apiClient.patch('/teacher/profile', {
+        firstName,
+        lastName,
+        phone,
+      });
+      setProfile(response.data.data as TeacherProfile);
+      window.dispatchEvent(new Event('teacher:profile-updated'));
+      toast.success('Profil mis à jour');
+    } catch (error) {
+      console.error('Erreur mise à jour profil professeur:', error);
+      toast.error('Impossible de mettre à jour le profil');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <p className="rounded-xl bg-white p-5 text-sm text-slate-500 shadow-sm">Chargement du profil…</p>;
+  }
+  if (!profile) {
+    return <p className="rounded-xl bg-rose-50 p-5 text-sm text-rose-700">Le profil est indisponible.</p>;
+  }
+
+  const displayName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || 'Professeur';
+  return (
+    <form className="grid gap-4 xl:grid-cols-[300px_1fr]" onSubmit={saveProfile}>
+      <Card title={displayName}>
+        <div className="text-center">
+          <div className="mx-auto w-fit">
+            <AvatarUpload
+              currentUrl={profile.avatarUrl ?? undefined}
+              endpoint="/teacher/profile/avatar"
+              fallbackText={displayName.slice(0, 2).toUpperCase()}
+              firstName={profile.firstName ?? undefined}
+              lastName={profile.lastName ?? undefined}
+              onUpload={(avatarUrl) => {
+                setProfile((current) =>
+                  current ? { ...current, avatarUrl } : current,
+                );
+                window.dispatchEvent(new Event('teacher:profile-updated'));
+              }}
             />
           </div>
-          <div className="mt-5 flex justify-end gap-3">
-            <button className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold">
-              Annuler
-            </button>
-            <button className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white">
-              Enregistrer les modifications
-            </button>
+          <p className="mt-3 font-bold text-[#16204d]">{displayName}</p>
+          <p className="text-xs text-slate-500">{profile.user.email}</p>
+        </div>
+      </Card>
+      <Card title="Informations personnelles">
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="text-xs font-bold text-slate-700">
+            Prénom
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setFirstName(event.target.value)} value={firstName} />
+          </label>
+          <label className="text-xs font-bold text-slate-700">
+            Nom
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setLastName(event.target.value)} value={lastName} />
+          </label>
+          <label className="text-xs font-bold text-slate-700">
+            Téléphone
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setPhone(event.target.value)} value={phone} />
+          </label>
+          <div className="text-xs font-bold text-slate-700">
+            E-mail
+            <p className="mt-1.5 h-9 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-normal text-slate-500">{profile.user.email}</p>
           </div>
-        </Card>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50" disabled={saving} type="submit">
+            {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
+          </button>
+        </div>
+      </Card>
+    </form>
+  );
+}
+
+function TeacherSettingsComingSoon({ title }: { title: string }) {
+  return (
+    <Card title={title}>
+      <div className="flex flex-col items-center justify-center py-14 text-center">
+        <Settings className="size-8 text-violet-600" />
+        <p className="mt-4 text-sm font-bold">Cet espace est à venir</p>
+        <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
+          Cette fonctionnalité dépend de réglages qui ne sont pas encore disponibles dans l&apos;application.
+        </p>
       </div>
-    </Page>
+    </Card>
   );
 }
 
@@ -1226,59 +2529,6 @@ function Card({
     </section>
   );
 }
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  tone,
-  detail,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  tone: 'violet' | 'blue' | 'green' | 'orange';
-  detail: string;
-}) {
-  const tones = {
-    violet: 'bg-violet-100 text-violet-600',
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-emerald-100 text-emerald-600',
-    orange: 'bg-orange-100 text-orange-600',
-  };
-  return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span
-          className={`grid size-10 place-items-center rounded-xl ${tones[tone]}`}
-        >
-          <Icon className="size-5" />
-        </span>
-        <div>
-          <p className="text-[10px] font-semibold text-slate-500">{label}</p>
-          <p className="text-xl font-extrabold text-[#111949]">{value}</p>
-        </div>
-      </div>
-      <p className="mt-2 text-[10px] text-emerald-600">{detail}</p>
-    </div>
-  );
-}
-function Tabs({ labels }: { labels: string[] }) {
-  return (
-    <div className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
-      <span className="border-b-2 border-violet-600 px-1 py-3 text-violet-600">
-        {labels[0]}
-      </span>
-      {labels.slice(1).map((label) => (
-        <span
-          key={label}
-          className="whitespace-nowrap px-1 py-3 text-slate-400"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
 function TableCard({
   headers,
   rows,
@@ -1347,113 +2597,6 @@ function TableCard({
     </Card>
   );
 }
-function Timeline() {
-  return (
-    <div className="space-y-4 border-l border-violet-200 pl-4 text-[10px]">
-      {[
-        [
-          '08:00 – 10:00',
-          'Algorithmique et Programmation',
-          'L3 Informatique · Groupe A',
-          'En cours',
-        ],
-        [
-          '10:15 – 12:15',
-          'Base de données',
-          'L2 Informatique · Groupe B',
-          'À venir',
-        ],
-        [
-          '13:30 – 15:30',
-          'Génie Logiciel',
-          'L3 Informatique · Groupe A',
-          'À venir',
-        ],
-      ].map(([time, title, detail, status]) => (
-        <div className="relative" key={time}>
-          <i className="absolute -left-[19px] top-1 size-2 rounded-full bg-violet-600" />
-          <div className="flex justify-between gap-3">
-            <span className="font-bold text-violet-600">{time}</span>
-            <span className="flex-1">
-              <b className="block text-[#1c2754]">{title}</b>
-              <small className="text-slate-400">{detail}</small>
-            </span>
-            <Status value={status} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-function GradeDistribution() {
-  return (
-    <div className="flex items-center justify-center gap-6 py-3">
-      <div
-        className="grid size-32 place-items-center rounded-full"
-        style={{
-          background:
-            'conic-gradient(#5139e5 0 28%, #33b98b 28% 60%, #ff9d25 60% 85%, #db2f91 85% 100%)',
-        }}
-      >
-        <div className="grid size-20 place-items-center rounded-full bg-white text-center">
-          <b className="text-xl text-[#17204e]">12,45</b>
-          <span className="text-[9px] text-slate-500">/20</span>
-        </div>
-      </div>
-      <div className="space-y-2 text-[10px] text-slate-600">
-        {[
-          ['Excellentes (14–20)', '28%', 'bg-violet-600'],
-          ['Bonnes (11–13,99)', '32%', 'bg-emerald-500'],
-          ['Moyennes (10–10,99)', '25%', 'bg-orange-400'],
-          ['Faibles (&lt;10)', '15%', 'bg-pink-600'],
-        ].map(([name, percentage, color]) => (
-          <p className="flex items-center gap-2" key={name}>
-            <i className={`size-2 rounded-full ${color}`} />
-            <span>{name}</span>
-            <b>{percentage}</b>
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-function CourseMiniList() {
-  return (
-    <List
-      icon={BookOpen}
-      items={courses.map(
-        (course) => `${course[0]} · ${course[1]} · ${course[3]} étudiants`,
-      )}
-    />
-  );
-}
-function LineChart() {
-  return (
-    <div className="relative mt-6 h-36 border-b border-l border-slate-100">
-      <svg
-        className="absolute inset-0 h-full w-full"
-        preserveAspectRatio="none"
-        viewBox="0 0 300 120"
-      >
-        <polyline
-          fill="none"
-          points="0,82 42,65 84,70 126,48 168,73 210,55 252,39 300,62"
-          stroke="#6747ef"
-          strokeWidth="3"
-        />
-      </svg>
-      <div className="absolute inset-x-0 bottom-[-18px] flex justify-between text-[9px] text-slate-400">
-        <span>Sept</span>
-        <span>Oct</span>
-        <span>Nov</span>
-        <span>Déc</span>
-        <span>Jan</span>
-        <span>Fév</span>
-        <span>Mar</span>
-      </div>
-    </div>
-  );
-}
 function List({ items, icon: Icon }: { items: string[]; icon: LucideIcon }) {
   return (
     <div className="divide-y divide-slate-100">
@@ -1505,19 +2648,6 @@ function StudentName({ name }: { name: string }) {
     </span>
   );
 }
-function Progress({ value }: { value: string }) {
-  return (
-    <span className="flex min-w-20 items-center gap-2">
-      <i className="h-1 flex-1 overflow-hidden rounded bg-slate-100">
-        <i
-          className="block h-full rounded bg-violet-600"
-          style={{ width: value }}
-        />
-      </i>
-      <small>{value}</small>
-    </span>
-  );
-}
 function Status({ value }: { value: string }) {
   const done =
     value === 'Corrigé' || value === 'En cours' || value === 'En cours';
@@ -1548,12 +2678,5 @@ function Field({
         className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
       />
     </label>
-  );
-}
-function tag(value: string) {
-  return (
-    <span className="rounded bg-violet-50 px-2 py-1 text-[9px] font-bold text-violet-600">
-      {value}
-    </span>
   );
 }

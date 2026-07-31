@@ -105,7 +105,7 @@ export default function EditOfferPage() {
             Modifiez les informations de votre offre
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Titre de l'offre *</Label>
@@ -120,7 +120,7 @@ export default function EditOfferPage() {
               <Input id="description" {...register('description')} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="diploma">Diplôme *</Label>
                 <Input id="diploma" {...register('diploma')} />
@@ -137,7 +137,7 @@ export default function EditOfferPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="tuitionFees">Frais (MGA) *</Label>
                 <Input id="tuitionFees" type="number" {...register('tuitionFees', { valueAsNumber: true })} />

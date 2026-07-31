@@ -262,7 +262,7 @@ export function MinistryDashboard() {
           ]}
         />
         <Card title="Paiements" action="Exporter">
-          <div className="grid grid-cols-3 gap-2 border-b border-slate-100 pb-3 text-center">
+          <div className="grid grid-cols-1 gap-2 border-b border-slate-100 pb-3 text-center sm:grid-cols-2 xl:grid-cols-3">
             <Metric label="Total collecté" value="1 245 000 000 Ar" />
             <Metric label="Transactions" value="18 750" />
             <Metric label="Échoués" value="245" tone="rose" />
