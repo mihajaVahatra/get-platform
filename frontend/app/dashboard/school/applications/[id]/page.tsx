@@ -106,7 +106,7 @@ const STATUS_COLORS: Record<string, string> = {
   INTERVIEW_COMPLETED: 'bg-amber-500',
   ACCEPTED: 'bg-green-500',
   REJECTED: 'bg-red-500',
-  WAITLISTED: 'bg-gray-500',
+  WAITLISTED: 'bg-slate-500',
   ENROLLED: 'bg-emerald-600',
   CANCELLED: 'bg-rose-500',
 };
@@ -314,10 +314,10 @@ function SchoolApplicationDetailContent() {
     return (
       <Card>
         <CardContent className="space-y-4 p-8 text-center">
-          <FileWarningIcon className="mx-auto h-12 w-12 text-gray-300" />
+          <FileWarningIcon className="mx-auto h-12 w-12 text-slate-300" />
           <div>
-            <h1 className="text-xl font-bold">Dossier introuvable</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <h1 className="text-xl font-extrabold">Dossier introuvable</h1>
+            <p className="mt-1 text-sm text-slate-500">
               Cette candidature n’existe pas ou n’est plus disponible.
             </p>
           </div>
@@ -336,7 +336,7 @@ function SchoolApplicationDetailContent() {
     return (
       <Card>
         <CardContent className="space-y-4 p-8 text-center">
-          <p className="text-gray-500">Impossible de charger ce dossier.</p>
+          <p className="text-slate-500">Impossible de charger ce dossier.</p>
           <Button variant="outline" onClick={() => void fetchApplication()}>
             Réessayer
           </Button>
@@ -353,16 +353,16 @@ function SchoolApplicationDetailContent() {
             <ArrowLeftIcon /> Retour aux candidatures
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-2xl font-extrabold">
               {application.student.firstName} {application.student.lastName}
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-violet-600">
               Candidature pour {application.offer.title}
             </p>
           </div>
         </div>
         <Badge
-          className={`${STATUS_COLORS[application.status] || 'bg-gray-500'} text-white`}
+          className={`${STATUS_COLORS[application.status] || 'bg-slate-500'} text-white`}
         >
           {STATUS_LABELS[application.status] || application.status}
         </Badge>
@@ -376,9 +376,9 @@ function SchoolApplicationDetailContent() {
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="flex gap-2">
-                <UserIcon className="mt-0.5 h-4 w-4 text-gray-400" />
+                <UserIcon className="mt-0.5 h-4 w-4 text-slate-400" />
                 <div>
-                  <p className="text-xs text-gray-500">Étudiant</p>
+                  <p className="text-xs text-slate-500">Étudiant</p>
                   <p className="font-medium">
                     {application.student.firstName}{' '}
                     {application.student.lastName}
@@ -386,23 +386,23 @@ function SchoolApplicationDetailContent() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <MailIcon className="mt-0.5 h-4 w-4 text-gray-400" />
+                <MailIcon className="mt-0.5 h-4 w-4 text-slate-400" />
                 <div>
-                  <p className="text-xs text-gray-500">E-mail</p>
+                  <p className="text-xs text-slate-500">E-mail</p>
                   <p className="font-medium">
                     {application.student.user.email}
                   </p>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Formation</p>
+                <p className="text-xs text-slate-500">Formation</p>
                 <p className="font-medium">{application.offer.title}</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   {application.offer.diploma} · {application.offer.school.name}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500">Candidature soumise le</p>
+                <p className="text-xs text-slate-500">Candidature soumise le</p>
                 <p className="font-medium">
                   {formatDate(application.submittedAt)}
                 </p>
@@ -422,7 +422,7 @@ function SchoolApplicationDetailContent() {
             </CardHeader>
             <CardContent>
               {timeline.length === 0 ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   Aucun événement enregistré.
                 </p>
               ) : (
@@ -432,16 +432,16 @@ function SchoolApplicationDetailContent() {
                       <span className="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-violet-500" />
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge
-                          className={`${STATUS_COLORS[event.status] || 'bg-gray-500'} text-white`}
+                          className={`${STATUS_COLORS[event.status] || 'bg-slate-500'} text-white`}
                         >
                           {STATUS_LABELS[event.status] || event.status}
                         </Badge>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-slate-400">
                           {formatDate(event.createdAt)}
                         </span>
                       </div>
                       {event.note && (
-                        <p className="mt-1 text-sm text-gray-600">
+                        <p className="mt-1 text-sm text-slate-600">
                           {event.note}
                         </p>
                       )}
@@ -484,11 +484,11 @@ function SchoolApplicationDetailContent() {
             </CardHeader>
             <CardContent>
               {documentsLoading ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   Chargement des documents...
                 </p>
               ) : documents.length === 0 ? (
-                <p className="text-sm text-gray-500">Aucun document déposé.</p>
+                <p className="text-sm text-slate-500">Aucun document déposé.</p>
               ) : (
                 <ul className="space-y-3">
                   {documents.map((document) => (
@@ -501,7 +501,7 @@ function SchoolApplicationDetailContent() {
                         <p className="truncate text-sm font-medium">
                           {document.name}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           {document.type} · {formatFileSize(document.fileSize)}{' '}
                           · {formatDate(document.uploadedAt)}
                         </p>

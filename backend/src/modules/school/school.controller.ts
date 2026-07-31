@@ -295,6 +295,8 @@ export class SchoolController {
 
   @Get('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async getMySubjects(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getSubjects(user.schoolAdmin.schoolId) }; }
+  @Get('me/teachers/inactive') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
+  async getMyInactiveTeachers(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getInactiveTeacherAssignments(user.schoolAdmin.schoolId) }; }
   @Get('me/teachers/search') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async searchMyTeacher(@Query('email') email: string) { return { success: true, data: await this.schoolService.findTeacherByEmail(email) }; }
   @Post('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { FileTextIcon } from 'lucide-react';
+import { ClipboardListIcon, FileTextIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +68,7 @@ const STATUS_COLORS: Record<string, string> = {
   INTERVIEW_COMPLETED: 'bg-amber-500',
   ACCEPTED: 'bg-green-500',
   REJECTED: 'bg-red-500',
-  WAITLISTED: 'bg-gray-500',
+  WAITLISTED: 'bg-slate-500',
   ENROLLED: 'bg-emerald-600',
   CANCELLED: 'bg-rose-500',
 };
@@ -190,8 +190,8 @@ function SchoolApplicationsContent() {
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold">📋 Candidatures reçues</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="flex items-center gap-2 text-2xl font-extrabold"><ClipboardListIcon /> Candidatures reçues</h1>
+          <p className="text-sm text-violet-600">
             {totalItems} candidature(s) au total
           </p>
         </div>
@@ -253,8 +253,8 @@ function SchoolApplicationsContent() {
       {applications.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <FileTextIcon className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-            <p className="text-gray-500">
+            <FileTextIcon className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-slate-500">
               Aucune candidature ne correspond à ces filtres.
             </p>
           </CardContent>
@@ -305,7 +305,7 @@ function SchoolApplicationsContent() {
                     </td>
                     <td className="px-5 py-4">
                       <Badge
-                        className={`${STATUS_COLORS[application.status] || 'bg-gray-500'} text-white`}
+                        className={`${STATUS_COLORS[application.status] || 'bg-slate-500'} text-white`}
                       >
                         {STATUS_LABELS[application.status] ||
                           application.status}

@@ -940,6 +940,17 @@ export class SchoolService {
     });
   }
 
+  async getInactiveTeacherAssignments(schoolId: string) {
+    return this.prisma.teacherSchool.findMany({
+      where: { schoolId, isActive: false },
+      select: {
+        teacherId: true,
+        teacher: { select: { id: true, user: { select: { email: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async getSubjects(schoolId: string) {
     return this.prisma.schoolSubject.findMany({
       where: { schoolId },
@@ -1283,6 +1294,20 @@ export class SchoolService {
       where: { id: courseId, schoolId },
     });
     if (!course) throw new NotFoundException('Course not found');
+
+    if (dto.isPublished === false) {
+      const activeEnrollmentCount = await this.prisma.courseEnrollment.count({
+        where: {
+          courseId,
+          student: { enrollmentStatus: 'ACTIVE', deletedAt: null },
+        },
+      });
+      if (activeEnrollmentCount > 0) {
+        throw new BadRequestException(
+          'Impossible de désactiver ce cours : des étudiants y sont encore inscrits.',
+        );
+      }
+    }
 
     const teacherId = dto.teacherId ?? course.teacherId;
     await this.ensureActiveTeacherAssignment(schoolId, teacherId);

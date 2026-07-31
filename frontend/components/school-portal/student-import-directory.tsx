@@ -67,6 +67,8 @@ export function StudentImportDirectory() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [studentToWithdraw, setStudentToWithdraw] = useState<Student | null>(null);
+  const [withdrawingStudent, setWithdrawingStudent] = useState(false);
   const [email, setEmail] = useState('');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
@@ -150,6 +152,23 @@ export function StudentImportDirectory() {
     setSearch(value);
     setPage(1);
     setLoading(true);
+  };
+
+  const withdrawStudent = async () => {
+    if (!studentToWithdraw) return;
+    setWithdrawingStudent(true);
+    try {
+      await apiClient.patch(`/schools/me/students/${studentToWithdraw.id}`, {
+        status: 'WITHDRAWN',
+      });
+      toast.success('Inscription clôturée');
+      setStudentToWithdraw(null);
+      setRefreshKey((value) => value + 1);
+    } catch {
+      toast.error('Impossible de clôturer l’inscription');
+    } finally {
+      setWithdrawingStudent(false);
+    }
   };
 
   const changePage = (nextPage: number) => {
@@ -298,8 +317,6 @@ export function StudentImportDirectory() {
               </thead>
               <tbody>
                 {students.map((student) => {
-                  const name =
-                    `${student.firstName} ${student.lastName}`.trim();
                   const initials =
                     `${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase();
 
@@ -324,26 +341,7 @@ export function StudentImportDirectory() {
                           className="ml-2"
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Clôturer l’inscription de ${name} ?`,
-                              )
-                            )
-                              void apiClient
-                                .patch(`/schools/me/students/${student.id}`, {
-                                  status: 'WITHDRAWN',
-                                })
-                                .then(() => {
-                                  toast.success('Inscription clôturée');
-                                  setRefreshKey((value) => value + 1);
-                                })
-                                .catch(() =>
-                                  toast.error(
-                                    'Impossible de clôturer l’inscription',
-                                  ),
-                                );
-                          }}
+                          onClick={() => setStudentToWithdraw(student)}
                         >
                           Clôturer
                         </Button>
@@ -578,6 +576,40 @@ export function StudentImportDirectory() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={studentToWithdraw !== null}
+        onOpenChange={(open) => {
+          if (!open && !withdrawingStudent) setStudentToWithdraw(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clôturer l’inscription</DialogTitle>
+            <DialogDescription>
+              Voulez-vous vraiment clôturer l’inscription de{' '}
+              {studentToWithdraw && `${studentToWithdraw.firstName} ${studentToWithdraw.lastName}`} ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={withdrawingStudent}
+              onClick={() => setStudentToWithdraw(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={withdrawingStudent}
+              onClick={() => void withdrawStudent()}
+            >
+              {withdrawingStudent ? 'Clôture...' : 'Clôturer l’inscription'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
