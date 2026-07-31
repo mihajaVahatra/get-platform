@@ -411,7 +411,7 @@ function ComposeDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
       >
         <div className="flex items-center justify-between">
           <div>

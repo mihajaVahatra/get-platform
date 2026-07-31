@@ -162,7 +162,7 @@ export function LoginScreen() {
                 </>
               )}
             </div>
-            <div className="mt-10 grid grid-cols-2 rounded-xl border border-slate-200 p-1">
+            <div className="mt-10 grid grid-cols-1 rounded-xl border border-slate-200 p-1 sm:grid-cols-2">
               <AccountTab
                 active={!isInstitution}
                 icon={UserRound}
@@ -178,7 +178,12 @@ export function LoginScreen() {
                 École / Institution
               </AccountTab>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-9 space-y-5">
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              method="post"
+              action="#"
+              className="mt-9 space-y-5"
+            >
               <label className="block text-sm font-bold text-[#151b48]">
                 {isInstitution
                   ? 'Adresse e-mail institutionnelle'

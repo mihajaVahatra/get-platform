@@ -179,7 +179,7 @@ export function TeacherDirectory() {
                       <td>{assignment.department || 'Non renseigné'}</td>
                       <td>{assignment.specialty || 'Non renseignée'}</td>
                       <td><Status /></td>
-                      <td><div className="flex gap-2"><Button variant="ghost" size="icon-sm" aria-label="Modifier l’affectation" onClick={() => openEditDialog(assignment)}><Edit3Icon /></Button><Button variant="ghost" size="icon-sm" className="text-red-600" aria-label="Retirer le professeur" onClick={() => deactivateAssignment(assignment)}><Trash2Icon /></Button></div></td>
+                      <td><div className="flex gap-2"><Button variant="ghost" size="icon-sm" className="min-h-11 min-w-11" aria-label="Modifier l’affectation" onClick={() => openEditDialog(assignment)}><Edit3Icon /></Button><Button variant="ghost" size="icon-sm" className="min-h-11 min-w-11 text-red-600" aria-label="Retirer le professeur" onClick={() => deactivateAssignment(assignment)}><Trash2Icon /></Button></div></td>
                     </tr>
                   ))}
                 </tbody>

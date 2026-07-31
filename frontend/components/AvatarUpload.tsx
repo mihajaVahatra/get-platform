@@ -29,7 +29,8 @@ export function AvatarUpload({
   size = 96,
 }: AvatarUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [preview, setPreview] = useState(currentUrl);
+  const [uploadedPreview, setUploadedPreview] = useState<string | undefined>();
+  const preview = uploadedPreview ?? currentUrl;
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,7 +56,7 @@ export function AvatarUpload({
       });
 
       const url = response.data.data?.avatarUrl || response.data.data?.logoUrl || response.data.data?.url;
-      setPreview(url);
+      setUploadedPreview(url);
       onUpload(url);
       toast.success('Image mise à jour !');
     } catch {

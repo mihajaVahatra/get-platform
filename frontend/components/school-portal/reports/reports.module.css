@@ -42,6 +42,7 @@
 .muted { color: var(--text-secondary); }
 .empty { color: var(--text-muted); }
 .list { display: grid; gap: 2px; }
+.chartScrollContent { min-width: 560px; }
 .barRow { display: grid; grid-template-columns: minmax(116px, 0.8fr) minmax(0, 2fr); align-items: center; gap: 12px; color: var(--text-secondary); font-size: 13px; }
 .track { height: 24px; display: flex; align-items: center; border-bottom: 1px solid var(--grid-line); }
 .bar { height: 24px; min-width: 2px; border-radius: 0 4px 4px 0; }

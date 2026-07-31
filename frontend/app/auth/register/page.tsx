@@ -178,7 +178,7 @@ export default function RegisterPage() {
                 Remplis les informations ci-dessous pour commencer
               </p>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5">
+            <form onSubmit={handleSubmit(onSubmit)} method="post" action="#" className="mt-8 space-y-5">
               <FormSection title="Informations personnelles">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Prénom" error={errors.firstName?.message}>

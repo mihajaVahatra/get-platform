@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
@@ -19,6 +20,7 @@ export class PaymentService {
     private prisma: PrismaService,
     @Inject('PaymentProvider') private paymentProvider: PaymentProvider,
     private config: ConfigService,
+    private schoolService: SchoolService,
   ) {}
 
   async initiatePayment(studentId: string, dto: InitiatePaymentDto) {
@@ -133,13 +135,49 @@ export class PaymentService {
         where: { id: payment.applicationId },
         data: { status: 'ENROLLED' },
       });
-      const application = await this.prisma.application.findUnique({ where: { id: payment.applicationId }, include: { offer: true } });
+      const application = await this.prisma.application.findUnique({
+        where: { id: payment.applicationId },
+        include: { offer: true },
+      });
       if (application?.offer.programId) {
-        const [program, academicYear] = await Promise.all([this.prisma.schoolProgram.findFirst({ where: { id: application.offer.programId, schoolId: application.offer.schoolId, isActive: true } }), this.prisma.schoolAcademicYear.findFirst({ where: { schoolId: application.offer.schoolId, isCurrent: true } })]);
+        const [program, academicYear] = await Promise.all([
+          this.prisma.schoolProgram.findFirst({
+            where: {
+              id: application.offer.programId,
+              schoolId: application.offer.schoolId,
+              isActive: true,
+            },
+          }),
+          this.prisma.schoolAcademicYear.findFirst({
+            where: { schoolId: application.offer.schoolId, isCurrent: true },
+          }),
+        ]);
         if (program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          await this.prisma.student.update({ where: { id: application.studentId }, data: { enrolledSchoolId: application.offer.schoolId, programId: program.id, programLevel: 1, academicYearId: academicYear.id, enrolledYear, enrollmentStatus: 'ACTIVE' } });
-          await this.prisma.applicationTimeline.create({ data: { applicationId: application.id, status: 'ENROLLED', note: `Étudiant inscrit automatiquement : ${enrolledYear}` } });
+          const student = await this.prisma.student.update({
+            where: { id: application.studentId },
+            data: {
+              enrolledSchoolId: application.offer.schoolId,
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              enrollmentStatus: 'ACTIVE',
+            },
+          });
+          await this.schoolService.syncCourseEnrollments(
+            student.id,
+            application.offer.schoolId,
+            program.id,
+            1,
+          );
+          await this.prisma.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+            },
+          });
         }
       }
     }

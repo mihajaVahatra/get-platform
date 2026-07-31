@@ -185,7 +185,7 @@ function ResetPasswordForm() {
         </CardDescription>
       </CardHeader>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
         <CardContent className="space-y-4">
 
           {/* ===== ERREUR SERVEUR ===== */}

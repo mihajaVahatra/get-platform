@@ -93,7 +93,7 @@ export default function NewSchoolOfferPage() {
           <CardTitle>Nouvelle offre</CardTitle>
           <CardDescription>Publiez une formation proposée par votre établissement.</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
           <CardContent className="space-y-4">
             <Field label="Titre de l’offre" required error={errors.title?.message}><Input {...register('title')} placeholder="Licence Informatique" /></Field>
             <Field label="Description"><Input {...register('description')} placeholder="Présentez brièvement la formation" /></Field>

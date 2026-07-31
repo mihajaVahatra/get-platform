@@ -119,9 +119,9 @@ export default function StudentProfilePage() {
                 Modifiez vos informations personnelles
               </CardDescription>
             </CardHeader>
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">Prénom</Label>
                     <Input
@@ -153,7 +153,7 @@ export default function StudentProfilePage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="city">Ville</Label>
                     <Input
@@ -236,7 +236,7 @@ export default function StudentProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="bg-blue-50 p-4 rounded-lg text-center border border-blue-100">
                   <p className="text-2xl font-bold text-blue-600">
                     {stats?.totalApplications || 0}
@@ -256,7 +256,7 @@ export default function StudentProfilePage() {
                   <p className="text-sm text-gray-600">En attente</p>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-4">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="bg-purple-50 p-4 rounded-lg text-center border border-purple-100">
                   <p className="text-2xl font-bold text-purple-600">
                     {stats?.documentsUploaded || 0}

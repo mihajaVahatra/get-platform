@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
           Entrez votre email pour recevoir un lien de réinitialisation
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

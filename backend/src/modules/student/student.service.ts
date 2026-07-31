@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
@@ -18,6 +19,96 @@ export class StudentService {
     private encryption: EncryptionService,
     private storageService: StorageService,
   ) {}
+
+  private async enrolledStudent(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+    return student;
+  }
+
+  private async courseEnrollment(studentId: string, courseId: string) {
+    const enrollment = await this.prisma.courseEnrollment.findUnique({
+      where: { courseId_studentId: { courseId, studentId } },
+    });
+    if (!enrollment) throw new NotFoundException('Cours introuvable');
+    return enrollment;
+  }
+
+  async getCourses(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      include: { course: { include: { school: true } } },
+    });
+    return enrollments.map(({ course }) => course);
+  }
+
+  async getCourseAssignments(userId: string, courseId: string) {
+    const student = await this.enrolledStudent(userId);
+    await this.courseEnrollment(student.id, courseId);
+
+    const assignments = await this.prisma.assignment.findMany({
+      where: { courseId, publishedAt: { not: null } },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        submissions: {
+          where: { studentId: student.id },
+          select: { id: true, submittedAt: true, grade: true },
+        },
+      },
+    });
+
+    return assignments.map(({ submissions, ...assignment }) => ({
+      ...assignment,
+      submission: submissions[0] ?? null,
+    }));
+  }
+
+  async submitAssignment(
+    userId: string,
+    assignmentId: string,
+    file: Express.Multer.File,
+  ) {
+    const student = await this.enrolledStudent(userId);
+    const assignment = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { id: true, courseId: true, publishedAt: true },
+    });
+    if (!assignment || !assignment.publishedAt) {
+      throw new NotFoundException('Devoir introuvable');
+    }
+    await this.courseEnrollment(student.id, assignment.courseId);
+
+    const existingSubmission =
+      await this.prisma.assignmentSubmission.findUnique({
+        where: {
+          assignmentId_studentId: { assignmentId, studentId: student.id },
+        },
+        select: { id: true, grade: true },
+      });
+    if (
+      existingSubmission?.grade !== null &&
+      existingSubmission?.grade !== undefined
+    ) {
+      throw new ConflictException(
+        'Cette soumission a déjà été notée et ne peut plus être remplacée',
+      );
+    }
+
+    const { url: contentUrl } = this.storageService.uploadDocument(
+      file,
+      student.id,
+    );
+    return this.prisma.assignmentSubmission.upsert({
+      where: {
+        assignmentId_studentId: { assignmentId, studentId: student.id },
+      },
+      update: { contentUrl, submittedAt: new Date() },
+      create: { assignmentId, studentId: student.id, contentUrl },
+    });
+  }
 
   // ========== PROFILE ==========
 

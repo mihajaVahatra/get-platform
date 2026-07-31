@@ -13,5 +13,48 @@ export function MagnitudeBarChart({ endpoint, label, empty }: { endpoint: string
   if (!items) return <p className={styles.muted}>Chargement…</p>;
   if (items.length === 0) return <p className={styles.empty}>{empty}</p>;
   const max = Math.max(...items.map((item) => item.count), 1);
-  return <><div className={styles.list} aria-label={label}>{items.map((item, index) => <div className={styles.barRow} key={item.label}><span>{item.label}</span><div className={styles.track}><div className={`${styles.bar} ${styles.seriesBar}`} style={{ width: `${Math.max((item.count / max) * 88, 3)}%` }} title={`${item.label} : ${item.count}`} />{index === 0 && <span className={styles.lastValue}>{item.count}</span>}</div></div>)}</div><table className={`${styles.table} mt-5`}><thead><tr><th>{label}</th><th>Nombre</th></tr></thead><tbody>{items.map((item) => <tr key={item.label}><td>{item.label}</td><td>{item.count}</td></tr>)}</tbody></table></>;
+  return (
+    <>
+      <div className="overflow-x-auto">
+        <div
+          className={`${styles.list} ${styles.chartScrollContent}`}
+          aria-label={label}
+        >
+          {items.map((item, index) => (
+            <div className={styles.barRow} key={item.label}>
+              <span>{item.label}</span>
+              <div className={styles.track}>
+                <div
+                  className={`${styles.bar} ${styles.seriesBar}`}
+                  style={{ width: `${Math.max((item.count / max) * 88, 3)}%` }}
+                  title={`${item.label} : ${item.count}`}
+                />
+                {index === 0 && (
+                  <span className={styles.lastValue}>{item.count}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className={`${styles.table} mt-5 min-w-[360px]`}>
+          <thead>
+            <tr>
+              <th>{label}</th>
+              <th>Nombre</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.label}>
+                <td>{item.label}</td>
+                <td>{item.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
 }

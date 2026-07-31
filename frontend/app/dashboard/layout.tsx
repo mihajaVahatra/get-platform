@@ -17,6 +17,7 @@ import {
   LibraryBig,
   LogOut,
   Mail,
+  Menu,
   Newspaper,
   Route,
   Settings,
@@ -34,6 +35,7 @@ import {
   ScrollText,
   ChartSpline,
   DatabaseBackup,
+  X,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
@@ -58,6 +60,24 @@ export default function DashboardLayout({
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  // Referme le tiroir mobile à chaque changement de page plutôt que d'exiger
+  // un onClick de fermeture sur chacun des dizaines de liens de navigation.
+  // Ajusté pendant le rendu (pattern recommandé par React) plutôt que via un
+  // useEffect, pour éviter un rendu en cascade évitable.
+  const [previousPathname, setPreviousPathname] = useState(pathname);
+  if (pathname !== previousPathname) {
+    setPreviousPathname(pathname);
+    setMobileMenuOpen(false);
+  }
 
   useEffect(() => {
     apiClient
@@ -75,24 +95,34 @@ export default function DashboardLayout({
   }, [router]);
 
   useEffect(() => {
-    if (userRole !== 'STUDENT') return;
-    apiClient
-      .get('/students/me')
-      .then((response) => {
-        const student = response.data.data;
-        setUser((current) => ({
-          ...current,
-          ...student,
-          firstName: student.firstName || current?.firstName || '',
-          lastName: student.lastName || current?.lastName || '',
-          gender: student.gender || current?.gender || 'MALE',
-        }));
-      })
-      .catch((error) => console.error('Erreur chargement profil:', error));
+    if (userRole !== 'STUDENT' && userRole !== 'TEACHER') return;
+    const profileEndpoint =
+      userRole === 'TEACHER' ? '/teacher/profile' : '/students/me';
+    const loadProfile = () => {
+      apiClient
+        .get(profileEndpoint)
+        .then((response) => {
+          const profile = response.data.data;
+          setUser((current) => ({
+            ...current,
+            ...profile,
+            firstName: profile.firstName || current?.firstName || '',
+            lastName: profile.lastName || current?.lastName || '',
+            gender: profile.gender || current?.gender || 'MALE',
+          }));
+        })
+        .catch((error) => console.error('Erreur chargement profil:', error));
+    };
+    loadProfile();
+    if (userRole === 'TEACHER') {
+      window.addEventListener('teacher:profile-updated', loadProfile);
+      return () =>
+        window.removeEventListener('teacher:profile-updated', loadProfile);
+    }
   }, [userRole]);
 
   useEffect(() => {
-    if (userRole !== 'STUDENT') return;
+    if (userRole !== 'STUDENT' && userRole !== 'TEACHER') return;
     const refreshUnreadMessages = () => {
       apiClient
         .get('/messages/unread-count')
@@ -129,6 +159,10 @@ export default function DashboardLayout({
   if (userRole === 'STUDENT') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
         <StudentSidebar
           avatarUrl={user?.avatarUrl}
           displayName={displayName}
@@ -141,6 +175,8 @@ export default function DashboardLayout({
           onLogout={logout}
           pathname={pathname}
           unreadMessages={unreadMessages}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
         />
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-9 lg:py-7">
           {children}
@@ -152,6 +188,13 @@ export default function DashboardLayout({
   if (userRole === 'SCHOOL_ADMIN' || userRole === 'TEACHER') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <MobileTopBar
+          onOpenMenu={() => setMobileMenuOpen(true)}
+          dark={userRole === 'TEACHER'}
+        />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
         {userRole === 'TEACHER' ? (
           <Suspense fallback={null}>
             <TeacherSidebar
@@ -160,6 +203,13 @@ export default function DashboardLayout({
                 displayName === 'Étudiant' ? 'Professeur' : displayName
               }
               onLogout={logout}
+              unreadMessages={unreadMessages}
+              avatarUrl={user?.avatarUrl}
+              onAvatarUpload={(avatarUrl) =>
+                setUser((current) => ({ ...current, avatarUrl }))
+              }
+              mobileOpen={mobileMenuOpen}
+              onMobileClose={() => setMobileMenuOpen(false)}
             />
           </Suspense>
         ) : (
@@ -170,6 +220,8 @@ export default function DashboardLayout({
                 displayName === 'Étudiant' ? 'Administrateur' : displayName
               }
               onLogout={logout}
+              mobileOpen={mobileMenuOpen}
+              onMobileClose={() => setMobileMenuOpen(false)}
             />
           </Suspense>
         )}
@@ -183,8 +235,17 @@ export default function DashboardLayout({
   if (userRole === 'ADMIN_GET') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
         <Suspense fallback={null}>
-          <AdminGetSidebar pathname={pathname} onLogout={logout} />
+          <AdminGetSidebar
+            pathname={pathname}
+            onLogout={logout}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
         </Suspense>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
@@ -196,8 +257,17 @@ export default function DashboardLayout({
   if (userRole === 'MINISTRY') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} dark />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
         <Suspense fallback={null}>
-          <MinistrySidebar pathname={pathname} onLogout={logout} />
+          <MinistrySidebar
+            pathname={pathname}
+            onLogout={logout}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
         </Suspense>
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
           {children}
@@ -240,6 +310,59 @@ export default function DashboardLayout({
   );
 }
 
+function MobileTopBar({
+  onOpenMenu,
+  dark = false,
+}: {
+  onOpenMenu: () => void;
+  dark?: boolean;
+}) {
+  return (
+    <header
+      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-[#0d1b4d] text-white' : 'border-slate-100 bg-white text-[#111949]'}`}
+    >
+      <span className="text-xl font-black tracking-tight">
+        GET<span className="text-violet-400">.</span>
+      </span>
+      <button
+        onClick={onOpenMenu}
+        aria-label="Ouvrir le menu de navigation"
+        className={`grid size-9 place-items-center rounded-lg ${dark ? 'bg-white/10' : 'bg-slate-100'}`}
+      >
+        <Menu className="size-5" />
+      </button>
+    </header>
+  );
+}
+
+function MobileBackdrop({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+      onClick={onClick}
+      aria-hidden="true"
+    />
+  );
+}
+
+function MobileCloseButton({
+  onClick,
+  dark = false,
+}: {
+  onClick: () => void;
+  dark?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Fermer le menu"
+      className={`absolute right-3 top-3 grid size-8 place-items-center rounded-lg lg:hidden ${dark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'}`}
+    >
+      <X className="size-4" />
+    </button>
+  );
+}
+
 function useCurrentDashboardUrl(pathname: string) {
   const searchParams = useSearchParams();
   const search = searchParams.toString();
@@ -274,10 +397,20 @@ function TeacherSidebar({
   pathname,
   displayName,
   onLogout,
+  unreadMessages,
+  avatarUrl,
+  onAvatarUpload,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   displayName: string;
   onLogout: () => void;
+  unreadMessages: number;
+  avatarUrl?: string;
+  onAvatarUpload: (url: string) => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
   const items = [
@@ -316,7 +449,7 @@ function TeacherSidebar({
       label: 'Messages',
       icon: Mail,
       href: '/dashboard/teacher?view=messages',
-      badge: '3',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
     {
       label: 'Notes & Bulletins',
@@ -330,7 +463,10 @@ function TeacherSidebar({
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-6 text-white lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+    >
+      <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/teacher" className="mb-7 px-3">
         <div className="text-4xl font-black tracking-tight">
           GET<span className="text-violet-300">.</span>
@@ -367,10 +503,21 @@ function TeacherSidebar({
       </nav>
       <div className="mt-auto space-y-4">
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <p className="text-xs font-bold">{displayName}</p>
-          <p className="mt-1 text-[10px] text-blue-100">
-            Professeur · Informatique
-          </p>
+          <div className="flex items-center gap-2.5">
+            <AvatarUpload
+              currentUrl={avatarUrl}
+              endpoint="/teacher/profile/avatar"
+              fallbackText={displayName.slice(0, 2).toUpperCase()}
+              firstName={displayName.split(' ')[0]}
+              lastName={displayName.split(' ').slice(1).join(' ')}
+              onUpload={onAvatarUpload}
+              size={40}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold">{displayName}</p>
+              <p className="mt-1 text-[10px] text-blue-100">Professeur</p>
+            </div>
+          </div>
         </div>
         <Link
           href="/dashboard/teacher?view=settings"
@@ -395,10 +542,14 @@ function SchoolSidebar({
   pathname,
   displayName,
   onLogout,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   displayName: string;
   onLogout: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
   const academic = [
@@ -452,7 +603,10 @@ function SchoolSidebar({
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-6 lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/school" className="mb-6 px-3">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
@@ -595,9 +749,13 @@ const UserRoundIcon = UsersRound;
 function AdminGetSidebar({
   pathname,
   onLogout,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
   const global = [
@@ -668,7 +826,10 @@ function AdminGetSidebar({
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-6 lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/admin" className="mb-6 px-3">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
@@ -774,9 +935,13 @@ function AdminGetSidebar({
 function MinistrySidebar({
   pathname,
   onLogout,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
   const national = [
@@ -839,7 +1004,10 @@ function MinistrySidebar({
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-6 text-white lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-6 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+    >
+      <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/ministry" className="mb-8 px-3">
         <div className="text-4xl font-black tracking-tight text-white">
           GET<span className="text-violet-300">.</span>
@@ -932,6 +1100,8 @@ function StudentSidebar({
   onLogout,
   pathname,
   unreadMessages,
+  mobileOpen,
+  onMobileClose,
 }: {
   avatarUrl?: string;
   displayName: string;
@@ -942,6 +1112,8 @@ function StudentSidebar({
   onLogout: () => void;
   pathname: string;
   unreadMessages: number;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const items = [
     { label: 'Accueil', icon: Home, href: '/dashboard/student' },
@@ -956,6 +1128,11 @@ function StudentSidebar({
       label: 'Mes notes',
       icon: ClipboardList,
       href: '/dashboard/student/grades',
+    },
+    {
+      label: 'Devoirs',
+      icon: FileText,
+      href: '/dashboard/student/assignments',
     },
     {
       label: 'Finances',
@@ -992,7 +1169,10 @@ function StudentSidebar({
   ];
 
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-7 lg:flex lg:min-h-screen lg:flex-col">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 left-0 z-50 flex' : 'hidden'} w-64 max-w-[85vw] shrink-0 overflow-y-auto border-r border-slate-100 bg-white px-4 py-7 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:flex-col`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/student" className="mb-7 px-3">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
