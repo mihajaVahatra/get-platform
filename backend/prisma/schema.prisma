@@ -272,6 +272,9 @@ model Course {
   room         String?
   schedule     String?
   isPublished  Boolean            @default(true)
+  welcomeMessage     String?
+  allowGroupMessages Boolean      @default(true)
+  notifyOnPublish    Boolean      @default(true)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   chapters     CourseChapter[]
