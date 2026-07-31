@@ -1332,6 +1332,7 @@ function ListPagination({
 function CourseStudentList({ courseId }: { courseId: string }) {
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -1341,9 +1342,10 @@ function CourseStudentList({ courseId }: { courseId: string }) {
       setFailed(false);
       const response = await apiClient.get(
         `/teacher/courses/${courseId}/students`,
+        { params: { page, limit: LIST_PAGE_SIZE } },
       );
-      setEnrollments(response.data.data || []);
-      setPage(1);
+      setEnrollments(response.data.data.items || []);
+      setTotalItems(response.data.data.meta?.total || 0);
     } catch (error) {
       console.error('Erreur chargement étudiants cours:', error);
       setFailed(true);
@@ -1351,7 +1353,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, page]);
 
   useEffect(() => {
     let active = true;
@@ -1363,7 +1365,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
     };
   }, [fetchStudents]);
 
-  if (loading || failed || enrollments.length === 0)
+  if (loading || failed || totalItems === 0)
     return (
       <AsyncState
         status={loading ? 'loading' : failed ? 'error' : 'empty'}
@@ -1374,13 +1376,8 @@ function CourseStudentList({ courseId }: { courseId: string }) {
       />
     );
 
-  const paginatedEnrollments = enrollments.slice(
-    (page - 1) * LIST_PAGE_SIZE,
-    page * LIST_PAGE_SIZE,
-  );
-
   return (
-    <Card title={`Étudiants inscrits (${enrollments.length})`}>
+    <Card title={`Étudiants inscrits (${totalItems})`}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-left text-xs">
           <thead className="border-b border-slate-100 text-slate-400">
@@ -1390,7 +1387,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
             </tr>
           </thead>
           <tbody>
-            {paginatedEnrollments.map(({ id, student }) => {
+            {enrollments.map(({ id, student }) => {
               const name = `${student.firstName} ${student.lastName}`;
               return (
                 <tr
@@ -1409,7 +1406,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
       </div>
       <ListPagination
         page={page}
-        totalItems={enrollments.length}
+        totalItems={totalItems}
         onPageChange={setPage}
       />
     </Card>
@@ -1551,7 +1548,10 @@ function Students() {
             )}
           </div>
           {selectedCourseId && (
-            <CourseStudentList courseId={selectedCourseId} />
+            <CourseStudentList
+              key={selectedCourseId}
+              courseId={selectedCourseId}
+            />
           )}
         </div>
       )}
@@ -2060,6 +2060,7 @@ function GradeBook({ courseId }: { courseId: string }) {
   const [evaluationsFailed, setEvaluationsFailed] = useState(false);
   const [entries, setEntries] = useState<EvaluationGradeEntry[]>([]);
   const [page, setPage] = useState(1);
+  const [totalEntries, setTotalEntries] = useState(0);
   const [loadingGrades, setLoadingGrades] = useState(false);
   const [gradesFailed, setGradesFailed] = useState(false);
 
@@ -2085,6 +2086,7 @@ function GradeBook({ courseId }: { courseId: string }) {
   const fetchGrades = useCallback(async () => {
     if (!selectedEvaluationId) {
       setEntries([]);
+      setTotalEntries(0);
       return;
     }
     try {
@@ -2092,9 +2094,10 @@ function GradeBook({ courseId }: { courseId: string }) {
       setGradesFailed(false);
       const response = await apiClient.get(
         `/teacher/evaluations/${selectedEvaluationId}/grades`,
+        { params: { page, limit: LIST_PAGE_SIZE } },
       );
-      setEntries(response.data.data || []);
-      setPage(1);
+      setEntries(response.data.data.items || []);
+      setTotalEntries(response.data.data.meta?.total || 0);
     } catch (error) {
       console.error('Erreur chargement notes:', error);
       setGradesFailed(true);
@@ -2102,7 +2105,13 @@ function GradeBook({ courseId }: { courseId: string }) {
     } finally {
       setLoadingGrades(false);
     }
-  }, [selectedEvaluationId]);
+  }, [selectedEvaluationId, page]);
+
+  const [pageResetKey, setPageResetKey] = useState(selectedEvaluationId);
+  if (selectedEvaluationId !== pageResetKey) {
+    setPageResetKey(selectedEvaluationId);
+    setPage(1);
+  }
 
   useEffect(() => {
     let active = true;
@@ -2152,11 +2161,6 @@ function GradeBook({ courseId }: { courseId: string }) {
       />
     );
 
-  const paginatedEntries = entries.slice(
-    (page - 1) * LIST_PAGE_SIZE,
-    page * LIST_PAGE_SIZE,
-  );
-
   return (
     <div className="space-y-5">
       <label className="block max-w-xl">
@@ -2179,7 +2183,7 @@ function GradeBook({ courseId }: { courseId: string }) {
         <p className="mb-4 text-xs text-slate-500">
           Chaque note est enregistrée lorsque vous quittez son champ.
         </p>
-        {loadingGrades || gradesFailed || entries.length === 0 ? (
+        {loadingGrades || gradesFailed || totalEntries === 0 ? (
           <AsyncState
             status={loadingGrades ? 'loading' : gradesFailed ? 'error' : 'empty'}
             variant="inline"
@@ -2199,7 +2203,7 @@ function GradeBook({ courseId }: { courseId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {paginatedEntries.map((entry) => {
+                {entries.map((entry) => {
                   const name = `${entry.student.firstName} ${entry.student.lastName}`;
                   return (
                     <tr
@@ -2226,7 +2230,7 @@ function GradeBook({ courseId }: { courseId: string }) {
         )}
         <ListPagination
           page={page}
-          totalItems={entries.length}
+          totalItems={totalEntries}
           onPageChange={setPage}
         />
       </Card>
@@ -2304,37 +2308,37 @@ function Assignments() {
 function Resources() {
   const [resources, setResources] = useState<TeacherResource[]>([]);
   const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  const fetchResources = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get('/teacher/courses/resources', {
+        params: { page, limit: LIST_PAGE_SIZE },
+      });
+      setResources(response.data.data.items || []);
+      setTotalItems(response.data.data.meta?.total || 0);
+    } catch (error) {
+      console.error('Erreur chargement ressources:', error);
+      setFailed(true);
+      toast.error('Impossible de charger les ressources');
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
+
   useEffect(() => {
     let active = true;
-    void apiClient
-      .get('/teacher/courses/resources')
-      .then((response) => {
-        if (active) {
-          setResources(response.data.data);
-          setPage(1);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setFailed(true);
-          toast.error('Impossible de charger les ressources');
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    void Promise.resolve().then(() => {
+      if (active) return fetchResources();
+    });
     return () => {
       active = false;
     };
-  }, []);
-
-  const paginatedResources = resources.slice(
-    (page - 1) * LIST_PAGE_SIZE,
-    page * LIST_PAGE_SIZE,
-  );
+  }, [fetchResources]);
 
   return (
     <Page
@@ -2351,7 +2355,7 @@ function Resources() {
         </Link>
         , dans le chapitre concerné.
       </p>
-      {loading || failed || resources.length === 0 ? (
+      {loading || failed || totalItems === 0 ? (
         <AsyncState
           status={loading ? 'loading' : failed ? 'error' : 'empty'}
           loadingMessage="Chargement des ressources…"
@@ -2361,7 +2365,7 @@ function Resources() {
       ) : (
         <TableCard
           headers={['Nom', 'Cours · Chapitre', 'Type', 'Date', 'Actions']}
-          rows={paginatedResources.map((resource) => [
+          rows={resources.map((resource) => [
             resource.title,
             `${resource.chapter.course.title} · ${resource.chapter.title}`,
             resource.type,
@@ -2380,7 +2384,7 @@ function Resources() {
       )}
       <ListPagination
         page={page}
-        totalItems={resources.length}
+        totalItems={totalItems}
         onPageChange={setPage}
       />
     </Page>
