@@ -179,7 +179,7 @@ describe('TeachingService', () => {
         lastName: undefined,
         phone: '034 00 000 00',
       },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, theme: true } } },
     });
   });
 
