@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
@@ -122,6 +123,7 @@ export class StudentService {
               id: true,
               email: true,
               isActive: true,
+              theme: true,
             },
           },
           documents: {
@@ -534,6 +536,106 @@ export class StudentService {
     return this.prisma.student.update({
       where: { userId },
       data: { avatarUrl },
+    });
+  }
+
+  // ========== GRADES ==========
+
+  async getGrades(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      include: {
+        course: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            evaluations: {
+              include: {
+                grades: { where: { studentId: student.id } },
+              },
+            },
+            assignments: {
+              where: { publishedAt: { not: null } },
+              include: {
+                submissions: {
+                  where: { studentId: student.id },
+                  select: { grade: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return enrollments.map(({ course }) => ({
+      courseId: course.id,
+      code: course.code,
+      title: course.title,
+      evaluations: course.evaluations.map((evaluation) => ({
+        id: evaluation.id,
+        title: evaluation.title,
+        type: evaluation.type,
+        coefficient: evaluation.coefficient,
+        scheduledAt: evaluation.scheduledAt,
+        value: evaluation.grades[0]?.value ?? null,
+      })),
+      assignments: course.assignments.map((assignment) => ({
+        id: assignment.id,
+        title: assignment.title,
+        grade: assignment.submissions[0]?.grade ?? null,
+      })),
+    }));
+  }
+
+  // ========== SCHEDULE ==========
+
+  async getSchedule(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      select: { courseId: true },
+    });
+    const courseIds = enrollments.map((enrollment) => enrollment.courseId);
+    if (courseIds.length === 0) return [];
+
+    return this.prisma.courseSlot.findMany({
+      where: { courseId: { in: courseIds } },
+      include: {
+        course: { select: { id: true, title: true, code: true } },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
+  // ========== SECURITY & PREFERENCES ==========
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      throw new BadRequestException('Le mot de passe actuel est incorrect');
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+    return { success: true };
+  }
+
+  async updateTheme(userId: string, theme: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { theme },
+      select: { theme: true },
     });
   }
 }
