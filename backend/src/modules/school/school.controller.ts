@@ -440,6 +440,29 @@ export class SchoolController {
     };
   }
 
+  @Get('me/students/:studentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get enrolled student detail for my school' })
+  async getMySchoolStudentDetail(
+    @GetUser() user: SchoolAdminSession,
+    @Param('studentId') studentId: string,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    return {
+      success: true,
+      data: await this.schoolService.getStudentDetail(
+        user.schoolAdmin.schoolId,
+        studentId,
+      ),
+    };
+  }
+
   @Post('me/students/enroll')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')

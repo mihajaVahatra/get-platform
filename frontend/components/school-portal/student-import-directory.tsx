@@ -43,6 +43,23 @@ type Student = {
   };
 };
 
+type StudentDetail = Student & {
+  birthDate?: string | null;
+  cin?: string | null;
+  bacYear?: number | null;
+  bacType?: string | null;
+  address?: string | null;
+  region?: string | null;
+  country: string;
+  bio?: string | null;
+  enrollmentStatus: string;
+  programId?: string | null;
+  program?: { id: string; name: string } | null;
+  programLevel?: number | null;
+  academicYearId?: string | null;
+  academicYear?: { id: string; label: string } | null;
+};
+
 const PAGE_SIZE = 20;
 type Program = {
   id: string;
@@ -69,6 +86,13 @@ export function StudentImportDirectory() {
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [studentToWithdraw, setStudentToWithdraw] = useState<Student | null>(null);
   const [withdrawingStudent, setWithdrawingStudent] = useState(false);
+  const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+  const [studentDetail, setStudentDetail] = useState<StudentDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailProgramId, setDetailProgramId] = useState('');
+  const [detailLevel, setDetailLevel] = useState('');
+  const [detailAcademicYearId, setDetailAcademicYearId] = useState('');
+  const [savingDetail, setSavingDetail] = useState(false);
   const [email, setEmail] = useState('');
   const [programs, setPrograms] = useState<Program[]>([]);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
@@ -138,7 +162,7 @@ export function StudentImportDirectory() {
       .catch(() =>
         toast.error('Impossible de charger les options d’inscription'),
       );
-  }, [enrollOpen]);
+  }, [enrollOpen, viewingStudentId]);
   const selectedProgram = programs.find((program) => program.id === programId);
   const selectedYear = academicYears.find((year) => year.id === academicYearId);
   const now = new Date();
@@ -168,6 +192,61 @@ export function StudentImportDirectory() {
       toast.error('Impossible de clôturer l’inscription');
     } finally {
       setWithdrawingStudent(false);
+    }
+  };
+
+  const closeDetailDialog = () => {
+    setViewingStudentId(null);
+    setStudentDetail(null);
+  };
+
+  useEffect(() => {
+    if (!viewingStudentId) return;
+    let cancelled = false;
+    void Promise.resolve().then(async () => {
+      if (cancelled) return;
+      setLoadingDetail(true);
+      try {
+        const response = await apiClient.get(
+          `/schools/me/students/${viewingStudentId}`,
+        );
+        if (cancelled) return;
+        const detail = response.data.data as StudentDetail;
+        setStudentDetail(detail);
+        setDetailProgramId(detail.programId || '');
+        setDetailLevel(detail.programLevel ? String(detail.programLevel) : '');
+        setDetailAcademicYearId(detail.academicYearId || '');
+      } catch {
+        if (!cancelled) {
+          toast.error('Impossible de charger la fiche de cet étudiant');
+          closeDetailDialog();
+        }
+      } finally {
+        if (!cancelled) setLoadingDetail(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewingStudentId]);
+
+  const saveStudentEnrollment = async () => {
+    if (!studentDetail) return;
+    setSavingDetail(true);
+    try {
+      await apiClient.patch(`/schools/me/students/${studentDetail.id}`, {
+        programId: detailProgramId || undefined,
+        level: detailLevel ? Number(detailLevel) : undefined,
+        academicYearId: detailAcademicYearId || undefined,
+        status: studentDetail.enrollmentStatus,
+      });
+      toast.success('Inscription mise à jour');
+      closeDetailDialog();
+      setRefreshKey((value) => value + 1);
+    } catch {
+      toast.error('Impossible de mettre à jour l’inscription');
+    } finally {
+      setSavingDetail(false);
     }
   };
 
@@ -319,6 +398,7 @@ export function StudentImportDirectory() {
                 {students.map((student) => {
                   const initials =
                     `${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase();
+                  const name = `${student.firstName} ${student.lastName}`;
 
                   return (
                     <tr
@@ -339,6 +419,14 @@ export function StudentImportDirectory() {
                         <Status />
                         <Button
                           className="ml-2"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setViewingStudentId(student.id)}
+                        >
+                          Voir
+                        </Button>
+                        <Button
+                          className="ml-1"
                           size="sm"
                           variant="ghost"
                           onClick={() => setStudentToWithdraw(student)}
@@ -608,6 +696,139 @@ export function StudentImportDirectory() {
               onClick={() => void withdrawStudent()}
             >
               {withdrawingStudent ? 'Clôture...' : 'Clôturer l’inscription'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={viewingStudentId !== null}
+        onOpenChange={(open) => {
+          if (!open && !savingDetail) closeDetailDialog();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fiche étudiant</DialogTitle>
+            <DialogDescription>
+              {studentDetail
+                ? `${studentDetail.firstName} ${studentDetail.lastName}`
+                : 'Chargement de la fiche...'}
+            </DialogDescription>
+          </DialogHeader>
+          {loadingDetail || !studentDetail ? (
+            <p className="py-6 text-center text-sm text-slate-500">
+              Chargement...
+            </p>
+          ) : (
+            <div className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-slate-400">E-mail</p>
+                  <p className="font-semibold text-[#28315e]">
+                    {studentDetail.user.email}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Téléphone</p>
+                  <p className="font-semibold text-[#28315e]">
+                    {studentDetail.phone || 'Non renseigné'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Adresse</p>
+                  <p className="font-semibold text-[#28315e]">
+                    {studentDetail.address || 'Non renseignée'},{' '}
+                    {studentDetail.city || ''} {studentDetail.region || ''}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-400">Baccalauréat</p>
+                  <p className="font-semibold text-[#28315e]">
+                    {studentDetail.bacType || 'Non renseigné'}
+                    {studentDetail.bacYear ? ` (${studentDetail.bacYear})` : ''}
+                  </p>
+                </div>
+              </div>
+              {studentDetail.bio && (
+                <div>
+                  <p className="text-slate-400">Bio</p>
+                  <p className="font-semibold text-[#28315e]">
+                    {studentDetail.bio}
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-4">
+                <div className="space-y-2">
+                  <Label>Programme</Label>
+                  <Select
+                    items={programs.map((program) => ({
+                      value: program.id,
+                      label: program.name,
+                    }))}
+                    value={detailProgramId}
+                    onValueChange={(value) => setDetailProgramId(value ?? '')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Programme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {programs.map((program) => (
+                        <SelectItem key={program.id} value={program.id}>
+                          {program.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Niveau</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={detailLevel}
+                    onChange={(event) => setDetailLevel(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Année académique</Label>
+                  <Select
+                    items={academicYears.map((year) => ({
+                      value: year.id,
+                      label: year.label,
+                    }))}
+                    value={detailAcademicYearId}
+                    onValueChange={(value) => setDetailAcademicYearId(value ?? '')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Année" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {academicYears.map((year) => (
+                        <SelectItem key={year.id} value={year.id}>
+                          {year.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={savingDetail}
+              onClick={() => closeDetailDialog()}
+            >
+              Fermer
+            </Button>
+            <Button
+              type="button"
+              disabled={savingDetail || loadingDetail || !studentDetail}
+              onClick={() => void saveStudentEnrollment()}
+            >
+              {savingDetail ? 'Enregistrement...' : 'Enregistrer'}
             </Button>
           </DialogFooter>
         </DialogContent>
