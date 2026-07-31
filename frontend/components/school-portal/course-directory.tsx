@@ -46,6 +46,9 @@ type Course = {
   title: string;
   description?: string | null;
   level: string;
+  subjectId?: string | null;
+  programId?: string | null;
+  programLevel?: number | null;
   group?: string | null;
   credits: number;
   room?: string | null;
@@ -59,9 +62,7 @@ type CourseForm = {
   programId: string;
   programLevel: string;
   code: string;
-  title: string;
   description: string;
-  level: string;
   group: string;
   credits: string;
   room: string;
@@ -74,9 +75,7 @@ const EMPTY_FORM: CourseForm = {
   programId: '',
   programLevel: '',
   code: '',
-  title: '',
   description: '',
-  level: '',
   group: '',
   credits: '0',
   room: '',
@@ -159,13 +158,11 @@ export function CourseDirectory() {
     setSelectedCourse(course);
     setForm({
       teacherId: course.teacherId,
-      subjectId: '',
-      programId: '',
-      programLevel: '',
+      subjectId: course.subjectId || '',
+      programId: course.programId || '',
+      programLevel: course.programLevel ? String(course.programLevel) : '',
       code: course.code,
-      title: course.title,
       description: course.description || '',
-      level: course.level,
       group: course.group || '',
       credits: String(course.credits),
       room: course.room || '',
@@ -208,7 +205,11 @@ export function CourseDirectory() {
     void (async () => {
       setSaving(true);
       const payload = {
-        ...form,
+        teacherId: form.teacherId,
+        subjectId: form.subjectId,
+        programId: form.programId,
+        programLevel: Number(form.programLevel),
+        code: form.code,
         description: form.description || undefined,
         group: form.group || undefined,
         room: form.room || undefined,

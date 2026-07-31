@@ -30,6 +30,7 @@ type TeacherAssignment = {
   department?: string | null;
   specialty?: string | null;
   isActive: boolean;
+  subjects?: { subject: { id: string; name: string; isActive: boolean } }[];
   teacher: {
     id: string;
     user: {
@@ -118,7 +119,7 @@ export function TeacherDirectory() {
       teacherId: assignment.teacherId,
       department: assignment.department || '',
       specialty: assignment.specialty || '',
-      subjectIds: [],
+      subjectIds: (assignment.subjects || []).map((item) => item.subject.id),
     });
     setActiveDialog('edit');
   };
