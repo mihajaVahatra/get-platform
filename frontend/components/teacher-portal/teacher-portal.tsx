@@ -14,7 +14,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Settings,
   Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -157,14 +156,40 @@ type TeacherProfile = {
   lastName?: string | null;
   avatarUrl?: string | null;
   phone?: string | null;
-  user: { email: string };
+  user: { email: string; theme?: string };
 };
+
+type ThemePreference = 'light' | 'dark' | 'system';
+
+function applyTheme(theme: string) {
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.classList.toggle('dark', isDark);
+}
 
 export function TeacherPortal() {
   const params = useSearchParams();
   const view = (params.get('view') || 'dashboard') as View;
   const courseTab = (params.get('tab') || 'content') as CourseTab;
   const courseId = params.get('courseId');
+
+  useEffect(() => {
+    let active = true;
+    void apiClient
+      .get('/teacher/profile')
+      .then((response) => {
+        if (!active) return;
+        const theme = (response.data.data as TeacherProfile).user.theme;
+        if (theme) applyTheme(theme);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (view === 'courses') return <Courses />;
   if (view === 'course-detail')
@@ -257,24 +282,14 @@ function Courses() {
           </select>
         </label>
       )}
-      {loading ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Chargement de vos cours…
-        </p>
-      ) : failed ? (
-        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-          <p>Vos cours n’ont pas pu être chargés.</p>
-          <button
-            className="mt-3 text-xs font-bold text-violet-600"
-            onClick={() => void fetchCourses()}
-          >
-            Réessayer
-          </button>
-        </div>
-      ) : displayedCourses.length === 0 ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Aucun cours ne vous est actuellement affecté.
-        </p>
+      {loading || failed || displayedCourses.length === 0 ? (
+        <AsyncState
+          status={loading ? 'loading' : failed ? 'error' : 'empty'}
+          loadingMessage="Chargement de vos cours…"
+          errorMessage="Vos cours n’ont pas pu être chargés."
+          emptyMessage="Aucun cours ne vous est actuellement affecté."
+          onRetry={() => void fetchCourses()}
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {displayedCourses.map((course) => (
@@ -372,9 +387,7 @@ function CourseDetail({
         subtitle="Chargement du contenu pédagogique…"
         back="/dashboard/teacher?view=courses"
       >
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Chargement du cours…
-        </p>
+        <AsyncState status="loading" loadingMessage="Chargement du cours…" />
       </Page>
     );
 
@@ -385,17 +398,11 @@ function CourseDetail({
         subtitle="Ce cours n’est pas accessible avec votre compte."
         back="/dashboard/teacher?view=courses"
       >
-        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-          <p>Le détail du cours n’a pas pu être chargé.</p>
-          {courseId && (
-            <button
-              className="mt-3 text-xs font-bold text-violet-600"
-              onClick={() => void fetchCourse()}
-            >
-              Réessayer
-            </button>
-          )}
-        </div>
+        <AsyncState
+          status="error"
+          errorMessage="Le détail du cours n’a pas pu être chargé."
+          onRetry={courseId ? () => void fetchCourse() : undefined}
+        />
       </Page>
     );
 
@@ -1197,31 +1204,15 @@ function CourseStudentList({ courseId }: { courseId: string }) {
     };
   }, [fetchStudents]);
 
-  if (loading)
+  if (loading || failed || enrollments.length === 0)
     return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-        Chargement des étudiants…
-      </p>
-    );
-
-  if (failed)
-    return (
-      <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-        <p>Les étudiants de ce cours n’ont pas pu être chargés.</p>
-        <button
-          className="mt-3 text-xs font-bold text-violet-600"
-          onClick={() => void fetchStudents()}
-        >
-          Réessayer
-        </button>
-      </div>
-    );
-
-  if (enrollments.length === 0)
-    return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-        Aucun étudiant n’est inscrit à ce cours.
-      </p>
+      <AsyncState
+        status={loading ? 'loading' : failed ? 'error' : 'empty'}
+        loadingMessage="Chargement des étudiants…"
+        errorMessage="Les étudiants de ce cours n’ont pas pu être chargés."
+        emptyMessage="Aucun étudiant n’est inscrit à ce cours."
+        onRetry={() => void fetchStudents()}
+      />
     );
 
   return (
@@ -1354,24 +1345,14 @@ function Students() {
       title="Étudiants"
       subtitle="Consultez les étudiants inscrits à chacun de vos cours."
     >
-      {loading ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Chargement de vos cours…
-        </p>
-      ) : failed ? (
-        <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-          <p>Vos cours n’ont pas pu être chargés.</p>
-          <button
-            className="mt-3 text-xs font-bold text-violet-600"
-            onClick={() => void fetchCourses()}
-          >
-            Réessayer
-          </button>
-        </div>
-      ) : courses.length === 0 ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Aucun cours ne vous est actuellement affecté.
-        </p>
+      {loading || failed || courses.length === 0 ? (
+        <AsyncState
+          status={loading ? 'loading' : failed ? 'error' : 'empty'}
+          loadingMessage="Chargement de vos cours…"
+          errorMessage="Vos cours n’ont pas pu être chargés."
+          emptyMessage="Aucun cours ne vous est actuellement affecté."
+          onRetry={() => void fetchCourses()}
+        />
       ) : (
         <div className="space-y-5">
           <label className="block max-w-xl">
@@ -1473,51 +1454,154 @@ function CourseSelect({
   );
 }
 
-function CourseLoadingState({
-  loading,
-  failed,
-  empty,
+type AsyncStateStyle = 'card' | 'inline';
+
+function AsyncState({
+  status,
+  loadingMessage,
+  errorMessage,
+  emptyMessage,
   onRetry,
+  retryLabel = 'Réessayer',
+  variant = 'card',
+  emptyVariant,
+  bordered = true,
+  textSize,
 }: {
-  loading: boolean;
-  failed: boolean;
-  empty: boolean;
-  onRetry: () => void;
+  status: 'loading' | 'error' | 'empty';
+  loadingMessage?: string;
+  errorMessage?: string;
+  emptyMessage?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+  variant?: AsyncStateStyle;
+  emptyVariant?: AsyncStateStyle;
+  bordered?: boolean;
+  textSize?: 'xs' | 'sm';
 }) {
-  if (loading)
+  const sizeClass = (forVariant: AsyncStateStyle) =>
+    (textSize ?? (forVariant === 'card' ? 'sm' : 'xs')) === 'sm'
+      ? 'text-sm'
+      : 'text-xs';
+  const textSizeClass = sizeClass(variant);
+
+  if (status === 'loading') {
+    if (variant === 'inline')
+      return <p className={`${textSizeClass} text-slate-500`}>{loadingMessage}</p>;
     return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-        Chargement de vos cours…
+      <p
+        className={[
+          'rounded-xl',
+          bordered ? 'border border-slate-100' : '',
+          'bg-white p-5',
+          textSizeClass,
+          'text-slate-500 shadow-sm',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {loadingMessage}
       </p>
     );
-  if (failed)
+  }
+
+  if (status === 'error') {
+    if (variant === 'inline') {
+      if (!errorMessage)
+        return (
+          <button
+            type="button"
+            className="text-xs font-bold text-violet-600"
+            onClick={onRetry}
+          >
+            {retryLabel}
+          </button>
+        );
+      return (
+        <div>
+          <p className={`${textSizeClass} text-rose-700`}>{errorMessage}</p>
+          {onRetry && (
+            <button
+              type="button"
+              className="mt-3 text-xs font-bold text-violet-600"
+              onClick={onRetry}
+            >
+              {retryLabel}
+            </button>
+          )}
+        </div>
+      );
+    }
     return (
-      <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-        <p>Vos cours n’ont pas pu être chargés.</p>
-        <button
-          className="mt-3 text-xs font-bold text-violet-600"
-          onClick={onRetry}
-        >
-          Réessayer
-        </button>
+      <div
+        className={[
+          'rounded-xl',
+          bordered ? 'border border-rose-100' : '',
+          'bg-rose-50 p-5',
+          textSizeClass,
+          'text-rose-700',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <p>{errorMessage}</p>
+        {onRetry && (
+          <button
+            type="button"
+            className="mt-3 text-xs font-bold text-violet-600"
+            onClick={onRetry}
+          >
+            {retryLabel}
+          </button>
+        )}
       </div>
     );
-  if (empty)
+  }
+
+  const resolvedEmptyVariant = emptyVariant ?? variant;
+  const emptyTextSizeClass = sizeClass(resolvedEmptyVariant);
+  if (resolvedEmptyVariant === 'inline') {
+    if (bordered === false)
+      return (
+        <p className={`${emptyTextSizeClass} text-slate-500`}>{emptyMessage}</p>
+      );
     return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-        Aucun cours ne vous est actuellement affecté.
+      <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+        {emptyMessage}
       </p>
     );
-  return null;
+  }
+  return (
+    <p
+      className={[
+        'rounded-xl',
+        bordered ? 'border border-slate-100' : '',
+        'bg-white p-5',
+        emptyTextSizeClass,
+        'text-slate-500 shadow-sm',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {emptyMessage}
+    </p>
+  );
 }
 
 function Evaluations() {
   const courseState = useTeacherCourses();
   const unavailable = (
-    <CourseLoadingState
-      loading={courseState.loading}
-      failed={courseState.failed}
-      empty={courseState.courses.length === 0}
+    <AsyncState
+      status={
+        courseState.loading
+          ? 'loading'
+          : courseState.failed
+            ? 'error'
+            : 'empty'
+      }
+      loadingMessage="Chargement de vos cours…"
+      errorMessage="Vos cours n’ont pas pu être chargés."
+      emptyMessage="Aucun cours ne vous est actuellement affecté."
       onRetry={() => void courseState.fetchCourses()}
     />
   );
@@ -1631,19 +1715,15 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
             <Plus className="size-4" /> Nouvelle évaluation
           </button>
         </div>
-        {loading ? (
-          <p className="text-xs text-slate-500">Chargement des évaluations…</p>
-        ) : failed ? (
-          <button
-            className="text-xs font-bold text-violet-600"
-            onClick={() => void fetchEvaluations()}
-          >
-            Réessayer de charger les évaluations
-          </button>
-        ) : evaluations.length === 0 ? (
-          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-            Aucune évaluation pour ce cours.
-          </p>
+        {loading || failed || evaluations.length === 0 ? (
+          <AsyncState
+            status={loading ? 'loading' : failed ? 'error' : 'empty'}
+            variant="inline"
+            loadingMessage="Chargement des évaluations…"
+            retryLabel="Réessayer de charger les évaluations"
+            emptyMessage="Aucune évaluation pour ce cours."
+            onRetry={() => void fetchEvaluations()}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-xs">
@@ -1751,10 +1831,17 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
 function Grades() {
   const courseState = useTeacherCourses();
   const unavailable = (
-    <CourseLoadingState
-      loading={courseState.loading}
-      failed={courseState.failed}
-      empty={courseState.courses.length === 0}
+    <AsyncState
+      status={
+        courseState.loading
+          ? 'loading'
+          : courseState.failed
+            ? 'error'
+            : 'empty'
+      }
+      loadingMessage="Chargement de vos cours…"
+      errorMessage="Vos cours n’ont pas pu être chargés."
+      emptyMessage="Aucun cours ne vous est actuellement affecté."
       onRetry={() => void courseState.fetchCourses()}
     />
   );
@@ -1869,24 +1956,19 @@ function GradeBook({ courseId }: { courseId: string }) {
     );
   };
 
-  if (loadingEvaluations)
+  if (loadingEvaluations || evaluationsFailed || evaluations.length === 0)
     return (
-      <p className="text-xs text-slate-500">Chargement des évaluations…</p>
-    );
-  if (evaluationsFailed)
-    return (
-      <button
-        className="text-xs font-bold text-violet-600"
-        onClick={() => void fetchEvaluations()}
-      >
-        Réessayer de charger les évaluations
-      </button>
-    );
-  if (evaluations.length === 0)
-    return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-        Créez d’abord une évaluation pour saisir des notes.
-      </p>
+      <AsyncState
+        status={
+          loadingEvaluations ? 'loading' : evaluationsFailed ? 'error' : 'empty'
+        }
+        variant="inline"
+        emptyVariant="card"
+        loadingMessage="Chargement des évaluations…"
+        retryLabel="Réessayer de charger les évaluations"
+        emptyMessage="Créez d’abord une évaluation pour saisir des notes."
+        onRetry={() => void fetchEvaluations()}
+      />
     );
 
   return (
@@ -1911,19 +1993,15 @@ function GradeBook({ courseId }: { courseId: string }) {
         <p className="mb-4 text-xs text-slate-500">
           Chaque note est enregistrée lorsque vous quittez son champ.
         </p>
-        {loadingGrades ? (
-          <p className="text-xs text-slate-500">Chargement des étudiants…</p>
-        ) : gradesFailed ? (
-          <button
-            className="text-xs font-bold text-violet-600"
-            onClick={() => void fetchGrades()}
-          >
-            Réessayer de charger les notes
-          </button>
-        ) : entries.length === 0 ? (
-          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-            Aucun étudiant n’est inscrit à ce cours.
-          </p>
+        {loadingGrades || gradesFailed || entries.length === 0 ? (
+          <AsyncState
+            status={loadingGrades ? 'loading' : gradesFailed ? 'error' : 'empty'}
+            variant="inline"
+            loadingMessage="Chargement des étudiants…"
+            retryLabel="Réessayer de charger les notes"
+            emptyMessage="Aucun étudiant n’est inscrit à ce cours."
+            onRetry={() => void fetchGrades()}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-xs">
@@ -2073,18 +2151,13 @@ function Resources() {
         </Link>
         , dans le chapitre concerné.
       </p>
-      {loading ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Chargement des ressources…
-        </p>
-      ) : failed ? (
-        <p className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
-          Les ressources n&apos;ont pas pu être chargées.
-        </p>
-      ) : resources.length === 0 ? (
-        <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
-          Aucune ressource n&apos;a encore été ajoutée à vos cours.
-        </p>
+      {loading || failed || resources.length === 0 ? (
+        <AsyncState
+          status={loading ? 'loading' : failed ? 'error' : 'empty'}
+          loadingMessage="Chargement des ressources…"
+          errorMessage="Les ressources n'ont pas pu être chargées."
+          emptyMessage="Aucune ressource n'a encore été ajoutée à vos cours."
+        />
       ) : (
         <TableCard
           headers={['Nom', 'Cours · Chapitre', 'Type', 'Date', 'Actions']}
@@ -2252,12 +2325,15 @@ function Announcements() {
           )}
         </Card>
         <Card title="Historique du cours">
-          {loading ? (
-            <p className="text-sm text-slate-500">Chargement des annonces…</p>
-          ) : announcements.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Aucune annonce n&apos;a encore été envoyée pour ce cours.
-            </p>
+          {loading || announcements.length === 0 ? (
+            <AsyncState
+              status={loading ? 'loading' : 'empty'}
+              variant="inline"
+              bordered={false}
+              textSize="sm"
+              loadingMessage="Chargement des annonces…"
+              emptyMessage="Aucune annonce n'a encore été envoyée pour ce cours."
+            />
           ) : (
             <div className="divide-y divide-slate-100">
               {announcements.map((announcement) => (
@@ -2291,12 +2367,11 @@ function Announcements() {
 
 function SettingsView() {
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'security' | 'notifications' | 'preferences'
+    'profile' | 'security' | 'preferences'
   >('profile');
   const tabs = [
     ['profile', 'Mon profil'],
     ['security', 'Sécurité'],
-    ['notifications', 'Notifications'],
     ['preferences', 'Préférences'],
   ] as const;
 
@@ -2317,13 +2392,9 @@ function SettingsView() {
           </button>
         ))}
       </nav>
-      {activeTab === 'profile' ? (
-        <TeacherProfileSettings />
-      ) : (
-        <TeacherSettingsComingSoon
-          title={tabs.find(([id]) => id === activeTab)?.[1] ?? ''}
-        />
-      )}
+      {activeTab === 'profile' && <TeacherProfileSettings />}
+      {activeTab === 'security' && <TeacherSecuritySettings />}
+      {activeTab === 'preferences' && <TeacherPreferencesSettings />}
     </Page>
   );
 }
@@ -2380,10 +2451,22 @@ function TeacherProfileSettings() {
   };
 
   if (loading) {
-    return <p className="rounded-xl bg-white p-5 text-sm text-slate-500 shadow-sm">Chargement du profil…</p>;
+    return (
+      <AsyncState
+        status="loading"
+        bordered={false}
+        loadingMessage="Chargement du profil…"
+      />
+    );
   }
   if (!profile) {
-    return <p className="rounded-xl bg-rose-50 p-5 text-sm text-rose-700">Le profil est indisponible.</p>;
+    return (
+      <AsyncState
+        status="error"
+        bordered={false}
+        errorMessage="Le profil est indisponible."
+      />
+    );
   }
 
   const displayName = `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || 'Professeur';
@@ -2439,15 +2522,187 @@ function TeacherProfileSettings() {
   );
 }
 
-function TeacherSettingsComingSoon({ title }: { title: string }) {
+function TeacherSecuritySettings() {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('La confirmation ne correspond pas au nouveau mot de passe');
+      return;
+    }
+    void (async () => {
+      try {
+        setSaving(true);
+        await apiClient.patch('/teacher/profile/password', {
+          currentPassword,
+          newPassword,
+        });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        toast.success('Mot de passe mis à jour');
+      } catch (error) {
+        console.error('Erreur changement de mot de passe:', error);
+        const status = (error as { response?: { status?: number } }).response
+          ?.status;
+        toast.error(
+          status === 400
+            ? 'Le mot de passe actuel est incorrect'
+            : 'Impossible de mettre à jour le mot de passe',
+        );
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
   return (
-    <Card title={title}>
-      <div className="flex flex-col items-center justify-center py-14 text-center">
-        <Settings className="size-8 text-violet-600" />
-        <p className="mt-4 text-sm font-bold">Cet espace est à venir</p>
-        <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
-          Cette fonctionnalité dépend de réglages qui ne sont pas encore disponibles dans l&apos;application.
+    <Card title="Mot de passe">
+      <form className="max-w-sm space-y-4" onSubmit={submit}>
+        <label className="block text-xs font-bold text-slate-700">
+          Mot de passe actuel
+          <input
+            type="password"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </label>
+        <label className="block text-xs font-bold text-slate-700">
+          Nouveau mot de passe
+          <input
+            type="password"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </label>
+        <label className="block text-xs font-bold text-slate-700">
+          Confirmer le nouveau mot de passe
+          <input
+            type="password"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </label>
+        <p className="text-[10px] text-slate-400">
+          Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre
+          et un caractère spécial (@$!%*?&amp;).
         </p>
+        <button
+          className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          disabled={saving}
+          type="submit"
+        >
+          {saving ? 'Mise à jour…' : 'Mettre à jour le mot de passe'}
+        </button>
+      </form>
+    </Card>
+  );
+}
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Clair' },
+  { value: 'dark', label: 'Sombre' },
+  { value: 'system', label: 'Système' },
+];
+
+function TeacherPreferencesSettings() {
+  const [theme, setTheme] = useState<ThemePreference>('system');
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const fetchTheme = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get('/teacher/profile');
+      const profile = response.data.data as TeacherProfile;
+      setTheme((profile.user.theme as ThemePreference) || 'system');
+    } catch (error) {
+      console.error('Erreur chargement préférences professeur:', error);
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchTheme();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchTheme]);
+
+  const selectTheme = (value: ThemePreference) => {
+    const previous = theme;
+    setTheme(value);
+    applyTheme(value);
+    void (async () => {
+      try {
+        setSaving(true);
+        await apiClient.patch('/teacher/profile/theme', { theme: value });
+        toast.success('Préférence enregistrée');
+      } catch (error) {
+        console.error('Erreur mise à jour du thème:', error);
+        setTheme(previous);
+        applyTheme(previous);
+        toast.error('Impossible d’enregistrer votre préférence');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  if (loading || failed)
+    return (
+      <AsyncState
+        status={loading ? 'loading' : 'error'}
+        bordered={false}
+        loadingMessage="Chargement des préférences…"
+        errorMessage="Vos préférences n’ont pas pu être chargées."
+        onRetry={() => void fetchTheme()}
+      />
+    );
+
+  return (
+    <Card title="Apparence">
+      <p className="mb-4 text-xs text-slate-500">
+        Choisissez l’apparence de l’application sur cet appareil.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {THEME_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            disabled={saving}
+            className={`rounded-lg border px-4 py-2 text-xs font-bold transition disabled:opacity-60 ${
+              theme === option.value
+                ? 'border-violet-600 bg-violet-600 text-white'
+                : 'border-slate-200 text-slate-600 hover:border-violet-200'
+            }`}
+            onClick={() => selectTheme(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
     </Card>
   );

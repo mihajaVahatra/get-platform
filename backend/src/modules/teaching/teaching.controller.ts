@@ -15,12 +15,15 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
+  Matches,
   Min,
+  MinLength,
 } from 'class-validator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,6 +40,23 @@ class UpdateTeacherProfileDto {
   @IsOptional() @IsString() @MaxLength(100) firstName?: string;
   @IsOptional() @IsString() @MaxLength(100) lastName?: string;
   @IsOptional() @IsString() @MaxLength(30) phone?: string;
+}
+class ChangePasswordDto {
+  @IsString() currentPassword: string;
+  @IsString()
+  @MinLength(8)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    {
+      message:
+        'Le nouveau mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial (@$!%*?&)',
+    },
+  )
+  newPassword: string;
+}
+class UpdateThemeDto {
+  @IsIn(['light', 'dark', 'system'])
+  theme: string;
 }
 class CourseAnnouncementDto {
   @IsString() @MaxLength(160) title: string;
@@ -274,6 +294,20 @@ export class TeacherProfileController {
     @Body() dto: UpdateTeacherProfileDto,
   ) {
     return this.teaching.updateProfile(id, dto);
+  }
+
+  @Patch('profile/password')
+  changePassword(@GetUser('id') id: string, @Body() dto: ChangePasswordDto) {
+    return this.teaching.changePassword(
+      id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+  }
+
+  @Patch('profile/theme')
+  updateTheme(@GetUser('id') id: string, @Body() dto: UpdateThemeDto) {
+    return this.teaching.updateTheme(id, dto.theme);
   }
 
   @Post('profile/avatar')

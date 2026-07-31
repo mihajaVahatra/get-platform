@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { StorageService } from '../../common/services/storage.service';
@@ -22,7 +23,7 @@ export class TeachingService {
   async profile(userId: string) {
     const teacher = await this.prisma.teacher.findUnique({
       where: { userId },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, theme: true } } },
     });
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
     return teacher;
@@ -70,7 +71,7 @@ export class TeachingService {
         lastName: dto.lastName?.trim(),
         phone: dto.phone?.trim(),
       },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, theme: true } } },
     });
   }
   async updateAvatar(userId: string, avatarUrl: string) {
@@ -78,8 +79,33 @@ export class TeachingService {
     return this.prisma.teacher.update({
       where: { id: teacher.id },
       data: { avatarUrl },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, theme: true } } },
     });
+  }
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ForbiddenException('Utilisateur introuvable');
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid)
+      throw new BadRequestException('Le mot de passe actuel est incorrect');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+    return { success: true };
+  }
+  async updateTheme(userId: string, theme: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { theme },
+      select: { theme: true },
+    });
+    return user;
   }
   private async course(userId: string, courseId: string) {
     const teacher = await this.teacher(userId);
