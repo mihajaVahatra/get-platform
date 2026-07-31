@@ -216,6 +216,19 @@ export class SchoolService {
     };
   }
 
+  async getStudentDetail(schoolId: string, studentId: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { id: studentId, enrolledSchoolId: schoolId, deletedAt: null },
+      include: {
+        user: { select: { email: true } },
+        program: true,
+        academicYear: true,
+      },
+    });
+    if (!student) throw new NotFoundException('Étudiant inscrit introuvable');
+    return student;
+  }
+
   async getStudentClasses(schoolId: string) {
     const rows = await this.prisma.student.findMany({
       where: {
