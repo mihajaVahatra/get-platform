@@ -2,7 +2,14 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { MailOpen, MessageCircle, PenLine, Send, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  MailOpen,
+  MessageCircle,
+  PenLine,
+  Send,
+  X,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
@@ -205,7 +212,9 @@ export default function MessagesPage() {
         </button>
       </header>
       <div className="grid overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_4px_18px_rgba(68,50,140,0.05)] md:grid-cols-[310px_1fr]">
-        <aside className="border-b border-slate-100 md:border-b-0 md:border-r">
+        <aside
+          className={`${selected ? 'hidden md:block' : ''} border-b border-slate-100 md:border-b-0 md:border-r`}
+        >
           <div className="border-b border-slate-100 px-4 py-3">
             <p className="text-xs font-extrabold">Discussions</p>
             <p className="mt-1 text-[10px] text-slate-500">
@@ -229,10 +238,20 @@ export default function MessagesPage() {
             )}
           </div>
         </aside>
-        <section className="flex min-h-[500px] flex-col">
+        <section
+          className={`${selected ? 'flex' : 'hidden md:flex'} min-h-[280px] flex-col md:min-h-[500px]`}
+        >
           {selected ? (
             <>
               <div className="flex items-center gap-3 border-b border-slate-100 p-4">
+                <button
+                  type="button"
+                  onClick={() => setSelected(null)}
+                  aria-label="Retour aux discussions"
+                  className="-ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 md:hidden"
+                >
+                  <ArrowLeft className="size-5" />
+                </button>
                 <span className="flex size-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600">
                   {nameOf(selected.participant)[0]?.toUpperCase()}
                 </span>
