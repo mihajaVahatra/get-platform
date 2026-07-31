@@ -15,6 +15,7 @@ describe('TeachingService', () => {
     courseResource: {
       create: jest.Mock;
       findMany: jest.Mock;
+      count: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
       delete: jest.Mock;
@@ -32,7 +33,11 @@ describe('TeachingService', () => {
       count: jest.Mock;
       update: jest.Mock;
     };
-    courseEnrollment: { findUnique: jest.Mock; findMany: jest.Mock };
+    courseEnrollment: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+    };
     announcement: { create: jest.Mock; findMany: jest.Mock };
     announcementRecipient: { createMany: jest.Mock };
     grade: { findMany: jest.Mock; upsert: jest.Mock };
@@ -53,6 +58,7 @@ describe('TeachingService', () => {
       courseResource: {
         create: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -86,6 +92,7 @@ describe('TeachingService', () => {
       courseEnrollment: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        count: jest.fn(),
       },
       announcement: { create: jest.fn(), findMany: jest.fn() },
       announcementRecipient: { createMany: jest.fn() },
@@ -179,7 +186,7 @@ describe('TeachingService', () => {
         lastName: undefined,
         phone: '034 00 000 00',
       },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, theme: true } } },
     });
   });
 
@@ -267,24 +274,31 @@ describe('TeachingService', () => {
     );
   });
 
-  it('retourne uniquement les ressources des cours du professeur', async () => {
+  it('retourne uniquement les ressources des cours du professeur, paginées', async () => {
     prisma.courseResource.findMany.mockResolvedValue([]);
+    prisma.courseResource.count.mockResolvedValue(0);
 
-    await service.resources('user-1');
+    await expect(service.resources('user-1', 2, 10)).resolves.toEqual({
+      items: [],
+      meta: { page: 2, limit: 10, total: 0, totalPages: 0 },
+    });
 
-    expect(prisma.courseResource.findMany).toHaveBeenCalledWith({
-      where: {
-        chapter: {
-          course: {
-            teacherId: 'teacher-1',
-            school: {
-              teacherAssignments: {
-                some: { teacherId: 'teacher-1', isActive: true },
-              },
+    const where = {
+      chapter: {
+        course: {
+          teacherId: 'teacher-1',
+          school: {
+            teacherAssignments: {
+              some: { teacherId: 'teacher-1', isActive: true },
             },
           },
         },
       },
+    };
+    expect(prisma.courseResource.findMany).toHaveBeenCalledWith({
+      where,
+      skip: 10,
+      take: 10,
       include: {
         chapter: {
           select: {
@@ -295,6 +309,7 @@ describe('TeachingService', () => {
       },
       orderBy: { createdAt: 'desc' },
     });
+    expect(prisma.courseResource.count).toHaveBeenCalledWith({ where });
   });
 
   it('annonce uniquement aux étudiants réellement inscrits au cours', async () => {
@@ -392,30 +407,40 @@ describe('TeachingService', () => {
         },
       },
     ]);
+    prisma.courseEnrollment.count.mockResolvedValue(2);
     prisma.grade.findMany.mockResolvedValue([
       { studentId: 'student-1', value: 16, comment: 'Très bien' },
     ]);
 
-    await expect(service.grades('user-1', 'evaluation-1')).resolves.toEqual([
-      {
-        studentId: 'student-1',
-        student: {
-          firstName: 'Tina',
-          lastName: 'Raso',
-          user: { email: 'tina@example.test' },
+    await expect(service.grades('user-1', 'evaluation-1')).resolves.toEqual({
+      items: [
+        {
+          studentId: 'student-1',
+          student: {
+            firstName: 'Tina',
+            lastName: 'Raso',
+            user: { email: 'tina@example.test' },
+          },
+          grade: { studentId: 'student-1', value: 16, comment: 'Très bien' },
         },
-        grade: { studentId: 'student-1', value: 16, comment: 'Très bien' },
-      },
-      {
-        studentId: 'student-2',
-        student: {
-          firstName: 'Mamy',
-          lastName: 'Rakoto',
-          user: { email: 'mamy@example.test' },
+        {
+          studentId: 'student-2',
+          student: {
+            firstName: 'Mamy',
+            lastName: 'Rakoto',
+            user: { email: 'mamy@example.test' },
+          },
+          grade: null,
         },
-        grade: null,
+      ],
+      meta: { page: 1, limit: 25, total: 2, totalPages: 1 },
+    });
+    expect(prisma.grade.findMany).toHaveBeenCalledWith({
+      where: {
+        evaluationId: 'evaluation-1',
+        studentId: { in: ['student-1', 'student-2'] },
       },
-    ]);
+    });
   });
 
   it('crée un devoir en brouillon', async () => {

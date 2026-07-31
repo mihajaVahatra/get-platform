@@ -207,31 +207,48 @@ export class TeachingService {
       orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
     });
   }
-  async resources(userId: string) {
+  async resources(userId: string, page = 1, limit = 25) {
     const teacher = await this.teacher(userId);
-    return this.prisma.courseResource.findMany({
-      where: {
-        chapter: {
-          course: {
-            teacherId: teacher.id,
-            school: {
-              teacherAssignments: {
-                some: { teacherId: teacher.id, isActive: true },
-              },
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const where = {
+      chapter: {
+        course: {
+          teacherId: teacher.id,
+          school: {
+            teacherAssignments: {
+              some: { teacherId: teacher.id, isActive: true },
             },
           },
         },
       },
-      include: {
-        chapter: {
-          select: {
-            title: true,
-            course: { select: { id: true, title: true } },
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.courseResource.findMany({
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        include: {
+          chapter: {
+            select: {
+              title: true,
+              course: { select: { id: true, title: true } },
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.courseResource.count({ where }),
+    ]);
+    return {
+      items,
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
   async detail(userId: string, courseId: string) {
     await this.course(userId, courseId);
@@ -362,12 +379,32 @@ export class TeachingService {
     if (!resource) throw new NotFoundException('Ressource introuvable');
     return this.prisma.courseResource.delete({ where: { id: resourceId } });
   }
-  async students(userId: string, courseId: string) {
+  async students(userId: string, courseId: string, page = 1, limit = 25) {
     await this.course(userId, courseId);
-    return this.prisma.courseEnrollment.findMany({
-      where: { courseId },
-      include: { student: { include: { user: { select: { email: true } } } } },
-    });
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const where = { courseId };
+    const [items, total] = await Promise.all([
+      this.prisma.courseEnrollment.findMany({
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        include: {
+          student: { include: { user: { select: { email: true } } } },
+        },
+        orderBy: { student: { lastName: 'asc' } },
+      }),
+      this.prisma.courseEnrollment.count({ where }),
+    ]);
+    return {
+      items,
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
   async evaluations(userId: string, courseId: string) {
     await this.course(userId, courseId);
@@ -457,25 +494,45 @@ export class TeachingService {
       },
     });
   }
-  async grades(userId: string, evaluationId: string) {
+  async grades(userId: string, evaluationId: string, page = 1, limit = 25) {
     const evaluation = await this.evaluation(userId, evaluationId);
-    const [enrollments, grades] = await Promise.all([
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+    const where = { courseId: evaluation.courseId };
+    const [enrollments, total] = await Promise.all([
       this.prisma.courseEnrollment.findMany({
-        where: { courseId: evaluation.courseId },
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
         include: {
           student: { include: { user: { select: { email: true } } } },
         },
+        orderBy: { student: { lastName: 'asc' } },
       }),
-      this.prisma.grade.findMany({ where: { evaluationId } }),
+      this.prisma.courseEnrollment.count({ where }),
     ]);
+    const grades = await this.prisma.grade.findMany({
+      where: {
+        evaluationId,
+        studentId: { in: enrollments.map((enrollment) => enrollment.studentId) },
+      },
+    });
     const gradesByStudentId = new Map(
       grades.map((grade) => [grade.studentId, grade]),
     );
-    return enrollments.map((enrollment) => ({
-      studentId: enrollment.studentId,
-      student: enrollment.student,
-      grade: gradesByStudentId.get(enrollment.studentId) || null,
-    }));
+    return {
+      items: enrollments.map((enrollment) => ({
+        studentId: enrollment.studentId,
+        student: enrollment.student,
+        grade: gradesByStudentId.get(enrollment.studentId) || null,
+      })),
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
   async saveGrade(
     userId: string,

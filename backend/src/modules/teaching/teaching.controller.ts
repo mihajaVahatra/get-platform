@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -116,8 +117,12 @@ export class TeachingController {
   @Get('schedule') schedule(@GetUser('id') id: string) {
     return this.teaching.schedule(id);
   }
-  @Get('resources') resources(@GetUser('id') id: string) {
-    return this.teaching.resources(id);
+  @Get('resources') resources(
+    @GetUser('id') id: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.teaching.resources(id, page, limit);
   }
   @Get(':courseId') detail(
     @GetUser('id') id: string,
@@ -128,8 +133,10 @@ export class TeachingController {
   @Get(':courseId/students') students(
     @GetUser('id') id: string,
     @Param('courseId') courseId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
-    return this.teaching.students(id, courseId);
+    return this.teaching.students(id, courseId, page, limit);
   }
   @Get(':courseId/evaluations') evaluations(
     @GetUser('id') id: string,
@@ -355,8 +362,10 @@ export class TeacherEvaluationsController {
   @Get(':evaluationId/grades') grades(
     @GetUser('id') id: string,
     @Param('evaluationId') evaluationId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
-    return this.teaching.grades(id, evaluationId);
+    return this.teaching.grades(id, evaluationId, page, limit);
   }
 
   @Post(':evaluationId/grades') saveGrade(
