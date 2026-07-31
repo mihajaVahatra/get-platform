@@ -13,7 +13,6 @@ import {
   Download,
   FileCheck2,
   LibraryBig,
-  Mail,
   Search,
   ShieldCheck,
   Sparkles,
@@ -21,6 +20,8 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { MessageIconLink } from '@/components/messages/message-icon-link';
 
 type Student = {
   firstName: string;
@@ -75,8 +76,8 @@ export default function StudentDashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="relative hidden w-72 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input placeholder="Rechercher..." className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm" /><kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-violet-50 px-1.5 py-1 text-[10px] text-violet-500">Ctrl K</kbd></div>
-          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Bell className="size-5" /><span className="absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-white bg-rose-500" /></button>
-          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Mail className="size-5" /><span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">3</span></button>
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/student/messages" />
         </div>
       </header>
 

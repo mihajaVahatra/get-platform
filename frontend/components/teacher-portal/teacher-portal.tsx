@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Bell,
   BookOpen,
   CalendarDays,
   ChevronLeft,
@@ -40,6 +39,7 @@ import { TeacherSchedule } from './teacher-schedule';
 import { MessagesScreen } from '@/components/messages/messages-screen';
 import { TeacherDashboard } from './teacher-dashboard';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 type View =
   | 'dashboard'
@@ -3019,12 +3019,7 @@ function Page({
             <CalendarDays className="size-4 text-violet-600" />
             Année académique 2024 · 2025
           </button>
-          <span className="relative">
-            <Bell className="size-5 text-[#17204e]" />
-            <i className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-rose-500 text-[8px] not-italic text-white">
-              2
-            </i>
-          </span>
+          <NotificationBell />
           {action && (
             <button className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
               <Plus className="size-4" />
