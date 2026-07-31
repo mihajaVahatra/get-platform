@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { MessageIconLink } from '@/components/messages/message-icon-link';
 
 type SchoolStats = {
   totalOffers: number;
@@ -137,13 +139,19 @@ export default function SchoolDashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-6">
-      <header>
-        <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
-          Tableau de bord
-        </h1>
-        <p className="mt-1 text-sm text-violet-600">
-          Pilotage de vos offres et candidatures en temps réel.
-        </p>
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
+            Tableau de bord
+          </h1>
+          <p className="mt-1 text-sm text-violet-600">
+            Pilotage de vos offres et candidatures en temps réel.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/school/messages" />
+        </div>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

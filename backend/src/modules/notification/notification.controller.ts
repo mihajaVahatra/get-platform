@@ -8,6 +8,8 @@ import {
   Query,
   HttpStatus,
   UseGuards,
+  ParseBoolPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -77,9 +79,9 @@ export class NotificationController {
   })
   async getMyNotifications(
     @GetUser('id') userId: string,
-    @Query('isRead') isRead?: boolean,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
+    @Query('isRead', new ParseBoolPipe({ optional: true })) isRead?: boolean,
+    @Query('page', new ParseIntPipe({ optional: true })) page = 1,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit = 20,
   ) {
     const result = await this.notificationService.getUserNotifications(userId, {
       isRead,

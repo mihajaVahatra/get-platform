@@ -122,7 +122,7 @@ export default function DashboardLayout({
   }, [userRole]);
 
   useEffect(() => {
-    if (userRole !== 'STUDENT' && userRole !== 'TEACHER') return;
+    if (!userRole) return;
     const refreshUnreadMessages = () => {
       apiClient
         .get('/messages/unread-count')
@@ -220,6 +220,7 @@ export default function DashboardLayout({
                 displayName === 'Étudiant' ? 'Administrateur' : displayName
               }
               onLogout={logout}
+              unreadMessages={unreadMessages}
               mobileOpen={mobileMenuOpen}
               onMobileClose={() => setMobileMenuOpen(false)}
             />
@@ -243,6 +244,7 @@ export default function DashboardLayout({
           <AdminGetSidebar
             pathname={pathname}
             onLogout={logout}
+            unreadMessages={unreadMessages}
             mobileOpen={mobileMenuOpen}
             onMobileClose={() => setMobileMenuOpen(false)}
           />
@@ -265,6 +267,7 @@ export default function DashboardLayout({
           <MinistrySidebar
             pathname={pathname}
             onLogout={logout}
+            unreadMessages={unreadMessages}
             mobileOpen={mobileMenuOpen}
             onMobileClose={() => setMobileMenuOpen(false)}
           />
@@ -542,12 +545,14 @@ function SchoolSidebar({
   pathname,
   displayName,
   onLogout,
+  unreadMessages,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
   displayName: string;
   onLogout: () => void;
+  unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -595,6 +600,12 @@ function SchoolSidebar({
       label: 'Communications',
       icon: Megaphone,
       href: '/dashboard/school/communications',
+    },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/school/messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
     {
       label: 'Rapports & Statistiques',
@@ -749,11 +760,13 @@ const UserRoundIcon = UsersRound;
 function AdminGetSidebar({
   pathname,
   onLogout,
+  unreadMessages,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -818,6 +831,7 @@ function AdminGetSidebar({
       label: 'Messages',
       icon: Mail,
       href: '/dashboard/admin?section=messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
     {
       label: 'Annonces',
@@ -935,11 +949,13 @@ function AdminGetSidebar({
 function MinistrySidebar({
   pathname,
   onLogout,
+  unreadMessages,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
@@ -979,6 +995,12 @@ function MinistrySidebar({
       label: 'Communication',
       icon: Megaphone,
       href: '/dashboard/ministry?section=communication',
+    },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/ministry?section=messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
   ];
   const settings = [
@@ -1073,11 +1095,13 @@ function MinistryNav({
   label,
   icon: Icon,
   active,
+  badge,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
   active: boolean;
+  badge?: string;
 }) {
   return (
     <Link
@@ -1085,7 +1109,12 @@ function MinistryNav({
       className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[12px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-black/20' : 'text-violet-50 hover:bg-white/10 hover:text-white'}`}
     >
       <Icon className="size-4" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[10px] text-white">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }

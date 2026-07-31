@@ -1,9 +1,9 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
-  Bell,
   Building2,
   CalendarDays,
   ChevronRight,
@@ -17,6 +17,9 @@ import {
   UsersRound,
   WalletCards,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { MessageIconLink } from '@/components/messages/message-icon-link';
+import { MessagesScreen } from '@/components/messages/messages-screen';
 
 const activities: Array<[string, string, string, LucideIcon, string]> = [
   [
@@ -66,6 +69,10 @@ const regions = [
 ] as const;
 
 export function MinistryDashboard() {
+  const searchParams = useSearchParams();
+  if (searchParams.get('section') === 'messages') {
+    return <MessagesScreen />;
+  }
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -82,12 +89,8 @@ export function MinistryDashboard() {
             <CalendarDays className="size-4 text-violet-600" />
             01 mai – 31 mai 2025⌄
           </button>
-          <span className="relative">
-            <Bell className="size-5 text-[#17204e]" />
-            <i className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-rose-500 text-[9px] not-italic text-white">
-              6
-            </i>
-          </span>
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/ministry?section=messages" />
           <button className="hidden h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 sm:flex">
             <Download className="size-4" />
             Exporter le rapport
