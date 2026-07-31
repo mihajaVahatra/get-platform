@@ -248,6 +248,26 @@ export class TeachingService {
       },
     });
   }
+  async updateCourseSettings(
+    userId: string,
+    courseId: string,
+    dto: {
+      welcomeMessage?: string;
+      allowGroupMessages?: boolean;
+      notifyOnPublish?: boolean;
+    },
+  ) {
+    await this.course(userId, courseId);
+    return this.prisma.course.update({
+      where: { id: courseId },
+      data: {
+        welcomeMessage: dto.welcomeMessage?.trim(),
+        allowGroupMessages: dto.allowGroupMessages,
+        notifyOnPublish: dto.notifyOnPublish,
+      },
+      include: { _count: { select: { enrollments: true } } },
+    });
+  }
   async createChapter(
     userId: string,
     courseId: string,

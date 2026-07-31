@@ -14,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsIn,
   IsNumber,
@@ -57,6 +58,11 @@ class ChangePasswordDto {
 class UpdateThemeDto {
   @IsIn(['light', 'dark', 'system'])
   theme: string;
+}
+class UpdateCourseSettingsDto {
+  @IsOptional() @IsString() @MaxLength(2000) welcomeMessage?: string;
+  @IsOptional() @IsBoolean() allowGroupMessages?: boolean;
+  @IsOptional() @IsBoolean() notifyOnPublish?: boolean;
 }
 class CourseAnnouncementDto {
   @IsString() @MaxLength(160) title: string;
@@ -124,6 +130,13 @@ export class TeachingController {
     @Param('courseId') courseId: string,
   ) {
     return this.teaching.detail(id, courseId);
+  }
+  @Patch(':courseId/settings') updateSettings(
+    @GetUser('id') id: string,
+    @Param('courseId') courseId: string,
+    @Body() dto: UpdateCourseSettingsDto,
+  ) {
+    return this.teaching.updateCourseSettings(id, courseId, dto);
   }
   @Get(':courseId/students') students(
     @GetUser('id') id: string,
