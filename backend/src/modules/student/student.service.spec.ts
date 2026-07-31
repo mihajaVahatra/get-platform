@@ -1,8 +1,18 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { StorageService } from '../../common/services/storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentService } from './student.service';
+
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
 
 describe('StudentService — devoirs', () => {
   let service: StudentService;
@@ -104,5 +114,150 @@ describe('StudentService — devoirs', () => {
         },
       }),
     );
+  });
+});
+
+describe('StudentService — notes, emploi du temps et préférences', () => {
+  let service: StudentService;
+  let prisma: {
+    student: { findUnique: jest.Mock };
+    courseEnrollment: { findMany: jest.Mock };
+    courseSlot: { findMany: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    prisma = {
+      student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1' }) },
+      courseEnrollment: { findMany: jest.fn() },
+      courseSlot: { findMany: jest.fn() },
+      user: { findUnique: jest.fn(), update: jest.fn() },
+    };
+    service = new StudentService(
+      prisma as unknown as PrismaService,
+      {} as EncryptionService,
+      {} as StorageService,
+    );
+  });
+
+  it('ne retourne les notes que pour les cours où l’étudiant est inscrit', async () => {
+    prisma.courseEnrollment.findMany.mockResolvedValue([
+      {
+        course: {
+          id: 'course-1',
+          code: 'INF101',
+          title: 'Algorithmique',
+          evaluations: [
+            {
+              id: 'eval-1',
+              title: 'Contrôle 1',
+              type: 'CC',
+              coefficient: 1,
+              scheduledAt: null,
+              grades: [{ value: 15 }],
+            },
+          ],
+          assignments: [
+            {
+              id: 'assignment-1',
+              title: 'Devoir 1',
+              submissions: [],
+            },
+          ],
+        },
+      },
+    ]);
+
+    const result = await service.getGrades('user-1');
+
+    expect(prisma.courseEnrollment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { studentId: 'student-1' } }),
+    );
+    expect(result).toEqual([
+      {
+        courseId: 'course-1',
+        code: 'INF101',
+        title: 'Algorithmique',
+        evaluations: [
+          {
+            id: 'eval-1',
+            title: 'Contrôle 1',
+            type: 'CC',
+            coefficient: 1,
+            scheduledAt: null,
+            value: 15,
+          },
+        ],
+        assignments: [{ id: 'assignment-1', title: 'Devoir 1', grade: null }],
+      },
+    ]);
+  });
+
+  it('ne retourne les créneaux que pour les cours où l’étudiant est inscrit', async () => {
+    prisma.courseEnrollment.findMany.mockResolvedValue([
+      { courseId: 'course-1' },
+    ]);
+    prisma.courseSlot.findMany.mockResolvedValue([]);
+
+    await service.getSchedule('user-1');
+
+    expect(prisma.courseSlot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { courseId: { in: ['course-1'] } },
+      }),
+    );
+  });
+
+  it('ne consulte pas les créneaux si l’étudiant n’est inscrit à aucun cours', async () => {
+    prisma.courseEnrollment.findMany.mockResolvedValue([]);
+
+    const result = await service.getSchedule('user-1');
+
+    expect(result).toEqual([]);
+    expect(prisma.courseSlot.findMany).not.toHaveBeenCalled();
+  });
+
+  it('refuse de changer le mot de passe si le mot de passe actuel est incorrect', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      password: 'hashed-current',
+    });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+    await expect(
+      service.changePassword('user-1', 'wrong-password', 'NewPass123!'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('met à jour le mot de passe quand le mot de passe actuel est valide', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      password: 'hashed-current',
+    });
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-new');
+
+    await service.changePassword('user-1', 'current-password', 'NewPass123!');
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { password: 'hashed-new' },
+    });
+  });
+
+  it('met à jour la préférence de thème', async () => {
+    prisma.user.update.mockResolvedValue({ theme: 'dark' });
+
+    const result = await service.updateTheme('user-1', 'dark');
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { theme: 'dark' },
+      select: { theme: true },
+    });
+    expect(result).toEqual({ theme: 'dark' });
   });
 });
