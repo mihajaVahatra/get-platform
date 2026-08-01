@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../../common/services/storage.service';
 import { SendMessageDto } from './dto/send-message.dto';
+
+const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 
 const userPreview = {
   id: true,
@@ -16,9 +19,21 @@ const userPreview = {
 
 @Injectable()
 export class MessageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
-  async send(senderId: string, dto: SendMessageDto) {
+  async send(
+    senderId: string,
+    dto: SendMessageDto,
+    files: Express.Multer.File[] = [],
+  ) {
+    if (files.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      throw new BadRequestException(
+        `Vous ne pouvez pas joindre plus de ${MAX_ATTACHMENTS_PER_MESSAGE} fichiers`,
+      );
+    }
     const recipient = await this.prisma.user.findUnique({
       where: { email: dto.recipientEmail.toLowerCase().trim() },
       select: { id: true },
@@ -29,9 +44,10 @@ export class MessageService {
         'Vous ne pouvez pas vous envoyer un message',
       );
 
+    const subject = dto.subject?.trim() || null;
     const now = new Date();
     const directKey = this.getDirectKey(senderId, recipient.id);
-    return this.prisma.$transaction(async (transaction) => {
+    const message = await this.prisma.$transaction(async (transaction) => {
       const conversationId = randomUUID();
       await transaction.$executeRaw`INSERT INTO "conversations" ("id", "directKey", "lastMessageAt", "createdAt") VALUES (${conversationId}, ${directKey}, ${now}, ${now}) ON CONFLICT ("directKey") DO UPDATE SET "lastMessageAt" = EXCLUDED."lastMessageAt"`;
       const conversations = await transaction.$queryRaw<
@@ -40,19 +56,36 @@ export class MessageService {
       const persistedConversationId = conversations[0].id;
       await transaction.$executeRaw`INSERT INTO "conversation_participants" ("conversationId", "userId") VALUES (${persistedConversationId}, ${senderId}), (${persistedConversationId}, ${recipient.id}) ON CONFLICT DO NOTHING`;
       const messageId = randomUUID();
-      await transaction.$executeRaw`INSERT INTO "messages" ("id", "conversationId", "senderId", "recipientId", "subject", "body", "isRead", "createdAt") VALUES (${messageId}, ${persistedConversationId}, ${senderId}, ${recipient.id}, ${dto.subject.trim()}, ${dto.body.trim()}, false, ${now})`;
+      await transaction.$executeRaw`INSERT INTO "messages" ("id", "conversationId", "senderId", "recipientId", "subject", "body", "isRead", "createdAt") VALUES (${messageId}, ${persistedConversationId}, ${senderId}, ${recipient.id}, ${subject}, ${dto.body.trim()}, false, ${now})`;
+
+      const attachments = files.length
+        ? await Promise.all(
+            files.map((file) => {
+              const saved = this.storage.saveMessageAttachment(file, messageId);
+              return transaction.messageAttachment.create({
+                data: { messageId, ...saved },
+              });
+            }),
+          )
+        : [];
+
       return {
         id: messageId,
         conversationId: persistedConversationId,
         senderId,
         recipientId: recipient.id,
-        subject: dto.subject.trim(),
+        subject,
         body: dto.body.trim(),
         createdAt: now,
-        sender: await this.getUserPreview(senderId),
-        recipient: await this.getUserPreview(recipient.id),
+        attachments,
       };
     });
+
+    return {
+      ...message,
+      sender: await this.getUserPreview(senderId),
+      recipient: await this.getUserPreview(recipient.id),
+    };
   }
 
   async getConversations(userId: string, page = 1, limit = 30) {
@@ -62,7 +95,7 @@ export class MessageService {
     const [items, counts] = await Promise.all([
       this.prisma.$queryRaw<
         any[]
-      >`SELECT c."id", c."lastMessageAt", u."id" AS "participantId", u."email" AS "participantEmail", s."firstName" AS "participantFirstName", s."lastName" AS "participantLastName", s."avatarUrl" AS "participantAvatarUrl", lm."id" AS "messageId", lm."subject", lm."body", lm."createdAt" AS "messageCreatedAt", lm."senderId" AS "messageSenderId", COALESCE(uc."count", 0)::int AS "unreadCount" FROM "conversation_participants" cp JOIN "conversations" c ON c."id" = cp."conversationId" LEFT JOIN "conversation_participants" op ON op."conversationId" = c."id" AND op."userId" <> ${userId} LEFT JOIN "users" u ON u."id" = op."userId" LEFT JOIN "students" s ON s."userId" = u."id" LEFT JOIN LATERAL (SELECT "id", "subject", "body", "createdAt", "senderId" FROM "messages" WHERE "conversationId" = c."id" ORDER BY "createdAt" DESC LIMIT 1) lm ON true LEFT JOIN LATERAL (SELECT COUNT(*) AS "count" FROM "messages" WHERE "conversationId" = c."id" AND "recipientId" = ${userId} AND "isRead" = false) uc ON true WHERE cp."userId" = ${userId} ORDER BY c."lastMessageAt" DESC LIMIT ${safeLimit} OFFSET ${offset}`,
+      >`SELECT c."id", c."lastMessageAt", u."id" AS "participantId", u."email" AS "participantEmail", s."firstName" AS "participantFirstName", s."lastName" AS "participantLastName", s."avatarUrl" AS "participantAvatarUrl", lm."id" AS "messageId", lm."subject", lm."body", lm."createdAt" AS "messageCreatedAt", lm."senderId" AS "messageSenderId", COALESCE(uc."count", 0)::int AS "unreadCount", COALESCE(la."hasAttachments", false) AS "hasAttachments" FROM "conversation_participants" cp JOIN "conversations" c ON c."id" = cp."conversationId" LEFT JOIN "conversation_participants" op ON op."conversationId" = c."id" AND op."userId" <> ${userId} LEFT JOIN "users" u ON u."id" = op."userId" LEFT JOIN "students" s ON s."userId" = u."id" LEFT JOIN LATERAL (SELECT "id", "subject", "body", "createdAt", "senderId" FROM "messages" WHERE "conversationId" = c."id" ORDER BY "createdAt" DESC LIMIT 1) lm ON true LEFT JOIN LATERAL (SELECT COUNT(*) AS "count" FROM "messages" WHERE "conversationId" = c."id" AND "recipientId" = ${userId} AND "isRead" = false) uc ON true LEFT JOIN LATERAL (SELECT EXISTS(SELECT 1 FROM "message_attachments" WHERE "messageId" = lm."id") AS "hasAttachments") la ON true WHERE cp."userId" = ${userId} ORDER BY c."lastMessageAt" DESC LIMIT ${safeLimit} OFFSET ${offset}`,
       this.prisma.$queryRaw<
         { count: bigint }[]
       >`SELECT COUNT(*)::bigint AS "count" FROM "conversation_participants" WHERE "userId" = ${userId}`,
@@ -93,6 +126,7 @@ export class MessageService {
               body: item.body,
               createdAt: item.messageCreatedAt,
               senderId: item.messageSenderId,
+              hasAttachments: item.hasAttachments,
             }
           : null,
         unreadCount: item.unreadCount,
@@ -123,9 +157,23 @@ export class MessageService {
       >`SELECT COUNT(*)::bigint AS "count" FROM "messages" WHERE "conversationId" = ${conversationId}`,
     ]);
     const total = Number(counts[0]?.count ?? 0);
+    const attachments = items.length
+      ? await this.prisma.messageAttachment.findMany({
+          where: { messageId: { in: items.map((item) => item.id) } },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+    const attachmentsByMessage = new Map<string, typeof attachments>();
+    for (const attachment of attachments) {
+      const list = attachmentsByMessage.get(attachment.messageId) ?? [];
+      list.push(attachment);
+      attachmentsByMessage.set(attachment.messageId, list);
+    }
+
     return {
       items: items.map((item) => ({
         ...item,
+        attachments: attachmentsByMessage.get(item.id) ?? [],
         sender: {
           id: item.senderId,
           email: item.senderEmail,
@@ -212,6 +260,7 @@ export class MessageService {
         include: {
           sender: { select: userPreview },
           recipient: { select: userPreview },
+          attachments: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: (safePage - 1) * safeLimit,

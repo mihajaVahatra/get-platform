@@ -8,7 +8,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
-import { join } from 'path';
+import { resolve } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -42,8 +42,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Fichiers statiques (uploads)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Fichiers statiques (uploads) — même résolution que StorageService
+  // (relative à process.cwd(), pas à __dirname qui pointe vers dist/ une fois compilé)
+  app.useStaticAssets(resolve(configService.get('UPLOAD_DIR') || './uploads'), {
     prefix: '/uploads/',
   });
 
