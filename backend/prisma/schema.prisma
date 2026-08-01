@@ -137,6 +137,7 @@ model School {
   programs           SchoolProgram[]
   academicYears      SchoolAcademicYear[]
   subjects           SchoolSubject[]
+  competitions       Competition[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -156,6 +157,7 @@ model SchoolProgram {
   students      Student[]
   offers        Offer[]
   Course        Course[]
+  competitions  Competition[]
 
   @@unique([schoolId, name])
   @@index([schoolId, isActive])
@@ -176,6 +178,27 @@ model SchoolAcademicYear {
   @@unique([schoolId, label])
   @@index([schoolId, isCurrent])
   @@map("school_academic_years")
+}
+
+model Competition {
+  id                   String         @id @default(uuid())
+  schoolId             String
+  school               School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  programId            String?
+  program              SchoolProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  name                 String
+  description          String?
+  examDate             DateTime?
+  registrationDeadline DateTime?
+  capacity             Int?
+  status               String         @default("PLANNED")
+  isActive             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  deletedAt            DateTime?
+
+  @@index([schoolId, status])
+  @@map("competitions")
 }
 
 model SchoolAdmin {
