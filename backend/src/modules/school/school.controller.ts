@@ -52,6 +52,7 @@ import {
 import { CreateCourseSlotDto, UpdateCourseSlotDto } from './dto/course-slot.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import { BroadcastAnnouncementDto } from './dto/broadcast-announcement.dto';
 import { CreateSchoolProgramDto, UpdateSchoolProgramDto } from './dto/school-program.dto';
 import { CreateSchoolAcademicYearDto, UpdateSchoolAcademicYearDto } from './dto/school-academic-year.dto';
 
@@ -549,6 +550,38 @@ export class SchoolController {
       limit,
     );
     return { success: true, data: result.items, meta: result.meta };
+  }
+
+  @Post('announcements/broadcast')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary:
+      'Broadcast an announcement to students of every active school (Admin only)',
+  })
+  async broadcastAnnouncement(
+    @GetUser() user: { id: string },
+    @Body() dto: BroadcastAnnouncementDto,
+  ) {
+    const result = await this.schoolService.broadcastAnnouncement(user.id, dto);
+    return {
+      success: true,
+      data: result,
+      message: 'Announcement broadcast successfully',
+    };
+  }
+
+  @Get('announcements/broadcast')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get my broadcast announcement history (Admin only)',
+  })
+  async getBroadcastHistory(@GetUser() user: { id: string }) {
+    const items = await this.schoolService.getBroadcastHistory(user.id);
+    return { success: true, data: items };
   }
 
   @Get('me/reports/pipeline')

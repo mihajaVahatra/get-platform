@@ -760,6 +760,85 @@ export class SchoolService {
     };
   }
 
+  async broadcastAnnouncement(
+    adminUserId: string,
+    dto: { title: string; body: string },
+  ) {
+    const schools = await this.prisma.school.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: { id: true },
+    });
+
+    let recipientCount = 0;
+    for (const school of schools) {
+      const students = await this.prisma.student.findMany({
+        where: { enrolledSchoolId: school.id, deletedAt: null },
+        select: { userId: true },
+      });
+      const announcement = await this.prisma.announcement.create({
+        data: {
+          schoolId: school.id,
+          authorId: adminUserId,
+          title: dto.title.trim(),
+          body: dto.body.trim(),
+          targetType: 'ALL_STUDENTS',
+        },
+      });
+      const recipients = await this.notificationService.sendInAppBatch(
+        students.map((student) => student.userId),
+        { title: announcement.title, body: announcement.body },
+      );
+      if (recipients.length) {
+        await this.prisma.announcementRecipient.createMany({
+          data: recipients.map((recipient) => ({
+            announcementId: announcement.id,
+            ...recipient,
+          })),
+        });
+      }
+      recipientCount += recipients.length;
+    }
+
+    return { schoolsCount: schools.length, recipientCount };
+  }
+
+  async getBroadcastHistory(adminUserId: string) {
+    const announcements = await this.prisma.announcement.findMany({
+      where: { authorId: adminUserId, targetType: 'ALL_STUDENTS' },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      select: { title: true, body: true, createdAt: true, schoolId: true },
+    });
+
+    const groups = new Map<
+      string,
+      { title: string; body: string; createdAt: Date; schoolIds: Set<string> }
+    >();
+    for (const item of announcements) {
+      const key = `${item.title} ${item.body} ${Math.floor(item.createdAt.getTime() / 60000)}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.schoolIds.add(item.schoolId);
+      } else {
+        groups.set(key, {
+          title: item.title,
+          body: item.body,
+          createdAt: item.createdAt,
+          schoolIds: new Set([item.schoolId]),
+        });
+      }
+    }
+
+    return Array.from(groups.values())
+      .slice(0, 20)
+      .map((group) => ({
+        title: group.title,
+        body: group.body,
+        createdAt: group.createdAt,
+        schoolsReached: group.schoolIds.size,
+      }));
+  }
+
   async getAnnouncements(schoolId: string, page = 1, limit = 20) {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
