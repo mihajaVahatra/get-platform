@@ -8,7 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronLeft,
-  ChevronRight,
+  ClipboardList,
   FileText,
   Pencil,
   Plus,
@@ -1997,38 +1997,33 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
             onRetry={() => void fetchEvaluations()}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-xs">
-              <thead className="border-b border-slate-100 text-slate-400">
-                <tr>
-                  <th className="pb-3 font-semibold">Titre</th>
-                  <th className="pb-3 font-semibold">Type</th>
-                  <th className="pb-3 font-semibold">Date</th>
-                  <th className="pb-3 font-semibold">Coefficient</th>
-                </tr>
-              </thead>
-              <tbody>
-                {evaluations.map((evaluation) => (
-                  <tr
-                    className="border-b border-slate-50 text-slate-600"
-                    key={evaluation.id}
-                  >
-                    <td className="py-3 pr-3 font-semibold text-[#26305e]">
-                      {evaluation.title}
-                    </td>
-                    <td className="py-3 pr-3">{evaluation.type}</td>
-                    <td className="py-3 pr-3">
-                      {evaluation.scheduledAt
-                        ? new Date(evaluation.scheduledAt).toLocaleDateString(
-                            'fr-FR',
-                          )
-                        : 'Non planifiée'}
-                    </td>
-                    <td className="py-3 pr-3">{evaluation.coefficient}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {evaluations.map((evaluation) => (
+              <div
+                key={evaluation.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <ClipboardList className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-bold text-[#26305e]">
+                    {evaluation.title}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {evaluation.type} ·{' '}
+                    {evaluation.scheduledAt
+                      ? new Date(evaluation.scheduledAt).toLocaleDateString(
+                          'fr-FR',
+                        )
+                      : 'Non planifiée'}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+                  Coef. {evaluation.coefficient}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </Card>
@@ -2286,39 +2281,25 @@ function GradeBook({ courseId }: { courseId: string }) {
             onRetry={() => void fetchGrades()}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-xs">
-              <thead className="border-b border-slate-100 text-slate-400">
-                <tr>
-                  <th className="pb-3 font-semibold">Étudiant</th>
-                  <th className="pb-3 font-semibold">E-mail</th>
-                  <th className="pb-3 font-semibold">Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => {
-                  const name = `${entry.student.firstName} ${entry.student.lastName}`;
-                  return (
-                    <tr
-                      className="border-b border-slate-50 text-slate-600"
-                      key={entry.studentId}
-                    >
-                      <td className="py-3 pr-3">
-                        <StudentName name={name} />
-                      </td>
-                      <td className="py-3 pr-3">{entry.student.user.email}</td>
-                      <td className="py-3 pr-3">
-                        <GradeInput
-                          key={`${entry.studentId}-${entry.grade?.value ?? 'empty'}`}
-                          value={entry.grade?.value ?? null}
-                          onSave={(value) => saveGrade(entry.studentId, value)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {entries.map((entry) => {
+              const name = `${entry.student.firstName} ${entry.student.lastName}`;
+              return (
+                <div
+                  key={entry.studentId}
+                  className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <StudentName name={name} />
+                  </div>
+                  <GradeInput
+                    key={`${entry.studentId}-${entry.grade?.value ?? 'empty'}`}
+                    value={entry.grade?.value ?? null}
+                    onSave={(value) => saveGrade(entry.studentId, value)}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
         <ListPagination
@@ -2456,24 +2437,37 @@ function Resources() {
           emptyMessage="Aucune ressource n'a encore été ajoutée à vos cours."
         />
       ) : (
-        <TableCard
-          headers={['Nom', 'Cours · Chapitre', 'Type', 'Date', 'Actions']}
-          rows={resources.map((resource) => [
-            resource.title,
-            `${resource.chapter.course.title} · ${resource.chapter.title}`,
-            resource.type,
-            new Date(resource.createdAt).toLocaleDateString('fr-FR'),
+        <div className="space-y-2">
+          {resources.map((resource) => (
             <a
-              className="text-[10px] font-bold text-violet-600 hover:underline"
-              href={resource.url}
               key={resource.id}
+              href={resource.url}
               rel="noreferrer"
               target="_blank"
+              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-violet-200"
             >
-              Ouvrir
-            </a>,
-          ])}
-        />
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                <FileText className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-[#17204e]">
+                  {resource.title}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                  {resource.chapter.course.title} · {resource.chapter.title}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-[10px] font-semibold text-slate-500">
+                  {resource.type}
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {new Date(resource.createdAt).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+            </a>
+          ))}
+        </div>
       )}
       <ListPagination
         page={page}
@@ -3079,74 +3073,6 @@ function Card({
       </div>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-function TableCard({
-  headers,
-  rows,
-  exportable = false,
-}: {
-  headers: string[];
-  rows: React.ReactNode[][];
-  exportable?: boolean;
-}) {
-  return (
-    <Card
-      title={exportable ? 'Liste des étudiants' : ' '}
-      action={exportable ? 'Exporter' : undefined}
-    >
-      <div className="mb-4 flex flex-wrap gap-2">
-        <label className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-          <input
-            className="h-9 w-full rounded-lg border border-slate-200 pl-9 text-xs outline-none"
-            placeholder="Rechercher…"
-          />
-        </label>
-        <button className="rounded-lg border border-slate-200 px-3 text-xs text-slate-500">
-          Tous les cours⌄
-        </button>
-        <button className="rounded-lg border border-slate-200 px-3 text-xs text-slate-500">
-          Filtrer⌄
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-[10px]">
-          <thead className="border-b border-slate-100 text-slate-400">
-            <tr>
-              {headers.map((header) => (
-                <th className="pb-3 font-semibold" key={header}>
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
-              <tr
-                className="border-b border-slate-50 text-slate-600"
-                key={index}
-              >
-                {row.map((cell, cellIndex) => (
-                  <td className="py-3 pr-3" key={cellIndex}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-5 flex justify-end gap-3 text-[10px] text-slate-500">
-        <ChevronLeft className="size-4" />
-        <b className="grid size-5 place-items-center rounded bg-violet-600 text-white">
-          1
-        </b>
-        <span>2</span>
-        <span>3</span>
-        <ChevronRight className="size-4" />
-      </div>
-    </Card>
   );
 }
 function List({ items, icon: Icon }: { items: string[]; icon: LucideIcon }) {
