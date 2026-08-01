@@ -220,15 +220,13 @@ function Directory({
           }
           exportable={view === 'transactions'}
         />
-        <div className="overflow-x-auto">
-          {isSchools ? (
-            <SchoolTable rows={schools} />
-          ) : isUsers ? (
-            <UserTable rows={users} />
-          ) : (
-            <GenericTable view={view} rows={rows as string[][]} />
-          )}
-        </div>
+        {isSchools ? (
+          <SchoolTable rows={schools} />
+        ) : isUsers ? (
+          <UserTable rows={users} />
+        ) : (
+          <GenericTable view={view} rows={rows as string[][]} />
+        )}
         <Pagination
           text={
             isSchools
@@ -335,84 +333,54 @@ function Toolbar({
 }
 function SchoolTable({ rows }: { rows: School[] }) {
   return (
-    <table className="w-full min-w-[800px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {[
-            'Établissement',
-            'Ville',
-            'Contact',
-            'Inscriptions',
-            'Statut',
-            'Actions',
-          ].map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.name}
-            className="border-b border-slate-50 text-slate-600"
-          >
-            <td className="py-3 font-bold text-[#28315e]">{row.name}</td>
-            <td>{row.city}</td>
-            <td>{row.contact}</td>
-            <td>{row.registrations}</td>
-            <td>
+    <div className="space-y-2 text-[11px]">
+      {rows.map((row) => (
+        <div
+          key={row.name}
+          className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <Building className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[#28315e]">{row.name}</p>
+            <p className="mt-0.5 truncate text-slate-500">
+              {row.city} · {row.contact} · {row.registrations} inscriptions
+            </p>
+            <div className="mt-1.5">
               <Status value={row.status} />
-            </td>
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </div>
+          </div>
+          <Actions />
+        </div>
+      ))}
+    </div>
   );
 }
 function UserTable({ rows }: { rows: User[] }) {
   return (
-    <table className="w-full min-w-[760px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {[
-            'Utilisateur',
-            'Rôle',
-            'Email',
-            'Téléphone',
-            'Statut',
-            'Actions',
-          ].map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.email}
-            className="border-b border-slate-50 text-slate-600"
-          >
-            <td className="py-3 font-bold text-[#28315e]">{row.name}</td>
-            <td>{row.role}</td>
-            <td>{row.email}</td>
-            <td>{row.phone}</td>
-            <td>
+    <div className="space-y-2 text-[11px]">
+      {rows.map((row) => (
+        <div
+          key={row.email}
+          className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <UserRound className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[#28315e]">{row.name}</p>
+            <p className="mt-0.5 truncate text-slate-500">
+              {row.role} · {row.email} · {row.phone}
+            </p>
+            <div className="mt-1.5">
               <Status value={row.status} />
-            </td>
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </div>
+          </div>
+          <Actions />
+        </div>
+      ))}
+    </div>
   );
 }
 function GenericTable({
@@ -424,7 +392,7 @@ function GenericTable({
 }) {
   const headers =
     view === 'enrollments'
-      ? ['Étudiant', 'Filière choisie', 'Date inscription', 'Statut', 'Actions']
+      ? ['Étudiant', 'Filière choisie', 'Date inscription', 'Statut']
       : [
           'Référence',
           'Étudiant',
@@ -432,37 +400,33 @@ function GenericTable({
           'Montant',
           'Méthode',
           'Statut',
-          'Actions',
         ];
   return (
-    <table className="w-full min-w-[760px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {headers.map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row[0]} className="border-b border-slate-50 text-slate-600">
-            {row.map((cell, index) => (
-              <td
-                key={`${cell}-${index}`}
-                className={index === 0 ? 'py-3 font-bold text-[#28315e]' : ''}
-              >
-                {index === row.length - 1 ? <Status value={cell} /> : cell}
-              </td>
-            ))}
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="space-y-2 text-[11px]">
+      {rows.map((row) => (
+        <div
+          key={row[0]}
+          className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <FileText className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
+            <p className="mt-0.5 truncate text-slate-500">
+              {row
+                .slice(1, -1)
+                .map((cell, index) => `${headers[index + 1]}: ${cell}`)
+                .join(' · ')}
+            </p>
+            <div className="mt-1.5">
+              <Status value={row[row.length - 1]} />
+            </div>
+          </div>
+          <Actions />
+        </div>
+      ))}
+    </div>
   );
 }
 function Actions() {

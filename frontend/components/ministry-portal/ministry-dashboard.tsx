@@ -481,40 +481,31 @@ function MiniTable({
 }) {
   return (
     <Card title={title} action="Exporter">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[390px] text-left text-[9px]">
-          <thead className="border-b border-slate-100 text-slate-400">
-            <tr>
-              {columns.map((column) => (
-                <th className="pb-2 font-semibold" key={column}>
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr className="border-b border-slate-50" key={row[0]}>
-                {row.map((cell, index) => (
-                  <td
-                    key={cell}
-                    className={`py-2 ${index === 0 ? 'font-bold text-[#28315e]' : 'text-slate-600'}`}
-                  >
-                    {index === row.length - 1 ? (
-                      <span
-                        className={`rounded px-1.5 py-1 font-bold ${cell === 'Validée' || cell === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : cell === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
-                      >
-                        {cell}
-                      </span>
-                    ) : (
-                      cell
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-2 text-[10px]">
+        {rows.map((row) => {
+          const status = row[row.length - 1];
+          return (
+            <div
+              key={row[0]}
+              className="rounded-lg border border-slate-50 p-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-1 font-bold ${status === 'Validée' || status === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : status === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
+                >
+                  {status}
+                </span>
+              </div>
+              <p className="mt-1 text-slate-500">
+                {row
+                  .slice(1, -1)
+                  .map((cell, index) => `${columns[index + 1]}: ${cell}`)
+                  .join(' · ')}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );

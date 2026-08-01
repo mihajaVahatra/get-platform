@@ -100,57 +100,47 @@ export default function StudentGradesPage() {
                     Aucune note disponible pour ce cours.
                   </p>
                 ) : (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full min-w-[420px] text-left text-xs">
-                      <thead className="border-b border-slate-100 text-[10px] text-slate-400">
-                        <tr>
-                          <th className="pb-2 font-semibold">Évaluation</th>
-                          <th className="pb-2 font-semibold">Type</th>
-                          <th className="pb-2 font-semibold">Coefficient</th>
-                          <th className="pb-2 font-semibold">Note</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {course.evaluations.map((evaluation) => (
-                          <tr
-                            key={evaluation.id}
-                            className="border-b border-slate-50"
-                          >
-                            <td className="py-2 pr-3 font-semibold">
-                              {evaluation.title}
-                            </td>
-                            <td className="py-2 pr-3 text-slate-500">
-                              {evaluation.type}
-                            </td>
-                            <td className="py-2 pr-3 text-slate-500">
-                              {evaluation.coefficient}
-                            </td>
-                            <td className="py-2 pr-3 font-bold text-violet-700">
-                              {evaluation.value !== null
-                                ? `${evaluation.value}/20`
-                                : 'En attente'}
-                            </td>
-                          </tr>
-                        ))}
-                        {course.assignments.map((assignment) => (
-                          <tr
-                            key={assignment.id}
-                            className="border-b border-slate-50"
-                          >
-                            <td className="py-2 pr-3 font-semibold">
-                              {assignment.title}
-                            </td>
-                            <td className="py-2 pr-3 text-slate-500">Devoir</td>
-                            <td className="py-2 pr-3 text-slate-500">—</td>
-                            <td className="py-2 pr-3 font-bold text-violet-700">
-                              {assignment.grade !== null
-                                ? `${assignment.grade}/20`
-                                : 'En attente'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="mt-4 space-y-2">
+                    {course.evaluations.map((evaluation) => (
+                      <div
+                        key={evaluation.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-50 px-3 py-2 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">
+                            {evaluation.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            {evaluation.type} · Coef. {evaluation.coefficient}
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-bold text-violet-700">
+                          {evaluation.value !== null
+                            ? `${evaluation.value}/20`
+                            : 'En attente'}
+                        </span>
+                      </div>
+                    ))}
+                    {course.assignments.map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-50 px-3 py-2 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">
+                            {assignment.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            Devoir
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-bold text-violet-700">
+                          {assignment.grade !== null
+                            ? `${assignment.grade}/20`
+                            : 'En attente'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
