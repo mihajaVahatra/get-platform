@@ -1,2 +1,5 @@
-import { SchoolManagementView } from '@/components/school-portal/school-management-view';
-export default function CoursesPage() { return <SchoolManagementView view="courses" />; }
+import { CourseDirectory } from '@/components/school-portal/course-directory';
+
+export default function CoursesPage() {
+  return <CourseDirectory />;
+}

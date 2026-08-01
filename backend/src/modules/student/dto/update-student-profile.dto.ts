@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsDateString, IsInt, IsArray, MinLength, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsInt,
+  IsArray,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateStudentProfileDto {
   @ApiPropertyOptional({ example: 'Jean' })
@@ -73,7 +81,9 @@ export class UpdateStudentProfileDto {
   @IsString({ each: true })
   skills?: string[];
 
-  @ApiPropertyOptional({ example: ['become a chartered accountant', 'start my own business'] })
+  @ApiPropertyOptional({
+    example: ['become a chartered accountant', 'start my own business'],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

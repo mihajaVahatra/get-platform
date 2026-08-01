@@ -13,7 +13,6 @@ import {
   Download,
   FileCheck2,
   LibraryBig,
-  Mail,
   Search,
   ShieldCheck,
   Sparkles,
@@ -21,6 +20,8 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { MessageIconLink } from '@/components/messages/message-icon-link';
 
 type Student = {
   firstName: string;
@@ -75,12 +76,12 @@ export default function StudentDashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <div className="relative hidden w-72 md:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><Input placeholder="Rechercher..." className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm" /><kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-violet-50 px-1.5 py-1 text-[10px] text-violet-500">Ctrl K</kbd></div>
-          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Bell className="size-5" /><span className="absolute right-1.5 top-1.5 size-2.5 rounded-full border-2 border-white bg-rose-500" /></button>
-          <button className="relative rounded-xl p-2.5 text-slate-700 transition hover:bg-violet-50"><Mail className="size-5" /><span className="absolute right-1.5 top-1.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">3</span></button>
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/student/messages" />
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatWidget icon={BookOpen} title="Moyenne générale" value="15,2" suffix="/20" hint="↑ +1,3 vs semestre précédent" tone="violet" />
         <StatWidget icon={BookOpenCheck} title="Crédits validés" value="18" suffix="/30" hint="60% du programme" progress="60" tone="green" />
         <StatWidget icon={CalendarDays} title="Absences" value="2" suffix="" hint="Justifiées" tone="orange" />
@@ -126,7 +127,7 @@ export default function StudentDashboardPage() {
               <div className="mt-3 divide-y divide-slate-100">{courses.map((course) => <div key={course.title} className="flex items-center gap-3 py-3"><span className={`flex size-9 items-center justify-center rounded-lg ${course.tone}`}><BookOpen className="size-4" /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-800">{course.title}</p><p className="mt-1 text-[11px] text-slate-500">{course.teacher}</p></div><span className="text-sm font-extrabold text-violet-600">{course.grade}</span></div>)}</div>
             </Widget>
             <Widget title="Finances" action="Voir tout">
-              <div className="mt-4 grid grid-cols-2 gap-4"><div className="rounded-xl bg-emerald-50 p-4"><p className="text-[11px] text-slate-500">Solde actuel</p><p className="mt-2 text-xl font-extrabold text-emerald-600">125 000 Ar</p><span className="mt-2 inline-block rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">● Disponible</span></div><div><p className="text-[11px] text-slate-500">Prochain paiement</p><p className="mt-2 text-xs font-bold text-slate-700">Frais de scolarité S2</p><p className="mt-2 text-lg font-extrabold text-emerald-600">350 000 Ar</p><p className="mt-2 text-[10px] text-slate-500">À payer avant le 30 juin 2025</p><Link href="/dashboard/student/payments" className="mt-4 flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700">Payer maintenant</Link></div></div>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2"><div className="rounded-xl bg-emerald-50 p-4"><p className="text-[11px] text-slate-500">Solde actuel</p><p className="mt-2 text-xl font-extrabold text-emerald-600">125 000 Ar</p><span className="mt-2 inline-block rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">● Disponible</span></div><div><p className="text-[11px] text-slate-500">Prochain paiement</p><p className="mt-2 text-xs font-bold text-slate-700">Frais de scolarité S2</p><p className="mt-2 text-lg font-extrabold text-emerald-600">350 000 Ar</p><p className="mt-2 text-[10px] text-slate-500">À payer avant le 30 juin 2025</p><Link href="/dashboard/student/payments" className="mt-4 flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700">Payer maintenant</Link></div></div>
             </Widget>
           </div>
         </div>
@@ -145,7 +146,7 @@ export default function StudentDashboardPage() {
 function StatWidget({ icon: Icon, title, value, suffix, hint, tone, progress }: { icon: typeof BookOpen; title: string; value: string; suffix: string; hint: string; tone: 'violet' | 'green' | 'orange' | 'blue'; progress?: string }) {
   const styles = { violet: 'bg-violet-50 text-violet-600', green: 'bg-emerald-50 text-emerald-600', orange: 'bg-orange-50 text-orange-500', blue: 'bg-blue-50 text-blue-500' };
   const valueStyles = { violet: 'text-violet-600', green: 'text-emerald-600', orange: 'text-orange-500', blue: 'text-blue-500' };
-  return <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_4px_18px_rgba(68,50,140,0.05)]"><div className="flex gap-4"><span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${styles[tone]}`}><Icon className="size-6" /></span><div className="min-w-0"><p className="text-xs font-bold text-slate-700">{title}</p><p className={`mt-1 text-[28px] font-extrabold leading-8 ${valueStyles[tone]}`}>{value}<span className="ml-1 text-sm">{suffix}</span></p>{progress && <div className="mt-2 h-1.5 w-44 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>}<p className="mt-2 text-[11px] text-slate-500">{hint}</p></div></div></div>;
+  return <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_4px_18px_rgba(68,50,140,0.05)]"><div className="flex gap-4"><span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${styles[tone]}`}><Icon className="size-6" /></span><div className="min-w-0"><p className="text-xs font-bold text-slate-700">{title}</p><p className={`mt-1 text-[28px] font-extrabold leading-8 ${valueStyles[tone]}`}>{value}<span className="ml-1 text-sm">{suffix}</span></p>{progress && <div className="mt-2 h-1.5 w-full max-w-44 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} /></div>}<p className="mt-2 text-[11px] text-slate-500">{hint}</p></div></div></div>;
 }
 
 function Widget({ title, action, children, className = '' }: { title: React.ReactNode; action?: string; children: React.ReactNode; className?: string }) {

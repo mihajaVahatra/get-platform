@@ -13,7 +13,11 @@ export class MockPaymentProvider implements PaymentProvider {
     studentId: string;
     reference: string;
     description?: string;
-  }): Promise<{ providerReference: string; redirectUrl?: string; status: 'PENDING' | 'PROCESSING' }> {
+  }): Promise<{
+    providerReference: string;
+    redirectUrl?: string;
+    status: 'PENDING' | 'PROCESSING';
+  }> {
     await this.delay(500);
 
     const providerReference = `MOCK-${uuidv4().slice(0, 8)}`;
@@ -50,7 +54,9 @@ export class MockPaymentProvider implements PaymentProvider {
     }
   }
 
-  async refundPayment(providerReference: string): Promise<{ success: boolean; refundId?: string }> {
+  async refundPayment(
+    providerReference: string,
+  ): Promise<{ success: boolean; refundId?: string }> {
     await this.delay(1000);
     return {
       success: true,
@@ -59,6 +65,6 @@ export class MockPaymentProvider implements PaymentProvider {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

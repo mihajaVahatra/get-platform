@@ -37,16 +37,15 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 
-
 @ApiTags('applications')
 @Controller('applications')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
 export class ApplicationController {
- constructor(
-  private readonly applicationService: ApplicationService,
-  private readonly prisma: PrismaService,  // ← AJOUTER
-) {}
+  constructor(
+    private readonly applicationService: ApplicationService,
+    private readonly prisma: PrismaService, // ← AJOUTER
+  ) {}
 
   // ========== STUDENT ==========
 
@@ -59,14 +58,20 @@ export class ApplicationController {
     type: BulkApplicationResponseDto,
   })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid data' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Not authenticated' })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Not authenticated',
+  })
   async submitApplications(
     @GetUser('id') userId: string,
     @Body() dto: SubmitApplicationDto,
   ) {
     // Get student ID from user
     const student = await this.getStudentIdFromUser(userId);
-    const result = await this.applicationService.submitApplications(student.id, dto.offerIds);
+    const result = await this.applicationService.submitApplications(
+      student.id,
+      dto.offerIds,
+    );
     return {
       success: true,
       data: result,
@@ -88,11 +93,14 @@ export class ApplicationController {
     @Query('limit') limit = 20,
   ) {
     const student = await this.getStudentIdFromUser(userId);
-    const result = await this.applicationService.getStudentApplications(student.id, {
-      status,
-      page,
-      limit,
-    });
+    const result = await this.applicationService.getStudentApplications(
+      student.id,
+      {
+        status,
+        page,
+        limit,
+      },
+    );
     return {
       success: true,
       data: result.items,
@@ -112,7 +120,10 @@ export class ApplicationController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiPaginatedResponse(ApplicationResponseDto)
-  @ApiResponse({ status: HttpStatus.OK, description: 'School applications retrieved' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'School applications retrieved',
+  })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async getSchoolApplications(
     @GetUser('id') userId: string,
@@ -137,18 +148,55 @@ export class ApplicationController {
 
   // ========== DETAIL (Authorized) ==========
 
+  @Get(':id/documents')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get documents for an authorized application' })
+  @ApiParam({ name: 'id', description: 'Application ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Application documents retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Application not found',
+  })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
+  async getApplicationDocuments(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    const documents = await this.applicationService.getApplicationDocuments(
+      id,
+      userId,
+      role,
+    );
+    return {
+      success: true,
+      data: documents,
+      message: 'Application documents retrieved successfully',
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Application details' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Application not found' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Application not found',
+  })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Access denied' })
   async getApplication(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
   ) {
-    const application = await this.applicationService.getApplicationById(id, userId, role);
+    const application = await this.applicationService.getApplicationById(
+      id,
+      userId,
+      role,
+    );
     return {
       success: true,
       data: application,
@@ -165,13 +213,20 @@ export class ApplicationController {
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiBody({ type: UpdateApplicationStatusDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Status updated' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Application not found' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Application not found',
+  })
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateApplicationStatusDto,
     @GetUser('id') userId: string,
   ) {
-    const application = await this.applicationService.updateStatus(id, dto, userId);
+    const application = await this.applicationService.updateStatus(
+      id,
+      dto,
+      userId,
+    );
     return {
       success: true,
       data: application,
@@ -227,7 +282,11 @@ export class ApplicationController {
     @Body() dto: ScheduleInterviewDto,
     @GetUser('id') userId: string,
   ) {
-    const application = await this.applicationService.scheduleInterview(id, dto, userId);
+    const application = await this.applicationService.scheduleInterview(
+      id,
+      dto,
+      userId,
+    );
     return {
       success: true,
       data: application,

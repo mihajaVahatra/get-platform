@@ -1,9 +1,9 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
-  Bell,
   Building2,
   CalendarDays,
   ChevronRight,
@@ -17,6 +17,9 @@ import {
   UsersRound,
   WalletCards,
 } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { MessageIconLink } from '@/components/messages/message-icon-link';
+import { MessagesScreen } from '@/components/messages/messages-screen';
 
 const activities: Array<[string, string, string, LucideIcon, string]> = [
   [
@@ -66,6 +69,10 @@ const regions = [
 ] as const;
 
 export function MinistryDashboard() {
+  const searchParams = useSearchParams();
+  if (searchParams.get('section') === 'messages') {
+    return <MessagesScreen />;
+  }
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -82,12 +89,8 @@ export function MinistryDashboard() {
             <CalendarDays className="size-4 text-violet-600" />
             01 mai – 31 mai 2025⌄
           </button>
-          <span className="relative">
-            <Bell className="size-5 text-[#17204e]" />
-            <i className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-rose-500 text-[9px] not-italic text-white">
-              6
-            </i>
-          </span>
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/ministry?section=messages" />
           <button className="hidden h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 sm:flex">
             <Download className="size-4" />
             Exporter le rapport
@@ -95,7 +98,7 @@ export function MinistryDashboard() {
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Kpi
           icon={UsersRound}
           tone="violet"
@@ -262,7 +265,7 @@ export function MinistryDashboard() {
           ]}
         />
         <Card title="Paiements" action="Exporter">
-          <div className="grid grid-cols-3 gap-2 border-b border-slate-100 pb-3 text-center">
+          <div className="grid grid-cols-1 gap-2 border-b border-slate-100 pb-3 text-center sm:grid-cols-2 xl:grid-cols-3">
             <Metric label="Total collecté" value="1 245 000 000 Ar" />
             <Metric label="Transactions" value="18 750" />
             <Metric label="Échoués" value="245" tone="rose" />
@@ -478,40 +481,31 @@ function MiniTable({
 }) {
   return (
     <Card title={title} action="Exporter">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[390px] text-left text-[9px]">
-          <thead className="border-b border-slate-100 text-slate-400">
-            <tr>
-              {columns.map((column) => (
-                <th className="pb-2 font-semibold" key={column}>
-                  {column}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr className="border-b border-slate-50" key={row[0]}>
-                {row.map((cell, index) => (
-                  <td
-                    key={cell}
-                    className={`py-2 ${index === 0 ? 'font-bold text-[#28315e]' : 'text-slate-600'}`}
-                  >
-                    {index === row.length - 1 ? (
-                      <span
-                        className={`rounded px-1.5 py-1 font-bold ${cell === 'Validée' || cell === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : cell === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
-                      >
-                        {cell}
-                      </span>
-                    ) : (
-                      cell
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-2 text-[10px]">
+        {rows.map((row) => {
+          const status = row[row.length - 1];
+          return (
+            <div
+              key={row[0]}
+              className="rounded-lg border border-slate-50 p-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-1 font-bold ${status === 'Validée' || status === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : status === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
+                >
+                  {status}
+                </span>
+              </div>
+              <p className="mt-1 text-slate-500">
+                {row
+                  .slice(1, -1)
+                  .map((cell, index) => `${columns[index + 1]}: ${cell}`)
+                  .join(' · ')}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </Card>
   );

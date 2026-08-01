@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   BarChart3,
   BookOpen,
@@ -17,13 +17,13 @@ import {
   LibraryBig,
   LogOut,
   Mail,
+  Menu,
   Newspaper,
   Route,
   Settings,
   ShieldCheck,
   WalletCards,
   UsersRound,
-  Layers3,
   ReceiptText,
   Megaphone,
   ChartNoAxesCombined,
@@ -35,9 +35,12 @@ import {
   ScrollText,
   ChartSpline,
   DatabaseBackup,
+  LayoutTemplate,
+  X,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
+import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
@@ -59,6 +62,24 @@ export default function DashboardLayout({
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  // Referme le tiroir mobile à chaque changement de page plutôt que d'exiger
+  // un onClick de fermeture sur chacun des dizaines de liens de navigation.
+  // Ajusté pendant le rendu (pattern recommandé par React) plutôt que via un
+  // useEffect, pour éviter un rendu en cascade évitable.
+  const [previousPathname, setPreviousPathname] = useState(pathname);
+  if (pathname !== previousPathname) {
+    setPreviousPathname(pathname);
+    setMobileMenuOpen(false);
+  }
 
   useEffect(() => {
     apiClient
@@ -76,24 +97,34 @@ export default function DashboardLayout({
   }, [router]);
 
   useEffect(() => {
-    if (userRole !== 'STUDENT') return;
-    apiClient
-      .get('/students/me')
-      .then((response) => {
-        const student = response.data.data;
-        setUser((current) => ({
-          ...current,
-          ...student,
-          firstName: student.firstName || current?.firstName || '',
-          lastName: student.lastName || current?.lastName || '',
-          gender: student.gender || current?.gender || 'MALE',
-        }));
-      })
-      .catch((error) => console.error('Erreur chargement profil:', error));
+    if (userRole !== 'STUDENT' && userRole !== 'TEACHER') return;
+    const profileEndpoint =
+      userRole === 'TEACHER' ? '/teacher/profile' : '/students/me';
+    const loadProfile = () => {
+      apiClient
+        .get(profileEndpoint)
+        .then((response) => {
+          const profile = response.data.data;
+          setUser((current) => ({
+            ...current,
+            ...profile,
+            firstName: profile.firstName || current?.firstName || '',
+            lastName: profile.lastName || current?.lastName || '',
+            gender: profile.gender || current?.gender || 'MALE',
+          }));
+        })
+        .catch((error) => console.error('Erreur chargement profil:', error));
+    };
+    loadProfile();
+    if (userRole === 'TEACHER') {
+      window.addEventListener('teacher:profile-updated', loadProfile);
+      return () =>
+        window.removeEventListener('teacher:profile-updated', loadProfile);
+    }
   }, [userRole]);
 
   useEffect(() => {
-    if (userRole !== 'STUDENT') return;
+    if (!userRole) return;
     const refreshUnreadMessages = () => {
       apiClient
         .get('/messages/unread-count')
@@ -130,6 +161,10 @@ export default function DashboardLayout({
   if (userRole === 'STUDENT') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
         <StudentSidebar
           avatarUrl={user?.avatarUrl}
           displayName={displayName}
@@ -142,10 +177,35 @@ export default function DashboardLayout({
           onLogout={logout}
           pathname={pathname}
           unreadMessages={unreadMessages}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
         />
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-9 lg:py-7">
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-9 lg:py-7 lg:pb-7">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+              {
+                icon: BookOpen,
+                label: 'Cours',
+                href: '/dashboard/student/courses',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/student/messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/student/settings',
+              },
+            ]}
+            composeHref="/dashboard/student/messages?compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -153,20 +213,95 @@ export default function DashboardLayout({
   if (userRole === 'SCHOOL_ADMIN' || userRole === 'TEACHER') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <SchoolSidebar
-          pathname={pathname}
-          displayName={
-            displayName === 'Étudiant'
-              ? userRole === 'TEACHER'
-                ? 'Professeur'
-                : 'Administrateur'
-              : displayName
-          }
-          onLogout={logout}
+        <MobileTopBar
+          onOpenMenu={() => setMobileMenuOpen(true)}
+          dark={userRole === 'TEACHER'}
         />
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
+        {userRole === 'TEACHER' ? (
+          <Suspense fallback={null}>
+            <TeacherSidebar
+              pathname={pathname}
+              displayName={
+                displayName === 'Étudiant' ? 'Professeur' : displayName
+              }
+              onLogout={logout}
+              unreadMessages={unreadMessages}
+              avatarUrl={user?.avatarUrl}
+              onAvatarUpload={(avatarUrl) =>
+                setUser((current) => ({ ...current, avatarUrl }))
+              }
+              mobileOpen={mobileMenuOpen}
+              onMobileClose={() => setMobileMenuOpen(false)}
+            />
+          </Suspense>
+        ) : (
+          <Suspense fallback={null}>
+            <SchoolSidebar
+              pathname={pathname}
+              displayName={
+                displayName === 'Étudiant' ? 'Administrateur' : displayName
+              }
+              onLogout={logout}
+              unreadMessages={unreadMessages}
+              mobileOpen={mobileMenuOpen}
+              onMobileClose={() => setMobileMenuOpen(false)}
+            />
+          </Suspense>
+        )}
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          {userRole === 'TEACHER' ? (
+            <MobileBottomNav
+              dark
+              items={[
+                { icon: Home, label: 'Accueil', href: '/dashboard/teacher' },
+                {
+                  icon: BookOpen,
+                  label: 'Cours',
+                  href: '/dashboard/teacher?view=courses',
+                },
+                {
+                  icon: Mail,
+                  label: 'Messages',
+                  href: '/dashboard/teacher?view=messages',
+                },
+                {
+                  icon: Settings,
+                  label: 'Profil',
+                  href: '/dashboard/teacher?view=settings',
+                },
+              ]}
+              composeHref="/dashboard/teacher?view=messages&compose=1"
+            />
+          ) : (
+            <MobileBottomNav
+              items={[
+                { icon: Home, label: 'Accueil', href: '/dashboard/school' },
+                {
+                  icon: BookOpen,
+                  label: 'Cours',
+                  href: '/dashboard/school/courses',
+                },
+                {
+                  icon: Mail,
+                  label: 'Messages',
+                  href: '/dashboard/school/messages',
+                },
+                {
+                  icon: Settings,
+                  label: 'Profil',
+                  href: '/dashboard/school/settings',
+                },
+              ]}
+              composeHref="/dashboard/school/messages?compose=1"
+            />
+          )}
+        </Suspense>
       </div>
     );
   }
@@ -174,10 +309,45 @@ export default function DashboardLayout({
   if (userRole === 'ADMIN_GET') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <AdminGetSidebar pathname={pathname} onLogout={logout} />
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
+        <Suspense fallback={null}>
+          <AdminGetSidebar
+            pathname={pathname}
+            onLogout={logout}
+            unreadMessages={unreadMessages}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
+        </Suspense>
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/admin' },
+              {
+                icon: Building,
+                label: 'Écoles',
+                href: '/dashboard/admin/schools',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/admin?section=messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/admin/settings',
+              },
+            ]}
+            composeHref="/dashboard/admin?section=messages&compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -185,10 +355,46 @@ export default function DashboardLayout({
   if (userRole === 'MINISTRY') {
     return (
       <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
-        <MinistrySidebar pathname={pathname} onLogout={logout} />
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} dark />
+        {mobileMenuOpen && (
+          <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
+        )}
+        <Suspense fallback={null}>
+          <MinistrySidebar
+            pathname={pathname}
+            onLogout={logout}
+            unreadMessages={unreadMessages}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
+        </Suspense>
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            dark
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/ministry' },
+              {
+                icon: Building,
+                label: 'Écoles',
+                href: '/dashboard/ministry?section=schools',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/ministry?section=messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/ministry?section=settings',
+              },
+            ]}
+            composeHref="/dashboard/ministry?section=messages&compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -227,15 +433,265 @@ export default function DashboardLayout({
   );
 }
 
-function SchoolSidebar({
+function MobileTopBar({
+  onOpenMenu,
+  dark = false,
+}: {
+  onOpenMenu: () => void;
+  dark?: boolean;
+}) {
+  return (
+    <header
+      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-[#0d1b4d] text-white' : 'border-slate-100 bg-white text-[#111949]'}`}
+    >
+      <span className="text-xl font-black tracking-tight">
+        GET<span className="text-violet-400">.</span>
+      </span>
+      <button
+        onClick={onOpenMenu}
+        aria-label="Ouvrir le menu de navigation"
+        className={`grid size-9 place-items-center rounded-lg ${dark ? 'bg-white/10' : 'bg-slate-100'}`}
+      >
+        <Menu className="size-5" />
+      </button>
+    </header>
+  );
+}
+
+function MobileBackdrop({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="animate-backdrop-fade-in fixed inset-0 z-40 bg-black/40 lg:hidden"
+      onClick={onClick}
+      aria-hidden="true"
+    />
+  );
+}
+
+function MobileCloseButton({
+  onClick,
+  dark = false,
+}: {
+  onClick: () => void;
+  dark?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="Fermer le menu"
+      className={`absolute right-3 top-3 grid size-8 place-items-center rounded-lg lg:hidden ${dark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'}`}
+    >
+      <X className="size-4" />
+    </button>
+  );
+}
+
+function useCurrentDashboardUrl(pathname: string) {
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}
+
+function isNavigationActive(currentUrl: string, href: string) {
+  const [currentPath, currentSearch = ''] = currentUrl.split('?');
+  const [targetPath, targetSearch = ''] = href.split('?');
+  const currentParams = new URLSearchParams(currentSearch);
+  const targetParams = new URLSearchParams(targetSearch);
+  if (
+    targetPath === '/dashboard/teacher' &&
+    targetParams.get('view') === 'courses' &&
+    ['courses', 'course-detail'].includes(currentParams.get('view') || '')
+  ) {
+    return true;
+  }
+  if (targetSearch) {
+    return currentPath === targetPath && currentSearch === targetSearch;
+  }
+  const isDashboardRoot =
+    /^\/dashboard\/(student|school|teacher|admin|ministry)$/.test(targetPath);
+  if (isDashboardRoot && currentSearch) return false;
+  return (
+    currentPath === targetPath ||
+    (!isDashboardRoot && currentPath.startsWith(`${targetPath}/`))
+  );
+}
+
+function TeacherSidebar({
   pathname,
   displayName,
   onLogout,
+  unreadMessages,
+  avatarUrl,
+  onAvatarUpload,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   displayName: string;
   onLogout: () => void;
+  unreadMessages: number;
+  avatarUrl?: string;
+  onAvatarUpload: (url: string) => void;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
+  const items = [
+    { label: 'Tableau de bord', icon: Home, href: '/dashboard/teacher' },
+    {
+      label: 'Mes cours',
+      icon: BookOpen,
+      href: '/dashboard/teacher?view=courses',
+    },
+    {
+      label: 'Étudiants',
+      icon: UsersRound,
+      href: '/dashboard/teacher?view=students',
+    },
+    {
+      label: 'Évaluations',
+      icon: ClipboardList,
+      href: '/dashboard/teacher?view=evaluations',
+    },
+    {
+      label: 'Emploi du temps',
+      icon: CalendarDays,
+      href: '/dashboard/teacher?view=schedule',
+    },
+    {
+      label: 'Devoirs',
+      icon: FileText,
+      href: '/dashboard/teacher?view=assignments',
+    },
+    {
+      label: 'Ressources',
+      icon: LibraryBig,
+      href: '/dashboard/teacher?view=resources',
+    },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/teacher?view=messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
+    },
+    {
+      label: 'Notes & Bulletins',
+      icon: Trophy,
+      href: '/dashboard/teacher?view=grades',
+    },
+    {
+      label: 'Annonces',
+      icon: Megaphone,
+      href: '/dashboard/teacher?view=announcements',
+    },
+  ];
+  return (
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+    >
+      <MobileCloseButton onClick={onMobileClose} dark />
+      <Link href="/dashboard/teacher" className="mb-4 shrink-0 px-3 lg:mb-7">
+        <div className="text-4xl font-black tracking-tight">
+          GET<span className="text-violet-300">.</span>
+        </div>
+        <p className="mt-1 text-[10px] font-medium leading-4 text-blue-100">
+          Grandes Écoles de
+          <br />
+          Tananarive et de Madagascar
+        </p>
+      </Link>
+      <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 lg:hidden">
+        <AvatarUpload
+          currentUrl={avatarUrl}
+          endpoint="/teacher/profile/avatar"
+          fallbackText={displayName.slice(0, 2).toUpperCase()}
+          firstName={displayName.split(' ')[0]}
+          lastName={displayName.split(' ').slice(1).join(' ')}
+          onUpload={onAvatarUpload}
+          size={40}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="mt-0.5 text-[11px] text-blue-100">Professeur</p>
+        </div>
+      </div>
+      <p className="mb-2 shrink-0 px-3 text-[9px] font-bold uppercase tracking-wide text-blue-200">
+        Menu professeur
+      </p>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const active = isNavigationActive(currentUrl, item.href);
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition ${active ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30' : 'text-blue-100 hover:bg-white/10'}`}
+            >
+              <Icon className="size-4" />
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="grid size-5 place-items-center rounded-full bg-violet-400 text-[9px] text-white">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="mt-2 shrink-0 space-y-3 pt-2">
+        <div className="hidden rounded-xl border border-white/10 bg-white/5 p-3 lg:block">
+          <div className="flex items-center gap-2.5">
+            <AvatarUpload
+              currentUrl={avatarUrl}
+              endpoint="/teacher/profile/avatar"
+              fallbackText={displayName.slice(0, 2).toUpperCase()}
+              firstName={displayName.split(' ')[0]}
+              lastName={displayName.split(' ').slice(1).join(' ')}
+              onUpload={onAvatarUpload}
+              size={40}
+            />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold">{displayName}</p>
+              <p className="mt-1 text-[10px] text-blue-100">Professeur</p>
+            </div>
+          </div>
+        </div>
+        <Link
+          href="/dashboard/teacher?view=settings"
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs ${isNavigationActive(currentUrl, '/dashboard/teacher?view=settings') ? 'bg-white/15 text-white' : 'text-blue-100 hover:text-white'}`}
+        >
+          <Settings className="size-4" />
+          Paramètres
+        </Link>
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-rose-300"
+        >
+          <LogOut className="size-4" />
+          Déconnexion
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function SchoolSidebar({
+  pathname,
+  displayName,
+  onLogout,
+  unreadMessages,
+  mobileOpen,
+  onMobileClose,
+}: {
+  pathname: string;
+  displayName: string;
+  onLogout: () => void;
+  unreadMessages: number;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const academic = [
     {
       label: 'Étudiants',
@@ -249,11 +705,6 @@ function SchoolSidebar({
       href: '/dashboard/school/teachers',
     },
     {
-      label: 'Programmes',
-      icon: Layers3,
-      href: '/dashboard/school?section=programs',
-    },
-    {
       label: 'Salles & Emplois du temps',
       icon: CalendarDays,
       href: '/dashboard/school/schedule',
@@ -261,35 +712,48 @@ function SchoolSidebar({
   ];
   const admin = [
     {
-      label: 'Inscriptions',
+      label: 'Offres & admissions',
+      icon: BriefcaseBusiness,
+      href: '/dashboard/school/offers',
+    },
+    {
+      label: 'Candidatures',
       icon: ClipboardList,
-      href: '/dashboard/school?section=enrollments',
+      href: '/dashboard/school/applications',
     },
     {
       label: 'Paiements',
       icon: ReceiptText,
-      href: '/dashboard/school?section=payments',
+      href: '/dashboard/school/payments',
     },
     {
       label: 'Documents',
       icon: FileText,
-      href: '/dashboard/school?section=documents',
+      href: '/dashboard/school/documents',
     },
     {
       label: 'Communications',
       icon: Megaphone,
-      href: '/dashboard/school?section=communications',
-      badge: '4',
+      href: '/dashboard/school/communications',
+    },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/school/messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
     {
       label: 'Rapports & Statistiques',
       icon: ChartNoAxesCombined,
-      href: '/dashboard/school?section=reports',
+      href: '/dashboard/school/reports',
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-6 lg:flex lg:min-h-screen lg:flex-col">
-      <Link href="/dashboard/school" className="mb-6 px-3">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
+      <Link href="/dashboard/school" className="mb-4 shrink-0 px-3 lg:mb-6">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
         </div>
@@ -299,24 +763,41 @@ function SchoolSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
-      <nav className="space-y-1">
+      <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
+        <span className="grid size-10 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
+          {displayName.slice(0, 1)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="text-[11px] text-slate-500">Administrateur</p>
+        </div>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         <SchoolNav
           href="/dashboard/school"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/school'}
+          active={isNavigationActive(currentUrl, '/dashboard/school')}
         />
-        <SidebarGroup label="Gestion académique" items={academic} />
-        <SidebarGroup label="Administration" items={admin} />
+        <SidebarGroup
+          label="Gestion académique"
+          items={academic}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Administration"
+          items={admin}
+          currentUrl={currentUrl}
+        />
         <SchoolNav
           href="/dashboard/school/settings"
           label="Paramètres"
           icon={Settings}
-          active={pathname === '/dashboard/school/settings'}
+          active={isNavigationActive(currentUrl, '/dashboard/school/settings')}
         />
       </nav>
-      <div className="mt-auto space-y-4">
-        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+      <div className="mt-2 shrink-0 space-y-3 pt-2">
+        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
             <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
               E
@@ -331,7 +812,7 @@ function SchoolSidebar({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+        <div className="hidden items-center gap-2 border-t border-slate-100 pt-3 lg:flex">
           <span className="grid size-9 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
             {displayName.slice(0, 1)}
           </span>
@@ -340,7 +821,7 @@ function SchoolSidebar({
             <p className="text-[10px] text-slate-500">Administrateur</p>
           </div>
         </div>
-        <div className="rounded-xl bg-violet-50 p-3 text-violet-700">
+        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <Headphones className="size-4" />
             Besoin d’aide ?
@@ -364,6 +845,7 @@ function SchoolSidebar({
 function SidebarGroup({
   label,
   items,
+  currentUrl,
 }: {
   label: string;
   items: Array<{
@@ -372,14 +854,19 @@ function SidebarGroup({
     href: string;
     badge?: string;
   }>;
+  currentUrl: string;
 }) {
   return (
-    <div className="py-3">
-      <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+    <div className="py-2">
+      <p className="px-3 pb-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
         {label}
       </p>
       {items.map((item) => (
-        <SchoolNav key={item.label} {...item} active={false} />
+        <SchoolNav
+          key={item.label}
+          {...item}
+          active={isNavigationActive(currentUrl, item.href)}
+        />
       ))}
     </div>
   );
@@ -400,7 +887,7 @@ function SchoolNav({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
     >
       <Icon className="size-4" />
       <span className="flex-1">{label}</span>
@@ -417,10 +904,17 @@ const UserRoundIcon = UsersRound;
 function AdminGetSidebar({
   pathname,
   onLogout,
+  unreadMessages,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  unreadMessages: number;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const global = [
     {
       label: 'Établissements',
@@ -481,6 +975,7 @@ function AdminGetSidebar({
       label: 'Messages',
       icon: Mail,
       href: '/dashboard/admin?section=messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
     },
     {
       label: 'Annonces',
@@ -488,9 +983,24 @@ function AdminGetSidebar({
       href: '/dashboard/admin?section=announcements',
     },
   ];
+  const siteVitrine = [
+    {
+      label: 'Contenu général',
+      icon: LayoutTemplate,
+      href: '/dashboard/admin?section=landing-content',
+    },
+    {
+      label: 'Actualités du site',
+      icon: Newspaper,
+      href: '/dashboard/admin?section=landing-news',
+    },
+  ];
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-6 lg:flex lg:min-h-screen lg:flex-col">
-      <Link href="/dashboard/admin" className="mb-6 px-3">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
+      <Link href="/dashboard/admin" className="mb-4 shrink-0 px-3 lg:mb-6">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
         </div>
@@ -500,16 +1010,42 @@ function AdminGetSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
-      <nav className="space-y-1">
+      <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
+        <span className="grid size-10 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
+          AG
+        </span>
+        <div>
+          <p className="text-sm font-bold">Admin GET</p>
+          <p className="text-[11px] text-slate-500">Superadministrateur</p>
+        </div>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         <SchoolNav
           href="/dashboard/admin"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/admin'}
+          active={isNavigationActive(currentUrl, '/dashboard/admin')}
         />
-        <SidebarGroup label="Gestion globale" items={global} />
-        <SidebarGroup label="Paiements & finances" items={finances} />
-        <SidebarGroup label="Communication" items={communication} />
+        <SidebarGroup
+          label="Gestion globale"
+          items={global}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Paiements & finances"
+          items={finances}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Communication"
+          items={communication}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Site vitrine"
+          items={siteVitrine}
+          currentUrl={currentUrl}
+        />
         <SidebarGroup
           label="Analytiques"
           items={[
@@ -524,27 +1060,31 @@ function AdminGetSidebar({
               href: '/dashboard/admin?section=dashboards',
             },
           ]}
+          currentUrl={currentUrl}
         />
-        <div className="pt-3">
-          <p className="px-3 pb-2 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+        <div className="pt-2">
+          <p className="px-3 pb-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
             Paramètres
           </p>
           <SchoolNav
             href="/dashboard/admin/settings"
             label="Paramètres généraux"
             icon={Settings}
-            active={pathname === '/dashboard/admin/settings'}
+            active={isNavigationActive(currentUrl, '/dashboard/admin/settings')}
           />
           <SchoolNav
             href="/dashboard/admin?section=activity"
             label="Journal d’activité"
             icon={ScrollText}
-            active={false}
+            active={isNavigationActive(
+              currentUrl,
+              '/dashboard/admin?section=activity',
+            )}
           />
         </div>
       </nav>
-      <div className="mt-auto space-y-3">
-        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+      <div className="mt-2 shrink-0 space-y-3 pt-2">
+        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
             <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-xs font-black text-violet-700">
               AG
@@ -555,7 +1095,7 @@ function AdminGetSidebar({
             </div>
           </div>
         </div>
-        <div className="rounded-xl bg-violet-50 p-3 text-violet-700">
+        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <DatabaseBackup className="size-4" />
             Système sécurisé
@@ -579,10 +1119,17 @@ function AdminGetSidebar({
 function MinistrySidebar({
   pathname,
   onLogout,
+  unreadMessages,
+  mobileOpen,
+  onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
+  unreadMessages: number;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
+  const currentUrl = useCurrentDashboardUrl(pathname);
   const national = [
     {
       label: 'Établissements',
@@ -619,6 +1166,12 @@ function MinistrySidebar({
       icon: Megaphone,
       href: '/dashboard/ministry?section=communication',
     },
+    {
+      label: 'Messages',
+      icon: Mail,
+      href: '/dashboard/ministry?section=messages',
+      badge: unreadMessages ? String(unreadMessages) : undefined,
+    },
   ];
   const settings = [
     {
@@ -643,8 +1196,11 @@ function MinistrySidebar({
     },
   ];
   return (
-    <aside className="hidden w-60 shrink-0 bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-6 text-white lg:flex lg:min-h-screen lg:flex-col">
-      <Link href="/dashboard/ministry" className="mb-8 px-3">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+    >
+      <MobileCloseButton onClick={onMobileClose} dark />
+      <Link href="/dashboard/ministry" className="mb-4 shrink-0 px-3 lg:mb-8">
         <div className="text-4xl font-black tracking-tight text-white">
           GET<span className="text-violet-300">.</span>
         </div>
@@ -654,36 +1210,45 @@ function MinistrySidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
-      <nav className="space-y-1">
+      <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl bg-white/10 p-2.5 lg:hidden">
+        <span className="grid size-10 place-items-center rounded-full bg-white text-sm font-black text-violet-700">
+          M
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">Ministère MESUPRES</p>
+          <p className="text-[11px] text-violet-200">Administrateur</p>
+        </div>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         <MinistryNav
           href="/dashboard/ministry"
           label="Tableau de bord"
           icon={Home}
-          active={pathname === '/dashboard/ministry'}
+          active={isNavigationActive(currentUrl, '/dashboard/ministry')}
         />
-        <p className="px-3 pb-2 pt-5 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
+        <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
           Menu principal
         </p>
         {national.map((item) => (
           <MinistryNav
             key={item.label}
             {...item}
-            active={
-              pathname === item.href.split('?')[0] && item.href.includes('?')
-                ? false
-                : pathname === item.href
-            }
+            active={isNavigationActive(currentUrl, item.href)}
           />
         ))}
-        <p className="px-3 pb-2 pt-5 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
+        <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
           Paramètres
         </p>
         {settings.map((item) => (
-          <MinistryNav key={item.label} {...item} active={false} />
+          <MinistryNav
+            key={item.label}
+            {...item}
+            active={isNavigationActive(currentUrl, item.href)}
+          />
         ))}
       </nav>
-      <div className="mt-auto border-t border-white/10 pt-4">
-        <div className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
+      <div className="mt-2 shrink-0 border-t border-white/10 pt-3">
+        <div className="hidden items-center gap-3 rounded-xl bg-white/10 p-3 lg:flex">
           <span className="grid size-9 place-items-center rounded-full bg-white text-xs font-black text-violet-700">
             M
           </span>
@@ -694,7 +1259,7 @@ function MinistrySidebar({
         </div>
         <button
           onClick={onLogout}
-          className="mt-4 flex w-full items-center gap-2 px-3 text-xs font-semibold text-violet-100 transition hover:text-white"
+          className="mt-3 flex w-full items-center gap-2 px-3 text-xs font-semibold text-violet-100 transition hover:text-white"
         >
           <LogOut className="size-4" />
           Déconnexion
@@ -709,19 +1274,26 @@ function MinistryNav({
   label,
   icon: Icon,
   active,
+  badge,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
   active: boolean;
+  badge?: string;
 }) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[12px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-black/20' : 'text-violet-50 hover:bg-white/10 hover:text-white'}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[12px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-black/20' : 'text-violet-50 hover:bg-white/10 hover:text-white'}`}
     >
       <Icon className="size-4" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="grid size-5 place-items-center rounded-full bg-white/20 text-[10px] text-white">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -736,6 +1308,8 @@ function StudentSidebar({
   onLogout,
   pathname,
   unreadMessages,
+  mobileOpen,
+  onMobileClose,
 }: {
   avatarUrl?: string;
   displayName: string;
@@ -746,6 +1320,8 @@ function StudentSidebar({
   onLogout: () => void;
   pathname: string;
   unreadMessages: number;
+  mobileOpen: boolean;
+  onMobileClose: () => void;
 }) {
   const items = [
     { label: 'Accueil', icon: Home, href: '/dashboard/student' },
@@ -760,6 +1336,11 @@ function StudentSidebar({
       label: 'Mes notes',
       icon: ClipboardList,
       href: '/dashboard/student/grades',
+    },
+    {
+      label: 'Devoirs',
+      icon: FileText,
+      href: '/dashboard/student/assignments',
     },
     {
       label: 'Finances',
@@ -796,8 +1377,11 @@ function StudentSidebar({
   ];
 
   return (
-    <aside className="hidden w-60 shrink-0 border-r border-slate-100 bg-white px-4 py-7 lg:flex lg:min-h-screen lg:flex-col">
-      <Link href="/dashboard/student" className="mb-7 px-3">
+    <aside
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-7`}
+    >
+      <MobileCloseButton onClick={onMobileClose} />
+      <Link href="/dashboard/student" className="mb-4 shrink-0 px-3 lg:mb-7">
         <div className="text-4xl font-black tracking-tight text-violet-600">
           GET<span className="text-blue-500">.</span>
         </div>
@@ -807,7 +1391,25 @@ function StudentSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
-      <nav className="space-y-1">
+      <div className="mb-3 flex shrink-0 items-center gap-2.5 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
+        <AvatarUpload
+          currentUrl={avatarUrl}
+          endpoint="/students/me/avatar"
+          onUpload={onAvatarUpload}
+          fallbackText={initials}
+          gender={gender}
+          firstName={displayName.split(' ')[0]}
+          lastName={displayName.split(' ').slice(1).join(' ')}
+          size={40}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="truncate text-[11px] text-slate-500">
+            {year || 'Étudiant inscrit'}
+          </p>
+        </div>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         {items.map(({ label, icon: Icon, href, badge }) => {
           const active =
             label === 'Accueil'
@@ -817,7 +1419,7 @@ function StudentSidebar({
             <Link
               key={label}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
             >
               <Icon className="size-4" />
               <span className="flex-1">{label}</span>
@@ -830,8 +1432,8 @@ function StudentSidebar({
           );
         })}
       </nav>
-      <div className="mt-auto space-y-4 pt-6">
-        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+      <div className="mt-2 shrink-0 space-y-3 pt-2">
+        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2.5">
             <AvatarUpload
               currentUrl={avatarUrl}
@@ -857,7 +1459,7 @@ function StudentSidebar({
             Voir mon profil <ChevronRight className="size-4" />
           </Link>
         </div>
-        <div className="rounded-xl bg-violet-50 p-3 text-violet-700">
+        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <Headphones className="size-4" />
             Besoin d’aide ?

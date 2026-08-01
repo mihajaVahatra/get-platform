@@ -1,11 +1,49 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SendNotificationDto, NotificationType, NotificationPriority } from './dto/send-notification.dto';
+import {
+  SendNotificationDto,
+  NotificationType,
+  NotificationPriority,
+} from './dto/send-notification.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 
 @Injectable()
 export class NotificationService {
   constructor(private prisma: PrismaService) {}
+
+  async sendInAppBatch(
+    userIds: string[],
+    content: { title: string; body: string },
+  ): Promise<Array<{ userId: string; notificationId: string }>> {
+    const recipientIds = [...new Set(userIds)];
+    const recipients: Array<{ userId: string; notificationId: string }> = [];
+    const batchSize = 25;
+
+    for (let index = 0; index < recipientIds.length; index += batchSize) {
+      const results = await Promise.all(
+        recipientIds.slice(index, index + batchSize).map(async (userId) => ({
+          userId,
+          result: (await this.send({
+            userId,
+            type: NotificationType.IN_APP,
+            title: content.title,
+            body: content.body,
+          })) as { success: boolean; notificationId?: string },
+        })),
+      );
+      for (const { userId, result } of results) {
+        if (result.success && result.notificationId) {
+          recipients.push({ userId, notificationId: result.notificationId });
+        }
+      }
+    }
+
+    return recipients;
+  }
 
   // ============================================================
   // 1. ENVOI DE NOTIFICATION (principal)
@@ -83,10 +121,10 @@ export class NotificationService {
     // Dans la vraie vie : SendGrid, AWS SES, etc.
     console.log(`📧 Sending email to ${user.email}: ${dto.title}`);
     console.log(`   Body: ${dto.body}`);
-    
+
     // Simuler un délai d'envoi
     await this.delay(500);
-    
+
     return {
       provider: 'EMAIL',
       status: 'SENT',
@@ -106,9 +144,9 @@ export class NotificationService {
 
     console.log(`📱 Sending SMS to ${phone}: ${dto.title}`);
     console.log(`   Body: ${dto.body}`);
-    
+
     await this.delay(300);
-    
+
     return {
       provider: 'SMS',
       status: 'SENT',
@@ -121,11 +159,13 @@ export class NotificationService {
    * (Simulé pour l'instant)
    */
   private async sendPush(dto: SendNotificationDto, user: any) {
-    console.log(`🔔 Sending push notification to user ${user.id}: ${dto.title}`);
+    console.log(
+      `🔔 Sending push notification to user ${user.id}: ${dto.title}`,
+    );
     console.log(`   Body: ${dto.body}`);
-    
+
     await this.delay(200);
-    
+
     return {
       provider: 'PUSH',
       status: 'SENT',
@@ -138,10 +178,12 @@ export class NotificationService {
    * (Stockée en base, affichée dans l'interface)
    */
   private async sendInApp(dto: SendNotificationDto, user: any) {
-    console.log(`📨 Sending in-app notification to user ${user.id}: ${dto.title}`);
-    
+    console.log(
+      `📨 Sending in-app notification to user ${user.id}: ${dto.title}`,
+    );
+
     // Déjà enregistrée en base, pas besoin d'envoyer ailleurs
-    
+
     return {
       provider: 'IN_APP',
       status: 'STORED',
@@ -157,18 +199,25 @@ export class NotificationService {
    * Récupère les préférences de notification d'un utilisateur.
    * Si elles n'existent pas, crée des préférences par défaut.
    */
-  async getUserPreferences(userId: string): Promise<NotificationPreferencesDto> {
+  async getUserPreferences(
+    userId: string,
+  ): Promise<NotificationPreferencesDto> {
     // On peut stocker les préférences dans une table dédiée
     // Pour l'instant, on retourne des valeurs par défaut
     // Dans le futur, on pourrait stocker dans SystemConfig ou une table UserPreferences
-    
+
     // Simuler des préférences par défaut
     return {
       emailEnabled: true,
       smsEnabled: true,
       pushEnabled: true,
       inAppEnabled: true,
-      categories: ['APPLICATION_SUBMITTED', 'PAYMENT_CONFIRMED', 'STATUS_CHANGED', 'WELCOME'],
+      categories: [
+        'APPLICATION_SUBMITTED',
+        'PAYMENT_CONFIRMED',
+        'STATUS_CHANGED',
+        'WELCOME',
+      ],
     };
   }
 
@@ -261,7 +310,10 @@ export class NotificationService {
   // 5. HELPERS
   // ============================================================
 
-  private isChannelEnabled(type: NotificationType, preferences: NotificationPreferencesDto): boolean {
+  private isChannelEnabled(
+    type: NotificationType,
+    preferences: NotificationPreferencesDto,
+  ): boolean {
     switch (type) {
       case NotificationType.EMAIL:
         return preferences.emailEnabled;
@@ -277,7 +329,7 @@ export class NotificationService {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // ============================================================
@@ -308,7 +360,11 @@ export class NotificationService {
   /**
    * Envoie une notification de confirmation de paiement.
    */
-  async sendPaymentConfirmation(userId: string, paymentId: string, amount: number) {
+  async sendPaymentConfirmation(
+    userId: string,
+    paymentId: string,
+    amount: number,
+  ) {
     const dto: SendNotificationDto = {
       userId,
       type: NotificationType.EMAIL,
@@ -324,7 +380,11 @@ export class NotificationService {
   /**
    * Envoie une notification de changement de statut de candidature.
    */
-  async sendApplicationStatusUpdate(userId: string, applicationId: string, status: string) {
+  async sendApplicationStatusUpdate(
+    userId: string,
+    applicationId: string,
+    status: string,
+  ) {
     const dto: SendNotificationDto = {
       userId,
       type: NotificationType.EMAIL,

@@ -1,7 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GenerateReportDto, ReportType, ExportFormat } from './dto/report-request.dto';
-import { ComplianceUpdateDto, ComplianceStatus } from './dto/compliance-update.dto';
+import {
+  GenerateReportDto,
+  ReportType,
+  ExportFormat,
+} from './dto/report-request.dto';
+import {
+  ComplianceUpdateDto,
+  ComplianceStatus,
+} from './dto/compliance-update.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -16,21 +27,24 @@ export class MinistryService {
     try {
       const where: any = {};
       if (filters?.from) where.createdAt = { gte: filters.from };
-      if (filters?.to) where.createdAt = { ...where.createdAt, lte: filters.to };
+      if (filters?.to)
+        where.createdAt = { ...where.createdAt, lte: filters.to };
 
-      const [totalApplications, totalStudents, totalSchools, totalOffers] = await Promise.all([
-        this.prisma.application.count({ where }),
-        this.prisma.student.count(),
-        this.prisma.school.count({ where: { deletedAt: null } }),
-        this.prisma.offer.count({ where: { deletedAt: null } }),
-      ]);
+      const [totalApplications, totalStudents, totalSchools, totalOffers] =
+        await Promise.all([
+          this.prisma.application.count({ where }),
+          this.prisma.student.count(),
+          this.prisma.school.count({ where: { deletedAt: null } }),
+          this.prisma.offer.count({ where: { deletedAt: null } }),
+        ]);
 
       const acceptedCount = await this.prisma.application.count({
         where: { ...where, status: 'ACCEPTED' },
       });
-      const acceptanceRate = totalApplications > 0
-        ? Math.round((acceptedCount / totalApplications) * 100)
-        : 0;
+      const acceptanceRate =
+        totalApplications > 0
+          ? Math.round((acceptedCount / totalApplications) * 100)
+          : 0;
 
       // Répartition par genre (fallback)
       const genderDistribution = {
@@ -139,7 +153,8 @@ export class MinistryService {
     try {
       const where: any = {};
       if (filters?.from) where.submittedAt = { gte: filters.from };
-      if (filters?.to) where.submittedAt = { ...where.submittedAt, lte: filters.to };
+      if (filters?.to)
+        where.submittedAt = { ...where.submittedAt, lte: filters.to };
       if (filters?.schoolId) {
         where.offer = { schoolId: filters.schoolId };
       }
@@ -213,17 +228,27 @@ export class MinistryService {
 
   async getSchoolStats() {
     try {
-      const [totalSchools, publicSchools, privateSchools, schoolsByRegion, offersPerSchool, applicationsPerSchool] =
-        await Promise.all([
-          this.prisma.school.count({ where: { deletedAt: null } }),
-          this.prisma.school.count({ where: { deletedAt: null, type: 'PUBLIC' } }),
-          this.prisma.school.count({ where: { deletedAt: null, type: 'PRIVATE' } }),
-          this.prisma.school.groupBy({
-            by: ['region'],
-            where: { deletedAt: null },
-            _count: true,
-          }),
-          this.prisma.$queryRaw<{ average: number }[]>`
+      const [
+        totalSchools,
+        publicSchools,
+        privateSchools,
+        schoolsByRegion,
+        offersPerSchool,
+        applicationsPerSchool,
+      ] = await Promise.all([
+        this.prisma.school.count({ where: { deletedAt: null } }),
+        this.prisma.school.count({
+          where: { deletedAt: null, type: 'PUBLIC' },
+        }),
+        this.prisma.school.count({
+          where: { deletedAt: null, type: 'PRIVATE' },
+        }),
+        this.prisma.school.groupBy({
+          by: ['region'],
+          where: { deletedAt: null },
+          _count: true,
+        }),
+        this.prisma.$queryRaw<{ average: number }[]>`
             SELECT COALESCE(AVG(offer_count), 0)::float as average
             FROM (
               SELECT COUNT(*) as offer_count
@@ -232,7 +257,7 @@ export class MinistryService {
               GROUP BY "schoolId"
             ) as subquery
           `,
-          this.prisma.$queryRaw<{ avg: number }[]>`
+        this.prisma.$queryRaw<{ avg: number }[]>`
             SELECT COALESCE(AVG(app_count), 0)::float as avg
             FROM (
               SELECT COUNT(*) as app_count
@@ -243,10 +268,12 @@ export class MinistryService {
               GROUP BY o."schoolId"
             ) as subquery
           `,
-        ]);
+      ]);
 
-      const avgOffers = offersPerSchool.length > 0 ? offersPerSchool[0]?.average : 0;
-      const avgApps = applicationsPerSchool.length > 0 ? applicationsPerSchool[0]?.avg : 0;
+      const avgOffers =
+        offersPerSchool.length > 0 ? offersPerSchool[0]?.average : 0;
+      const avgApps =
+        applicationsPerSchool.length > 0 ? applicationsPerSchool[0]?.avg : 0;
 
       return {
         totalSchools,
@@ -272,50 +299,54 @@ export class MinistryService {
     }
   }
 
- // ============================================================
-// 4. STATISTIQUES GÉOGRAPHIQUES
-// ============================================================
+  // ============================================================
+  // 4. STATISTIQUES GÉOGRAPHIQUES
+  // ============================================================
 
-async getGeographicStats() {
-  try {
-    const byRegion = await this.prisma.student.groupBy({
-      by: ['region'],
-      _count: true,
-      where: { region: { not: null } },
-    });
+  async getGeographicStats() {
+    try {
+      const byRegion = await this.prisma.student.groupBy({
+        by: ['region'],
+        _count: true,
+        where: { region: { not: null } },
+      });
 
-    const byCity = await this.prisma.student.groupBy({
-      by: ['city'],
-      _count: true,
-      where: { city: { not: null } },
-    });
+      const byCity = await this.prisma.student.groupBy({
+        by: ['city'],
+        _count: true,
+        where: { city: { not: null } },
+      });
 
-    return {
-      byRegion: byRegion
-        .map((r) => ({
-          region: r.region || 'Non renseigné',
-          count: r._count,
-        }))
-        .sort((a, b) => b.count - a.count),
-      byCity: byCity
-        .map((c) => ({
-          city: c.city || 'Non renseigné',
-          count: c._count,
-        }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20),
-    };
-  } catch (error) {
-    console.error('Erreur stats géographiques:', error);
-    return { byRegion: [], byCity: [] };
+      return {
+        byRegion: byRegion
+          .map((r) => ({
+            region: r.region || 'Non renseigné',
+            count: r._count,
+          }))
+          .sort((a, b) => b.count - a.count),
+        byCity: byCity
+          .map((c) => ({
+            city: c.city || 'Non renseigné',
+            count: c._count,
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 20),
+      };
+    } catch (error) {
+      console.error('Erreur stats géographiques:', error);
+      return { byRegion: [], byCity: [] };
+    }
   }
-}
 
   // ============================================================
   // 5. CONFORMITÉ
   // ============================================================
 
-  async getCompliance(options?: { status?: string; page?: number; limit?: number }) {
+  async getCompliance(options?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const page = options?.page || 1;
     const limit = options?.limit || 20;
     const skip = (page - 1) * limit;
@@ -364,7 +395,11 @@ async getGeographicStats() {
   // 6. CONFORMITÉ - UPDATE
   // ============================================================
 
-  async updateCompliance(schoolId: string, dto: ComplianceUpdateDto, userId?: string) {
+  async updateCompliance(
+    schoolId: string,
+    dto: ComplianceUpdateDto,
+    userId?: string,
+  ) {
     const school = await this.prisma.school.findFirst({
       where: { id: schoolId, deletedAt: null },
     });
@@ -387,7 +422,11 @@ async getGeographicStats() {
   // 7. RAPPORTS
   // ============================================================
 
-  async getReports(options?: { type?: ReportType; page?: number; limit?: number }) {
+  async getReports(options?: {
+    type?: ReportType;
+    page?: number;
+    limit?: number;
+  }) {
     const page = options?.page || 1;
     const limit = options?.limit || 20;
     const skip = (page - 1) * limit;
@@ -450,7 +489,10 @@ async getGeographicStats() {
     return report;
   }
 
-  async exportReport(reportId: string, format: ExportFormat): Promise<{ buffer: Buffer; contentType: string }> {
+  async exportReport(
+    reportId: string,
+    format: ExportFormat,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
     const report = await this.getReport(reportId);
 
     const content = `
@@ -463,12 +505,14 @@ async getGeographicStats() {
 
     const buffer = Buffer.from(content);
 
-    const contentType = {
-      [ExportFormat.PDF]: 'application/pdf',
-      [ExportFormat.EXCEL]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      [ExportFormat.CSV]: 'text/csv',
-      [ExportFormat.JSON]: 'application/json',
-    }[format] || 'text/plain';
+    const contentType =
+      {
+        [ExportFormat.PDF]: 'application/pdf',
+        [ExportFormat.EXCEL]:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        [ExportFormat.CSV]: 'text/csv',
+        [ExportFormat.JSON]: 'application/json',
+      }[format] || 'text/plain';
 
     return { buffer, contentType };
   }

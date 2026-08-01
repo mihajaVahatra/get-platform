@@ -1,16 +1,115 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class StudentService {
   constructor(
     private prisma: PrismaService,
     private encryption: EncryptionService,
+    private storageService: StorageService,
   ) {}
+
+  private async enrolledStudent(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+    return student;
+  }
+
+  private async courseEnrollment(studentId: string, courseId: string) {
+    const enrollment = await this.prisma.courseEnrollment.findUnique({
+      where: { courseId_studentId: { courseId, studentId } },
+    });
+    if (!enrollment) throw new NotFoundException('Cours introuvable');
+    return enrollment;
+  }
+
+  async getCourses(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      include: { course: { include: { school: true } } },
+    });
+    return enrollments.map(({ course }) => course);
+  }
+
+  async getCourseAssignments(userId: string, courseId: string) {
+    const student = await this.enrolledStudent(userId);
+    await this.courseEnrollment(student.id, courseId);
+
+    const assignments = await this.prisma.assignment.findMany({
+      where: { courseId, publishedAt: { not: null } },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        submissions: {
+          where: { studentId: student.id },
+          select: { id: true, submittedAt: true, grade: true },
+        },
+      },
+    });
+
+    return assignments.map(({ submissions, ...assignment }) => ({
+      ...assignment,
+      submission: submissions[0] ?? null,
+    }));
+  }
+
+  async submitAssignment(
+    userId: string,
+    assignmentId: string,
+    file: Express.Multer.File,
+  ) {
+    const student = await this.enrolledStudent(userId);
+    const assignment = await this.prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { id: true, courseId: true, publishedAt: true },
+    });
+    if (!assignment || !assignment.publishedAt) {
+      throw new NotFoundException('Devoir introuvable');
+    }
+    await this.courseEnrollment(student.id, assignment.courseId);
+
+    const existingSubmission =
+      await this.prisma.assignmentSubmission.findUnique({
+        where: {
+          assignmentId_studentId: { assignmentId, studentId: student.id },
+        },
+        select: { id: true, grade: true },
+      });
+    if (
+      existingSubmission?.grade !== null &&
+      existingSubmission?.grade !== undefined
+    ) {
+      throw new ConflictException(
+        'Cette soumission a déjà été notée et ne peut plus être remplacée',
+      );
+    }
+
+    const { url: contentUrl } = this.storageService.uploadDocument(
+      file,
+      student.id,
+    );
+    return this.prisma.assignmentSubmission.upsert({
+      where: {
+        assignmentId_studentId: { assignmentId, studentId: student.id },
+      },
+      update: { contentUrl, submittedAt: new Date() },
+      create: { assignmentId, studentId: student.id, contentUrl },
+    });
+  }
 
   // ========== PROFILE ==========
 
@@ -24,6 +123,7 @@ export class StudentService {
               id: true,
               email: true,
               isActive: true,
+              theme: true,
             },
           },
           documents: {
@@ -57,7 +157,10 @@ export class StudentService {
         try {
           decryptedPhone = this.encryption.decrypt(student.phone);
         } catch (e) {
-          console.warn('⚠️ Erreur décryptage phone, utilisation de la valeur brute:', e.message);
+          console.warn(
+            '⚠️ Erreur décryptage phone, utilisation de la valeur brute:',
+            e.message,
+          );
           decryptedPhone = student.phone;
         }
       }
@@ -66,7 +169,10 @@ export class StudentService {
         try {
           decryptedCin = this.encryption.decrypt(student.cin);
         } catch (e) {
-          console.warn('⚠️ Erreur décryptage cin, utilisation de la valeur brute:', e.message);
+          console.warn(
+            '⚠️ Erreur décryptage cin, utilisation de la valeur brute:',
+            e.message,
+          );
           decryptedCin = student.cin;
         }
       }
@@ -92,7 +198,10 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const profileCompleted = this.calculateProfileCompletion({ ...student, ...dto });
+    const profileCompleted = this.calculateProfileCompletion({
+      ...student,
+      ...dto,
+    });
 
     const data: any = {
       firstName: dto.firstName,
@@ -114,7 +223,10 @@ export class StudentService {
       try {
         data.phone = this.encryption.encrypt(dto.phone);
       } catch (e) {
-        console.warn('⚠️ Erreur chiffrement phone, stockage en clair:', e.message);
+        console.warn(
+          '⚠️ Erreur chiffrement phone, stockage en clair:',
+          e.message,
+        );
         data.phone = dto.phone;
       }
     }
@@ -122,7 +234,10 @@ export class StudentService {
       try {
         data.cin = this.encryption.encrypt(dto.cin);
       } catch (e) {
-        console.warn('⚠️ Erreur chiffrement cin, stockage en clair:', e.message);
+        console.warn(
+          '⚠️ Erreur chiffrement cin, stockage en clair:',
+          e.message,
+        );
         data.cin = dto.cin;
       }
     }
@@ -146,8 +261,10 @@ export class StudentService {
       student.city,
       student.bio,
     ];
-    const filled = fields.filter(f => f !== null && f !== undefined && f !== '').length;
-    return (filled / fields.length) >= 0.7;
+    const filled = fields.filter(
+      (f) => f !== null && f !== undefined && f !== '',
+    ).length;
+    return filled / fields.length >= 0.7;
   }
 
   // ========== DOCUMENTS ==========
@@ -183,7 +300,10 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const fileUrl = `https://storage.get.mg/documents/${student.id}/${Date.now()}-${file.originalname}`;
+    const { url: fileUrl } = await this.storageService.uploadDocument(
+      file,
+      student.id,
+    );
 
     return this.prisma.document.create({
       data: {
@@ -264,7 +384,9 @@ export class StudentService {
     }
 
     if (!student.interests?.length) {
-      throw new BadRequestException('Please complete the orientation questionnaire first');
+      throw new BadRequestException(
+        'Please complete the orientation questionnaire first',
+      );
     }
 
     const dto: OrientationQuestionnaireDto = {
@@ -276,7 +398,9 @@ export class StudentService {
     return this.generateOrientationSuggestions(dto);
   }
 
-  private async generateOrientationSuggestions(dto: OrientationQuestionnaireDto) {
+  private async generateOrientationSuggestions(
+    dto: OrientationQuestionnaireDto,
+  ) {
     const offers = await this.prisma.offer.findMany({
       where: {
         isOpen: true,
@@ -291,7 +415,11 @@ export class StudentService {
     const suggestions = offers.map((offer) => {
       let matchScore = 0;
 
-      if (dto.interests.some((i) => offer.title.toLowerCase().includes(i.toLowerCase()))) {
+      if (
+        dto.interests.some((i) =>
+          offer.title.toLowerCase().includes(i.toLowerCase()),
+        )
+      ) {
         matchScore += 30;
       }
 
@@ -299,11 +427,17 @@ export class StudentService {
         matchScore += 20;
       }
 
-      if (dto.preferredDomain && offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())) {
+      if (
+        dto.preferredDomain &&
+        offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())
+      ) {
         matchScore += 30;
       }
 
-      if (dto.interestedInInternational && offer.title.toLowerCase().includes('international')) {
+      if (
+        dto.interestedInInternational &&
+        offer.title.toLowerCase().includes('international')
+      ) {
         matchScore += 20;
       }
 
@@ -323,10 +457,17 @@ export class StudentService {
       .slice(0, 5);
   }
 
-  private generateMatchReasons(offer: any, dto: OrientationQuestionnaireDto): string[] {
+  private generateMatchReasons(
+    offer: any,
+    dto: OrientationQuestionnaireDto,
+  ): string[] {
     const reasons: string[] = [];
 
-    if (dto.interests.some((i) => offer.title.toLowerCase().includes(i.toLowerCase()))) {
+    if (
+      dto.interests.some((i) =>
+        offer.title.toLowerCase().includes(i.toLowerCase()),
+      )
+    ) {
       reasons.push('Matches your interests');
     }
 
@@ -334,7 +475,10 @@ export class StudentService {
       reasons.push(`Matching diploma: ${offer.diploma}`);
     }
 
-    if (dto.preferredDomain && offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())) {
+    if (
+      dto.preferredDomain &&
+      offer.title.toLowerCase().includes(dto.preferredDomain.toLowerCase())
+    ) {
       reasons.push(`Matches your preferred domain: ${dto.preferredDomain}`);
     }
 
@@ -369,9 +513,12 @@ export class StudentService {
 
     return {
       totalApplications: applications.length,
-      pendingApplications: applications.filter((a) => a.status === 'PENDING').length,
-      acceptedApplications: applications.filter((a) => a.status === 'ACCEPTED').length,
-      rejectedApplications: applications.filter((a) => a.status === 'REJECTED').length,
+      pendingApplications: applications.filter((a) => a.status === 'PENDING')
+        .length,
+      acceptedApplications: applications.filter((a) => a.status === 'ACCEPTED')
+        .length,
+      rejectedApplications: applications.filter((a) => a.status === 'REJECTED')
+        .length,
       documentsUploaded: documents.length,
       profileCompletion: this.calculateProfileCompletion(student),
     };
@@ -389,6 +536,106 @@ export class StudentService {
     return this.prisma.student.update({
       where: { userId },
       data: { avatarUrl },
+    });
+  }
+
+  // ========== GRADES ==========
+
+  async getGrades(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      include: {
+        course: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            evaluations: {
+              include: {
+                grades: { where: { studentId: student.id } },
+              },
+            },
+            assignments: {
+              where: { publishedAt: { not: null } },
+              include: {
+                submissions: {
+                  where: { studentId: student.id },
+                  select: { grade: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return enrollments.map(({ course }) => ({
+      courseId: course.id,
+      code: course.code,
+      title: course.title,
+      evaluations: course.evaluations.map((evaluation) => ({
+        id: evaluation.id,
+        title: evaluation.title,
+        type: evaluation.type,
+        coefficient: evaluation.coefficient,
+        scheduledAt: evaluation.scheduledAt,
+        value: evaluation.grades[0]?.value ?? null,
+      })),
+      assignments: course.assignments.map((assignment) => ({
+        id: assignment.id,
+        title: assignment.title,
+        grade: assignment.submissions[0]?.grade ?? null,
+      })),
+    }));
+  }
+
+  // ========== SCHEDULE ==========
+
+  async getSchedule(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const enrollments = await this.prisma.courseEnrollment.findMany({
+      where: { studentId: student.id },
+      select: { courseId: true },
+    });
+    const courseIds = enrollments.map((enrollment) => enrollment.courseId);
+    if (courseIds.length === 0) return [];
+
+    return this.prisma.courseSlot.findMany({
+      where: { courseId: { in: courseIds } },
+      include: {
+        course: { select: { id: true, title: true, code: true } },
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
+  // ========== SECURITY & PREFERENCES ==========
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      throw new BadRequestException('Le mot de passe actuel est incorrect');
+    }
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+    return { success: true };
+  }
+
+  async updateTheme(userId: string, theme: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { theme },
+      select: { theme: true },
     });
   }
 }

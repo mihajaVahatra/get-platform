@@ -25,7 +25,11 @@ export class AuditInterceptor implements NestInterceptor {
     const userAgent = request.headers['user-agent'];
 
     // Déterminer l'action et la ressource en fonction de la route
-    const { action, resource, resourceId } = this.parseRoute(method, url, request.params);
+    const { action, resource, resourceId } = this.parseRoute(
+      method,
+      url,
+      request.params,
+    );
 
     const startTime = Date.now();
 
@@ -33,29 +37,33 @@ export class AuditInterceptor implements NestInterceptor {
       tap((data) => {
         const duration = Date.now() - startTime;
         // Enregistrer l'action en succès
-        this.auditService.log({
-          userId: user?.id,
-          action,
-          resource,
-          resourceId,
-          after: data,
-          ip,
-          userAgent,
-          status: 'SUCCESS',
-        }).catch((err) => console.error('Audit log error:', err));
+        this.auditService
+          .log({
+            userId: user?.id,
+            action,
+            resource,
+            resourceId,
+            after: data,
+            ip,
+            userAgent,
+            status: 'SUCCESS',
+          })
+          .catch((err) => console.error('Audit log error:', err));
       }),
       catchError((error) => {
         // Enregistrer l'action en échec
-        this.auditService.log({
-          userId: user?.id,
-          action,
-          resource,
-          resourceId,
-          ip,
-          userAgent,
-          status: 'FAILED',
-          errorMessage: error.message,
-        }).catch((err) => console.error('Audit log error:', err));
+        this.auditService
+          .log({
+            userId: user?.id,
+            action,
+            resource,
+            resourceId,
+            ip,
+            userAgent,
+            status: 'FAILED',
+            errorMessage: error.message,
+          })
+          .catch((err) => console.error('Audit log error:', err));
 
         // Relancer l'erreur pour qu'elle soit traitée normalement
         throw error;
@@ -63,7 +71,11 @@ export class AuditInterceptor implements NestInterceptor {
     );
   }
 
-  private parseRoute(method: string, url: string, params: any): {
+  private parseRoute(
+    method: string,
+    url: string,
+    params: any,
+  ): {
     action: AuditAction;
     resource: AuditResource;
     resourceId?: string;

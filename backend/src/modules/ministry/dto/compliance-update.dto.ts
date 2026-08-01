@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 
 export enum ComplianceStatus {
   PASSED = 'PASSED',
@@ -17,7 +24,10 @@ export class ComplianceUpdateDto {
   @IsString()
   remarks?: string;
 
-  @ApiPropertyOptional({ example: 85, description: 'Score de conformité (0-100)' })
+  @ApiPropertyOptional({
+    example: 85,
+    description: 'Score de conformité (0-100)',
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)

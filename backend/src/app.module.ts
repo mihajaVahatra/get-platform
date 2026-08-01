@@ -14,6 +14,10 @@ import { MinistryModule } from './modules/ministry/ministry.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { MessageModule } from './modules/message/message.module';
+import { TeachingModule } from './modules/teaching/teaching.module';
+import { CompetitionModule } from './modules/competition/competition.module';
+import { FinancialPartnerModule } from './modules/financial-partner/financial-partner.module';
+import { LandingModule } from './modules/landing/landing.module';
 
 @Module({
   imports: [
@@ -41,6 +45,10 @@ import { MessageModule } from './modules/message/message.module';
     NotificationModule,
     AuditModule,
     MessageModule,
+    TeachingModule,
+    CompetitionModule,
+    FinancialPartnerModule,
+    LandingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

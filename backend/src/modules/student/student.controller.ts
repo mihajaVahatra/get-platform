@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Patch,
   Post,
   Delete,
   Body,
@@ -22,6 +23,7 @@ import {
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
+import { IsIn, IsString, Matches, MinLength } from 'class-validator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StudentService } from './student.service';
 import {
@@ -34,6 +36,30 @@ import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
+
+type CurrentStudentUser = {
+  id: string;
+  student?: { id: string } | null;
+};
+
+class ChangePasswordDto {
+  @IsString() currentPassword: string;
+  @IsString()
+  @MinLength(8)
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    {
+      message:
+        'Le nouveau mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial (@$!%*?&)',
+    },
+  )
+  newPassword: string;
+}
+
+class UpdateThemeDto {
+  @IsIn(['light', 'dark', 'system'])
+  theme: string;
+}
 
 @ApiTags('students')
 @Controller('students')
@@ -162,6 +188,93 @@ export class StudentController {
       data: { avatarUrl: result.url },
       message: 'Avatar uploaded successfully',
     };
+  }
+
+  // ========== COURS ET DEVOIRS ==========
+
+  @Get('me/courses')
+  @ApiOperation({ summary: 'Get courses the current student is enrolled in' })
+  async getCourses(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const courses = await this.studentService.getCourses(user.id);
+    return { success: true, data: courses, message: 'Courses retrieved' };
+  }
+
+  @Get('me/courses/:courseId/assignments')
+  @ApiOperation({ summary: 'Get published assignments for an enrolled course' })
+  async getCourseAssignments(
+    @GetUser() user: CurrentStudentUser,
+    @Param('courseId') courseId: string,
+  ) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const assignments = await this.studentService.getCourseAssignments(
+      user.id,
+      courseId,
+    );
+    return {
+      success: true,
+      data: assignments,
+      message: 'Assignments retrieved',
+    };
+  }
+
+  @Post('me/assignments/:assignmentId/submit')
+  @ApiOperation({
+    summary: 'Submit or replace an ungraded assignment submission',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedMimes = [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+        if (allowedMimes.includes(file.mimetype)) return cb(null, true);
+        return cb(
+          new BadRequestException(
+            'Formats acceptés : PDF, JPG, PNG, DOC, DOCX',
+          ),
+          false,
+        );
+      },
+    }),
+  )
+  async submitAssignment(
+    @GetUser() user: CurrentStudentUser,
+    @Param('assignmentId') assignmentId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    if (!file) throw new BadRequestException('Aucun fichier uploadé');
+    const submission = await this.studentService.submitAssignment(
+      user.id,
+      assignmentId,
+      file,
+    );
+    return { success: true, data: submission, message: 'Assignment submitted' };
   }
 
   // ========== DOCUMENTS ==========
@@ -364,5 +477,81 @@ export class StudentController {
       data: stats,
       message: 'Statistics retrieved',
     };
+  }
+
+  // ========== GRADES ==========
+
+  @Get('me/grades')
+  @ApiOperation({ summary: 'Get grades for all enrolled courses' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Grades retrieved' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getGrades(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const grades = await this.studentService.getGrades(user.id);
+    return { success: true, data: grades, message: 'Grades retrieved' };
+  }
+
+  // ========== SCHEDULE ==========
+
+  @Get('me/schedule')
+  @ApiOperation({ summary: 'Get weekly schedule for enrolled courses' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Schedule retrieved' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getSchedule(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const schedule = await this.studentService.getSchedule(user.id);
+    return { success: true, data: schedule, message: 'Schedule retrieved' };
+  }
+
+  // ========== SECURITY & PREFERENCES ==========
+
+  @Patch('me/password')
+  @ApiOperation({ summary: 'Change current student password' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Password changed' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Current password is incorrect',
+  })
+  async changePassword(@GetUser() user: any, @Body() dto: ChangePasswordDto) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const result = await this.studentService.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return { success: true, data: result, message: 'Password changed' };
+  }
+
+  @Patch('me/theme')
+  @ApiOperation({ summary: 'Update theme preference' })
+  @ApiBody({ type: UpdateThemeDto })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Theme updated' })
+  async updateTheme(@GetUser() user: any, @Body() dto: UpdateThemeDto) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const result = await this.studentService.updateTheme(user.id, dto.theme);
+    return { success: true, data: result, message: 'Theme updated' };
   }
 }

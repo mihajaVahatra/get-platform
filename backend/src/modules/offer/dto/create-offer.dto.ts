@@ -6,16 +6,21 @@ import {
   IsArray,
   IsDateString,
   IsBoolean,
+  IsUUID,
   Min,
   Max,
 } from 'class-validator';
 
 export class CreateOfferDto {
+  @IsUUID()
+  programId: string;
   @ApiProperty({ example: 'Master Finance' })
   @IsString()
   title: string;
 
-  @ApiPropertyOptional({ example: 'Corporate finance and management control training' })
+  @ApiPropertyOptional({
+    example: 'Corporate finance and management control training',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -40,6 +45,12 @@ export class CreateOfferDto {
   @IsArray()
   @IsString({ each: true })
   prerequisites?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'IDs des prérequis configurés par l’école' })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  requirementIds?: string[];
 
   @ApiPropertyOptional({ example: 30, description: 'Capacity' })
   @IsOptional()

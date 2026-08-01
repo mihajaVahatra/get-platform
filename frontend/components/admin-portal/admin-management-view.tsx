@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
 import {
   Building,
   CalendarDays,
@@ -11,13 +13,13 @@ import {
   Download,
   Edit3,
   FileText,
-  GraduationCap,
   LockKeyhole,
   MoreHorizontal,
   Plus,
   Search,
   Settings,
   ShieldCheck,
+  Trash2,
   Upload,
   UserPlus,
   UserRound,
@@ -27,12 +29,18 @@ import {
 
 export type AdminView =
   'schools' | 'users' | 'enrollments' | 'transactions' | 'reports' | 'settings';
-type School = {
+type SchoolItem = {
+  id: string;
   name: string;
-  city: string;
-  contact: string;
-  registrations: string;
-  status: string;
+  city?: string | null;
+  region?: string | null;
+  type: string;
+  description?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  website?: string | null;
+  isActive: boolean;
+  _count: { enrolledStudents: number };
 };
 type User = {
   name: string;
@@ -42,43 +50,6 @@ type User = {
   status: string;
 };
 
-const initialSchools: School[] = [
-  {
-    name: 'ESPA – École Supérieure Polytechnique d’Antananarivo',
-    city: 'Antananarivo',
-    contact: '+261 20 22 345 67',
-    registrations: '4 560',
-    status: 'Actif',
-  },
-  {
-    name: 'ISPM – Institut Supérieur Polytechnique de Madagascar',
-    city: 'Antananarivo',
-    contact: '+261 20 32 111 22',
-    registrations: '3 845',
-    status: 'Actif',
-  },
-  {
-    name: 'ENI – École Nationale d’Informatique',
-    city: 'Fianarantsoa',
-    contact: '+261 20 22 355 44',
-    registrations: '2 940',
-    status: 'Actif',
-  },
-  {
-    name: 'ESSCA – École Supérieure des Sciences Commerciales',
-    city: 'Antananarivo',
-    contact: '+261 20 32 556 66',
-    registrations: '2 560',
-    status: 'Actif',
-  },
-  {
-    name: 'IST – Institut Supérieur de Technologie',
-    city: 'Antananarivo',
-    contact: '+261 20 44 555 11',
-    registrations: '2 340',
-    status: 'En attente',
-  },
-];
 const initialUsers: User[] = [
   {
     name: 'Andriamihaja R.',
@@ -118,138 +89,343 @@ const initialUsers: User[] = [
 ];
 
 export function AdminManagementView({ view }: { view: AdminView }) {
+  if (view === 'schools') return <SchoolsDirectory />;
   if (view === 'reports') return <Reports />;
   if (view === 'settings') return <SettingsView />;
   return <Directory view={view} />;
 }
 
+function axiosMessage(error: unknown): string | undefined {
+  return (error as { response?: { data?: { message?: string } } }).response
+    ?.data?.message;
+}
+
+const PAGE_SIZE = 20;
+
+function SchoolsDirectory() {
+  const [schools, setSchools] = useState<SchoolItem[]>([]);
+  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState<'create' | 'edit' | null>(null);
+  const [selected, setSelected] = useState<SchoolItem | null>(null);
+  const [schoolToDeactivate, setSchoolToDeactivate] =
+    useState<SchoolItem | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+
+  const fetchSchools = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/schools', {
+        params: { page, limit: PAGE_SIZE, search: search || undefined },
+      });
+      setSchools(response.data.data || []);
+      setMeta(response.data.meta || { page: 1, totalPages: 1, total: 0 });
+    } catch (error) {
+      console.error('Erreur chargement établissements:', error);
+      toast.error('Impossible de charger les établissements');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchSchools();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchSchools]);
+
+  const deactivateSchool = async () => {
+    if (!schoolToDeactivate) return;
+    try {
+      setDeactivating(true);
+      await apiClient.delete(`/schools/${schoolToDeactivate.id}`);
+      toast.success('Établissement désactivé');
+      setSchoolToDeactivate(null);
+      await fetchSchools();
+    } catch (error: unknown) {
+      toast.error(
+        axiosMessage(error) || 'Impossible de désactiver cet établissement',
+      );
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-[1500px]">
+      <PageHead
+        title="Établissements"
+        subtitle="Gérez la liste de tous les établissements partenaires."
+        action="Ajouter un établissement"
+        onAction={() => {
+          setSelected(null);
+          setModal('create');
+        }}
+      />
+      <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+        <label className="relative mb-6 block max-w-md">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+            placeholder="Rechercher un établissement..."
+          />
+        </label>
+        {loading ? (
+          <p className="py-12 text-center text-sm text-slate-500">
+            Chargement des établissements...
+          </p>
+        ) : schools.length === 0 ? (
+          <p className="py-12 text-center text-sm text-slate-500">
+            Aucun établissement ne correspond à cette recherche.
+          </p>
+        ) : (
+          <div className="space-y-2 text-[11px]">
+            {schools.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <Building className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-[#28315e]">
+                    {row.name}
+                  </p>
+                  <p className="mt-0.5 truncate text-slate-500">
+                    {row.city || 'Ville non renseignée'} ·{' '}
+                    {row.contactPhone ||
+                      row.contactEmail ||
+                      'Contact non renseigné'}{' '}
+                    · {row._count.enrolledStudents} étudiant
+                    {row._count.enrolledStudents > 1 ? 's' : ''} inscrit
+                    {row._count.enrolledStudents > 1 ? 's' : ''}
+                  </p>
+                  <div className="mt-1.5">
+                    <Status value={row.isActive ? 'Actif' : 'Inactif'} />
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2 text-violet-600">
+                  <button
+                    aria-label={`Modifier ${row.name}`}
+                    onClick={() => {
+                      setSelected(row);
+                      setModal('edit');
+                    }}
+                  >
+                    <Edit3 className="size-4" />
+                  </button>
+                  <button
+                    aria-label={`Désactiver ${row.name}`}
+                    className="text-red-500"
+                    onClick={() => setSchoolToDeactivate(row)}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && meta.total > 0 && (
+          <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
+            <span>
+              Page {meta.page} sur {meta.totalPages} · {meta.total}{' '}
+              établissement{meta.total > 1 ? 's' : ''}
+            </span>
+            <span className="flex gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="rounded-lg border border-slate-200 px-2.5 py-1 disabled:opacity-40"
+              >
+                <ChevronRight className="size-4 rotate-180" />
+              </button>
+              <button
+                disabled={page >= meta.totalPages}
+                onClick={() =>
+                  setPage((current) => Math.min(meta.totalPages, current + 1))
+                }
+                className="rounded-lg border border-slate-200 px-2.5 py-1 disabled:opacity-40"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </span>
+          </div>
+        )}
+      </section>
+      {modal && (
+        <SchoolForm
+          school={modal === 'edit' ? selected : null}
+          onClose={() => setModal(null)}
+          onSaved={() => {
+            setModal(null);
+            void fetchSchools();
+          }}
+        />
+      )}
+      {schoolToDeactivate && (
+        <ConfirmDialog
+          title="Désactiver l’établissement"
+          message={`Voulez-vous vraiment désactiver « ${schoolToDeactivate.name} » ? Il n’apparaîtra plus dans la liste des établissements actifs.`}
+          confirmLabel={deactivating ? 'Désactivation...' : 'Désactiver'}
+          disabled={deactivating}
+          onCancel={() => setSchoolToDeactivate(null)}
+          onConfirm={() => void deactivateSchool()}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  disabled,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  disabled?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+        <h2 className="font-extrabold text-[#17204e]">{title}</h2>
+        <p className="mt-2 text-sm text-slate-500">{message}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={disabled}
+            className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={disabled}
+            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Directory({
   view,
 }: {
-  view: Exclude<AdminView, 'reports' | 'settings'>;
+  view: Exclude<AdminView, 'schools' | 'reports' | 'settings'>;
 }) {
-  const isSchools = view === 'schools';
   const isUsers = view === 'users';
-  const [schools, setSchools] = useState(initialSchools);
   const [users, setUsers] = useState(initialUsers);
-  const [modal, setModal] = useState<'school' | 'user' | null>(null);
-  const title = isSchools
-    ? 'Établissements'
-    : isUsers
-      ? 'Utilisateurs'
-      : view === 'enrollments'
-        ? 'Inscriptions & Admissions'
-        : 'Transactions';
-  const rows = isSchools
-    ? schools
-    : isUsers
-      ? users
-      : view === 'enrollments'
-        ? [
-            ['Rasolonjato T.', 'Informatique', '10 mai 2025', 'Validée'],
-            ['Rakotoarivelo M.', 'Génie Civil', '09 mai 2025', 'Validée'],
-            ['Andriamiadana F.', 'Management', '08 mai 2025', 'En attente'],
-            ['Rakotomalala J.', 'Électrotechnique', '06 mai 2025', 'En cours'],
-          ]
-        : [
-            [
-              'TRX-2025-0001',
-              'Rasolonjato T.',
-              'ESPA',
-              '500 000 Ar',
-              'Mobile Money',
-              'Réussie',
-            ],
-            [
-              'TRX-2025-0002',
-              'Rakotoarivelo M.',
-              'ISPM',
-              '300 000 Ar',
-              'Banque',
-              'Réussie',
-            ],
-            [
-              'TRX-2025-0003',
-              'Andriamiadana F.',
-              'ENI',
-              '450 000 Ar',
-              'Carte bancaire',
-              'Échouée',
-            ],
-            [
-              'TRX-2025-0004',
-              'Rabeharisoa L.',
-              'ESSCA',
-              '350 000 Ar',
-              'Mobile Money',
-              'Réussie',
-            ],
-          ];
+  const [modal, setModal] = useState<'user' | null>(null);
+  const title = isUsers
+    ? 'Utilisateurs'
+    : view === 'enrollments'
+      ? 'Inscriptions & Admissions'
+      : 'Transactions';
+  const rows = isUsers
+    ? users
+    : view === 'enrollments'
+      ? [
+          ['Rasolonjato T.', 'Informatique', '10 mai 2025', 'Validée'],
+          ['Rakotoarivelo M.', 'Génie Civil', '09 mai 2025', 'Validée'],
+          ['Andriamiadana F.', 'Management', '08 mai 2025', 'En attente'],
+          ['Rakotomalala J.', 'Électrotechnique', '06 mai 2025', 'En cours'],
+        ]
+      : [
+          [
+            'TRX-2025-0001',
+            'Rasolonjato T.',
+            'ESPA',
+            '500 000 Ar',
+            'Mobile Money',
+            'Réussie',
+          ],
+          [
+            'TRX-2025-0002',
+            'Rakotoarivelo M.',
+            'ISPM',
+            '300 000 Ar',
+            'Banque',
+            'Réussie',
+          ],
+          [
+            'TRX-2025-0003',
+            'Andriamiadana F.',
+            'ENI',
+            '450 000 Ar',
+            'Carte bancaire',
+            'Échouée',
+          ],
+          [
+            'TRX-2025-0004',
+            'Rabeharisoa L.',
+            'ESSCA',
+            '350 000 Ar',
+            'Mobile Money',
+            'Réussie',
+          ],
+        ];
   return (
     <div className="mx-auto max-w-[1500px]">
       <PageHead
         title={title}
         subtitle={
-          isSchools
-            ? 'Gérez la liste de tous les établissements partenaires.'
-            : isUsers
-              ? 'Gérez les comptes des utilisateurs de la plateforme.'
-              : view === 'enrollments'
-                ? 'Suivez et gérez les demandes d’inscription des étudiants.'
-                : 'Consultez toutes les transactions effectuées sur la plateforme.'
+          isUsers
+            ? 'Gérez les comptes des utilisateurs de la plateforme.'
+            : view === 'enrollments'
+              ? 'Suivez et gérez les demandes d’inscription des étudiants.'
+              : 'Consultez toutes les transactions effectuées sur la plateforme.'
         }
-        action={
-          isSchools
-            ? 'Ajouter un établissement'
-            : isUsers
-              ? 'Ajouter un utilisateur'
-              : undefined
-        }
-        onAction={() => setModal(isSchools ? 'school' : 'user')}
+        action={isUsers ? 'Ajouter un utilisateur' : undefined}
+        onAction={() => setModal('user')}
       />
       <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
         <Toolbar
           placeholder={
-            isSchools
-              ? 'Rechercher un établissement...'
-              : isUsers
-                ? 'Rechercher un utilisateur...'
-                : view === 'enrollments'
-                  ? 'Rechercher un étudiant...'
-                  : 'Rechercher une transaction...'
+            isUsers
+              ? 'Rechercher un utilisateur...'
+              : view === 'enrollments'
+                ? 'Rechercher un étudiant...'
+                : 'Rechercher une transaction...'
           }
           exportable={view === 'transactions'}
         />
-        <div className="overflow-x-auto">
-          {isSchools ? (
-            <SchoolTable rows={schools} />
-          ) : isUsers ? (
-            <UserTable rows={users} />
-          ) : (
-            <GenericTable view={view} rows={rows as string[][]} />
-          )}
-        </div>
+        {isUsers ? (
+          <UserTable rows={users} />
+        ) : (
+          <GenericTable view={view} rows={rows as string[][]} />
+        )}
         <Pagination
           text={
-            isSchools
-              ? 'Affichage 1 à 5 sur 156 établissements'
-              : isUsers
-                ? 'Affichage 1 à 5 sur 245 utilisateurs'
-                : view === 'enrollments'
-                  ? 'Affichage 1 à 4 sur 18 245 inscriptions'
-                  : 'Affichage 1 à 4 sur 3 256 transactions'
+            isUsers
+              ? 'Affichage 1 à 5 sur 245 utilisateurs'
+              : view === 'enrollments'
+                ? 'Affichage 1 à 4 sur 18 245 inscriptions'
+                : 'Affichage 1 à 4 sur 3 256 transactions'
           }
         />
       </section>
-      {modal === 'school' && (
-        <SchoolForm
-          onClose={() => setModal(null)}
-          onSave={(school) => {
-            setSchools((current) => [school, ...current]);
-            setModal(null);
-          }}
-        />
-      )}
       {modal === 'user' && (
         <UserForm
           onClose={() => setModal(null)}
@@ -333,86 +509,30 @@ function Toolbar({
     </div>
   );
 }
-function SchoolTable({ rows }: { rows: School[] }) {
-  return (
-    <table className="w-full min-w-[800px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {[
-            'Établissement',
-            'Ville',
-            'Contact',
-            'Inscriptions',
-            'Statut',
-            'Actions',
-          ].map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.name}
-            className="border-b border-slate-50 text-slate-600"
-          >
-            <td className="py-3 font-bold text-[#28315e]">{row.name}</td>
-            <td>{row.city}</td>
-            <td>{row.contact}</td>
-            <td>{row.registrations}</td>
-            <td>
-              <Status value={row.status} />
-            </td>
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
 function UserTable({ rows }: { rows: User[] }) {
   return (
-    <table className="w-full min-w-[760px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {[
-            'Utilisateur',
-            'Rôle',
-            'Email',
-            'Téléphone',
-            'Statut',
-            'Actions',
-          ].map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr
-            key={row.email}
-            className="border-b border-slate-50 text-slate-600"
-          >
-            <td className="py-3 font-bold text-[#28315e]">{row.name}</td>
-            <td>{row.role}</td>
-            <td>{row.email}</td>
-            <td>{row.phone}</td>
-            <td>
+    <div className="space-y-2 text-[11px]">
+      {rows.map((row) => (
+        <div
+          key={row.email}
+          className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <UserRound className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[#28315e]">{row.name}</p>
+            <p className="mt-0.5 truncate text-slate-500">
+              {row.role} · {row.email} · {row.phone}
+            </p>
+            <div className="mt-1.5">
               <Status value={row.status} />
-            </td>
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            </div>
+          </div>
+          <Actions />
+        </div>
+      ))}
+    </div>
   );
 }
 function GenericTable({
@@ -424,7 +544,7 @@ function GenericTable({
 }) {
   const headers =
     view === 'enrollments'
-      ? ['Étudiant', 'Filière choisie', 'Date inscription', 'Statut', 'Actions']
+      ? ['Étudiant', 'Filière choisie', 'Date inscription', 'Statut']
       : [
           'Référence',
           'Étudiant',
@@ -432,42 +552,38 @@ function GenericTable({
           'Montant',
           'Méthode',
           'Statut',
-          'Actions',
         ];
   return (
-    <table className="w-full min-w-[760px] text-left text-[11px]">
-      <thead className="border-b border-slate-100 text-slate-400">
-        <tr>
-          {headers.map((label) => (
-            <th key={label} className="pb-3 font-semibold">
-              {label}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row[0]} className="border-b border-slate-50 text-slate-600">
-            {row.map((cell, index) => (
-              <td
-                key={`${cell}-${index}`}
-                className={index === 0 ? 'py-3 font-bold text-[#28315e]' : ''}
-              >
-                {index === row.length - 1 ? <Status value={cell} /> : cell}
-              </td>
-            ))}
-            <td>
-              <Actions />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="space-y-2 text-[11px]">
+      {rows.map((row) => (
+        <div
+          key={row[0]}
+          className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+            <FileText className="size-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
+            <p className="mt-0.5 truncate text-slate-500">
+              {row
+                .slice(1, -1)
+                .map((cell, index) => `${headers[index + 1]}: ${cell}`)
+                .join(' · ')}
+            </p>
+            <div className="mt-1.5">
+              <Status value={row[row.length - 1]} />
+            </div>
+          </div>
+          <Actions />
+        </div>
+      ))}
+    </div>
   );
 }
 function Actions() {
   return (
-    <span className="flex gap-2 text-violet-600">
+    <span aria-hidden="true" className="flex gap-2 text-violet-600">
       <Edit3 className="size-4" />
       <MoreHorizontal className="size-4" />
     </span>
@@ -529,28 +645,63 @@ function Modal({
   );
 }
 function SchoolForm({
+  school,
   onClose,
-  onSave,
+  onSaved,
 }: {
+  school: SchoolItem | null;
   onClose: () => void;
-  onSave: (school: School) => void;
+  onSaved: () => void;
 }) {
-  const [name, setName] = useState('');
-  const [city, setCity] = useState('Antananarivo');
-  const submit = () => {
+  const [name, setName] = useState(school?.name || '');
+  const [type, setType] = useState(
+    school?.type === 'PUBLIC' ? 'Public' : 'Privé',
+  );
+  const [city, setCity] = useState(school?.city || '');
+  const [region, setRegion] = useState(school?.region || '');
+  const [contactEmail, setContactEmail] = useState(school?.contactEmail || '');
+  const [contactPhone, setContactPhone] = useState(school?.contactPhone || '');
+  const [website, setWebsite] = useState(school?.website || '');
+  const [description, setDescription] = useState(school?.description || '');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
     if (!name.trim()) return;
-    onSave({
-      name,
-      city,
-      contact: '+261 34 12 345 67',
-      registrations: '0',
-      status: 'Actif',
-    });
+    const payload = {
+      name: name.trim(),
+      type: type === 'Public' ? 'PUBLIC' : 'PRIVATE',
+      city: city.trim() || undefined,
+      region: region.trim() || undefined,
+      contactEmail: contactEmail.trim() || undefined,
+      contactPhone: contactPhone.trim() || undefined,
+      website: website.trim() || undefined,
+      description: description.trim() || undefined,
+    };
+    try {
+      setSaving(true);
+      if (school) await apiClient.put(`/schools/${school.id}`, payload);
+      else await apiClient.post('/schools', payload);
+      toast.success(school ? 'Établissement mis à jour' : 'Établissement créé');
+      onSaved();
+    } catch (error: unknown) {
+      toast.error(
+        axiosMessage(error) ||
+          (school
+            ? 'Impossible de mettre à jour cet établissement'
+            : 'Impossible de créer cet établissement'),
+      );
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <Modal
-      title="Ajouter un établissement"
-      subtitle="Enregistrez un nouvel établissement sur la plateforme"
+      title={school ? 'Modifier l’établissement' : 'Ajouter un établissement'}
+      subtitle={
+        school
+          ? 'Mettez à jour les informations de cet établissement'
+          : 'Enregistrez un nouvel établissement sur la plateforme'
+      }
       onClose={onClose}
     >
       <div className="mt-6 space-y-5">
@@ -562,116 +713,63 @@ function SchoolForm({
               onChange={setName}
               placeholder="Entrez le nom complet de l’établissement"
             />
-            <Input label="Sigle *" placeholder="Ex : ESPA" />
             <Select
               label="Type d’établissement *"
-              options={[
-                'Université',
-                'Institut supérieur',
-                'École spécialisée',
-              ]}
+              value={type}
+              onChange={setType}
+              options={['Public', 'Privé']}
             />
-            <Select
-              label="Ville *"
+            <Input
+              label="Ville"
               value={city}
               onChange={setCity}
-              options={[
-                'Antananarivo',
-                'Fianarantsoa',
-                'Toamasina',
-                'Mahajanga',
-              ]}
+              placeholder="Ex : Antananarivo"
             />
             <Input
-              label="Adresse *"
-              placeholder="Entrez l’adresse complète"
-              wide
-              multiline
+              label="Région"
+              value={region}
+              onChange={setRegion}
+              placeholder="Ex : Analamanga"
             />
-            <Input label="Téléphone" placeholder="+261 20 22 222 22" />
             <Input
-              label="Email officiel *"
+              label="Téléphone"
+              value={contactPhone}
+              onChange={setContactPhone}
+              placeholder="+261 20 22 222 22"
+            />
+            <Input
+              label="Email officiel"
+              value={contactEmail}
+              onChange={setContactEmail}
               placeholder="contact@etablissement.mg"
             />
-            <Input label="Site web" placeholder="https://www.exemple.mg" />
-            <UploadBox
-              label="Logo de l’établissement"
-              preview={
-                <div className="flex h-28 items-center gap-3 rounded-lg border border-slate-100 bg-white px-4">
-                  <span className="grid size-12 place-items-center rounded-xl bg-violet-100 text-lg font-black text-violet-700">
-                    ▥
-                  </span>
-                  <span>
-                    <b className="block text-xs text-[#17204e]">Aperçu</b>
-                    <small className="text-[10px] text-slate-500">
-                      Votre logo apparaîtra ici
-                    </small>
-                  </span>
-                </div>
-              }
-            />
-          </div>
-        </FormBox>
-        <FormBox icon={GraduationCap} title="Informations académiques">
-          <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Nombre d’étudiants approximatif"
-              placeholder="Ex : 2500"
-            />
-            <Input label="Année de création" placeholder="Ex : 1990" />
-            <Input
-              label="Numéro d’agrément"
-              placeholder="Ex : 123/MESUPRES/2020"
-              wide
+              label="Site web"
+              value={website}
+              onChange={setWebsite}
+              placeholder="https://www.exemple.mg"
             />
             <Input
               label="Description"
-              placeholder="Présentez brièvement votre établissement, ses missions et ses valeurs..."
+              value={description}
+              onChange={setDescription}
+              placeholder="Présentez brièvement l’établissement..."
               wide
               multiline
-            />
-            <fieldset className="sm:col-span-2">
-              <legend className="mb-2 text-xs font-bold text-[#34406b]">
-                Agréé par le MESUPRES
-              </legend>
-              <div className="flex gap-5 text-xs text-slate-600">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="accreditation"
-                    defaultChecked
-                    className="accent-violet-600"
-                  />
-                  Oui
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="accreditation"
-                    className="accent-violet-600"
-                  />
-                  Non
-                </label>
-              </div>
-            </fieldset>
-          </div>
-        </FormBox>
-        <FormBox icon={UserRound} title="Contact principal">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input label="Nom complet *" placeholder="Entrez le nom complet" />
-            <Input label="Fonction *" placeholder="Ex : Directeur Général" />
-            <Input label="Téléphone" placeholder="+261 34 12 345 67" />
-            <Input
-              label="Email *"
-              placeholder="contact.principal@etablissement.mg"
             />
           </div>
         </FormBox>
       </div>
       <Footer
         onClose={onClose}
-        onSave={submit}
-        label="Enregistrer l’établissement"
+        onSave={() => void submit()}
+        label={
+          saving
+            ? 'Enregistrement...'
+            : school
+              ? 'Mettre à jour'
+              : 'Enregistrer l’établissement'
+        }
         icon={Building}
       />
     </Modal>

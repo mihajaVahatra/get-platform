@@ -20,6 +20,17 @@ export class OfferService {
     if (!school) throw new NotFoundException('School not found');
 
     await this.ensureCanManageSchool(userId, dto.schoolId);
+    const program = await this.prisma.schoolProgram.findFirst({ where: { id: dto.programId, schoolId: dto.schoolId, isActive: true } });
+    if (!program) throw new ForbiddenException('Sélectionnez la filière correspondante');
+
+    if (dto.requirementIds?.length) {
+      const count = await this.prisma.schoolRequirement.count({
+        where: { id: { in: dto.requirementIds }, schoolId: dto.schoolId, isActive: true },
+      });
+      if (count !== dto.requirementIds.length) {
+        throw new ForbiddenException('Un ou plusieurs prérequis sont invalides');
+      }
+    }
 
     const slug = slugify(dto.title, { lower: true, strict: true });
 
@@ -29,6 +40,7 @@ export class OfferService {
         slug,
         description: dto.description,
         diploma: dto.diploma,
+        programId: dto.programId,
         duration: dto.duration,
         tuitionFees: dto.tuitionFees,
         prerequisites: dto.prerequisites || [],
@@ -39,6 +51,9 @@ export class OfferService {
         academicYear: dto.academicYear,
         isOpen: dto.isOpen ?? true,
         schoolId: dto.schoolId,
+        requirements: dto.requirementIds?.length
+          ? { create: dto.requirementIds.map((requirementId) => ({ requirementId })) }
+          : undefined,
       },
       include: {
         school: true,

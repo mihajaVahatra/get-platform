@@ -16,7 +16,16 @@ export class PaymentResponseDto {
   @ApiProperty()
   method: string;
 
-  @ApiProperty({ enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'] })
+  @ApiProperty({
+    enum: [
+      'PENDING',
+      'PROCESSING',
+      'COMPLETED',
+      'FAILED',
+      'REFUNDED',
+      'CANCELLED',
+    ],
+  })
   status: string;
 
   @ApiProperty()

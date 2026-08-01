@@ -20,6 +20,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Avant de terminer un écran
+
+Exécutez la [checklist responsive manuelle](docs/RESPONSIVE_TEST_CHECKLIST.md) avant toute livraison d’un écran nouveau ou modifié. Elle fait partie de la définition de terminé du frontend.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

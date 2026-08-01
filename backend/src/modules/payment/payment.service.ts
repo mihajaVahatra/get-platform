@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
@@ -19,6 +20,7 @@ export class PaymentService {
     private prisma: PrismaService,
     @Inject('PaymentProvider') private paymentProvider: PaymentProvider,
     private config: ConfigService,
+    private schoolService: SchoolService,
   ) {}
 
   async initiatePayment(studentId: string, dto: InitiatePaymentDto) {
@@ -27,19 +29,34 @@ export class PaymentService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
-    let amount = dto.amount;
+    const application = await this.prisma.application.findUnique({
+      where: { id: dto.applicationId },
+      include: { offer: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.studentId !== studentId) {
+      throw new ForbiddenException('Cette candidature ne vous appartient pas');
+    }
 
-    if (dto.applicationId) {
-      const application = await this.prisma.application.findUnique({
-        where: { id: dto.applicationId },
-        include: { offer: true },
-      });
-      if (!application) throw new NotFoundException('Application not found');
-      if (application.studentId !== studentId)
-        throw new ForbiddenException(
-          'Cette candidature ne vous appartient pas',
-        );
-      amount = application.offer.tuitionFees;
+    // Le tarif ne vient jamais du client : l'offre est la source de vérité.
+    const amount = application.offer.tuitionFees;
+    if (amount <= 0) {
+      throw new BadRequestException('Montant de paiement invalide');
+    }
+
+    const existingPayment = await this.prisma.payment.findFirst({
+      where: {
+        applicationId: application.id,
+        status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+      },
+      select: { id: true, status: true },
+    });
+    if (existingPayment) {
+      throw new BadRequestException(
+        existingPayment.status === 'COMPLETED'
+          ? 'Cette candidature a déjà été payée'
+          : 'Un paiement est déjà en cours pour cette candidature',
+      );
     }
 
     const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
@@ -47,7 +64,7 @@ export class PaymentService {
     const payment = await this.prisma.payment.create({
       data: {
         studentId,
-        applicationId: dto.applicationId,
+        applicationId: application.id,
         amount,
         currency: 'MGA',
         method: dto.method,
@@ -63,7 +80,7 @@ export class PaymentService {
       currency: 'MGA',
       studentId,
       reference,
-      description: `Paiement pour la candidature ${dto.applicationId || 'N/A'}`,
+      description: `Paiement pour la candidature ${application.id}`,
     });
 
     await this.prisma.payment.update({
@@ -118,6 +135,51 @@ export class PaymentService {
         where: { id: payment.applicationId },
         data: { status: 'ENROLLED' },
       });
+      const application = await this.prisma.application.findUnique({
+        where: { id: payment.applicationId },
+        include: { offer: true },
+      });
+      if (application?.offer.programId) {
+        const [program, academicYear] = await Promise.all([
+          this.prisma.schoolProgram.findFirst({
+            where: {
+              id: application.offer.programId,
+              schoolId: application.offer.schoolId,
+              isActive: true,
+            },
+          }),
+          this.prisma.schoolAcademicYear.findFirst({
+            where: { schoolId: application.offer.schoolId, isCurrent: true },
+          }),
+        ]);
+        if (program && academicYear) {
+          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+          const student = await this.prisma.student.update({
+            where: { id: application.studentId },
+            data: {
+              enrolledSchoolId: application.offer.schoolId,
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              enrollmentStatus: 'ACTIVE',
+            },
+          });
+          await this.schoolService.syncCourseEnrollments(
+            student.id,
+            application.offer.schoolId,
+            program.id,
+            1,
+          );
+          await this.prisma.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+            },
+          });
+        }
+      }
     }
 
     if (status === 'COMPLETED') {
