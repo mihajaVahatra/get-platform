@@ -45,8 +45,8 @@ export class AuditService {
    * Récupère les logs d'audit avec filtres.
    */
   async getLogs(query: AuditQueryDto) {
-    const page = query.page || 1;
-    const limit = query.limit || 20;
+    const page = Math.max(Number(query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -126,7 +126,9 @@ export class AuditService {
   /**
    * Récupère les logs pour un utilisateur spécifique.
    */
-  async getLogsForUser(userId: string, page = 1, limit = 20) {
+  async getLogsForUser(userId: string, rawPage = 1, rawLimit = 20) {
+    const page = Math.max(Number(rawPage) || 1, 1);
+    const limit = Math.min(Math.max(Number(rawLimit) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([

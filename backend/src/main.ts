@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { AuditInterceptor } from './modules/audit/audit.interceptor';
 import { join } from 'path';
 
 async function bootstrap() {
@@ -61,6 +62,7 @@ async function bootstrap() {
   // Intercepteurs globaux
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(app.get(AuditInterceptor));
 
   // Préfixe API
   app.setGlobalPrefix('api');
