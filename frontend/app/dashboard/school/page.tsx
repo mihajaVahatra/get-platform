@@ -154,7 +154,7 @@ export default function SchoolDashboardPage() {
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Kpi
           icon={Layers3Icon}
           tone="violet"
@@ -279,7 +279,7 @@ export default function SchoolDashboardPage() {
         <h2 className="font-extrabold text-[#17204e]">
           Indicateurs de votre établissement
         </h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Kpi
             icon={GraduationCapIcon}
             tone="blue"
