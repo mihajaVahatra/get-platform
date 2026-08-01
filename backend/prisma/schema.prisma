@@ -201,6 +201,23 @@ model Competition {
   @@map("competitions")
 }
 
+model FinancialPartner {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  type         String    @default("OTHER")
+  contactEmail String?
+  contactPhone String?
+  website      String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([type])
+  @@map("financial_partners")
+}
+
 model SchoolAdmin {
   id          String   @id @default(uuid())
   userId      String   @unique
