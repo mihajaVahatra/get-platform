@@ -1,6 +1,7 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -10,11 +11,10 @@ export class SendMessageDto {
   @IsEmail()
   recipientEmail: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
   @MaxLength(160)
-  subject: string;
+  subject?: string;
 
   @IsString()
   @IsNotEmpty()

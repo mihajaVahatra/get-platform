@@ -7,12 +7,22 @@ import {
   ArrowLeft,
   MailOpen,
   MessageCircle,
+  Paperclip,
   PenLine,
   Send,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { EmojiPickerButton } from '@/components/messages/emoji-picker-button';
+import {
+  AttachmentPickerButton,
+  PendingAttachmentChips,
+} from '@/components/messages/attachment-picker';
+import {
+  AttachmentGrid,
+  type SentAttachment,
+} from '@/components/messages/attachment-view';
 
 type UserPreview = {
   id: string;
@@ -30,23 +40,39 @@ type Conversation = {
   unreadCount: number;
   lastMessage: {
     id: string;
-    subject: string;
+    subject: string | null;
     body: string;
     createdAt: string;
     senderId: string;
+    hasAttachments?: boolean;
   } | null;
 };
 type ThreadMessage = {
   id: string;
   conversationId: string;
-  subject: string;
+  subject: string | null;
   body: string;
   createdAt: string;
   senderId: string;
   recipientId: string;
   sender: UserPreview;
   recipient: UserPreview;
+  attachments?: SentAttachment[];
 };
+
+function buildMessageFormData(payload: {
+  recipientEmail: string;
+  subject?: string;
+  body: string;
+  files: File[];
+}) {
+  const formData = new FormData();
+  formData.append('recipientEmail', payload.recipientEmail);
+  if (payload.subject?.trim()) formData.append('subject', payload.subject.trim());
+  formData.append('body', payload.body);
+  payload.files.forEach((file) => formData.append('attachments', file));
+  return formData;
+}
 
 const nameOf = (user: UserPreview | null) =>
   user?.student
@@ -80,6 +106,7 @@ function MessagesPageContent() {
   );
   const [sending, setSending] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
   const [replying, setReplying] = useState(false);
   const [userId, setUserId] = useState('');
 
@@ -89,13 +116,12 @@ function MessagesPageContent() {
       const response = await apiClient.get('/messages/conversations?limit=30');
       const items = response.data.data ?? [];
       setConversations(items);
-      setSelected(
-        (current) =>
-          items.find(
-            (conversation: Conversation) => conversation.id === current?.id,
-          ) ??
-          items[0] ??
-          null,
+      setSelected((current) =>
+        current
+          ? (items.find(
+              (conversation: Conversation) => conversation.id === current.id,
+            ) ?? null)
+          : null,
       );
     } catch (error) {
       console.error('Erreur chargement conversations:', error);
@@ -150,27 +176,32 @@ function MessagesPageContent() {
   const openConversation = (conversation: Conversation) =>
     setSelected(conversation);
 
-  const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  const sendMessage = async (payload: {
+    recipientEmail: string;
+    subject: string;
+    body: string;
+    files: File[];
+  }) => {
     setSending(true);
     try {
-      const response = await apiClient.post('/messages', {
-        recipientEmail: form.get('recipientEmail'),
-        subject: form.get('subject'),
-        body: form.get('body'),
-      });
+      const response = await apiClient.post(
+        '/messages',
+        buildMessageFormData(payload),
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
       const sent = response.data.data as ThreadMessage;
       toast.success('Message envoyé');
       setShowCompose(false);
       await loadConversations();
-      const conversation = (response.data.data as ThreadMessage).conversationId;
       setSelected({
-        id: conversation,
+        id: sent.conversationId,
         lastMessageAt: sent.createdAt,
         participant: sent.recipient,
         unreadCount: 0,
-        lastMessage: sent,
+        lastMessage: {
+          ...sent,
+          hasAttachments: (sent.attachments?.length ?? 0) > 0,
+        },
       });
     } catch (error: unknown) {
       toast.error(
@@ -188,12 +219,17 @@ function MessagesPageContent() {
     if (!selected?.participant?.email || !replyText.trim()) return;
     setReplying(true);
     try {
-      await apiClient.post('/messages', {
-        recipientEmail: selected.participant.email,
-        subject: selected.lastMessage?.subject || 'Discussion',
-        body: replyText.trim(),
-      });
+      await apiClient.post(
+        '/messages',
+        buildMessageFormData({
+          recipientEmail: selected.participant.email,
+          body: replyText.trim(),
+          files: replyFiles,
+        }),
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
       setReplyText('');
+      setReplyFiles([]);
       await Promise.all([loadConversations(), loadThread(selected.id)]);
     } catch (error: unknown) {
       toast.error(
@@ -295,7 +331,22 @@ function MessagesPageContent() {
                 onSubmit={sendReply}
                 className="border-t border-slate-100 bg-white p-3"
               >
-                <div className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 focus-within:border-violet-400">
+                <PendingAttachmentChips
+                  files={replyFiles}
+                  onRemove={(index) =>
+                    setReplyFiles((files) => files.filter((_, i) => i !== index))
+                  }
+                />
+                <div className="flex items-end gap-1 rounded-xl border border-slate-200 bg-slate-50 p-2 focus-within:border-violet-400">
+                  <AttachmentPickerButton
+                    files={replyFiles}
+                    onChange={setReplyFiles}
+                  />
+                  <EmojiPickerButton
+                    onSelect={(emoji) =>
+                      setReplyText((text) => `${text}${emoji}`)
+                    }
+                  />
                   <textarea
                     value={replyText}
                     onChange={(event) => setReplyText(event.target.value)}
@@ -373,7 +424,10 @@ function ConversationRow({
               {dateOf(conversation.lastMessageAt)}
             </span>
           </span>
-          <span className="mt-1 flex gap-2">
+          <span className="mt-1 flex items-center gap-2">
+            {conversation.lastMessage?.hasAttachments && (
+              <Paperclip className="size-3 shrink-0 text-violet-400" />
+            )}
             <span className="truncate text-[10px] text-slate-500">
               {conversation.lastMessage?.body || 'Nouvelle discussion'}
             </span>
@@ -400,12 +454,15 @@ function MessageBubble({
       <div
         className={`max-w-[82%] rounded-2xl px-4 py-3 ${mine ? 'rounded-br-sm bg-violet-600 text-white' : 'rounded-bl-sm bg-white text-slate-700 shadow-sm ring-1 ring-slate-100'}`}
       >
-        <p
-          className={`mb-1 text-[10px] font-bold ${mine ? 'text-violet-200' : 'text-violet-500'}`}
-        >
-          {message.subject}
-        </p>
+        {message.subject && (
+          <p
+            className={`mb-1 text-[10px] font-bold ${mine ? 'text-violet-200' : 'text-violet-500'}`}
+          >
+            {message.subject}
+          </p>
+        )}
         <p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p>
+        <AttachmentGrid attachments={message.attachments || []} mine={mine} />
         <p
           className={`mt-2 text-right text-[10px] ${mine ? 'text-violet-200' : 'text-slate-400'}`}
         >
@@ -435,13 +492,29 @@ function ComposeDialog({
   sending,
 }: {
   onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (payload: {
+    recipientEmail: string;
+    subject: string;
+    body: string;
+    files: File[];
+  }) => void;
   sending: boolean;
 }) {
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!recipientEmail.trim() || !body.trim()) return;
+    onSubmit({ recipientEmail: recipientEmail.trim(), subject, body, files });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
       <form
-        onSubmit={onSubmit}
+        onSubmit={handleSubmit}
         className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
       >
         <div className="flex items-center justify-between">
@@ -460,21 +533,32 @@ function ComposeDialog({
           </button>
         </div>
         <div className="mt-5 space-y-3">
-          <Field
-            name="recipientEmail"
-            type="email"
-            label="Destinataire"
-            placeholder="enrolled@test.com"
-          />
-          <Field
-            name="subject"
-            label="Objet"
-            placeholder="Ex. Question sur le cours"
-          />
+          <label className="block text-xs font-bold text-slate-700">
+            Destinataire
+            <input
+              type="email"
+              value={recipientEmail}
+              onChange={(event) => setRecipientEmail(event.target.value)}
+              placeholder="enrolled@test.com"
+              required
+              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400"
+            />
+          </label>
+          <label className="block text-xs font-bold text-slate-700">
+            Objet <span className="font-normal text-slate-400">(facultatif)</span>
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder="Ex. Question sur le cours"
+              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400"
+            />
+          </label>
           <label className="block text-xs font-bold text-slate-700">
             Message
             <textarea
-              name="body"
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
               required
               minLength={1}
               maxLength={20000}
@@ -482,6 +566,18 @@ function ComposeDialog({
               placeholder="Écrivez votre message…"
             />
           </label>
+          <PendingAttachmentChips
+            files={files}
+            onRemove={(index) =>
+              setFiles((current) => current.filter((_, i) => i !== index))
+            }
+          />
+          <div className="flex items-center gap-1">
+            <AttachmentPickerButton files={files} onChange={setFiles} />
+            <EmojiPickerButton
+              onSelect={(emoji) => setBody((current) => `${current}${emoji}`)}
+            />
+          </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button
@@ -501,29 +597,5 @@ function ComposeDialog({
         </div>
       </form>
     </div>
-  );
-}
-function Field({
-  label,
-  name,
-  type = 'text',
-  placeholder,
-}: {
-  label: string;
-  name: string;
-  type?: string;
-  placeholder: string;
-}) {
-  return (
-    <label className="block text-xs font-bold text-slate-700">
-      {label}
-      <input
-        name={name}
-        type={type}
-        placeholder={placeholder}
-        required
-        className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400"
-      />
-    </label>
   );
 }

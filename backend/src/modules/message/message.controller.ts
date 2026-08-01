@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -8,10 +9,15 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -20,6 +26,18 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageService } from './message.service';
+
+const MESSAGE_ATTACHMENT_MIMES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+];
 
 @ApiTags('messages')
 @Controller('messages')
@@ -94,10 +112,39 @@ export class MessageController {
   @Post()
   @ApiOperation({ summary: 'Send a message to a user by email' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Message sent' })
-  async send(@GetUser('id') userId: string, @Body() dto: SendMessageDto) {
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        recipientEmail: { type: 'string' },
+        subject: { type: 'string' },
+        body: { type: 'string' },
+        attachments: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FilesInterceptor('attachments', 5, {
+      limits: { fileSize: 20 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (MESSAGE_ATTACHMENT_MIMES.includes(file.mimetype))
+          return cb(null, true);
+        cb(new BadRequestException('Type de pièce jointe non autorisé'), false);
+      },
+    }),
+  )
+  async send(
+    @GetUser('id') userId: string,
+    @Body() dto: SendMessageDto,
+    @UploadedFiles() files: Express.Multer.File[] = [],
+  ) {
     return {
       success: true,
-      data: await this.messageService.send(userId, dto),
+      data: await this.messageService.send(userId, dto, files),
       message: 'Message envoyé',
     };
   }

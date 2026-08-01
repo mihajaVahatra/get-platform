@@ -698,16 +698,32 @@ model Message {
   sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   recipientId    String
   recipient      User         @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
-  subject        String
+  subject        String?
   body           String
   isRead         Boolean      @default(false)
   readAt         DateTime?
   createdAt      DateTime     @default(now())
+  attachments    MessageAttachment[]
 
   @@index([recipientId, isRead, createdAt])
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
   @@map("messages")
+}
+
+model MessageAttachment {
+  id        String   @id @default(uuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  url       String
+  fileName  String
+  mimeType  String
+  size      Int
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+  @@map("message_attachments")
 }
 
 model Conversation {
