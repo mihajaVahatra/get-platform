@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { SchoolNewsFeed } from '@/components/shared/school-news-feed';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -2483,6 +2484,7 @@ function Messages() {
 }
 
 function Announcements() {
+  const [activeTab, setActiveTab] = useState<'course' | 'school'>('course');
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [courseId, setCourseId] = useState('');
   const [announcements, setAnnouncements] = useState<TeacherAnnouncement[]>(
@@ -2566,8 +2568,26 @@ function Announcements() {
   return (
     <Page
       title="Annonces"
-      subtitle="Informez uniquement les étudiants inscrits à un cours."
+      subtitle="Informez vos étudiants ou consultez les actualités de l'établissement."
     >
+      <nav className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
+        <button
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'course' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+          onClick={() => setActiveTab('course')}
+          type="button"
+        >
+          Mes annonces de cours
+        </button>
+        <button
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'school' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+          onClick={() => setActiveTab('school')}
+          type="button"
+        >
+          Actualités de l&apos;établissement
+        </button>
+      </nav>
+      {activeTab === 'school' && <SchoolNewsFeed />}
+      {activeTab === 'course' && (
       <div className="space-y-4">
         <Card title="Nouvelle annonce">
           {courses.length === 0 && !loading ? (
@@ -2657,6 +2677,7 @@ function Announcements() {
           )}
         </Card>
       </div>
+      )}
     </Page>
   );
 }

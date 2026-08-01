@@ -206,6 +206,7 @@ model FinancialPartner {
   name         String
   description  String?
   type         String    @default("OTHER")
+  logo         String?
   contactEmail String?
   contactPhone String?
   website      String?
@@ -216,6 +217,23 @@ model FinancialPartner {
 
   @@index([type])
   @@map("financial_partners")
+}
+
+model LandingNewsPost {
+  id           String    @id @default(uuid())
+  type         String    @default("ACTUALITÉ")
+  title        String
+  body         String
+  imageUrl     String?
+  isPublished  Boolean   @default(true)
+  displayOrder Int       @default(0)
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([isPublished, displayOrder])
+  @@map("landing_news_posts")
 }
 
 model SchoolAdmin {
@@ -667,6 +685,7 @@ model Announcement {
   title         String
   body          String
   targetType    String
+  imageUrl      String?
   courseId      String?
   course        Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
   targetClasses String[]                @default([])

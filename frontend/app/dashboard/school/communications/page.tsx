@@ -22,6 +22,7 @@ type Announcement = {
   body: string;
   targetType: string;
   targetClasses: string[];
+  imageUrl?: string | null;
   createdAt: string;
   recipientCount: number;
   readCount: number;
@@ -46,6 +47,7 @@ const TARGETS: Record<string, string> = {
   CLASSES: 'Classes spécifiques',
   STUDENTS: 'Étudiants spécifiques',
   TEACHERS: 'Professeurs',
+  EVERYONE: 'Tout le monde (étudiants et professeurs)',
 };
 
 export default function SchoolCommunicationsPage() {
@@ -60,6 +62,7 @@ export default function SchoolCommunicationsPage() {
   const [teacherSearch, setTeacherSearch] = useState('');
   const [teachers, setTeachers] = useState<TeacherAssignment[]>([]);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [history, setHistory] = useState<Announcement[]>([]);
   const [historyMeta, setHistoryMeta] = useState<Meta>({
     page: 1,
@@ -171,11 +174,22 @@ export default function SchoolCommunicationsPage() {
           '/schools/me/announcements',
           payload,
         );
+        const announcementId = response.data.data?.announcementId;
+        if (photo && announcementId) {
+          const form = new FormData();
+          form.append('file', photo);
+          await apiClient.post(
+            `/schools/me/announcements/${announcementId}/photo`,
+            form,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+          );
+        }
         toast.success(
           `Annonce envoyée à ${response.data.data?.recipientCount ?? 0} destinataire(s)`,
         );
         setTitle('');
         setBody('');
+        setPhoto(null);
         setSelectedClasses([]);
         setSelectedStudentIds([]);
         setSelectedTeacherIds([]);
@@ -291,6 +305,18 @@ export default function SchoolCommunicationsPage() {
               />
             )}
             <div className="space-y-2">
+              <Label htmlFor="announcement-photo">Photo (facultative)</Label>
+              <input
+                id="announcement-photo"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) =>
+                  setPhoto(event.target.files?.[0] ?? null)
+                }
+                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-violet-700 hover:file:bg-violet-100"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="announcement-body">Message</Label>
               <textarea
                 id="announcement-body"
@@ -331,13 +357,23 @@ export default function SchoolCommunicationsPage() {
               <Card key={announcement.id}>
                 <CardContent className="p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-slate-800">
-                        {announcement.title}
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {announcement.body}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      {announcement.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={announcement.imageUrl}
+                          alt=""
+                          className="size-10 shrink-0 rounded-lg object-cover"
+                        />
+                      )}
+                      <div>
+                        <h3 className="font-bold text-slate-800">
+                          {announcement.title}
+                        </h3>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {announcement.body}
+                        </p>
+                      </div>
                     </div>
                     <p className="text-xs text-slate-500">
                       {new Date(announcement.createdAt).toLocaleDateString(
@@ -458,5 +494,7 @@ function targetSummary(announcement: Announcement) {
     return `${announcement.recipientCount} étudiant(s)`;
   if (announcement.targetType === 'TEACHERS')
     return `${announcement.recipientCount} professeur(s)`;
+  if (announcement.targetType === 'EVERYONE')
+    return 'Tout le monde (étudiants et professeurs)';
   return 'Tous les étudiants';
 }

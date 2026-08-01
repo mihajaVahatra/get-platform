@@ -716,6 +716,21 @@ export class SchoolService {
         select: { teacher: { select: { userId: true } } },
       });
       userIds = teachers.map((assignment) => assignment.teacher.userId);
+    } else if (dto.targetType === 'EVERYONE') {
+      const [teacherAssignments, students] = await Promise.all([
+        this.prisma.teacherSchool.findMany({
+          where: { schoolId, isActive: true },
+          select: { teacher: { select: { userId: true } } },
+        }),
+        this.prisma.student.findMany({
+          where: { enrolledSchoolId: schoolId, deletedAt: null },
+          select: { userId: true },
+        }),
+      ]);
+      userIds = [
+        ...teacherAssignments.map((assignment) => assignment.teacher.userId),
+        ...students.map((student) => student.userId),
+      ];
     } else {
       const students = await this.prisma.student.findMany({
         where: {
@@ -863,11 +878,60 @@ export class SchoolService {
         body: item.body,
         targetType: item.targetType,
         targetClasses: item.targetClasses,
+        imageUrl: item.imageUrl,
         createdAt: item.createdAt,
         recipientCount: item.recipients.length,
         readCount: item.recipients.filter(
           (recipient) => recipient.notification.isRead,
         ).length,
+      })),
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
+  async setAnnouncementPhoto(
+    schoolId: string,
+    announcementId: string,
+    imageUrl: string,
+  ) {
+    const { count } = await this.prisma.announcement.updateMany({
+      where: { id: announcementId, schoolId },
+      data: { imageUrl },
+    });
+    if (count === 0) {
+      throw new NotFoundException('Annonce introuvable pour cette école');
+    }
+    return { imageUrl };
+  }
+
+  async getMyAnnouncements(userId: string, page = 1, limit = 20) {
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const [items, total] = await Promise.all([
+      this.prisma.announcementRecipient.findMany({
+        where: { userId },
+        orderBy: { notification: { createdAt: 'desc' } },
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        include: { announcement: true, notification: true },
+      }),
+      this.prisma.announcementRecipient.count({ where: { userId } }),
+    ]);
+    return {
+      items: items.map((recipient) => ({
+        announcementId: recipient.announcement.id,
+        title: recipient.announcement.title,
+        body: recipient.announcement.body,
+        imageUrl: recipient.announcement.imageUrl,
+        targetType: recipient.announcement.targetType,
+        createdAt: recipient.announcement.createdAt,
+        notificationId: recipient.notificationId,
+        isRead: recipient.notification.isRead,
       })),
       meta: {
         page: currentPage,

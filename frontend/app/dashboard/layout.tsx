@@ -35,6 +35,7 @@ import {
   ScrollText,
   ChartSpline,
   DatabaseBackup,
+  LayoutTemplate,
   X,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
@@ -982,6 +983,18 @@ function AdminGetSidebar({
       href: '/dashboard/admin?section=announcements',
     },
   ];
+  const siteVitrine = [
+    {
+      label: 'Contenu général',
+      icon: LayoutTemplate,
+      href: '/dashboard/admin?section=landing-content',
+    },
+    {
+      label: 'Actualités du site',
+      icon: Newspaper,
+      href: '/dashboard/admin?section=landing-news',
+    },
+  ];
   return (
     <aside
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
@@ -1026,6 +1039,11 @@ function AdminGetSidebar({
         <SidebarGroup
           label="Communication"
           items={communication}
+          currentUrl={currentUrl}
+        />
+        <SidebarGroup
+          label="Site vitrine"
+          items={siteVitrine}
           currentUrl={currentUrl}
         />
         <SidebarGroup

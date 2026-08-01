@@ -13,6 +13,9 @@ export enum ImageEntityType {
   MINISTRY = 'MINISTRY',
   OFFER = 'OFFER',
   SYSTEM = 'SYSTEM',
+  ANNOUNCEMENT = 'ANNOUNCEMENT',
+  LANDING_NEWS = 'LANDING_NEWS',
+  FINANCIAL_PARTNER = 'FINANCIAL_PARTNER',
 }
 
 export enum ImageType {

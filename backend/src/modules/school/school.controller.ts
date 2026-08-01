@@ -552,6 +552,75 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  @Post('me/announcements/:id/photo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: "Attach a photo to one of my school's announcements" })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException('Seules les images sont autorisées'),
+            false,
+          );
+        }
+      },
+    }),
+  )
+  async uploadAnnouncementPhoto(
+    @Param('id') id: string,
+    @GetUser() user: SchoolAdminSession,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException("Réservé aux administrateurs d'école");
+    }
+    if (!file) {
+      throw new BadRequestException('Aucun fichier uploadé');
+    }
+    const result = await this.storageService.uploadImage(file, {
+      entityType: ImageEntityType.ANNOUNCEMENT,
+      entityId: id,
+      type: ImageType.ILLUSTRATION,
+    });
+    await this.schoolService.setAnnouncementPhoto(
+      user.schoolAdmin.schoolId,
+      id,
+      result.url,
+    );
+    return {
+      success: true,
+      data: { imageUrl: result.url },
+      message: 'Photo attachée avec succès',
+    };
+  }
+
+  @Get('announcements/mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'TEACHER')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get announcements addressed to me' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  async getMyReceivedAnnouncements(
+    @GetUser('id') userId: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    const result = await this.schoolService.getMyAnnouncements(
+      userId,
+      page,
+      limit,
+    );
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
   @Post('announcements/broadcast')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')

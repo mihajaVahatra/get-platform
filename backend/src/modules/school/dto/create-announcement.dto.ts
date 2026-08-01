@@ -12,7 +12,7 @@ export class CreateAnnouncementDto {
   body: string;
 
   @IsString()
-  @IsIn(['ALL_STUDENTS', 'CLASSES', 'STUDENTS', 'TEACHERS'])
+  @IsIn(['ALL_STUDENTS', 'CLASSES', 'STUDENTS', 'TEACHERS', 'EVERYONE'])
   targetType: string;
 
   @IsOptional()

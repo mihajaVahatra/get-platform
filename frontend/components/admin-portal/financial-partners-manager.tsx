@@ -17,6 +17,7 @@ type PartnerItem = {
   name: string;
   description?: string | null;
   type: string;
+  logo?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
   website?: string | null;
@@ -141,9 +142,18 @@ export function FinancialPartnersManager() {
                 key={row.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
-                  <HandCoins className="size-4" />
-                </span>
+                {row.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={row.logo}
+                    alt=""
+                    className="size-9 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                    <HandCoins className="size-4" />
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold text-[#28315e]">
                     {row.name}
@@ -265,6 +275,28 @@ function PartnerForm({
   const [contactPhone, setContactPhone] = useState(partner?.contactPhone || '');
   const [website, setWebsite] = useState(partner?.website || '');
   const [saving, setSaving] = useState(false);
+  const [logo, setLogo] = useState(partner?.logo || '');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const uploadLogo = async (file: File) => {
+    if (!partner) return;
+    try {
+      setUploadingLogo(true);
+      const form = new FormData();
+      form.append('file', file);
+      const response = await apiClient.post(
+        `/financial-partners/${partner.id}/logo`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      setLogo(response.data.data.logoUrl);
+      toast.success('Logo mis à jour');
+    } catch (error: unknown) {
+      toast.error(axiosMessage(error) || "Impossible d'envoyer le logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -301,6 +333,35 @@ function PartnerForm({
           {partner ? 'Modifier le partenaire' : 'Nouveau partenaire'}
         </h2>
         <form onSubmit={submit} className="mt-4 space-y-4">
+          {partner && (
+            <div className="flex items-center gap-3">
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logo}
+                  alt=""
+                  className="size-12 shrink-0 rounded-lg border border-slate-200 object-cover"
+                />
+              ) : (
+                <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <HandCoins className="size-5" />
+                </span>
+              )}
+              <label className="text-xs font-bold text-[#34406b]">
+                Logo
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploadingLogo}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadLogo(file);
+                  }}
+                  className="mt-1.5 block text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-violet-700 hover:file:bg-violet-100"
+                />
+              </label>
+            </div>
+          )}
           <label className="block text-xs font-bold text-[#34406b]">
             Nom du partenaire
             <input

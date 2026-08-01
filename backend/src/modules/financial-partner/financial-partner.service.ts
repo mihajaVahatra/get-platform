@@ -78,6 +78,14 @@ export class FinancialPartnerService {
     });
   }
 
+  async updateLogo(id: string, logoUrl: string) {
+    await this.ensureExists(id);
+    return this.prisma.financialPartner.update({
+      where: { id },
+      data: { logo: logoUrl },
+    });
+  }
+
   private async ensureExists(id: string) {
     const partner = await this.prisma.financialPartner.findFirst({
       where: { id, deletedAt: null },

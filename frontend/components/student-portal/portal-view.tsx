@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Bell, BookOpen, CheckCircle2, ChevronRight, WalletCards } from 'lucide-react';
+import { SchoolNewsFeed } from '@/components/shared/school-news-feed';
 
 type View = 'parcours' | 'news' | 'opportunities' | 'library';
 
@@ -11,7 +12,8 @@ export function StudentPortalView({ view }: { view: View }) {
 
 function renderView(view: View) {
   if (view === 'parcours') return <Parcours />;
-  return <ComingSoon title={view === 'news' ? 'Actualités de l’établissement' : view === 'opportunities' ? 'Stages & emplois' : 'Bibliothèque en ligne'} icon={view === 'news' ? Bell : view === 'opportunities' ? WalletCards : BookOpen} />;
+  if (view === 'news') return <SchoolNewsFeed />;
+  return <ComingSoon title={view === 'opportunities' ? 'Stages & emplois' : 'Bibliothèque en ligne'} icon={view === 'opportunities' ? WalletCards : BookOpen} />;
 }
 
 function Parcours() {

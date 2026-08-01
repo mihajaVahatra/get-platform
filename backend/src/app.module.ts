@@ -17,6 +17,7 @@ import { MessageModule } from './modules/message/message.module';
 import { TeachingModule } from './modules/teaching/teaching.module';
 import { CompetitionModule } from './modules/competition/competition.module';
 import { FinancialPartnerModule } from './modules/financial-partner/financial-partner.module';
+import { LandingModule } from './modules/landing/landing.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { FinancialPartnerModule } from './modules/financial-partner/financial-pa
     TeachingModule,
     CompetitionModule,
     FinancialPartnerModule,
+    LandingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
