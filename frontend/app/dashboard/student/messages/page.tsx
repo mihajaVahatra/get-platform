@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import {
   ArrowLeft,
@@ -60,12 +61,23 @@ const dateOf = (date: string) =>
   }).format(new Date(date));
 
 export default function MessagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessagesPageContent />
+    </Suspense>
+  );
+}
+
+function MessagesPageContent() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [threadLoading, setThreadLoading] = useState(false);
-  const [showCompose, setShowCompose] = useState(false);
+  const [showCompose, setShowCompose] = useState(
+    searchParams.get('compose') === '1',
+  );
   const [sending, setSending] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replying, setReplying] = useState(false);

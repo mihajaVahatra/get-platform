@@ -139,12 +139,17 @@ describe('TeachingService', () => {
 
   it('agrège le tableau de bord sans charger chaque cours individuellement', async () => {
     prisma.course.count.mockResolvedValue(3);
+    prisma.courseEnrollment.findMany.mockResolvedValue([
+      { studentId: 'student-1' },
+      { studentId: 'student-2' },
+    ]);
     prisma.assignmentSubmission.count.mockResolvedValue(7);
     prisma.evaluation.count.mockResolvedValue(2);
     prisma.message.count.mockResolvedValue(4);
 
     await expect(service.dashboardSummary('user-1')).resolves.toEqual({
       courses: 3,
+      students: 2,
       submissionsToGrade: 7,
       upcomingEvaluations: 2,
       unreadMessages: 4,
