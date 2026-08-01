@@ -94,7 +94,9 @@ export class SchoolService {
     limit = 20,
     filters?: { city?: string; type?: string; search?: string },
   ) {
-    const skip = (page - 1) * limit;
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const skip = (currentPage - 1) * currentLimit;
     const where: any = { deletedAt: null };
 
     if (filters?.city)
@@ -111,12 +113,15 @@ export class SchoolService {
       this.prisma.school.findMany({
         where,
         skip,
-        take: limit,
+        take: currentLimit,
         orderBy: { name: 'asc' },
         include: {
           offers: {
             where: { isOpen: true, deletedAt: null },
             take: 5,
+          },
+          _count: {
+            select: { enrolledStudents: true },
           },
         },
       }),
@@ -126,10 +131,10 @@ export class SchoolService {
     return {
       items,
       meta: {
-        page,
-        limit,
+        page: currentPage,
+        limit: currentLimit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / currentLimit),
       },
     };
   }
