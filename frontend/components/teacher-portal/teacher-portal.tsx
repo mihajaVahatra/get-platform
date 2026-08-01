@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Trash2,
+  UsersRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
@@ -235,6 +236,8 @@ function Courses() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [schools, setSchools] = useState<TeacherSchool[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState('all');
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -267,10 +270,25 @@ function Courses() {
     };
   }, [fetchCourses]);
 
-  const displayedCourses =
+  const schoolFilteredCourses =
     selectedSchoolId === 'all'
       ? courses
       : courses.filter((course) => course.school.id === selectedSchoolId);
+  const activeCourses = schoolFilteredCourses.filter(
+    (course) => course.isPublished,
+  );
+  const archivedCourses = schoolFilteredCourses.filter(
+    (course) => !course.isPublished,
+  );
+  const query = search.trim().toLowerCase();
+  const displayedCourses = (
+    tab === 'active' ? activeCourses : archivedCourses
+  ).filter(
+    (course) =>
+      !query ||
+      course.title.toLowerCase().includes(query) ||
+      course.code.toLowerCase().includes(query),
+  );
 
   return (
     <Page
@@ -278,7 +296,7 @@ function Courses() {
       subtitle="Gérez et consultez tous les cours que vous enseignez."
     >
       {schools.length > 1 && (
-        <label className="mb-5 block max-w-sm">
+        <label className="mb-4 block max-w-sm">
           <span className="mb-1 block text-xs font-bold text-[#34406b]">
             Établissement
           </span>
@@ -296,54 +314,65 @@ function Courses() {
           </select>
         </label>
       )}
+      <label className="relative mb-4 block">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Rechercher un cours..."
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-violet-500"
+        />
+      </label>
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setTab('active')}
+          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'active' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+        >
+          Actifs ({activeCourses.length})
+        </button>
+        <button
+          onClick={() => setTab('archived')}
+          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'archived' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+        >
+          Archives ({archivedCourses.length})
+        </button>
+      </div>
       {loading || failed || displayedCourses.length === 0 ? (
         <AsyncState
           status={loading ? 'loading' : failed ? 'error' : 'empty'}
           loadingMessage="Chargement de vos cours…"
           errorMessage="Vos cours n’ont pas pu être chargés."
-          emptyMessage="Aucun cours ne vous est actuellement affecté."
+          emptyMessage="Aucun cours ne correspond à cette sélection."
           onRetry={() => void fetchCourses()}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-2">
           {displayedCourses.map((course) => (
             <Link
               key={course.id}
               href={`/dashboard/teacher?view=course-detail&courseId=${course.id}&tab=content`}
-              className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md"
+              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-violet-200 hover:shadow-md"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-extrabold text-[#17204e]">
-                    {course.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {course.code} · {course.level}
-                    {course.group ? ` · ${course.group}` : ''}
-                  </p>
-                </div>
-                <BookOpen className="size-5 shrink-0 text-violet-600" />
-              </div>
-              <span className="mt-4 inline-flex rounded bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
-                {course.school.name}
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                <BookOpen className="size-5" />
               </span>
-              <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-600">
-                <span className="rounded bg-slate-50 px-2 py-1">
-                  {course._count.enrollments} étudiant
-                  {course._count.enrollments > 1 ? 's' : ''}
-                </span>
-                <span className="rounded bg-slate-50 px-2 py-1">
-                  {course._count.chapters} chapitre
-                  {course._count.chapters > 1 ? 's' : ''}
-                </span>
-                <span className="rounded bg-slate-50 px-2 py-1">
-                  {course._count.evaluations} évaluation
-                  {course._count.evaluations > 1 ? 's' : ''}
-                </span>
-                <span className="rounded bg-slate-50 px-2 py-1">
-                  {course._count.assignments} devoir
-                  {course._count.assignments > 1 ? 's' : ''}
-                </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-extrabold text-[#17204e]">
+                  {course.title}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">
+                  {course.level}
+                  {course.group ? ` · ${course.group}` : ''}
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="flex items-center gap-1 text-xs font-bold text-[#17204e]">
+                  <UsersRound className="size-3.5 text-slate-400" />
+                  {course._count.enrollments}
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {course._count.chapters} chap.
+                </p>
               </div>
             </Link>
           ))}
