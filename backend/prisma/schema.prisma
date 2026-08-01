@@ -142,22 +142,33 @@ model School {
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
 
+  // ════════════════════════════════════════════
+  //  PLANIFICATION (moteur d'emploi du temps)
+  // ════════════════════════════════════════════
+  rooms                 Room[]
+  schoolClasses         SchoolClass[]
+  subjectRequirements   SubjectRequirement[]
+  timeSlots             SchoolTimeSlot[]
+  travelBufferAsSchoolA TeacherTravelBuffer[] @relation("TravelBufferSchoolA")
+  travelBufferAsSchoolB TeacherTravelBuffer[] @relation("TravelBufferSchoolB")
+
   @@map("schools")
 }
 
 model SchoolProgram {
-  id            String    @id @default(uuid())
+  id            String        @id @default(uuid())
   schoolId      String
-  school        School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name          String
   diploma       String
   durationYears Int
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
   students      Student[]
   offers        Offer[]
   Course        Course[]
   competitions  Competition[]
+  schoolClasses SchoolClass[]
 
   @@unique([schoolId, name])
   @@index([schoolId, isActive])
@@ -250,17 +261,21 @@ model SchoolAdmin {
 }
 
 model Teacher {
-  id          String          @id @default(uuid())
-  userId      String          @unique
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName   String?
-  lastName    String?
-  avatarUrl   String?
-  phone       String?
-  assignments TeacherSchool[]
-  courses     Course[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id                 String                @id @default(uuid())
+  userId             String                @unique
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName          String?
+  lastName           String?
+  avatarUrl          String?
+  phone              String?
+  assignments        TeacherSchool[]
+  courses            Course[]
+  subjectAssignments TeacherAssignment[]
+  courseSlots        CourseSlot[]
+  availabilities     TeacherAvailability[]
+  travelBuffers      TeacherTravelBuffer[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   @@map("teachers")
 }
@@ -294,6 +309,7 @@ model SchoolSubject {
   createdAt             DateTime               @default(now())
   teacherQualifications TeacherSchoolSubject[]
   courses               Course[]
+  requirements          SubjectRequirement[]
 
   @@unique([schoolId, name])
   @@map("school_subjects")
@@ -310,37 +326,190 @@ model TeacherSchoolSubject {
   @@map("teacher_school_subjects")
 }
 
+// ════════════════════════════════════════════
+//  MOTEUR DE PLANIFICATION — PHASE 1 (fondations)
+// ════════════════════════════════════════════
+
+/// Année scolaire centrale (créée par l'administrateur plateforme), période
+/// de référence pour les classes et les besoins horaires de chaque école.
+/// Distincte de SchoolAcademicYear (par école, orientée admissions).
+model AcademicYear {
+  id        String   @id @default(uuid())
+  label     String   @unique
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schoolClasses SchoolClass[]
+  requirements  SubjectRequirement[]
+
+  @@map("academic_years")
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  capacity  Int?
+  type      String   @default("STANDARD")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, name])
+  @@index([schoolId, isActive])
+  @@map("rooms")
+}
+
+model SchoolClass {
+  id             String         @id @default(uuid())
+  schoolId       String
+  school         School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear   @relation(fields: [academicYearId], references: [id])
+  programId      String?
+  program        SchoolProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+  name           String
+  level          Int?
+  studentCount   Int?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  requirements SubjectRequirement[]
+
+  @@unique([schoolId, academicYearId, name])
+  @@index([schoolId, academicYearId])
+  @@map("school_classes")
+}
+
+/// Le besoin ("cette classe a besoin de N h/semaine de cette matière"),
+/// volontairement découplé de l'affectation prof (TeacherAssignment) pour
+/// pouvoir définir les besoins avant de savoir qui les couvre.
+model SubjectRequirement {
+  id             String        @id @default(uuid())
+  schoolId       String
+  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id])
+  classId        String
+  schoolClass    SchoolClass   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        SchoolSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  hoursPerWeek   Int
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  assignment TeacherAssignment?
+
+  @@unique([classId, subjectId])
+  @@map("subject_requirements")
+}
+
+/// Le prof qui couvre un besoin donné. Le prof doit déjà être qualifié pour
+/// la matière dans cette école (TeacherSchoolSubject), vérifié en service.
+model TeacherAssignment {
+  id                   String             @id @default(uuid())
+  subjectRequirementId String             @unique
+  subjectRequirement   SubjectRequirement @relation(fields: [subjectRequirementId], references: [id], onDelete: Cascade)
+  teacherId            String
+  teacher              Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  createdAt            DateTime           @default(now())
+
+  @@map("teacher_assignments")
+}
+
+/// Grille des créneaux valides propre à chaque école (indépendante de
+/// l'année scolaire — la grille horaire change rarement).
+model SchoolTimeSlot {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  label     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([schoolId, dayOfWeek, startTime, endTime])
+  @@index([schoolId, isActive])
+  @@map("school_time_slots")
+}
+
+// ════════════════════════════════════════════
+//  MOTEUR DE PLANIFICATION — PHASE 2 (disponibilités, confidentialité)
+// ════════════════════════════════════════════
+
+/// Indisponibilité déclarée par le prof — récurrente (dayOfWeek) ou
+/// ponctuelle (date). Par défaut un prof est considéré disponible ; ce
+/// modèle liste les exceptions, pas les disponibilités positives.
+model TeacherAvailability {
+  id        String    @id @default(uuid())
+  teacherId String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  dayOfWeek Int?
+  date      DateTime?
+  startTime String
+  endTime   String
+  reason    String?
+  createdAt DateTime  @default(now())
+
+  @@index([teacherId])
+  @@map("teacher_availabilities")
+}
+
+/// Temps de trajet minimal déclaré par le prof entre deux de ses écoles.
+/// schoolAId/schoolBId toujours normalisés (ordre alphabétique) en service.
+model TeacherTravelBuffer {
+  id            String   @id @default(uuid())
+  teacherId     String
+  teacher       Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  schoolAId     String
+  schoolA       School   @relation("TravelBufferSchoolA", fields: [schoolAId], references: [id], onDelete: Cascade)
+  schoolBId     String
+  schoolB       School   @relation("TravelBufferSchoolB", fields: [schoolBId], references: [id], onDelete: Cascade)
+  minutesBuffer Int
+  createdAt     DateTime @default(now())
+
+  @@unique([teacherId, schoolAId, schoolBId])
+  @@map("teacher_travel_buffers")
+}
+
 model Course {
-  id           String             @id @default(uuid())
-  schoolId     String
-  school       School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  teacherId    String
-  teacher      Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  code         String
-  title        String
-  description  String?
-  level        String
-  subjectId    String?
-  subject      SchoolSubject?     @relation(fields: [subjectId], references: [id])
-  programId    String?
-  program      SchoolProgram?     @relation(fields: [programId], references: [id])
-  programLevel Int?
-  group        String?
-  credits      Int                @default(0)
-  room         String?
-  schedule     String?
-  isPublished  Boolean            @default(true)
+  id                 String             @id @default(uuid())
+  schoolId           String
+  school             School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId          String
+  teacher            Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  code               String
+  title              String
+  description        String?
+  level              String
+  subjectId          String?
+  subject            SchoolSubject?     @relation(fields: [subjectId], references: [id])
+  programId          String?
+  program            SchoolProgram?     @relation(fields: [programId], references: [id])
+  programLevel       Int?
+  group              String?
+  credits            Int                @default(0)
+  room               String?
+  schedule           String?
+  isPublished        Boolean            @default(true)
   welcomeMessage     String?
-  allowGroupMessages Boolean      @default(true)
-  notifyOnPublish    Boolean      @default(true)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  chapters     CourseChapter[]
-  enrollments  CourseEnrollment[]
-  evaluations  Evaluation[]
-  assignments  Assignment[]
-  slots        CourseSlot[]
-  announcements Announcement[]
+  allowGroupMessages Boolean            @default(true)
+  notifyOnPublish    Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  chapters           CourseChapter[]
+  enrollments        CourseEnrollment[]
+  evaluations        Evaluation[]
+  assignments        Assignment[]
+  slots              CourseSlot[]
+  announcements      Announcement[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
@@ -351,6 +520,10 @@ model CourseSlot {
   id        String   @id @default(uuid())
   courseId  String
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  // Dénormalisé depuis course.teacherId, pour permettre une contrainte
+  // d'exclusion anti-double-réservation au niveau base (voir migration).
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   dayOfWeek Int
   startTime String
   endTime   String
@@ -361,6 +534,7 @@ model CourseSlot {
   @@unique([courseId, dayOfWeek, startTime, endTime, room])
   @@index([courseId])
   @@index([dayOfWeek, room, startTime, endTime])
+  @@index([teacherId, dayOfWeek])
   @@map("course_slots")
 }
 
@@ -710,18 +884,18 @@ model AnnouncementRecipient {
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  id             String              @id @default(uuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
-  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  sender         User                @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   recipientId    String
-  recipient      User         @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipient      User                @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
   subject        String?
   body           String
-  isRead         Boolean      @default(false)
+  isRead         Boolean             @default(false)
   readAt         DateTime?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime            @default(now())
   attachments    MessageAttachment[]
 
   @@index([recipientId, isRead, createdAt])

@@ -15,6 +15,33 @@ import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 export class NotificationService {
   constructor(private prisma: PrismaService) {}
 
+  async getPlatformStats() {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [total, unread, sentLast7Days, recentByTitle] = await Promise.all([
+      this.prisma.notification.count(),
+      this.prisma.notification.count({ where: { isRead: false } }),
+      this.prisma.notification.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.notification.groupBy({
+        by: ['title'],
+        where: { createdAt: { gte: sevenDaysAgo } },
+        _count: { title: true },
+        orderBy: { _count: { title: 'desc' } },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      total,
+      unread,
+      read: total - unread,
+      sentLast7Days,
+      topRecentTitles: recentByTitle.map((row) => ({
+        title: row.title,
+        count: row._count.title,
+      })),
+    };
+  }
+
   async sendInAppBatch(
     userIds: string[],
     content: { title: string; body: string },

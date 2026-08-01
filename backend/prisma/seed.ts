@@ -374,7 +374,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: firstCourse.id, dayOfWeek: 1, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
+    create: { courseId: firstCourse.id, teacherId: teacher.id, dayOfWeek: 1, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
   });
   await prisma.courseSlot.upsert({
     where: {
@@ -387,7 +387,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: firstCourse.id, dayOfWeek: 3, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
+    create: { courseId: firstCourse.id, teacherId: teacher.id, dayOfWeek: 3, startTime: '08:00', endTime: '10:00', room: 'Salle 2.3' },
   });
   await prisma.courseSlot.upsert({
     where: {
@@ -400,7 +400,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: secondCourse.id, dayOfWeek: 2, startTime: '13:00', endTime: '16:00', room: 'Salle Informatique 1' },
+    create: { courseId: secondCourse.id, teacherId: teacher.id, dayOfWeek: 2, startTime: '13:00', endTime: '16:00', room: 'Salle Informatique 1' },
   });
   console.log('✅ Professeur créé et affecté à ESPA + IST Mahajanga: prof.rakoto@espa.mg / Professeur123!');
 
@@ -767,7 +767,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: thirdCourse.id, dayOfWeek: 4, startTime: '10:00', endTime: '12:00', room: 'Salle 2.5' },
+    create: { courseId: thirdCourse.id, teacherId: teacher.id, dayOfWeek: 4, startTime: '10:00', endTime: '12:00', room: 'Salle 2.5' },
   });
   await prisma.courseSlot.upsert({
     where: {
@@ -780,7 +780,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: mgtCourse.id, dayOfWeek: 2, startTime: '09:00', endTime: '12:00', room: 'Amphi B' },
+    create: { courseId: mgtCourse.id, teacherId: teacher2.id, dayOfWeek: 2, startTime: '09:00', endTime: '12:00', room: 'Amphi B' },
   });
   await prisma.courseSlot.upsert({
     where: {
@@ -793,7 +793,7 @@ async function main() {
       },
     },
     update: {},
-    create: { courseId: ecoCourse.id, dayOfWeek: 4, startTime: '14:00', endTime: '16:00', room: 'Salle 101' },
+    create: { courseId: ecoCourse.id, teacherId: teacher2.id, dayOfWeek: 4, startTime: '14:00', endTime: '16:00', room: 'Salle 101' },
   });
   console.log('✅ 3 cours supplémentaires créés (BDD301, MGT201, ECO101)');
 
@@ -1416,11 +1416,52 @@ async function main() {
     MGT201: mgtCourse,
     ECO101: ecoCourse,
   };
+
+  // Un même prof peut intervenir dans plusieurs écoles ; on évite de lui
+  // générer deux créneaux qui se chevauchent (même si les cours sont dans
+  // des salles différentes, un prof ne peut pas être à deux endroits en
+  // même temps — c'est justement ce que la contrainte anti-double-
+  // réservation en base interdit désormais).
+  const toMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const teacherBookings = new Map<string, Array<{ day: number; start: number; end: number }>>();
+  const bookTeacherSlot = (teacherId: string, day: number, start: string, end: string) => {
+    const bookings = teacherBookings.get(teacherId) ?? [];
+    bookings.push({ day, start: toMinutes(start), end: toMinutes(end) });
+    teacherBookings.set(teacherId, bookings);
+  };
+  const hasTeacherConflict = (teacherId: string, day: number, start: string, end: string) => {
+    const range = { start: toMinutes(start), end: toMinutes(end) };
+    return (teacherBookings.get(teacherId) ?? []).some(
+      (booking) => booking.day === day && booking.start < range.end && range.start < booking.end,
+    );
+  };
+  // Créneaux déjà fixés en dur plus haut (INFO301/ALGO201/BDD301 pour
+  // prof.rakoto, MGT201/ECO101 pour prof.andria).
+  bookTeacherSlot(teacher.id, 1, '08:00', '10:00');
+  bookTeacherSlot(teacher.id, 3, '08:00', '10:00');
+  bookTeacherSlot(teacher.id, 2, '13:00', '16:00');
+  bookTeacherSlot(teacher.id, 4, '10:00', '12:00');
+  bookTeacherSlot(teacher2.id, 2, '09:00', '12:00');
+  bookTeacherSlot(teacher2.id, 4, '14:00', '16:00');
+
   for (let i = 0; i < courseDefs.length; i++) {
     const def = courseDefs[i];
     const room = `Salle ${(i % 12) + 1}`;
-    const dayOfWeek = (i % 5) + 1;
-    const tb = TIME_BLOCKS[i % TIME_BLOCKS.length];
+    let dayOfWeek = (i % 5) + 1;
+    let tb = TIME_BLOCKS[i % TIME_BLOCKS.length];
+    let attempts = 0;
+    while (hasTeacherConflict(def.teacherId, dayOfWeek, tb.start, tb.end) && attempts < TIME_BLOCKS.length * 5) {
+      attempts++;
+      const blockIndex = (i + attempts) % TIME_BLOCKS.length;
+      tb = TIME_BLOCKS[blockIndex];
+      if (blockIndex === i % TIME_BLOCKS.length) {
+        dayOfWeek = (dayOfWeek % 5) + 1;
+      }
+    }
+    bookTeacherSlot(def.teacherId, dayOfWeek, tb.start, tb.end);
     const course = await prisma.course.upsert({
       where: { schoolId_code_group: { schoolId: def.schoolId, code: def.code, group: 'Groupe A' } },
       update: { teacherId: def.teacherId, title: def.title, level: def.level, credits: def.credits },
@@ -1434,7 +1475,7 @@ async function main() {
         group: 'Groupe A',
         credits: def.credits,
         room,
-        schedule: `${DAY_NAMES[i % DAY_NAMES.length]} ${tb.start} – ${tb.end}`,
+        schedule: `${DAY_NAMES[dayOfWeek - 1]} ${tb.start} – ${tb.end}`,
       },
     });
     await prisma.courseSlot.upsert({
@@ -1444,7 +1485,7 @@ async function main() {
         },
       },
       update: {},
-      create: { courseId: course.id, dayOfWeek, startTime: tb.start, endTime: tb.end, room },
+      create: { courseId: course.id, teacherId: def.teacherId, dayOfWeek, startTime: tb.start, endTime: tb.end, room },
     });
     coursesByCode[def.code] = course;
   }
