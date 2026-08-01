@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { DownloadIcon, SearchIcon } from 'lucide-react';
+import { DownloadIcon, FileTextIcon, SearchIcon } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
@@ -232,47 +232,38 @@ function SchoolDocumentsContent() {
               Aucun document ne correspond aux filtres sélectionnés.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px] text-left text-sm">
-                <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th className="pb-3">Étudiant</th>
-                    <th className="pb-3">Classe</th>
-                    <th className="pb-3">Type</th>
-                    <th className="pb-3">Fichier</th>
-                    <th className="pb-3">Dépôt</th>
-                    <th className="pb-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {documents.map((document) => (
-                    <tr
-                      key={document.id}
-                      className="border-b border-slate-50 text-slate-600"
-                    >
-                      <td className="py-4 font-semibold text-slate-800">
-                        {document.student.firstName} {document.student.lastName}
-                      </td>
-                      <td>
-                        {document.student.enrolledYear || 'Non renseignée'}
-                      </td>
-                      <td>{TYPES[document.type] || document.type}</td>
-                      <td className="max-w-64 truncate">{document.name}</td>
-                      <td>{formatDate(document.uploadedAt)}</td>
-                      <td>
-                        <a
-                          href={document.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-violet-600 hover:bg-violet-50"
-                        >
-                          <DownloadIcon className="size-4" /> Télécharger
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-2">
+              {documents.map((document) => (
+                <div
+                  key={document.id}
+                  className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                    <FileTextIcon className="size-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {document.student.firstName} {document.student.lastName}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {document.name} · {TYPES[document.type] || document.type}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {document.student.enrolledYear || 'Classe non renseignée'}{' '}
+                      · Déposé le {formatDate(document.uploadedAt)}
+                    </p>
+                  </div>
+                  <a
+                    href={document.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Télécharger ${document.name}`}
+                    className="grid size-10 shrink-0 place-items-center rounded-lg text-violet-600 hover:bg-violet-50"
+                  >
+                    <DownloadIcon className="size-4" />
+                  </a>
+                </div>
+              ))}
             </div>
           )}
           {!loading && totalPages > 1 && (

@@ -261,63 +261,53 @@ function SchoolApplicationsContent() {
         </Card>
       ) : (
         <Card>
-          <CardContent className="overflow-x-auto p-0">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-medium">Étudiant</th>
-                  <th className="px-5 py-3 font-medium">Offre</th>
-                  <th className="px-5 py-3 font-medium">Statut</th>
-                  <th className="px-5 py-3 font-medium">Soumise le</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {applications.map((application) => (
-                  <tr
-                    key={application.id}
-                    className="cursor-pointer transition-colors hover:bg-violet-50 focus-visible:bg-violet-50"
-                    tabIndex={0}
-                    onClick={() =>
-                      router.push(
-                        `/dashboard/school/applications/${application.id}`,
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        router.push(
-                          `/dashboard/school/applications/${application.id}`,
-                        );
-                      }
-                    }}
+          <CardContent className="space-y-2 p-4">
+            {applications.map((application) => (
+              <div
+                key={application.id}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer rounded-xl border border-slate-100 p-3 transition-colors hover:bg-violet-50 focus-visible:bg-violet-50"
+                onClick={() =>
+                  router.push(
+                    `/dashboard/school/applications/${application.id}`,
+                  )
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    router.push(
+                      `/dashboard/school/applications/${application.id}`,
+                    );
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {application.student.firstName}{' '}
+                      {application.student.lastName}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {application.student.user.email}
+                    </p>
+                  </div>
+                  <Badge
+                    className={`shrink-0 ${STATUS_COLORS[application.status] || 'bg-slate-500'} text-white`}
                   >
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-slate-900">
-                        {application.student.firstName}{' '}
-                        {application.student.lastName}
-                      </p>
-                      <p className="text-slate-500">
-                        {application.student.user.email}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-violet-700">
-                      {application.offer.title}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Badge
-                        className={`${STATUS_COLORS[application.status] || 'bg-slate-500'} text-white`}
-                      >
-                        {STATUS_LABELS[application.status] ||
-                          application.status}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {formatDate(application.submittedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {STATUS_LABELS[application.status] || application.status}
+                  </Badge>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs">
+                  <span className="truncate font-medium text-violet-700">
+                    {application.offer.title}
+                  </span>
+                  <span className="shrink-0 text-slate-500">
+                    {formatDate(application.submittedAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
