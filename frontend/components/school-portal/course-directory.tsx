@@ -1,7 +1,13 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { ArchiveIcon, Edit3Icon, PlusIcon, SearchIcon } from 'lucide-react';
+import {
+  ArchiveIcon,
+  BookOpenIcon,
+  Edit3Icon,
+  PlusIcon,
+  SearchIcon,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -276,52 +282,48 @@ export function CourseDirectory() {
                   Aucun cours ne correspond à votre recherche.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-                      <tr>
-                        <th className="pb-3 font-semibold">Code</th>
-                        <th className="pb-3 font-semibold">Titre</th>
-                        <th className="pb-3 font-semibold">Niveau</th>
-                        <th className="pb-3 font-semibold">Professeur</th>
-                        <th className="pb-3 font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedCourses.map((course) => (
-                        <tr key={course.id}>
-                          <td>{course.code}</td>
-                          <td>{course.title}</td>
-                          <td>{course.level}</td>
-                          <td>{course.teacher.user.email}</td>
-                          <td>
-                            <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="min-h-11 min-w-11"
-                              aria-label="Modifier le cours"
-                              onClick={() => openEdit(course)}
-                            >
-                              <Edit3Icon />
-                            </Button>
-                            {course.isPublished && (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="min-h-11 min-w-11 text-red-600"
-                                aria-label={`Désactiver ${course.title}`}
-                                onClick={() => setCourseToDeactivate(course)}
-                              >
-                                <ArchiveIcon />
-                              </Button>
-                            )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-2">
+                  {paginatedCourses.map((course) => (
+                    <div
+                      key={course.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
+                    >
+                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                        <BookOpenIcon className="size-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-[#17204e]">
+                          {course.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {course.code} · {course.level} ·{' '}
+                          {course.teacher.user.email}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="min-h-11 min-w-11"
+                          aria-label="Modifier le cours"
+                          onClick={() => openEdit(course)}
+                        >
+                          <Edit3Icon />
+                        </Button>
+                        {course.isPublished && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="min-h-11 min-w-11 text-red-600"
+                            aria-label={`Désactiver ${course.title}`}
+                            onClick={() => setCourseToDeactivate(course)}
+                          >
+                            <ArchiveIcon />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
               {totalPages > 1 && (

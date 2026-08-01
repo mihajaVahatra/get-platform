@@ -376,69 +376,57 @@ export function StudentImportDirectory() {
             Aucun étudiant ne correspond à la recherche.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-left text-[11px]">
-              <thead className="border-b border-slate-100 text-slate-400">
-                <tr>
-                  {[
-                    'Étudiant',
-                    'E-mail',
-                    'Téléphone',
-                    'Ville',
-                    'Année d’inscription',
-                    'Statut',
-                  ].map((label) => (
-                    <th key={label} className="pb-3 font-semibold">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => {
-                  const initials =
-                    `${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase();
-                  const name = `${student.firstName} ${student.lastName}`;
+          <div className="space-y-2">
+            {students.map((student) => {
+              const initials =
+                `${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase();
+              const name = `${student.firstName} ${student.lastName}`;
 
-                  return (
-                    <tr
-                      key={student.id}
-                      className="border-b border-slate-50 text-slate-600"
-                    >
-                      <td className="py-3 font-bold text-[#28315e]">
-                        <span className="mr-2 inline-grid size-7 place-items-center rounded-full bg-violet-100 text-[10px] text-violet-600">
-                          {initials}
-                        </span>
+              return (
+                <div
+                  key={student.id}
+                  className="rounded-xl border border-slate-100 p-3 text-[11px] text-slate-600"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-[10px] text-violet-600">
+                      {initials}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold text-[#28315e]">
                         {name}
-                      </td>
-                      <td>{student.user.email}</td>
-                      <td>{student.phone || 'Non renseigné'}</td>
-                      <td>{student.city || 'Non renseignée'}</td>
-                      <td>{student.enrolledYear || 'Non renseignée'}</td>
-                      <td>
-                        <Status />
-                        <Button
-                          className="ml-2"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setViewingStudentId(student.id)}
-                        >
-                          Voir
-                        </Button>
-                        <Button
-                          className="ml-1"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setStudentToWithdraw(student)}
-                        >
-                          Clôturer
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </p>
+                      <p className="truncate text-slate-500">
+                        {student.user.email}
+                      </p>
+                    </div>
+                    <Status />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 pl-11 text-slate-500">
+                    <span>{student.phone || 'Téléphone non renseigné'}</span>
+                    <span>{student.city || 'Ville non renseignée'}</span>
+                    <span>
+                      {student.enrolledYear || 'Année non renseignée'}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setViewingStudentId(student.id)}
+                    >
+                      Voir
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setStudentToWithdraw(student)}
+                    >
+                      Clôturer
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

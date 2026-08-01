@@ -169,54 +169,44 @@ export default function SchoolPaymentsPage() {
               Aucun paiement ne correspond à ce filtre.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-left text-sm">
-                <thead className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th className="pb-3">Étudiant</th>
-                    <th className="pb-3">Offre</th>
-                    <th className="pb-3">Montant</th>
-                    <th className="pb-3">Méthode</th>
-                    <th className="pb-3">Statut</th>
-                    <th className="pb-3">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => (
-                    <tr
-                      key={payment.id}
-                      className="border-b border-slate-50 text-slate-600"
+            <div className="space-y-2">
+              {payments.map((payment) => (
+                <div
+                  key={payment.id}
+                  className="rounded-xl border border-slate-100 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {payment.student.firstName} {payment.student.lastName}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {payment.student.user.email}
+                      </p>
+                    </div>
+                    <Badge
+                      className={
+                        STATUS_STYLES[payment.status] ??
+                        'bg-slate-100 text-slate-700'
+                      }
                     >
-                      <td className="py-4">
-                        <p className="font-semibold text-slate-800">
-                          {payment.student.firstName} {payment.student.lastName}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {payment.student.user.email}
-                        </p>
-                      </td>
-                      <td>
-                        {payment.application?.offer.title ?? 'Candidature'}
-                      </td>
-                      <td className="font-medium">
-                        {formatAmount(payment.amount, payment.currency)}
-                      </td>
-                      <td>{payment.method}</td>
-                      <td>
-                        <Badge
-                          className={
-                            STATUS_STYLES[payment.status] ??
-                            'bg-slate-100 text-slate-700'
-                          }
-                        >
-                          {STATUS_LABELS[payment.status] ?? payment.status}
-                        </Badge>
-                      </td>
-                      <td>{formatDate(payment.paidAt || payment.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {STATUS_LABELS[payment.status] ?? payment.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 truncate text-xs text-slate-500">
+                    {payment.application?.offer.title ?? 'Candidature'}
+                  </p>
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-700">
+                      {formatAmount(payment.amount, payment.currency)} ·{' '}
+                      {payment.method}
+                    </span>
+                    <span className="text-slate-400">
+                      {formatDate(payment.paidAt || payment.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {!loading && totalPages > 1 && (
