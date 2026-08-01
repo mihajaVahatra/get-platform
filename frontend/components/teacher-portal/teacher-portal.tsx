@@ -1412,31 +1412,28 @@ function CourseStudentList({ courseId }: { courseId: string }) {
 
   return (
     <Card title={`Étudiants inscrits (${totalItems})`}>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-left text-xs">
-          <thead className="border-b border-slate-100 text-slate-400">
-            <tr>
-              <th className="pb-3 font-semibold">Étudiant</th>
-              <th className="pb-3 font-semibold">E-mail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrollments.map(({ id, student }) => {
-              const name = `${student.firstName} ${student.lastName}`;
-              return (
-                <tr
-                  className="border-b border-slate-50 text-slate-600"
-                  key={id}
-                >
-                  <td className="py-3 pr-3">
-                    <StudentName name={name} />
-                  </td>
-                  <td className="py-3 pr-3">{student.user.email}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="space-y-2">
+        {enrollments.map(({ id, student }) => {
+          const name = `${student.firstName} ${student.lastName}`;
+          return (
+            <div
+              key={id}
+              className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
+            >
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+                {`${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-[#17204e]">
+                  {name}
+                </p>
+                <p className="truncate text-[11px] text-slate-500">
+                  {student.user.email}
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
       <ListPagination
         page={page}
