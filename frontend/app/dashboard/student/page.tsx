@@ -81,7 +81,7 @@ export default function StudentDashboardPage() {
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatWidget icon={BookOpen} title="Moyenne générale" value="15,2" suffix="/20" hint="↑ +1,3 vs semestre précédent" tone="violet" />
         <StatWidget icon={BookOpenCheck} title="Crédits validés" value="18" suffix="/30" hint="60% du programme" progress="60" tone="green" />
         <StatWidget icon={CalendarDays} title="Absences" value="2" suffix="" hint="Justifiées" tone="orange" />
