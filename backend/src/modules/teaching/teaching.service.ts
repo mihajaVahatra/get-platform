@@ -38,26 +38,42 @@ export class TeachingService {
         },
       },
     };
-    const [courses, submissionsToGrade, upcomingEvaluations, unreadMessages] =
-      await Promise.all([
-        this.prisma.course.count({ where: courseWhere }),
-        this.prisma.assignmentSubmission.count({
-          where: {
-            grade: null,
-            assignment: { course: courseWhere },
-          },
-        }),
-        this.prisma.evaluation.count({
-          where: {
-            scheduledAt: { gte: new Date() },
-            course: courseWhere,
-          },
-        }),
-        this.prisma.message.count({
-          where: { recipientId: userId, isRead: false },
-        }),
-      ]);
-    return { courses, submissionsToGrade, upcomingEvaluations, unreadMessages };
+    const [
+      courses,
+      enrolledStudents,
+      submissionsToGrade,
+      upcomingEvaluations,
+      unreadMessages,
+    ] = await Promise.all([
+      this.prisma.course.count({ where: courseWhere }),
+      this.prisma.courseEnrollment.findMany({
+        where: { course: courseWhere },
+        distinct: ['studentId'],
+        select: { studentId: true },
+      }),
+      this.prisma.assignmentSubmission.count({
+        where: {
+          grade: null,
+          assignment: { course: courseWhere },
+        },
+      }),
+      this.prisma.evaluation.count({
+        where: {
+          scheduledAt: { gte: new Date() },
+          course: courseWhere,
+        },
+      }),
+      this.prisma.message.count({
+        where: { recipientId: userId, isRead: false },
+      }),
+    ]);
+    return {
+      courses,
+      students: enrolledStudents.length,
+      submissionsToGrade,
+      upcomingEvaluations,
+      unreadMessages,
+    };
   }
   async updateProfile(
     userId: string,
@@ -200,6 +216,8 @@ export class TeachingService {
             id: true,
             code: true,
             title: true,
+            group: true,
+            level: true,
             school: { select: { id: true, name: true, slug: true } },
           },
         },

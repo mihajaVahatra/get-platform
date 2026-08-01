@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
+import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
@@ -178,9 +179,32 @@ export default function DashboardLayout({
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-9 lg:py-7">
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-9 lg:py-7 lg:pb-7">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+              {
+                icon: BookOpen,
+                label: 'Cours',
+                href: '/dashboard/student/courses',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/student/messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/student/settings',
+              },
+            ]}
+            composeHref="/dashboard/student/messages?compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -226,9 +250,57 @@ export default function DashboardLayout({
             />
           </Suspense>
         )}
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          {userRole === 'TEACHER' ? (
+            <MobileBottomNav
+              dark
+              items={[
+                { icon: Home, label: 'Accueil', href: '/dashboard/teacher' },
+                {
+                  icon: BookOpen,
+                  label: 'Cours',
+                  href: '/dashboard/teacher?view=courses',
+                },
+                {
+                  icon: Mail,
+                  label: 'Messages',
+                  href: '/dashboard/teacher?view=messages',
+                },
+                {
+                  icon: Settings,
+                  label: 'Profil',
+                  href: '/dashboard/teacher?view=settings',
+                },
+              ]}
+              composeHref="/dashboard/teacher?view=messages&compose=1"
+            />
+          ) : (
+            <MobileBottomNav
+              items={[
+                { icon: Home, label: 'Accueil', href: '/dashboard/school' },
+                {
+                  icon: BookOpen,
+                  label: 'Cours',
+                  href: '/dashboard/school/courses',
+                },
+                {
+                  icon: Mail,
+                  label: 'Messages',
+                  href: '/dashboard/school/messages',
+                },
+                {
+                  icon: Settings,
+                  label: 'Profil',
+                  href: '/dashboard/school/settings',
+                },
+              ]}
+              composeHref="/dashboard/school/messages?compose=1"
+            />
+          )}
+        </Suspense>
       </div>
     );
   }
@@ -249,9 +321,32 @@ export default function DashboardLayout({
             onMobileClose={() => setMobileMenuOpen(false)}
           />
         </Suspense>
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/admin' },
+              {
+                icon: Building,
+                label: 'Écoles',
+                href: '/dashboard/admin/schools',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/admin?section=messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/admin/settings',
+              },
+            ]}
+            composeHref="/dashboard/admin?section=messages&compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -272,9 +367,33 @@ export default function DashboardLayout({
             onMobileClose={() => setMobileMenuOpen(false)}
           />
         </Suspense>
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-7 lg:px-8 lg:py-6">
+        <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-7 lg:px-8 lg:py-6 lg:pb-6">
           {children}
         </main>
+        <Suspense fallback={null}>
+          <MobileBottomNav
+            dark
+            items={[
+              { icon: Home, label: 'Accueil', href: '/dashboard/ministry' },
+              {
+                icon: Building,
+                label: 'Écoles',
+                href: '/dashboard/ministry?section=schools',
+              },
+              {
+                icon: Mail,
+                label: 'Messages',
+                href: '/dashboard/ministry?section=messages',
+              },
+              {
+                icon: Settings,
+                label: 'Profil',
+                href: '/dashboard/ministry?section=settings',
+              },
+            ]}
+            composeHref="/dashboard/ministry?section=messages&compose=1"
+          />
+        </Suspense>
       </div>
     );
   }
@@ -480,6 +599,21 @@ function TeacherSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
+      <div className="mb-5 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 lg:hidden">
+        <AvatarUpload
+          currentUrl={avatarUrl}
+          endpoint="/teacher/profile/avatar"
+          fallbackText={displayName.slice(0, 2).toUpperCase()}
+          firstName={displayName.split(' ')[0]}
+          lastName={displayName.split(' ').slice(1).join(' ')}
+          onUpload={onAvatarUpload}
+          size={44}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="mt-0.5 text-[11px] text-blue-100">Professeur</p>
+        </div>
+      </div>
       <p className="mb-2 px-3 text-[9px] font-bold uppercase tracking-wide text-blue-200">
         Menu professeur
       </p>
@@ -505,7 +639,7 @@ function TeacherSidebar({
         })}
       </nav>
       <div className="mt-auto space-y-4">
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+        <div className="hidden rounded-xl border border-white/10 bg-white/5 p-3 lg:block">
           <div className="flex items-center gap-2.5">
             <AvatarUpload
               currentUrl={avatarUrl}
@@ -628,6 +762,15 @@ function SchoolSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
+      <div className="mb-5 flex items-center gap-3 rounded-xl border border-slate-100 p-3 shadow-sm lg:hidden">
+        <span className="grid size-11 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
+          {displayName.slice(0, 1)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="text-[11px] text-slate-500">Administrateur</p>
+        </div>
+      </div>
       <nav className="space-y-1">
         <SchoolNav
           href="/dashboard/school"
@@ -668,7 +811,7 @@ function SchoolSidebar({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+        <div className="hidden items-center gap-2 border-t border-slate-100 pt-3 lg:flex">
           <span className="grid size-9 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
             {displayName.slice(0, 1)}
           </span>
@@ -854,6 +997,15 @@ function AdminGetSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
+      <div className="mb-5 flex items-center gap-3 rounded-xl border border-slate-100 p-3 shadow-sm lg:hidden">
+        <span className="grid size-11 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
+          AG
+        </span>
+        <div>
+          <p className="text-sm font-bold">Admin GET</p>
+          <p className="text-[11px] text-slate-500">Superadministrateur</p>
+        </div>
+      </div>
       <nav className="space-y-1">
         <SchoolNav
           href="/dashboard/admin"
@@ -914,7 +1066,7 @@ function AdminGetSidebar({
         </div>
       </nav>
       <div className="mt-auto space-y-3">
-        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
             <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-xs font-black text-violet-700">
               AG
@@ -1040,6 +1192,15 @@ function MinistrySidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
+      <div className="mb-5 flex items-center gap-3 rounded-xl bg-white/10 p-3 lg:hidden">
+        <span className="grid size-11 place-items-center rounded-full bg-white text-sm font-black text-violet-700">
+          M
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">Ministère MESUPRES</p>
+          <p className="text-[11px] text-violet-200">Administrateur</p>
+        </div>
+      </div>
       <nav className="space-y-1">
         <MinistryNav
           href="/dashboard/ministry"
@@ -1069,7 +1230,7 @@ function MinistrySidebar({
         ))}
       </nav>
       <div className="mt-auto border-t border-white/10 pt-4">
-        <div className="flex items-center gap-3 rounded-xl bg-white/10 p-3">
+        <div className="hidden items-center gap-3 rounded-xl bg-white/10 p-3 lg:flex">
           <span className="grid size-9 place-items-center rounded-full bg-white text-xs font-black text-violet-700">
             M
           </span>
@@ -1212,6 +1373,24 @@ function StudentSidebar({
           Tananarive et de Madagascar
         </p>
       </Link>
+      <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-slate-100 p-3 shadow-sm lg:hidden">
+        <AvatarUpload
+          currentUrl={avatarUrl}
+          endpoint="/students/me/avatar"
+          onUpload={onAvatarUpload}
+          fallbackText={initials}
+          gender={gender}
+          firstName={displayName.split(' ')[0]}
+          lastName={displayName.split(' ').slice(1).join(' ')}
+          size={44}
+        />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="truncate text-[11px] text-slate-500">
+            {year || 'Étudiant inscrit'}
+          </p>
+        </div>
+      </div>
       <nav className="space-y-1">
         {items.map(({ label, icon: Icon, href, badge }) => {
           const active =
@@ -1236,7 +1415,7 @@ function StudentSidebar({
         })}
       </nav>
       <div className="mt-auto space-y-4 pt-6">
-        <div className="rounded-xl border border-slate-100 p-3 shadow-sm">
+        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2.5">
             <AvatarUpload
               currentUrl={avatarUrl}
