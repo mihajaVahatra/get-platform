@@ -7,7 +7,6 @@ import {
   BarChart3,
   BookOpen,
   BriefcaseBusiness,
-  Building2,
   CalendarDays,
   ChevronRight,
   ClipboardList,
@@ -33,9 +32,11 @@ import {
   Handshake,
   BellRing,
   ScrollText,
-  ChartSpline,
   DatabaseBackup,
   LayoutTemplate,
+  Layers,
+  CalendarRange,
+  AlertTriangle,
   X,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
@@ -559,6 +560,11 @@ function TeacherSidebar({
       href: '/dashboard/teacher?view=schedule',
     },
     {
+      label: 'Mes disponibilités',
+      icon: CalendarRange,
+      href: '/dashboard/teacher?view=availability',
+    },
+    {
       label: 'Devoirs',
       icon: FileText,
       href: '/dashboard/teacher?view=assignments',
@@ -699,6 +705,7 @@ function SchoolSidebar({
       href: '/dashboard/school/students',
     },
     { label: 'Cours', icon: BookOpen, href: '/dashboard/school/courses' },
+    { label: 'Classes', icon: Layers, href: '/dashboard/school/classes' },
     {
       label: 'Professeurs',
       icon: UserRoundIcon,
@@ -921,6 +928,16 @@ function AdminGetSidebar({
       icon: Building,
       href: '/dashboard/admin/schools',
     },
+    {
+      label: 'Années scolaires',
+      icon: CalendarDays,
+      href: '/dashboard/admin/academic-years',
+    },
+    {
+      label: 'Conflits professeurs',
+      icon: AlertTriangle,
+      href: '/dashboard/admin?section=teacher-conflicts',
+    },
     { label: 'Utilisateurs', icon: UserCog, href: '/dashboard/admin/users' },
     {
       label: 'Étudiants',
@@ -942,22 +959,12 @@ function AdminGetSidebar({
       icon: BookOpen,
       href: '/dashboard/admin?section=programs',
     },
-    {
-      label: 'Salles & Ressources',
-      icon: Building2,
-      href: '/dashboard/admin?section=resources',
-    },
   ];
   const finances = [
     {
       label: 'Transactions',
       icon: WalletCards,
       href: '/dashboard/admin/transactions',
-    },
-    {
-      label: 'Revenus & Rapports',
-      icon: ChartSpline,
-      href: '/dashboard/admin/reports',
     },
     {
       label: 'Partenaires financiers',
@@ -1053,11 +1060,6 @@ function AdminGetSidebar({
               label: 'Rapports & Statistiques',
               icon: BarChart3,
               href: '/dashboard/admin/reports',
-            },
-            {
-              label: 'Tableaux de bord avancés',
-              icon: ChartSpline,
-              href: '/dashboard/admin?section=dashboards',
             },
           ]}
           currentUrl={currentUrl}
@@ -1448,7 +1450,7 @@ function StudentSidebar({
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{displayName}</p>
               <p className="truncate text-[11px] text-slate-500">
-                {year || 'Étudiant inscrit'}
+                {year || 'Candidat'}
               </p>
             </div>
           </div>

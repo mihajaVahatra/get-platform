@@ -54,6 +54,46 @@ export class PaymentController {
     return { success: true, data: result };
   }
 
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MINISTRY', 'ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Payment statistics (Admin/Ministry only)' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  async getStats(@Query('from') from?: string, @Query('to') to?: string) {
+    const stats = await this.paymentService.getStats({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
+    return { success: true, data: stats };
+  }
+
+  @Get('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List all payments across the platform (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  async findAllAdmin(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const result = await this.paymentService.findAllAdmin(page, limit, {
+      status,
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -147,20 +187,5 @@ export class PaymentController {
       bankId,
     );
     return { success: true, data: result };
-  }
-
-  @Get('stats')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MINISTRY', 'ADMIN_GET')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Payment statistics (Admin/Ministry only)' })
-  @ApiQuery({ name: 'from', required: false })
-  @ApiQuery({ name: 'to', required: false })
-  async getStats(@Query('from') from?: string, @Query('to') to?: string) {
-    const stats = await this.paymentService.getStats({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-    });
-    return { success: true, data: stats };
   }
 }

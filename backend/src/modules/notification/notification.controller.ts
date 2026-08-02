@@ -300,6 +300,20 @@ export class NotificationController {
   // 6. STATISTIQUES DES NOTIFICATIONS
   // ============================================================
 
+  @Get('platform-stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiOperation({
+    summary: 'Get platform-wide notification statistics (Admin only)',
+  })
+  async getPlatformStats() {
+    return {
+      success: true,
+      data: await this.notificationService.getPlatformStats(),
+      message: 'Platform statistics retrieved successfully',
+    };
+  }
+
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'MINISTRY')

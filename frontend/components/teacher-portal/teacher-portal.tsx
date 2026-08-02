@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/pagination';
 import { TeacherAssignments } from './teacher-assignments';
 import { TeacherSchedule } from './teacher-schedule';
+import { TeacherAvailabilityManager } from './teacher-availability';
 import { MessagesScreen } from '@/components/messages/messages-screen';
 import { TeacherDashboard } from './teacher-dashboard';
 import { AvatarUpload } from '@/components/AvatarUpload';
@@ -51,6 +52,7 @@ type View =
   | 'evaluations'
   | 'grades'
   | 'schedule'
+  | 'availability'
   | 'assignments'
   | 'resources'
   | 'messages'
@@ -214,6 +216,7 @@ export function TeacherPortal() {
   if (view === 'evaluations') return <Evaluations />;
   if (view === 'grades') return <Grades />;
   if (view === 'schedule') return <Schedule />;
+  if (view === 'availability') return <Availability />;
   if (view === 'assignments') return <Assignments />;
   if (view === 'resources') return <Resources />;
   if (view === 'messages') return <Messages />;
@@ -2368,6 +2371,17 @@ function Schedule() {
   return (
     <Page title="Emploi du temps" subtitle="Consultez votre planning de cours.">
       <TeacherSchedule />
+    </Page>
+  );
+}
+
+function Availability() {
+  return (
+    <Page
+      title="Mes disponibilités"
+      subtitle="Déclarez vos indisponibilités et vos temps de trajet entre écoles."
+    >
+      <TeacherAvailabilityManager />
     </Page>
   );
 }

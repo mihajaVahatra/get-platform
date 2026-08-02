@@ -294,6 +294,57 @@ export class PaymentService {
     };
   }
 
+  async findAllAdmin(
+    page = 1,
+    limit = 20,
+    filters?: { status?: string; from?: Date; to?: Date },
+  ) {
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const where: any = {};
+    if (filters?.status) where.status = filters.status;
+    if (filters?.from) where.createdAt = { gte: filters.from };
+    if (filters?.to) where.createdAt = { ...where.createdAt, lte: filters.to };
+
+    const [items, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
+          application: {
+            select: { offer: { select: { title: true, school: { select: { name: true } } } } },
+          },
+        },
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    return {
+      items: items.map((payment) => ({
+        id: payment.id,
+        reference: payment.reference,
+        amount: payment.amount,
+        currency: payment.currency,
+        method: payment.method,
+        status: payment.status,
+        createdAt: payment.createdAt,
+        studentName:
+          [payment.student.firstName, payment.student.lastName].filter(Boolean).join(' ') ||
+          payment.student.user.email,
+        school: payment.application?.offer.school.name || null,
+      })),
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
   async getStats(filters?: { from?: Date; to?: Date }) {
     const where: any = {};
     if (filters?.from) where.createdAt = { gte: filters.from };

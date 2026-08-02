@@ -1,5 +1,5 @@
-import { ScheduleBoard } from '@/components/school-portal/schedule-board';
+import { SchoolSchedulePortal } from '@/components/school-portal/schedule-board';
 
 export default function SchedulePage() {
-  return <ScheduleBoard />;
+  return <SchoolSchedulePortal />;
 }

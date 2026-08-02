@@ -178,6 +178,59 @@ export class ApplicationController {
     };
   }
 
+  // ========== STATISTICS (Ministry/Admin only) ==========
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('MINISTRY', 'ADMIN_GET')
+  @ApiOperation({ summary: 'Get application statistics (Ministry only)' })
+  @ApiQuery({ name: 'from', required: false })
+  @ApiQuery({ name: 'to', required: false })
+  @ApiQuery({ name: 'schoolId', required: false })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
+  async getStats(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('schoolId') schoolId?: string,
+  ) {
+    const stats = await this.applicationService.getStats({
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+      schoolId,
+    });
+    return {
+      success: true,
+      data: stats,
+      message: 'Statistics retrieved successfully',
+    };
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiOperation({ summary: 'List all applications across the platform (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'schoolId', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  async getAllApplications(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('status') status?: ApplicationStatus,
+    @Query('schoolId') schoolId?: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.applicationService.getAllApplications({
+      page,
+      limit,
+      status,
+      schoolId,
+      search,
+    });
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })
@@ -323,33 +376,6 @@ export class ApplicationController {
       success: true,
       data: application,
       message: 'Score recorded successfully',
-    };
-  }
-
-  // ========== STATISTICS (Ministry only) ==========
-
-  @Get('stats')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MINISTRY', 'ADMIN_GET')
-  @ApiOperation({ summary: 'Get application statistics (Ministry only)' })
-  @ApiQuery({ name: 'from', required: false })
-  @ApiQuery({ name: 'to', required: false })
-  @ApiQuery({ name: 'schoolId', required: false })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
-  async getStats(
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('schoolId') schoolId?: string,
-  ) {
-    const stats = await this.applicationService.getStats({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-      schoolId,
-    });
-    return {
-      success: true,
-      data: stats,
-      message: 'Statistics retrieved successfully',
     };
   }
 

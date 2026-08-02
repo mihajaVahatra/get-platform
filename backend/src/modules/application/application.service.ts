@@ -184,6 +184,65 @@ export class ApplicationService {
     };
   }
 
+  async getAllApplications(options?: {
+    status?: ApplicationStatus;
+    schoolId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Number(options?.page) || 1;
+    const limit = Math.min(Math.max(Number(options?.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (options?.status) where.status = options.status;
+    if (options?.schoolId) where.offer = { schoolId: options.schoolId };
+    if (options?.search) {
+      const search = options.search;
+      where.student = {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { user: { email: { contains: search, mode: 'insensitive' } } },
+        ],
+      };
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.application.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { submittedAt: 'desc' },
+        include: {
+          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
+          offer: { select: { title: true, school: { select: { id: true, name: true } } } },
+        },
+      }),
+      this.prisma.application.count({ where }),
+    ]);
+
+    return {
+      items: items.map((application) => ({
+        id: application.id,
+        status: application.status,
+        submittedAt: application.submittedAt,
+        studentName:
+          [application.student.firstName, application.student.lastName].filter(Boolean).join(' ') ||
+          application.student.user.email,
+        offerTitle: application.offer.title,
+        school: application.offer.school.name,
+      })),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async getApplicationById(
     applicationId: string,
     userId: string,
