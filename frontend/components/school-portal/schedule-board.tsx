@@ -108,6 +108,7 @@ type RoomOption = { id: string; name: string };
 type TeacherOption = {
   teacherId: string;
   teacher: { firstName: string | null; lastName: string | null; user: { email: string } };
+  subjects: { subject: { id: string } }[];
 };
 type UnresolvedItem = {
   classId: string;
@@ -262,6 +263,39 @@ export function ScheduleBoard() {
         setGenerating(false);
       }
     })();
+  };
+
+  const teacherTeachesSubject = (teacher: TeacherOption, subjectId: string) =>
+    teacher.subjects.some((entry) => entry.subject.id === subjectId);
+
+  // Chaque liste se restreint à ce que l'autre sélection rend cohérent : un
+  // prof choisi ne montre que ses matières, une matière choisie ne montre que
+  // les profs qui l'enseignent.
+  const filteredSubjects = generateForm.teacherId
+    ? subjects.filter((subject) => {
+        const teacher = teachers.find((t) => t.teacherId === generateForm.teacherId);
+        return teacher ? teacherTeachesSubject(teacher, subject.id) : true;
+      })
+    : subjects;
+  const filteredTeachers = generateForm.subjectId
+    ? teachers.filter((teacher) => teacherTeachesSubject(teacher, generateForm.subjectId))
+    : teachers;
+
+  const selectSubject = (subjectId: string) => {
+    setGenerateForm((current) => {
+      const teacher = teachers.find((t) => t.teacherId === current.teacherId);
+      const teacherStillValid = !subjectId || !teacher || teacherTeachesSubject(teacher, subjectId);
+      return { ...current, subjectId, teacherId: teacherStillValid ? current.teacherId : '' };
+    });
+  };
+
+  const selectTeacher = (teacherId: string) => {
+    setGenerateForm((current) => {
+      const teacher = teachers.find((t) => t.teacherId === teacherId);
+      const subjectStillValid =
+        !teacherId || !current.subjectId || !teacher || teacherTeachesSubject(teacher, current.subjectId);
+      return { ...current, teacherId, subjectId: subjectStillValid ? current.subjectId : '' };
+    });
   };
 
   return (
@@ -516,12 +550,10 @@ export function ScheduleBoard() {
                   id="generate-subject"
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
                   value={generateForm.subjectId}
-                  onChange={(event) =>
-                    setGenerateForm((current) => ({ ...current, subjectId: event.target.value }))
-                  }
+                  onChange={(event) => selectSubject(event.target.value)}
                 >
                   <option value="">Toutes les matières</option>
-                  {subjects.map((subject) => (
+                  {filteredSubjects.map((subject) => (
                     <option key={subject.id} value={subject.id}>
                       {subject.name}
                     </option>
@@ -534,12 +566,10 @@ export function ScheduleBoard() {
                   id="generate-teacher"
                   className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
                   value={generateForm.teacherId}
-                  onChange={(event) =>
-                    setGenerateForm((current) => ({ ...current, teacherId: event.target.value }))
-                  }
+                  onChange={(event) => selectTeacher(event.target.value)}
                 >
                   <option value="">Tous les professeurs</option>
-                  {teachers.map((option) => (
+                  {filteredTeachers.map((option) => (
                     <option key={option.teacherId} value={option.teacherId}>
                       {[option.teacher.firstName, option.teacher.lastName].filter(Boolean).join(' ') ||
                         option.teacher.user.email}
