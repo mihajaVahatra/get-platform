@@ -30,6 +30,7 @@ import {
 } from './dto/school-academic-year.dto';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/dto/send-notification.dto';
+import { TeacherAvailabilityService } from '../teacher-availability/teacher-availability.service';
 import slugify from 'slugify';
 
 @Injectable()
@@ -37,6 +38,7 @@ export class SchoolService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private teacherAvailabilityService: TeacherAvailabilityService,
   ) {}
 
   async syncCourseEnrollments(
@@ -153,6 +155,55 @@ export class SchoolService {
     return school;
   }
 
+  async getAllEnrolledStudents(
+    page = 1,
+    limit = 20,
+    search?: string,
+    schoolId?: string,
+  ) {
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const searchTerms = search?.trim().split(/\s+/).filter(Boolean) || [];
+    const where = {
+      enrolledSchoolId: schoolId ?? { not: null },
+      enrollmentStatus: 'ACTIVE',
+      deletedAt: null,
+      ...(searchTerms.length
+        ? {
+            AND: searchTerms.map((term) => ({
+              OR: [
+                { firstName: { contains: term, mode: 'insensitive' as const } },
+                { lastName: { contains: term, mode: 'insensitive' as const } },
+                { user: { email: { contains: term, mode: 'insensitive' as const } } },
+              ],
+            })),
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.student.findMany({
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        include: {
+          user: { select: { email: true } },
+          enrolledSchool: { select: { id: true, name: true } },
+        },
+      }),
+      this.prisma.student.count({ where }),
+    ]);
+    return {
+      items,
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
+  }
+
   async getEnrolledStudents(
     schoolId: string,
     page = 1,
@@ -253,6 +304,31 @@ export class SchoolService {
       where: { schoolId },
       orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
     });
+  }
+
+  async getAllPrograms(page = 1, limit = 20, schoolId?: string) {
+    const currentPage = Math.max(Number(page) || 1, 1);
+    const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+    const where = schoolId ? { schoolId } : {};
+    const [items, total] = await Promise.all([
+      this.prisma.schoolProgram.findMany({
+        where,
+        skip: (currentPage - 1) * currentLimit,
+        take: currentLimit,
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+        include: { school: { select: { id: true, name: true } } },
+      }),
+      this.prisma.schoolProgram.count({ where }),
+    ]);
+    return {
+      items,
+      meta: {
+        page: currentPage,
+        limit: currentLimit,
+        total,
+        totalPages: Math.ceil(total / currentLimit),
+      },
+    };
   }
 
   async createProgram(schoolId: string, dto: CreateSchoolProgramDto) {
@@ -1288,11 +1364,25 @@ export class SchoolService {
     courseId: string,
     dto: CreateCourseSlotDto,
   ) {
-    await this.ensureSchoolCourse(schoolId, courseId);
+    const course = await this.ensureSchoolCourse(schoolId, courseId);
     this.assertSlotTimes(dto.startTime, dto.endTime);
     await this.ensureNoRoomConflict(schoolId, dto);
+    await this.teacherAvailabilityService.assertTeacherFreeOrThrow(
+      course.teacherId,
+      schoolId,
+      dto,
+    );
 
-    return this.prisma.courseSlot.create({ data: { courseId, ...dto } });
+    let slot;
+    try {
+      slot = await this.prisma.courseSlot.create({
+        data: { courseId, teacherId: course.teacherId, ...dto },
+      });
+    } catch (error) {
+      throw this.teacherAvailabilityService.translateExclusionConstraintError(error) ?? error;
+    }
+    await this.notifyTeacherScheduleChange(course.teacherId, 'ajouté');
+    return slot;
   }
 
   async updateCourseSlot(
@@ -1301,7 +1391,7 @@ export class SchoolService {
     slotId: string,
     dto: UpdateCourseSlotDto,
   ) {
-    await this.ensureSchoolCourse(schoolId, courseId);
+    const course = await this.ensureSchoolCourse(schoolId, courseId);
     const slot = await this.prisma.courseSlot.findFirst({
       where: { id: slotId, courseId },
     });
@@ -1315,17 +1405,44 @@ export class SchoolService {
     };
     this.assertSlotTimes(candidate.startTime, candidate.endTime);
     await this.ensureNoRoomConflict(schoolId, candidate, slotId);
+    await this.teacherAvailabilityService.assertTeacherFreeOrThrow(
+      course.teacherId,
+      schoolId,
+      candidate,
+      slotId,
+    );
 
-    return this.prisma.courseSlot.update({ where: { id: slotId }, data: dto });
+    let updated;
+    try {
+      updated = await this.prisma.courseSlot.update({ where: { id: slotId }, data: dto });
+    } catch (error) {
+      throw this.teacherAvailabilityService.translateExclusionConstraintError(error) ?? error;
+    }
+    await this.notifyTeacherScheduleChange(course.teacherId, 'modifié');
+    return updated;
   }
 
   async deleteCourseSlot(schoolId: string, courseId: string, slotId: string) {
-    await this.ensureSchoolCourse(schoolId, courseId);
+    const course = await this.ensureSchoolCourse(schoolId, courseId);
     const slot = await this.prisma.courseSlot.findFirst({
       where: { id: slotId, courseId },
     });
     if (!slot) throw new NotFoundException('Course slot not found');
-    return this.prisma.courseSlot.delete({ where: { id: slotId } });
+    const deleted = await this.prisma.courseSlot.delete({ where: { id: slotId } });
+    await this.notifyTeacherScheduleChange(course.teacherId, 'annulé');
+    return deleted;
+  }
+
+  private async notifyTeacherScheduleChange(teacherId: string, action: 'ajouté' | 'modifié' | 'annulé') {
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { userId: true },
+    });
+    if (!teacher) return;
+    await this.notificationService.sendInAppBatch([teacher.userId], {
+      title: 'Emploi du temps mis à jour',
+      body: `Un créneau a été ${action} dans votre emploi du temps.`,
+    });
   }
 
   async getPayments(schoolId: string, page = 1, limit = 5, status?: string) {
@@ -1485,7 +1602,7 @@ export class SchoolService {
       : null;
     if ((dto.subjectId && !subject) || (dto.programId && !program))
       throw new NotFoundException('Matière ou filière introuvable');
-    return this.prisma.course.update({
+    const updated = await this.prisma.course.update({
       where: { id: courseId },
       data: {
         teacherId,
@@ -1511,6 +1628,21 @@ export class SchoolService {
         },
       },
     });
+
+    // Garder la colonne dénormalisée CourseSlot.teacherId cohérente si le
+    // prof du cours change (elle porte la contrainte anti-double-réservation).
+    if (dto.teacherId && dto.teacherId !== course.teacherId) {
+      try {
+        await this.prisma.courseSlot.updateMany({
+          where: { courseId },
+          data: { teacherId: dto.teacherId },
+        });
+      } catch (error) {
+        throw this.teacherAvailabilityService.translateExclusionConstraintError(error) ?? error;
+      }
+    }
+
+    return updated;
   }
 
   private async ensureActiveTeacherAssignment(

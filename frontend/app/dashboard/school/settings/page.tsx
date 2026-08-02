@@ -1,12 +1,20 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { Building2Icon } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Building2Icon, DoorOpenIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -16,6 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+function axiosMessage(error: unknown): string | undefined {
+  return (error as { response?: { data?: { message?: string } } }).response
+    ?.data?.message;
+}
 
 type School = {
   id: string;
@@ -750,10 +763,201 @@ export default function SchoolSettingsPage() {
         </CardContent>
       </Card>
 
+      <RoomsManager />
+
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <Building2Icon className="size-4" /> Les modifications sont appliquées
         uniquement à votre établissement.
       </div>
+    </div>
+  );
+}
+
+const ROOM_TYPES = [
+  ['STANDARD', 'Standard'],
+  ['LAB', 'Laboratoire'],
+  ['AMPHI', 'Amphithéâtre'],
+  ['SPORT', 'Sport'],
+] as const;
+
+type Room = {
+  id: string;
+  name: string;
+  capacity: number | null;
+  type: string;
+  isActive: boolean;
+};
+
+function RoomsManager() {
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [type, setType] = useState('STANDARD');
+  const [saving, setSaving] = useState(false);
+
+  const loadRooms = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/schools/me/rooms');
+      setRooms(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement salles:', error);
+      toast.error('Impossible de charger les salles');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return loadRooms();
+    });
+    return () => {
+      active = false;
+    };
+  }, [loadRooms]);
+
+  const createRoom = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void (async () => {
+      setSaving(true);
+      try {
+        await apiClient.post('/schools/me/rooms', {
+          name,
+          capacity: capacity ? Number(capacity) : undefined,
+          type,
+        });
+        toast.success('Salle ajoutée');
+        setDialogOpen(false);
+        setName('');
+        setCapacity('');
+        setType('STANDARD');
+        await loadRooms();
+      } catch (error) {
+        toast.error(axiosMessage(error) || 'Impossible de créer cette salle');
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  const deleteRoom = async (room: Room) => {
+    try {
+      await apiClient.delete(`/schools/me/rooms/${room.id}`);
+      toast.success('Salle supprimée');
+      await loadRooms();
+    } catch (error) {
+      toast.error(axiosMessage(error) || 'Impossible de supprimer cette salle');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-extrabold tracking-tight text-[#111949]">Salles</h1>
+          <p className="mt-1 text-sm text-violet-600">
+            Gérez les salles disponibles pour vos cours.
+          </p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <PlusIcon /> Ajouter une salle
+        </Button>
+      </header>
+      <Card>
+        <CardContent className="p-5">
+          {loading ? (
+            <p className="py-12 text-center text-sm text-slate-500">Chargement...</p>
+          ) : rooms.length === 0 ? (
+            <div className="py-12 text-center text-slate-500">
+              <DoorOpenIcon className="mx-auto size-8" />
+              <p className="mt-3 text-sm">Aucune salle enregistrée.</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {rooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-3 text-xs"
+                >
+                  <div>
+                    <p className="font-bold text-slate-800">{room.name}</p>
+                    <p className="mt-1 text-slate-500">
+                      {ROOM_TYPES.find(([value]) => value === room.type)?.[1] || room.type}
+                      {room.capacity ? ` · ${room.capacity} places` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Supprimer ${room.name}`}
+                    onClick={() => void deleteRoom(room)}
+                    className="text-slate-400 hover:text-rose-600"
+                  >
+                    <Trash2Icon className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <form onSubmit={createRoom}>
+            <DialogHeader>
+              <DialogTitle>Ajouter une salle</DialogTitle>
+              <DialogDescription>
+                Le nom doit être unique dans votre établissement.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="room-name">Nom</Label>
+                <Input id="room-name" value={name} onChange={(event) => setName(event.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-capacity">Capacité (facultatif)</Label>
+                <Input
+                  id="room-capacity"
+                  type="number"
+                  min={1}
+                  value={capacity}
+                  onChange={(event) => setCapacity(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-type">Type</Label>
+                <Select
+                  items={ROOM_TYPES.map(([value, label]) => ({ value, label }))}
+                  value={type}
+                  onValueChange={(value) => setType(value ?? 'STANDARD')}
+                >
+                  <SelectTrigger id="room-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROOM_TYPES.map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={saving || !name}>
+                {saving ? 'Ajout...' : 'Ajouter'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

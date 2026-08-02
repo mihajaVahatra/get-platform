@@ -1,9 +1,11 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
-import { AlertTriangle, Building, CalendarDays, ChevronRight, CircleDollarSign, CreditCard, DatabaseBackup, FileText, Landmark, Search, ShieldCheck, UserPlus, UsersRound, WalletCards } from 'lucide-react';
+import { Building, CalendarDays, FileText, Search, ShieldCheck, UsersRound, WalletCards } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { MessageIconLink } from '@/components/messages/message-icon-link';
 import { MessagesScreen } from '@/components/messages/messages-screen';
@@ -13,9 +15,10 @@ import { CompetitionsManager } from '@/components/admin-portal/competitions-mana
 import { FinancialPartnersManager } from '@/components/admin-portal/financial-partners-manager';
 import { LandingContentManager } from '@/components/admin-portal/landing-content-manager';
 import { LandingNewsManager } from '@/components/admin-portal/landing-news-manager';
-
-const activities: Array<[string, string, string, LucideIcon]> = [['Nouvel établissement ajouté', 'Institut Supérieur Polytechnique de Fianarantsoa', 'Il y a 10 min', Building], ['1 245 nouvelles inscriptions aujourd’hui', 'Sur la plateforme GET', 'Il y a 45 min', UserPlus], ['Paiement de 125 000 000 Ar reçu', 'par BNI Madagascar', 'Il y a 1 h', WalletCards], ['Mise à jour du calendrier des concours', 'Session 2025', 'Il y a 2 h', FileText], ['Sauvegarde système effectuée avec succès', 'Toutes les données sont protégées', 'Il y a 3 h', ShieldCheck]];
-const topSchools = [['ESPA – École Supérieure Polytechnique d’Antananarivo', '4 560', 100], ['ISPM – Institut Supérieur Polytechnique de Madagascar', '3 845', 84], ['ENI – École Nationale d’Informatique', '2 940', 65], ['ESSCA – École Supérieure des Sciences', '2 560', 56], ['IST – Institut Supérieur de Technologie', '2 340', 51]] as const;
+import { TeacherConflictsView } from '@/components/admin-portal/teacher-conflicts-view';
+import { StudentsDirectory } from '@/components/admin-portal/students-directory';
+import { ProgramsDirectory } from '@/components/admin-portal/programs-directory';
+import { NotificationsOverview } from '@/components/admin-portal/notifications-overview';
 
 export default function AdminDashboardPage() {
   return (
@@ -48,13 +51,115 @@ function AdminDashboardContent() {
   if (searchParams.get('section') === 'landing-news') {
     return <LandingNewsManager />;
   }
-  return <div className="mx-auto max-w-[1500px] space-y-4"><header className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">Bonjour, Administrateur 👋</h1><p className="mt-1 text-sm text-violet-600">Voici un aperçu global de la plateforme GET.</p></div><div className="flex flex-wrap items-center gap-4"><label className="relative hidden w-[400px] xl:block"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-xs outline-none focus:border-violet-500" placeholder="Rechercher un étudiant, une école, un cours..." /><kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">⌘ K</kbd></label><NotificationBell /><MessageIconLink href="/dashboard/admin?section=messages" /><button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]"><CalendarDays className="size-4 text-violet-600" />01 mai – 31 mai 2025</button></div></header><section className="grid grid-cols-2 gap-3 xl:grid-cols-5"><Kpi icon={UsersRound} tone="violet" label="Étudiants inscrits" value="32 456" note="+8,5% vs avril 2025" /><Kpi icon={Building} tone="green" label="Établissements" value="156" note="+4 nouveaux" /><Kpi icon={FileText} tone="blue" label="Inscriptions" value="18 245" note="+12,3% vs avril 2025" /><Kpi icon={WalletCards} tone="orange" label="Revenus totaux" value="1 245 000 000 Ar" note="+15,4% vs avril 2025" /><Kpi icon={ShieldCheck} tone="violet" label="Taux de réussite concours" value="76,4%" note="+5,2% vs avril 2025" /></section><section className="grid gap-4 xl:grid-cols-[1.1fr_1fr_1fr]"><EnrollmentChart /><Donut title="Répartition des étudiants par filière" total="32 456" data={[['Informatique', '35% (11 359)', 'bg-violet-600'], ['Gestion', '25% (8 114)', 'bg-teal-400'], ['Génie Civil', '15% (4 868)', 'bg-orange-400'], ['Électrotechnique', '10% (3 245)', 'bg-blue-400'], ['Droit', '8% (2 597)', 'bg-indigo-400'], ['Autres', '7% (2 273)', 'bg-slate-300']]} gradient="conic-gradient(#5b42e9 0 35%, #38c4a9 35% 60%, #ff9b27 60% 75%, #429bea 75% 85%, #6677e8 85% 93%, #dce1ec 93% 100%)" /><Donut title="Inscriptions par statut" total="18 245" data={[['Validées', '9 245 (50,7%)', 'bg-emerald-500'], ['En attente', '5 236 (28,7%)', 'bg-orange-400'], ['En cours', '2 845 (15,6%)', 'bg-blue-400'], ['Rejetées', '919 (5%)', 'bg-rose-400']]} gradient="conic-gradient(#38c4a9 0 50.7%, #ff9b27 50.7% 79.4%, #429bea 79.4% 95%, #fb6767 95% 100%)" /></section><section className="grid gap-4 xl:grid-cols-[1fr_1fr_1fr]"><Card title="Activités récentes"><div className="space-y-1">{activities.map(([title, text, when, Icon]) => <div key={title} className="flex gap-3 border-b border-slate-100 py-3 last:border-0"><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold text-[#28315e]">{title}</p><p className="text-[10px] text-slate-500">{text}</p></div><span className="text-[10px] text-slate-400">{when}</span></div>)}</div><button className="mt-3 w-full text-center text-xs font-bold text-violet-600">Voir toutes les activités <ChevronRight className="inline size-4" /></button></Card><Card title="Top établissements" action="Top 5"><div className="space-y-4">{topSchools.map(([name, count, percent], index) => <div key={name} className="flex items-center gap-3"><span className="grid size-6 place-items-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">{index + 1}</span><div className="min-w-0 flex-1"><p className="text-xs font-bold leading-4 text-[#28315e]">{name}</p><div className="mt-2 h-1 rounded bg-slate-100"><div className="h-1 rounded bg-violet-600" style={{ width: `${percent}%` }} /></div></div><span className="text-xs font-extrabold text-[#17204e]">{count}</span></div>)}</div><button className="mt-4 w-full text-center text-xs font-bold text-violet-600">Voir tous les établissements <ChevronRight className="inline size-4" /></button></Card><Card title="Alertes & Notifications" action="Voir tout"><div className="space-y-2"><Notice icon={AlertTriangle} tone="rose" title="12 inscriptions en attente de validation" text="Depuis plus de 48h" /><Notice icon={CircleDollarSign} tone="orange" title="5 paiements échoués" text="À réessayer" /><Notice icon={AlertTriangle} tone="blue" title="3 établissements n’ont pas mis à jour leurs informations" text="Depuis plus de 7 jours" /><Notice icon={DatabaseBackup} tone="green" title="Sauvegarde automatique planifiée" text="Prochaine : 01 juin 2025 à 02:00" /></div></Card></section><PaymentOverview /></div>;
+  if (searchParams.get('section') === 'teacher-conflicts') {
+    return <TeacherConflictsView />;
+  }
+  if (searchParams.get('section') === 'students') {
+    return <StudentsDirectory />;
+  }
+  if (searchParams.get('section') === 'programs') {
+    return <ProgramsDirectory />;
+  }
+  if (searchParams.get('section') === 'notifications') {
+    return <NotificationsOverview />;
+  }
+  return <DashboardSummary />;
 }
 
-function Kpi({ icon: Icon, tone, label, value, note }: { icon: LucideIcon; tone: 'violet' | 'green' | 'blue' | 'orange'; label: string; value: string; note: string }) { const tones = { violet: 'bg-violet-100 text-violet-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' }; return <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"><div className="flex gap-3"><span className={`grid size-12 place-items-center rounded-full ${tones[tone]}`}><Icon className="size-6" /></span><div><p className="text-xs font-bold text-[#28315e]">{label}</p><p className="mt-1 text-2xl font-extrabold text-[#111949]">{value}</p></div></div><p className="mt-3 text-[10px] font-semibold text-emerald-600">↗ {note}</p></div>; }
-function Card({ title, action, children }: { title: string; action?: string; children: React.ReactNode }) { return <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><h2 className="font-extrabold text-[#17204e]">{title}</h2>{action && <button className="text-xs font-bold text-violet-600">{action}</button>}</div><div className="mt-4">{children}</div></section>; }
-function EnrollmentChart() { const values = [25, 40, 58, 80, 88, 69]; return <Card title="Évolution des inscriptions" action="6 derniers mois"><div className="relative mt-7 h-48 border-b border-l border-slate-100"><div className="absolute inset-x-4 bottom-4 top-4 flex items-end justify-between">{values.map((value, index) => <div key={value} className="relative flex h-full flex-1 items-end justify-center"><span className="w-1 rounded-full bg-violet-600" style={{ height: `${value}%` }}><i className="absolute -left-1 -top-1 size-3 rounded-full bg-violet-600" /></span>{index === 5 && <span className="absolute -top-2 left-1/2 w-28 -translate-x-1/2 rounded bg-white p-2 text-[10px] font-bold shadow-lg">Mai 2025<br />18 245 inscriptions</span>}</div>)}</div></div><div className="mt-3 flex justify-around text-[10px] text-slate-500"><span>Déc. 2024</span><span>Jan. 2025</span><span>Fév. 2025</span><span>Mars 2025</span><span>Avr. 2025</span><span>Mai 2025</span></div></Card>; }
-function Donut({ title, total, data, gradient }: { title: string; total: string; data: string[][]; gradient: string }) { return <Card title={title}><div className="flex items-center justify-center gap-7 py-6"><div className="grid size-36 place-items-center rounded-full" style={{ background: gradient }}><div className="grid size-24 place-items-center rounded-full bg-white text-center"><strong className="text-2xl text-[#121949]">{total}</strong><span className="text-xs text-slate-500">Total</span></div></div><ul className="space-y-3 text-[11px] text-slate-600">{data.map(([name, value, color]) => <li key={name} className="flex items-center gap-2"><i className={`size-2.5 rounded-full ${color}`} /><span className="min-w-24">{name}</span><span>{value}</span></li>)}</ul></div></Card>; }
-function Notice({ icon: Icon, tone, title, text }: { icon: LucideIcon; tone: 'rose' | 'orange' | 'blue' | 'green'; title: string; text: string }) { const tones = { rose: 'bg-rose-50 text-rose-500', orange: 'bg-orange-50 text-orange-500', blue: 'bg-blue-50 text-blue-500', green: 'bg-emerald-50 text-emerald-600' }; return <button className="flex w-full items-center gap-3 border-b border-slate-100 py-3 text-left last:border-0"><span className={`grid size-9 place-items-center rounded-lg ${tones[tone]}`}><Icon className="size-4" /></span><span className="min-w-0 flex-1"><b className="block text-xs text-[#34406b]">{title}</b><small className="text-[10px] text-slate-500">{text}</small></span><ChevronRight className="size-4 text-slate-400" /></button>; }
-function PaymentOverview() { const cards = [['Total collecté ce mois', '125 400 000 Ar', 'text-emerald-600'], ['Transactions réussies', '3 256', 'text-violet-600'], ['Transactions échouées', '124', 'text-rose-500']]; return <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"><h2 className="font-extrabold text-[#17204e]">Aperçu des paiements</h2><div className="mt-4 grid gap-4 lg:grid-cols-[repeat(3,1fr)_1.5fr]">{cards.map(([label, value, color]) => <div key={label} className="rounded-lg border border-slate-100 p-4"><p className="text-xs text-slate-500">{label}</p><p className={`mt-3 text-xl font-extrabold ${color}`}>{value}</p><div className="mt-3 h-8 rounded bg-gradient-to-r from-transparent via-violet-100 to-violet-500/60" /></div>)}<div className="rounded-lg bg-violet-50 p-4"><p className="text-xs font-bold text-[#34406b]">Méthodes les plus utilisées</p><div className="mt-4 grid grid-cols-1 gap-3 text-center text-[10px] sm:grid-cols-2 xl:grid-cols-4"><Method icon={Landmark} value="45%" label="Banque" /><Method icon={WalletCards} value="35%" label="Mobile Money" /><Method icon={CreditCard} value="15%" label="Carte bancaire" /><Method icon={CircleDollarSign} value="5%" label="Autres" /></div></div></div></section>; }
-function Method({ icon: Icon, value, label }: { icon: LucideIcon; value: string; label: string }) { return <div><span className="mx-auto grid size-8 place-items-center rounded-full bg-white text-violet-600"><Icon className="size-4" /></span><b className="mt-2 block">{value}</b><span className="text-slate-500">{label}</span></div>; }
+type Summary = {
+  activeSchools: number;
+  enrolledStudents: number;
+  totalApplications: number;
+  pendingApplications: number;
+  acceptanceRate: number;
+  totalRevenue: number;
+};
+
+function DashboardSummary() {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/admin/dashboard-summary');
+      setSummary(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement tableau de bord:', error);
+      toast.error('Impossible de charger le tableau de bord');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchSummary();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchSummary]);
+
+  return (
+    <div className="mx-auto max-w-[1500px] space-y-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
+            Bonjour, Administrateur 👋
+          </h1>
+          <p className="mt-1 text-sm text-violet-600">
+            Voici un aperçu global de la plateforme GET.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="relative hidden w-[400px] xl:block">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-xs outline-none focus:border-violet-500"
+              placeholder="Rechercher un étudiant, une école, un cours..."
+            />
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
+              ⌘ K
+            </kbd>
+          </label>
+          <NotificationBell />
+          <MessageIconLink href="/dashboard/admin?section=messages" />
+          <button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]">
+            <CalendarDays className="size-4 text-violet-600" />
+            {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </button>
+        </div>
+      </header>
+      {loading || !summary ? (
+        <p className="py-12 text-center text-sm text-slate-500">Chargement...</p>
+      ) : (
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <Kpi icon={UsersRound} tone="violet" label="Étudiants inscrits" value={summary.enrolledStudents.toLocaleString('fr-FR')} />
+          <Kpi icon={Building} tone="green" label="Établissements actifs" value={summary.activeSchools.toLocaleString('fr-FR')} />
+          <Kpi icon={FileText} tone="blue" label="Candidatures totales" value={summary.totalApplications.toLocaleString('fr-FR')} />
+          <Kpi icon={WalletCards} tone="orange" label="Revenus totaux" value={`${summary.totalRevenue.toLocaleString('fr-FR')} Ar`} />
+          <Kpi icon={ShieldCheck} tone="violet" label="Taux d’acceptation" value={`${summary.acceptanceRate}%`} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Kpi({ icon: Icon, tone, label, value }: { icon: LucideIcon; tone: 'violet' | 'green' | 'blue' | 'orange'; label: string; value: string }) {
+  const tones = { violet: 'bg-violet-100 text-violet-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' };
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex gap-3">
+        <span className={`grid size-12 place-items-center rounded-full ${tones[tone]}`}>
+          <Icon className="size-6" />
+        </span>
+        <div>
+          <p className="text-xs font-bold text-[#28315e]">{label}</p>
+          <p className="mt-1 text-2xl font-extrabold text-[#111949]">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+}

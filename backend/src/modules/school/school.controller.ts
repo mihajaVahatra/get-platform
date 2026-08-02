@@ -28,6 +28,20 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
+import { SchedulingService } from './scheduling.service';
+import { ScheduleGenerationService } from './schedule-generation.service';
+import { GenerateScheduleDto } from './dto/generate-schedule.dto';
+import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
+import { CreateSchoolClassDto, UpdateSchoolClassDto } from './dto/school-class.dto';
+import {
+  AssignTeacherToRequirementDto,
+  CreateSubjectRequirementDto,
+  UpdateSubjectRequirementDto,
+} from './dto/subject-requirement.dto';
+import {
+  CreateSchoolTimeSlotDto,
+  UpdateSchoolTimeSlotDto,
+} from './dto/school-time-slot.dto';
 import {
   StorageService,
   ImageEntityType,
@@ -67,6 +81,8 @@ type SchoolAdminSession = {
 export class SchoolController {
   constructor(
     private readonly schoolService: SchoolService,
+    private readonly schedulingService: SchedulingService,
+    private readonly scheduleGenerationService: ScheduleGenerationService,
     private readonly storageService: StorageService,
     private readonly prisma: PrismaService,
   ) {}
@@ -103,6 +119,47 @@ export class SchoolController {
   }
 
   // ========== ADMIN ROUTES ==========
+
+  @Get('students')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get enrolled students across all schools (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'search', required: false, example: 'Rakoto' })
+  @ApiQuery({ name: 'schoolId', required: false })
+  async getAllStudents(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('search') search?: string,
+    @Query('schoolId') schoolId?: string,
+  ) {
+    const result = await this.schoolService.getAllEnrolledStudents(
+      page,
+      limit,
+      search,
+      schoolId,
+    );
+    return { success: true, data: result.items, meta: result.meta };
+  }
+
+  @Get('programs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get programs across all schools (Admin only)' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'schoolId', required: false })
+  async getAllPrograms(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('schoolId') schoolId?: string,
+  ) {
+    const result = await this.schoolService.getAllPrograms(page, limit, schoolId);
+    return { success: true, data: result.items, meta: result.meta };
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -895,6 +952,27 @@ export class SchoolController {
     return { success: true, data: slots, message: 'Schedule retrieved successfully' };
   }
 
+  @Post('me/schedule/generate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Auto-generate the schedule for my school (or a single class)' })
+  async generateMySchoolSchedule(
+    @GetUser() user: SchoolAdminSession,
+    @Body() dto: GenerateScheduleDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.scheduleGenerationService.generate(
+      user.schoolAdmin.schoolId,
+      dto,
+    );
+    return { success: true, data: result, message: 'Schedule generation completed' };
+  }
+
   @Post('me/courses/:courseId/slots')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1110,5 +1188,215 @@ export class SchoolController {
       },
       message: 'School statistics retrieved successfully',
     };
+  }
+
+  // ════════════════════════════════════════════
+  //  PLANIFICATION (moteur d'emploi du temps) — Phase 1
+  // ════════════════════════════════════════════
+
+  @Get('me/rooms')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List my school rooms' })
+  async listMyRooms(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.listRooms(user.schoolAdmin.schoolId) };
+  }
+
+  @Post('me/rooms')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a room in my school' })
+  async createMyRoom(@GetUser() user: SchoolAdminSession, @Body() dto: CreateRoomDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.createRoom(user.schoolAdmin.schoolId, dto) };
+  }
+
+  @Patch('me/rooms/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a room in my school' })
+  async updateMyRoom(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() dto: UpdateRoomDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.updateRoom(user.schoolAdmin.schoolId, id, dto) };
+  }
+
+  @Delete('me/rooms/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a room in my school' })
+  async deleteMyRoom(@GetUser() user: SchoolAdminSession, @Param('id') id: string) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    await this.schedulingService.deleteRoom(user.schoolAdmin.schoolId, id);
+    return { success: true, message: 'Salle supprimée' };
+  }
+
+  @Get('me/time-slots')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List my school time-slot template' })
+  async listMyTimeSlots(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.listTimeSlots(user.schoolAdmin.schoolId) };
+  }
+
+  @Post('me/time-slots')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a time slot in my school template' })
+  async createMyTimeSlot(@GetUser() user: SchoolAdminSession, @Body() dto: CreateSchoolTimeSlotDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.createTimeSlot(user.schoolAdmin.schoolId, dto) };
+  }
+
+  @Patch('me/time-slots/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a time slot in my school template' })
+  async updateMyTimeSlot(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() dto: UpdateSchoolTimeSlotDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.updateTimeSlot(user.schoolAdmin.schoolId, id, dto) };
+  }
+
+  @Delete('me/time-slots/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a time slot in my school template' })
+  async deleteMyTimeSlot(@GetUser() user: SchoolAdminSession, @Param('id') id: string) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    await this.schedulingService.deleteTimeSlot(user.schoolAdmin.schoolId, id);
+    return { success: true, message: 'Créneau supprimé' };
+  }
+
+  @Get('me/classes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List my school classes with subject requirements' })
+  async listMyClasses(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.listClasses(user.schoolAdmin.schoolId) };
+  }
+
+  @Post('me/classes')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create a class in my school' })
+  async createMyClass(@GetUser() user: SchoolAdminSession, @Body() dto: CreateSchoolClassDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.createClass(user.schoolAdmin.schoolId, dto) };
+  }
+
+  @Patch('me/classes/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a class in my school' })
+  async updateMyClass(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() dto: UpdateSchoolClassDto) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return { success: true, data: await this.schedulingService.updateClass(user.schoolAdmin.schoolId, id, dto) };
+  }
+
+  @Delete('me/classes/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a class in my school' })
+  async deleteMyClass(@GetUser() user: SchoolAdminSession, @Param('id') id: string) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    await this.schedulingService.deleteClass(user.schoolAdmin.schoolId, id);
+    return { success: true, message: 'Classe supprimée' };
+  }
+
+  @Post('me/classes/:classId/requirements')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Add a subject requirement (hours/week) to a class' })
+  async createMyClassRequirement(
+    @GetUser() user: SchoolAdminSession,
+    @Param('classId') classId: string,
+    @Body() dto: CreateSubjectRequirementDto,
+  ) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schedulingService.createRequirement(user.schoolAdmin.schoolId, classId, dto),
+    };
+  }
+
+  @Patch('me/classes/:classId/requirements/:requirementId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update a subject requirement' })
+  async updateMyClassRequirement(
+    @GetUser() user: SchoolAdminSession,
+    @Param('classId') classId: string,
+    @Param('requirementId') requirementId: string,
+    @Body() dto: UpdateSubjectRequirementDto,
+  ) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schedulingService.updateRequirement(user.schoolAdmin.schoolId, classId, requirementId, dto),
+    };
+  }
+
+  @Delete('me/classes/:classId/requirements/:requirementId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete a subject requirement' })
+  async deleteMyClassRequirement(
+    @GetUser() user: SchoolAdminSession,
+    @Param('classId') classId: string,
+    @Param('requirementId') requirementId: string,
+  ) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    await this.schedulingService.deleteRequirement(user.schoolAdmin.schoolId, classId, requirementId);
+    return { success: true, message: 'Besoin horaire supprimé' };
+  }
+
+  @Put('me/classes/:classId/requirements/:requirementId/teacher')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Assign a qualified teacher to a subject requirement' })
+  async assignMyClassRequirementTeacher(
+    @GetUser() user: SchoolAdminSession,
+    @Param('classId') classId: string,
+    @Param('requirementId') requirementId: string,
+    @Body() dto: AssignTeacherToRequirementDto,
+  ) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schedulingService.assignTeacher(user.schoolAdmin.schoolId, classId, requirementId, dto),
+    };
+  }
+
+  @Delete('me/classes/:classId/requirements/:requirementId/teacher')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Unassign the teacher of a subject requirement' })
+  async unassignMyClassRequirementTeacher(
+    @GetUser() user: SchoolAdminSession,
+    @Param('classId') classId: string,
+    @Param('requirementId') requirementId: string,
+  ) {
+    if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
+    await this.schedulingService.unassignTeacher(user.schoolAdmin.schoolId, classId, requirementId);
+    return { success: true, message: 'Professeur retiré' };
   }
 }
