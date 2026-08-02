@@ -404,6 +404,7 @@ model SubjectRequirement {
   updatedAt      DateTime      @updatedAt
 
   assignment TeacherAssignment?
+  course     Course?
 
   @@unique([classId, subjectId])
   @@map("subject_requirements")
@@ -502,6 +503,12 @@ model Course {
   welcomeMessage     String?
   allowGroupMessages Boolean            @default(true)
   notifyOnPublish    Boolean            @default(true)
+  // Renseigné uniquement pour les cours créés par le moteur de génération
+  // automatique (Phase 3) — permet de retrouver/compléter le cours d'un
+  // besoin donné sans dupliquer, et de vérifier qu'une classe n'a pas deux
+  // cours en même temps (via subjectRequirement.classId).
+  subjectRequirementId String?             @unique
+  subjectRequirement   SubjectRequirement? @relation(fields: [subjectRequirementId], references: [id])
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   chapters           CourseChapter[]

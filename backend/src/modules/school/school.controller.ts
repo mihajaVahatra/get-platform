@@ -29,6 +29,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
 import { SchedulingService } from './scheduling.service';
+import { ScheduleGenerationService } from './schedule-generation.service';
+import { GenerateScheduleDto } from './dto/generate-schedule.dto';
 import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
 import { CreateSchoolClassDto, UpdateSchoolClassDto } from './dto/school-class.dto';
 import {
@@ -80,6 +82,7 @@ export class SchoolController {
   constructor(
     private readonly schoolService: SchoolService,
     private readonly schedulingService: SchedulingService,
+    private readonly scheduleGenerationService: ScheduleGenerationService,
     private readonly storageService: StorageService,
     private readonly prisma: PrismaService,
   ) {}
@@ -947,6 +950,27 @@ export class SchoolController {
     }
     const slots = await this.schoolService.getSchedule(user.schoolAdmin.schoolId);
     return { success: true, data: slots, message: 'Schedule retrieved successfully' };
+  }
+
+  @Post('me/schedule/generate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Auto-generate the schedule for my school (or a single class)' })
+  async generateMySchoolSchedule(
+    @GetUser() user: SchoolAdminSession,
+    @Body() dto: GenerateScheduleDto,
+  ) {
+    if (!user.schoolAdmin) {
+      throw new ForbiddenException(
+        "Cette fonctionnalité est réservée aux administrateurs d'école",
+      );
+    }
+    const result = await this.scheduleGenerationService.generate(
+      user.schoolAdmin.schoolId,
+      dto,
+    );
+    return { success: true, data: result, message: 'Schedule generation completed' };
   }
 
   @Post('me/courses/:courseId/slots')

@@ -1,7 +1,14 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { CalendarDaysIcon, DoorOpenIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarDaysIcon,
+  DoorOpenIcon,
+  PlusIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
@@ -97,6 +104,20 @@ const EMPTY_FORM: SlotForm = {
   room: '',
 };
 
+type AcademicYear = { id: string; label: string; isCurrent: boolean };
+type SchoolClassOption = { id: string; name: string };
+type UnresolvedItem = {
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  teacherName: string | null;
+  hoursPerWeek: number;
+  sessionsPlaced: number;
+  sessionsNeeded: number;
+  reason: string;
+};
+
 export function ScheduleBoard() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -104,6 +125,12 @@ export function ScheduleBoard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<SlotForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClassOption[]>([]);
+  const [generateForm, setGenerateForm] = useState({ academicYearId: '', classId: '' });
+  const [generating, setGenerating] = useState(false);
+  const [unresolved, setUnresolved] = useState<UnresolvedItem[] | null>(null);
   const loadSchedule = useCallback(async () => {
     try {
       const [slotsResponse, coursesResponse] = await Promise.all([
@@ -168,6 +195,53 @@ export function ScheduleBoard() {
     }
   };
 
+  const openGenerateDialog = async () => {
+    setGenerateOpen(true);
+    try {
+      const [yearsResponse, classesResponse] = await Promise.all([
+        apiClient.get('/academic-years'),
+        apiClient.get('/schools/me/classes'),
+      ]);
+      const years: AcademicYear[] = yearsResponse.data.data || [];
+      setAcademicYears(years);
+      setSchoolClasses(classesResponse.data.data || []);
+      setGenerateForm((current) => ({
+        ...current,
+        academicYearId: current.academicYearId || years.find((y) => y.isCurrent)?.id || years[0]?.id || '',
+      }));
+    } catch (error) {
+      console.error('Erreur chargement années/classes:', error);
+      toast.error('Impossible de charger les années scolaires et classes');
+    }
+  };
+
+  const generateSchedule = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void (async () => {
+      setGenerating(true);
+      try {
+        const response = await apiClient.post('/schools/me/schedule/generate', {
+          academicYearId: generateForm.academicYearId,
+          classId: generateForm.classId || undefined,
+        });
+        const result = response.data.data as { createdSlots: number; unresolved: UnresolvedItem[] };
+        setUnresolved(result.unresolved);
+        toast.success(
+          result.createdSlots > 0
+            ? `${result.createdSlots} créneau${result.createdSlots > 1 ? 'x' : ''} créé${result.createdSlots > 1 ? 's' : ''}`
+            : 'Aucun nouveau créneau à créer',
+        );
+        setGenerateOpen(false);
+        await loadSchedule();
+      } catch (error) {
+        console.error('Erreur génération emploi du temps:', error);
+        toast.error(axiosMessage(error) || "Impossible de générer l'emploi du temps");
+      } finally {
+        setGenerating(false);
+      }
+    })();
+  };
+
   return (
     <div className="mx-auto max-w-[1500px] space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -179,10 +253,42 @@ export function ScheduleBoard() {
             Créneaux structurés des cours de votre établissement.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <PlusIcon /> Ajouter un créneau
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void openGenerateDialog()}>
+            <SparklesIcon /> Générer l&apos;emploi du temps
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <PlusIcon /> Ajouter un créneau
+          </Button>
+        </div>
       </header>
+      {unresolved && unresolved.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-xs font-bold text-amber-900">
+            {unresolved.length} besoin{unresolved.length > 1 ? 's' : ''} non résolu
+            {unresolved.length > 1 ? 's' : ''} par la génération automatique
+          </p>
+          <div className="space-y-2">
+            {unresolved.map((item, index) => (
+              <div key={index} className="flex gap-3 rounded-lg bg-white p-3 text-xs">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-bold text-amber-900">
+                    {item.className} · {item.subjectName}
+                  </p>
+                  <p className="mt-1 text-amber-800">{item.reason}</p>
+                  <p className="mt-1 text-amber-700">
+                    {item.sessionsPlaced}/{item.sessionsNeeded} séance
+                    {item.sessionsNeeded > 1 ? 's' : ''} placée
+                    {item.sessionsPlaced > 1 ? 's' : ''}
+                    {item.teacherName ? ` · ${item.teacherName}` : ''}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <Card>
         <CardContent className="p-5">
           {loading ? (
@@ -326,6 +432,69 @@ export function ScheduleBoard() {
               </Button>
               <Button type="submit" disabled={saving || !form.courseId}>
                 {saving ? 'Ajout...' : 'Ajouter'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent>
+          <form onSubmit={generateSchedule}>
+            <DialogHeader>
+              <DialogTitle>Générer l&apos;emploi du temps</DialogTitle>
+              <DialogDescription>
+                Place automatiquement les séances manquantes pour couvrir le volume
+                horaire de chaque matière, en respectant les disponibilités des
+                professeurs et des salles.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="generate-year">Année scolaire</Label>
+                <Select
+                  items={academicYears.map((year) => ({ value: year.id, label: year.label }))}
+                  value={generateForm.academicYearId}
+                  onValueChange={(value) =>
+                    setGenerateForm((current) => ({ ...current, academicYearId: value ?? '' }))
+                  }
+                >
+                  <SelectTrigger id="generate-year">
+                    <SelectValue placeholder="Choisir une année scolaire" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {academicYears.map((year) => (
+                      <SelectItem key={year.id} value={year.id}>
+                        {year.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generate-class">Classe (facultatif — sinon toute l&apos;école)</Label>
+                <select
+                  id="generate-class"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  value={generateForm.classId}
+                  onChange={(event) =>
+                    setGenerateForm((current) => ({ ...current, classId: event.target.value }))
+                  }
+                >
+                  <option value="">Toutes les classes</option>
+                  {schoolClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setGenerateOpen(false)}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={generating || !generateForm.academicYearId}>
+                {generating ? 'Génération...' : 'Générer'}
               </Button>
             </DialogFooter>
           </form>

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SchoolService } from './school.service';
 import { SchedulingService } from './scheduling.service';
+import { ScheduleGenerationService } from './schedule-generation.service';
 import { SchoolController } from './school.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageService } from '../../common/services/storage.service';
@@ -10,7 +11,7 @@ import { TeacherAvailabilityModule } from '../teacher-availability/teacher-avail
 @Module({
   imports: [PrismaModule, NotificationModule, TeacherAvailabilityModule],
   controllers: [SchoolController],
-  providers: [SchoolService, SchedulingService, StorageService],
+  providers: [SchoolService, SchedulingService, ScheduleGenerationService, StorageService],
   exports: [SchoolService, SchedulingService],
 })
 export class SchoolModule {}
