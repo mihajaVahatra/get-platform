@@ -42,7 +42,8 @@ export class PaymentController {
   ) {}
 
   @Post('initiate')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Initiate a payment' })
   @ApiBody({ type: InitiatePaymentDto })
@@ -76,7 +77,9 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'List all payments across the platform (Admin only)' })
+  @ApiOperation({
+    summary: 'List all payments across the platform (Admin only)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'status', required: false })
@@ -98,7 +101,8 @@ export class PaymentController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get payment status' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -117,7 +121,8 @@ export class PaymentController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get payment history' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -156,7 +161,8 @@ export class PaymentController {
   }
 
   @Get(':id/receipt')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Download payment receipt' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -174,7 +180,8 @@ export class PaymentController {
   }
 
   @Post('bank-account')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Open a bank account for student' })
   @ApiBody({

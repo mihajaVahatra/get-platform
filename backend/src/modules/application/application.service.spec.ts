@@ -128,7 +128,10 @@ describe('ApplicationService', () => {
 
       await service.updateStatus(
         'application-1',
-        { status: ApplicationStatus.REJECTED, reason: 'Dossier incomplet' } as any,
+        {
+          status: ApplicationStatus.REJECTED,
+          reason: 'Dossier incomplet',
+        } as any,
         'admin-1',
       );
 
@@ -180,6 +183,25 @@ describe('ApplicationService', () => {
         1,
         prisma,
       );
+    });
+  });
+
+  describe('getApplicationById', () => {
+    it('refuse au Ministry l’accès à un dossier nominatif', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        student: { userId: 'student-user' },
+        offer: { schoolId: 'school-1' },
+        timeline: [],
+      });
+
+      await expect(
+        service.getApplicationById(
+          'application-1',
+          'ministry-user',
+          'MINISTRY',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 // Les différents types de rapports possibles
 export enum ReportType {
@@ -23,6 +30,14 @@ export enum ExportFormat {
   EXCEL = 'EXCEL',
   CSV = 'CSV',
   JSON = 'JSON',
+}
+
+export enum ReportSection {
+  SUMMARY = 'summary',
+  APPLICATIONS = 'applications',
+  SCHOOLS = 'schools',
+  GEOGRAPHY = 'geography',
+  COMPLIANCE = 'compliance',
 }
 
 export class GenerateReportDto {
@@ -51,14 +66,19 @@ export class GenerateReportDto {
   @IsDateString()
   periodEnd: string;
 
-  @ApiProperty({ enum: ExportFormat, default: ExportFormat.PDF })
+  @ApiPropertyOptional({ enum: ExportFormat, default: ExportFormat.PDF })
+  @IsOptional()
   @IsEnum(ExportFormat)
-  format: ExportFormat;
+  format?: ExportFormat;
 
   @ApiPropertyOptional({
-    type: [String],
-    example: ['applications', 'schools', 'payments'],
+    enum: ReportSection,
+    isArray: true,
+    example: [ReportSection.SUMMARY, ReportSection.APPLICATIONS],
   })
   @IsOptional()
-  sections?: string[];
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsEnum(ReportSection, { each: true })
+  sections?: ReportSection[];
 }

@@ -117,7 +117,7 @@ export class ApplicationService {
     };
   }
 
-  // ========== SCHOOL ADMIN / MINISTRY ==========
+  // ========== SCHOOL ADMIN ==========
 
   async getSchoolApplications(
     schoolAdminId: string,
@@ -217,8 +217,19 @@ export class ApplicationService {
         take: limit,
         orderBy: { submittedAt: 'desc' },
         include: {
-          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
-          offer: { select: { title: true, school: { select: { id: true, name: true } } } },
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
+          offer: {
+            select: {
+              title: true,
+              school: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.application.count({ where }),
@@ -230,8 +241,9 @@ export class ApplicationService {
         status: application.status,
         submittedAt: application.submittedAt,
         studentName:
-          [application.student.firstName, application.student.lastName].filter(Boolean).join(' ') ||
-          application.student.user.email,
+          [application.student.firstName, application.student.lastName]
+            .filter(Boolean)
+            .join(' ') || application.student.user.email,
         offerTitle: application.offer.title,
         school: application.offer.school.name,
       })),
@@ -520,7 +532,7 @@ export class ApplicationService {
     userId: string,
     role: string,
   ) {
-    if (role === 'ADMIN_GET' || role === 'MINISTRY') return;
+    if (role === 'ADMIN_GET') return;
     if (role === 'STUDENT' && application.student.userId === userId) return;
     if (role === 'SCHOOL_ADMIN') {
       const admin = await this.prisma.schoolAdmin.findUnique({

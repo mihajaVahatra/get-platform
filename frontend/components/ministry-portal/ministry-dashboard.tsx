@@ -1,292 +1,361 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  AlertTriangle,
   Building2,
   CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
-  Download,
-  FileCheck2,
+  CheckCircle2,
+  ClipboardList,
+  FileBarChart2,
   FileText,
-  MapPinned,
-  MessageSquare,
-  UserPlus,
-  UsersRound,
-  WalletCards,
+  RefreshCw,
 } from 'lucide-react';
-import { NotificationBell } from '@/components/notifications/notification-bell';
-import { MessageIconLink } from '@/components/messages/message-icon-link';
-import { MessagesScreen } from '@/components/messages/messages-screen';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
 
-const activities: Array<[string, string, string, LucideIcon, string]> = [
-  [
-    'Nouvel établissement enregistré : IST Mahajanga',
-    'Institut Supérieur de Technologie de Mahajanga',
-    'Il y a 10 min',
-    Building2,
-    'violet',
-  ],
-  [
-    '12 450 nouvelles inscriptions aujourd’hui',
-    'Sur la plateforme GET',
-    'Il y a 30 min',
-    UserPlus,
-    'blue',
-  ],
-  [
-    'Paiement de 125 000 000 Ar reçu',
-    'par BNI Madagascar',
-    'Il y a 1 h',
-    WalletCards,
-    'green',
-  ],
-  [
-    'Rapport mensuel généré',
-    'Rapport national – Mai 2025',
-    'Il y a 2 h',
-    FileText,
-    'blue',
-  ],
-  [
-    'Mise à jour des données établissements',
-    '156 établissements synchronisés',
-    'Il y a 3 h',
-    FileCheck2,
-    'green',
-  ],
+type DateRange = {
+  from: string;
+  to: string;
+};
+
+type CountByStatus = {
+  status: string;
+  count: number;
+};
+
+type CountByRegion = {
+  region: string;
+  count: number;
+};
+
+type SchoolProgrammeCount = {
+  school: string;
+  region: string | null;
+  city: string | null;
+  filiere: string | null;
+  programme: string | null;
+  count: number;
+  acceptedCount: number;
+  pendingCount: number;
+};
+
+type EnrollmentBySchoolProgramme = {
+  school: string;
+  region: string | null;
+  city: string | null;
+  filiere: string | null;
+  programme: string | null;
+  enrolledCount: number;
+};
+
+type Trend = {
+  period: string;
+  count: number;
+  acceptedCount: number;
+  pendingCount: number;
+};
+
+type DashboardData = {
+  period: { from: string | null; to: string | null };
+  totalApplications: number;
+  totalStudents: number;
+  totalSchools: number;
+  totalOffers: number;
+  acceptanceRate: number;
+  totalEnrolledStudents?: number;
+  applicationsByStatus?: CountByStatus[];
+  regionalDistribution?: CountByRegion[];
+  // `applicationsBySchoolProgramme` est le nom de l’API Ministry. L’alias
+  // d’inscriptions garde le composant compatible avec les jeux de données
+  // déjà nommés « enrollments » sans changer la granularité affichée.
+  applicationsBySchoolProgramme?: SchoolProgrammeCount[];
+  enrollmentsBySchoolProgramme?: EnrollmentBySchoolProgramme[];
+  trends?: Trend[];
+};
+
+type ApiResponse = {
+  data: DashboardData;
+};
+
+const numberFormatter = new Intl.NumberFormat('fr-FR');
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'En attente',
+  UNDER_REVIEW: 'En cours',
+  TEST_SCHEDULED: 'Test planifié',
+  INTERVIEW_SCHEDULED: 'Entretien planifié',
+  PRESELECTED: 'Présélectionnées',
+  WAITLISTED: 'Liste d’attente',
+  ACCEPTED: 'Acceptées',
+  REJECTED: 'Rejetées',
+  ENROLLED: 'Inscrites',
+};
+
+const DISTRIBUTION_COLORS = [
+  '#5b42e9',
+  '#36c3a5',
+  '#ff9b27',
+  '#3998e9',
+  '#7682ed',
+  '#dce1ec',
 ];
 
-const regions = [
-  ['Analamanga', '42 561', '51,8%', 100],
-  ['Vakinankaratra', '12 865', '15,7%', 53],
-  ['Atsinanana', '8 745', '10,6%', 42],
-  ['Atsimo-Andrefana', '6 321', '7,7%', 32],
-  ['Diana', '4 521', '5,5%', 24],
-  ['Autres régions', '7 132', '8,7%', 36],
-] as const;
-
 export function MinistryDashboard() {
-  const searchParams = useSearchParams();
-  if (searchParams.get('section') === 'messages') {
-    return <MessagesScreen />;
-  }
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const loadDashboard = useCallback(async (range: DateRange) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiClient.get<ApiResponse>('/ministry/dashboard', {
+        params: {
+          from: range.from || undefined,
+          to: range.to || undefined,
+        },
+      });
+      setData(response.data.data);
+    } catch (requestError) {
+      console.error(
+        'Erreur chargement du tableau de bord ministère:',
+        requestError,
+      );
+      setError(
+        'Les indicateurs agrégés ne sont pas disponibles pour le moment.',
+      );
+      toast.error('Impossible de charger les indicateurs du ministère');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => loadDashboard({ from: '', to: '' }));
+  }, [loadDashboard]);
+
+  const applyRange = () => {
+    if (from && to && from > to) {
+      toast.error('La date de début doit précéder la date de fin.');
+      return;
+    }
+    void loadDashboard({ from, to });
+  };
+
+  const resetRange = () => {
+    setFrom('');
+    setTo('');
+    void loadDashboard({ from: '', to: '' });
+  };
+
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4">
+    <div className="mx-auto max-w-[1600px] space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
-            Tableau de bord
+            Pilotage national
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
-            Vue d’ensemble du système post-bac national
+          <p className="mt-1 max-w-2xl text-sm text-violet-700">
+            Indicateurs agrégés et anonymisés des candidatures, établissements
+            et programmes.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]">
-            <CalendarDays className="size-4 text-violet-600" />
-            01 mai – 31 mai 2025⌄
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="sr-only" htmlFor="ministry-from">
+            Date de début
+          </label>
+          <input
+            id="ministry-from"
+            type="date"
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs text-[#34406b]"
+          />
+          <span aria-hidden="true" className="text-xs text-slate-400">
+            →
+          </span>
+          <label className="sr-only" htmlFor="ministry-to">
+            Date de fin
+          </label>
+          <input
+            id="ministry-to"
+            type="date"
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs text-[#34406b]"
+          />
+          <button
+            type="button"
+            onClick={applyRange}
+            disabled={loading}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b] transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            Appliquer
           </button>
-          <NotificationBell />
-          <MessageIconLink href="/dashboard/ministry?section=messages" />
-          <button className="hidden h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 sm:flex">
-            <Download className="size-4" />
-            Exporter le rapport
-          </button>
+          {(from || to) && (
+            <button
+              type="button"
+              onClick={resetRange}
+              disabled={loading}
+              className="h-10 rounded-lg px-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
+            >
+              Réinitialiser
+            </button>
+          )}
+          <Link
+            href="/dashboard/ministry/reports"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 transition hover:brightness-105"
+          >
+            <FileText className="size-4" />
+            Rapports
+          </Link>
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      {data?.period && <PeriodNote period={data.period} />}
+
+      {loading && <DashboardSkeleton />}
+
+      {!loading && error && (
+        <section className="rounded-xl border border-rose-100 bg-rose-50 p-6 text-center">
+          <p className="text-sm font-semibold text-rose-700">{error}</p>
+          <button
+            type="button"
+            onClick={() => void loadDashboard({ from, to })}
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-rose-700"
+          >
+            <RefreshCw className="size-4" />
+            Réessayer
+          </button>
+        </section>
+      )}
+
+      {!loading && !error && data && <DashboardContent data={data} />}
+    </div>
+  );
+}
+
+function DashboardContent({ data }: { data: DashboardData }) {
+  return (
+    <>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
-          icon={UsersRound}
+          icon={ClipboardList}
           tone="violet"
-          label="Total étudiants"
-          value="156 284"
-          note="+8,5% vs avril 2025"
+          label="Candidatures"
+          value={numberFormatter.format(data.totalApplications)}
+          note="Périmètre sélectionné"
         />
         <Kpi
           icon={Building2}
           tone="blue"
           label="Établissements actifs"
-          value="156"
-          note="+2 nouveaux"
+          value={numberFormatter.format(data.totalSchools)}
+          note="Établissements publiants"
         />
         <Kpi
-          icon={FileText}
+          icon={FileBarChart2}
           tone="green"
-          label="Inscriptions totales"
-          value="82 145"
-          note="+12,2% vs avril 2025"
+          label="Offres publiées"
+          value={numberFormatter.format(data.totalOffers)}
+          note="Offres visibles sur la plateforme"
         />
         <Kpi
-          icon={WalletCards}
+          icon={CheckCircle2}
           tone="orange"
-          label="Revenus collectés"
-          value="1 245 000 000 Ar"
-          note="+15,4% vs avril 2025"
+          label="Taux d’admission"
+          value={`${numberFormatter.format(data.acceptanceRate)} %`}
+          note="Candidatures acceptées"
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
-        <LineChart />
-        <Donut
-          title="Répartition des inscriptions par filière"
-          total="82 145"
-          labels={[
-            ['Sciences & Techniques', '28% (22 999)', 'bg-violet-600'],
-            ['Sciences de l’ingénieur', '24% (19 727)', 'bg-emerald-500'],
-            ['Économie & Gestion', '18% (14 783)', 'bg-orange-400'],
-            ['Sciences Humaines', '16% (13 139)', 'bg-blue-500'],
-            ['Santé', '8% (6 577)', 'bg-indigo-400'],
-            ['Autres', '6% (4 920)', 'bg-slate-300'],
-          ]}
-          gradient="conic-gradient(#5b42e9 0 28%, #36c3a5 28% 52%, #ff9b27 52% 70%, #3998e9 70% 86%, #7682ed 86% 94%, #dce1ec 94% 100%)"
-        />
-        <Donut
-          title="Inscriptions par statut"
-          total="82 145"
-          labels={[
-            ['Validées', '50% (45 201)', 'bg-emerald-500'],
-            ['En attente', '22% (18 102)', 'bg-orange-400'],
-            ['En cours', '14% (11 483)', 'bg-blue-500'],
-            ['Rejetées', '7% (6 519)', 'bg-rose-400'],
-          ]}
-          gradient="conic-gradient(#36c3a5 0 55%, #ff9b27 55% 77%, #3998e9 77% 91%, #f47070 91% 100%)"
+      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.95fr]">
+        <TrendChart trends={data.trends ?? []} />
+        <Distribution
+          title="Candidatures par statut"
+          total={data.totalApplications}
+          items={(data.applicationsByStatus ?? []).map((item) => ({
+            label: STATUS_LABELS[item.status] || item.status,
+            count: item.count,
+          }))}
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
-        <Card
-          title="Cartographie des inscriptions par région"
-          action="Voir tout"
-        >
-          <div className="flex gap-4">
-            <div className="grid h-44 w-28 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-50 via-indigo-100 to-violet-200 text-violet-600">
-              <MapPinned className="size-12" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              {regions.map(([region, value, share, width]) => (
-                <div key={region}>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="font-bold text-[#34406b]">{region}</span>
-                    <span className="text-slate-500">
-                      {value} ({share})
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded bg-slate-100">
-                    <div
-                      className="h-1.5 rounded bg-violet-500"
-                      style={{ width: `${width}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-        <Card title="Activités récentes" action="Voir tout">
-          <div className="space-y-1">
-            {activities.map(([title, description, time, Icon, tone]) => (
-              <div
-                key={title}
-                className="flex gap-3 border-b border-slate-100 py-2.5 last:border-0"
-              >
-                <span
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg ${tone === 'green' ? 'bg-emerald-50 text-emerald-600' : tone === 'blue' ? 'bg-blue-50 text-blue-500' : 'bg-violet-50 text-violet-600'}`}
-                >
-                  <Icon className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold text-[#28315e]">
-                    {title}
-                  </p>
-                  <p className="truncate text-[10px] text-slate-500">
-                    {description}
-                  </p>
-                </div>
-                <span className="whitespace-nowrap text-[10px] text-slate-400">
-                  {time}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-        <Card title="Alertes & notifications" action="Voir tout">
-          <div className="space-y-1">
-            <Notice
-              icon={AlertTriangle}
-              tone="rose"
-              title="12 inscriptions en attente de validation"
-              text="Depuis plus de 48h"
+      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.3fr]">
+        <RegionalDistribution regions={data.regionalDistribution ?? []} />
+        <div className="space-y-4">
+          <SchoolProgrammeTable
+            rows={data.applicationsBySchoolProgramme ?? []}
+          />
+          {(data.enrollmentsBySchoolProgramme ?? []).length > 0 && (
+            <EnrollmentSchoolProgrammeTable
+              rows={data.enrollmentsBySchoolProgramme ?? []}
             />
-            <Notice
-              icon={AlertTriangle}
-              tone="blue"
-              title="3 établissements n’ont pas encore transmis leurs résultats de concours"
-              text="À relancer"
-            />
-            <Notice
-              icon={CircleDollarSign}
-              tone="rose"
-              title="5 paiements échoués"
-              text="À réessayer"
-            />
-            <Notice
-              icon={MessageSquare}
-              tone="blue"
-              title="Campagne de bourses en cours"
-              text="Date limite : 30 juin 2025"
-            />
-          </div>
-        </Card>
+          )}
+        </div>
       </section>
+    </>
+  );
+}
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <MiniTable
-          title="Inscriptions & Admissions"
-          columns={['Étudiant', 'Établissement', 'Filière', 'Statut']}
-          rows={[
-            ['Rasolonjato Tina', 'ENI', 'Informatique', 'Validée'],
-            ['Rakotoarivelo Mamy', 'ISPM', 'Génie Civil', 'Validée'],
-            ['Andriamialana Fanja', 'ESPA', 'Management', 'En attente'],
-            ['Rabeharisoa Lia', 'IST', 'Électrotechnique', 'En cours'],
-          ]}
-        />
-        <MiniTable
-          title="Concours"
-          columns={['Concours', 'Établissement', 'Candidats', 'Statut']}
-          rows={[
-            ['Concours ENI 2025', 'ENI', '2 450', 'Planifié'],
-            ['Concours ISPM 2025', 'ISPM', '1 980', 'Planifié'],
-            ['Concours ESPA 2025', 'ESPA', '2 860', 'En cours'],
-            ['Concours IST 2025', 'IST', '1 620', 'Planifié'],
-          ]}
-        />
-        <Card title="Paiements" action="Exporter">
-          <div className="grid grid-cols-1 gap-2 border-b border-slate-100 pb-3 text-center sm:grid-cols-2 xl:grid-cols-3">
-            <Metric label="Total collecté" value="1 245 000 000 Ar" />
-            <Metric label="Transactions" value="18 750" />
-            <Metric label="Échoués" value="245" tone="rose" />
-          </div>
-          <div className="mt-3 space-y-2">
-            {[
-              'TRX-2025-0001  ·  Mobile Money  ·  Réussi',
-              'TRX-2025-0002  ·  Banque  ·  Réussi',
-              'TRX-2025-0003  ·  Carte bancaire  ·  Échoué',
-              'TRX-2025-0004  ·  Mobile Money  ·  Réussi',
-            ].map((item) => (
-              <p
-                key={item}
-                className="rounded-lg bg-slate-50 px-3 py-2 text-[10px] text-slate-600"
-              >
-                {item}
-              </p>
-            ))}
-          </div>
-        </Card>
-      </section>
+function PeriodNote({
+  period,
+}: {
+  period: { from: string | null; to: string | null };
+}) {
+  const formatDate = (value: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        });
+  };
+  const from = formatDate(period.from);
+  const to = formatDate(period.to);
+
+  return (
+    <p className="flex items-center gap-2 text-xs text-slate-500">
+      <CalendarDays className="size-3.5 text-violet-600" />
+      {from || to
+        ? `Période analysée : ${from || 'début'} — ${to || 'aujourd’hui'}`
+        : 'Toutes les candidatures disponibles sont prises en compte.'}
+    </p>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div
+      aria-label="Chargement des indicateurs"
+      className="space-y-4"
+      role="status"
+    >
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="h-28 animate-pulse rounded-xl border border-slate-100 bg-slate-50"
+          />
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 2 }, (_, index) => (
+          <div
+            key={index}
+            className="h-72 animate-pulse rounded-xl border border-slate-100 bg-slate-50"
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -310,6 +379,7 @@ function Kpi({
     green: 'bg-emerald-100 text-emerald-600',
     orange: 'bg-orange-100 text-orange-500',
   };
+
   return (
     <article className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-3">
@@ -323,210 +393,297 @@ function Kpi({
           <p className="mt-1 text-2xl font-extrabold text-[#111949]">{value}</p>
         </div>
       </div>
-      <p className="mt-3 text-[10px] font-semibold text-emerald-600">
-        ↗ {note}
+      <p className="mt-3 truncate text-[10px] font-semibold text-slate-500">
+        {note}
       </p>
     </article>
   );
 }
-function Card({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: string;
-  children: React.ReactNode;
-}) {
+
+function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-extrabold text-[#17204e]">{title}</h2>
-        {action && (
-          <button className="text-[10px] font-bold text-violet-600">
-            {action}
-          </button>
-        )}
-      </div>
+      <h2 className="text-sm font-extrabold text-[#17204e]">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
   );
 }
-function LineChart() {
-  const points = [27, 39, 51, 64, 65, 76, 86, 72, 84];
+
+function TrendChart({ trends }: { trends: Trend[] }) {
+  const ordered = [...trends].sort((left, right) =>
+    left.period.localeCompare(right.period),
+  );
+  const max = Math.max(...ordered.map((item) => item.count), 1);
+  const width = Math.max((ordered.length - 1) * 72, 72);
+  const points = ordered.map((item, index) => ({
+    x: index * 72,
+    y: 150 - (item.count / max) * 128,
+  }));
+
   return (
-    <Card title="Évolution des inscriptions" action="6 derniers mois⌄">
-      <div className="relative h-40 border-b border-l border-slate-100">
-        <svg
-          viewBox="0 0 400 160"
-          className="absolute inset-0 size-full overflow-visible"
-          preserveAspectRatio="none"
-        >
-          <polyline
-            points={points
-              .map((point, index) => `${index * 50},${150 - point * 1.35}`)
-              .join(' ')}
-            fill="none"
-            stroke="#593bef"
-            strokeWidth="3"
-          />
-          <polyline
-            points={`0,150 ${points.map((point, index) => `${index * 50},${150 - point * 1.35}`).join(' ')} 400,150`}
-            fill="url(#area)"
-            opacity=".16"
-          />
-          <defs>
-            <linearGradient id="area" x1="0" x2="0" y1="0" y2="1">
-              <stop stopColor="#6144ef" />
-              <stop offset="1" stopColor="#6144ef" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {points.map((point, index) => (
-            <circle
-              key={index}
-              cx={index * 50}
-              cy={150 - point * 1.35}
-              r="3.5"
-              fill="#593bef"
-            />
-          ))}
-        </svg>
-        <span className="absolute right-4 top-14 rounded-lg bg-white p-2 text-[10px] font-bold shadow-lg">
-          Mai 2025
-          <br />
-          82 145 inscriptions
-        </span>
-      </div>
-      <div className="mt-3 flex justify-between text-[9px] text-slate-500">
-        <span>Déc. 2024</span>
-        <span>Jan. 2025</span>
-        <span>Fév. 2025</span>
-        <span>Mars 2025</span>
-        <span>Avr. 2025</span>
-        <span>Mai 2025</span>
-      </div>
+    <Card title="Évolution des candidatures">
+      {ordered.length === 0 ? (
+        <EmptyNote text="Aucune candidature sur la période sélectionnée." />
+      ) : (
+        <>
+          <div className="relative h-44 border-b border-l border-slate-100">
+            <svg
+              aria-label="Évolution agrégée des candidatures"
+              className="absolute inset-0 size-full overflow-visible"
+              preserveAspectRatio="none"
+              role="img"
+              viewBox={`0 0 ${width} 160`}
+            >
+              <polyline
+                fill="none"
+                points={points
+                  .map((point) => `${point.x},${point.y}`)
+                  .join(' ')}
+                stroke="#593bef"
+                strokeWidth="3"
+              />
+              {points.map((point, index) => (
+                <circle
+                  key={ordered[index].period}
+                  cx={point.x}
+                  cy={point.y}
+                  fill="#593bef"
+                  r="3.5"
+                />
+              ))}
+            </svg>
+          </div>
+          <div className="mt-3 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[9px] text-slate-500">
+            {ordered.map((item) => (
+              <span key={item.period}>
+                {formatMonth(item.period)} ·{' '}
+                {numberFormatter.format(item.count)}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   );
 }
-function Donut({
+
+function Distribution({
   title,
   total,
-  labels,
-  gradient,
+  items,
 }: {
   title: string;
-  total: string;
-  labels: string[][];
-  gradient: string;
+  total: number;
+  items: { label: string; count: number }[];
 }) {
+  const ordered = [...items].sort((left, right) => right.count - left.count);
+  const count = ordered.reduce((sum, item) => sum + item.count, 0);
+  const safeTotal = count || 1;
+  const gradient = ordered.length
+    ? `conic-gradient(${ordered
+        .map((item, index) => {
+          const before = ordered
+            .slice(0, index)
+            .reduce((sum, previous) => sum + previous.count, 0);
+          const start = (before / safeTotal) * 100;
+          const end = ((before + item.count) / safeTotal) * 100;
+          return `${DISTRIBUTION_COLORS[index % DISTRIBUTION_COLORS.length]} ${start}% ${end}%`;
+        })
+        .join(', ')})`
+    : '#f1f5f9';
+
   return (
-    <Card title={title} action="Voir tout">
-      <div className="flex items-center gap-5 py-3">
-        <div
-          className="grid size-32 shrink-0 place-items-center rounded-full"
-          style={{ background: gradient }}
-        >
-          <div className="grid size-20 place-items-center rounded-full bg-white text-center">
-            <strong className="text-xl text-[#111949]">{total}</strong>
-            <span className="text-[10px] text-slate-500">Total</span>
+    <Card title={title}>
+      {count === 0 ? (
+        <EmptyNote text="Aucune donnée de statut sur la période." />
+      ) : (
+        <div className="flex items-center gap-5 py-3">
+          <div
+            aria-label={`Répartition de ${numberFormatter.format(total)} candidatures`}
+            className="grid size-32 shrink-0 place-items-center rounded-full"
+            role="img"
+            style={{ background: gradient }}
+          >
+            <div className="grid size-20 place-items-center rounded-full bg-white text-center">
+              <strong className="text-xl text-[#111949]">
+                {numberFormatter.format(total)}
+              </strong>
+              <span className="text-[10px] text-slate-500">Total</span>
+            </div>
           </div>
+          <ul className="min-w-0 flex-1 space-y-2 text-[10px] text-slate-600">
+            {ordered.map((item, index) => (
+              <li key={item.label} className="flex items-center gap-2">
+                <i
+                  aria-hidden="true"
+                  className="size-2 shrink-0 rounded-full"
+                  style={{
+                    backgroundColor:
+                      DISTRIBUTION_COLORS[index % DISTRIBUTION_COLORS.length],
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <b className="whitespace-nowrap font-medium">
+                  {numberFormatter.format(item.count)} (
+                  {Math.round((item.count / safeTotal) * 100)} %)
+                </b>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="min-w-0 space-y-2 text-[9px] text-slate-600">
-          {labels.map(([name, value, color]) => (
-            <li key={name} className="flex items-center gap-2">
-              <i className={`size-2 shrink-0 rounded-full ${color}`} />
-              <span className="flex-1">{name}</span>
-              <b className="whitespace-nowrap font-medium">{value}</b>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
     </Card>
   );
 }
-function Notice({
-  icon: Icon,
-  tone,
-  title,
-  text,
-}: {
-  icon: LucideIcon;
-  tone: 'rose' | 'blue';
-  title: string;
-  text: string;
-}) {
+
+function RegionalDistribution({ regions }: { regions: CountByRegion[] }) {
+  const ordered = [...regions].sort((left, right) => right.count - left.count);
+  const max = Math.max(...ordered.map((item) => item.count), 1);
+
   return (
-    <button className="flex w-full items-center gap-3 border-b border-slate-100 py-2.5 text-left last:border-0">
-      <span
-        className={`grid size-8 place-items-center rounded-lg ${tone === 'rose' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'}`}
-      >
-        <Icon className="size-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <b className="block text-[11px] text-[#34406b]">{title}</b>
-        <small className="text-[10px] text-slate-500">{text}</small>
-      </span>
-      <ChevronRight className="size-4 text-slate-400" />
-    </button>
-  );
-}
-function MiniTable({
-  title,
-  columns,
-  rows,
-}: {
-  title: string;
-  columns: string[];
-  rows: string[][];
-}) {
-  return (
-    <Card title={title} action="Exporter">
-      <div className="space-y-2 text-[10px]">
-        {rows.map((row) => {
-          const status = row[row.length - 1];
-          return (
-            <div
-              key={row[0]}
-              className="rounded-lg border border-slate-50 p-2.5"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
-                <span
-                  className={`shrink-0 rounded px-1.5 py-1 font-bold ${status === 'Validée' || status === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : status === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
-                >
-                  {status}
+    <Card title="Candidatures par région">
+      {ordered.length === 0 ? (
+        <EmptyNote text="Aucune donnée régionale sur la période." />
+      ) : (
+        <div className="space-y-3">
+          {ordered.map((item) => (
+            <div key={item.region}>
+              <div className="flex justify-between gap-3 text-[10px]">
+                <span className="truncate font-bold text-[#34406b]">
+                  {item.region}
+                </span>
+                <span className="shrink-0 text-slate-500">
+                  {numberFormatter.format(item.count)}
                 </span>
               </div>
-              <p className="mt-1 text-slate-500">
-                {row
-                  .slice(1, -1)
-                  .map((cell, index) => `${columns[index + 1]}: ${cell}`)
-                  .join(' · ')}
-              </p>
+              <div className="mt-1 h-1.5 rounded bg-slate-100">
+                <div
+                  className="h-1.5 rounded bg-violet-500"
+                  style={{ width: `${Math.round((item.count / max) * 100)}%` }}
+                />
+              </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function SchoolProgrammeTable({ rows }: { rows: SchoolProgrammeCount[] }) {
+  const ordered = [...rows].sort((left, right) => right.count - left.count);
+
+  return (
+    <Card title="Candidatures par établissement et programme">
+      {ordered.length === 0 ? (
+        <EmptyNote text="Aucun agrégat établissement-programme sur la période." />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-xs">
+            <thead className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
+              <tr>
+                <th className="px-2 py-2 font-semibold">
+                  Établissement / programme
+                </th>
+                <th className="px-2 py-2 text-right font-semibold">
+                  Candidatures
+                </th>
+                <th className="px-2 py-2 text-right font-semibold">
+                  Acceptées
+                </th>
+                <th className="px-2 py-2 text-right font-semibold">
+                  En attente
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((row) => (
+                <tr
+                  key={`${row.school}-${row.filiere || ''}-${row.programme || ''}`}
+                  className="border-b border-slate-50 last:border-0"
+                >
+                  <td className="px-2 py-3">
+                    <p className="font-bold text-[#28315e]">{row.school}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500">
+                      {[row.filiere, row.programme]
+                        .filter(Boolean)
+                        .join(' · ') || 'Programme non renseigné'}
+                      {row.region ? ` · ${row.region}` : ''}
+                    </p>
+                  </td>
+                  <td className="px-2 py-3 text-right font-semibold text-[#28315e]">
+                    {numberFormatter.format(row.count)}
+                  </td>
+                  <td className="px-2 py-3 text-right text-emerald-700">
+                    {numberFormatter.format(row.acceptedCount)}
+                  </td>
+                  <td className="px-2 py-3 text-right text-amber-700">
+                    {numberFormatter.format(row.pendingCount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function EnrollmentSchoolProgrammeTable({
+  rows,
+}: {
+  rows: EnrollmentBySchoolProgramme[];
+}) {
+  const ordered = [...rows].sort(
+    (left, right) => right.enrolledCount - left.enrolledCount,
+  );
+
+  return (
+    <Card title="Inscriptions par établissement et programme">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-xs">
+          <thead className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
+            <tr>
+              <th className="px-2 py-2 font-semibold">
+                Établissement / programme
+              </th>
+              <th className="px-2 py-2 text-right font-semibold">Inscrits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((row) => (
+              <tr
+                key={`${row.school}-${row.filiere || ''}-${row.programme || ''}`}
+                className="border-b border-slate-50 last:border-0"
+              >
+                <td className="px-2 py-3">
+                  <p className="font-bold text-[#28315e]">{row.school}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500">
+                    {[row.filiere, row.programme].filter(Boolean).join(' · ') ||
+                      'Programme non renseigné'}
+                    {row.region ? ` · ${row.region}` : ''}
+                  </p>
+                </td>
+                <td className="px-2 py-3 text-right font-semibold text-[#28315e]">
+                  {numberFormatter.format(row.enrolledCount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Card>
   );
 }
-function Metric({
-  label,
-  value,
-  tone = 'violet',
-}: {
-  label: string;
-  value: string;
-  tone?: 'violet' | 'rose';
-}) {
-  return (
-    <div>
-      <p className="text-[9px] text-slate-500">{label}</p>
-      <p
-        className={`mt-1 text-sm font-extrabold ${tone === 'rose' ? 'text-rose-500' : 'text-violet-600'}`}
-      >
-        {value}
-      </p>
-    </div>
-  );
+
+function EmptyNote({ text }: { text: string }) {
+  return <p className="py-8 text-center text-xs text-slate-400">{text}</p>;
+}
+
+function formatMonth(period: string) {
+  const date = new Date(`${period}-01T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? period
+    : date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
 }

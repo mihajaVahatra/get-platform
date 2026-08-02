@@ -125,7 +125,7 @@ export default function DashboardLayout({
   }, [userRole]);
 
   useEffect(() => {
-    if (!userRole) return;
+    if (!userRole || userRole === 'MINISTRY') return;
     const refreshUnreadMessages = () => {
       apiClient
         .get('/messages/unread-count')
@@ -364,7 +364,6 @@ export default function DashboardLayout({
           <MinistrySidebar
             pathname={pathname}
             onLogout={logout}
-            unreadMessages={unreadMessages}
             mobileOpen={mobileMenuOpen}
             onMobileClose={() => setMobileMenuOpen(false)}
           />
@@ -378,22 +377,16 @@ export default function DashboardLayout({
             items={[
               { icon: Home, label: 'Accueil', href: '/dashboard/ministry' },
               {
-                icon: Building,
-                label: 'Écoles',
-                href: '/dashboard/ministry?section=schools',
+                icon: ChartNoAxesCombined,
+                label: 'Rapports',
+                href: '/dashboard/ministry/reports',
               },
               {
-                icon: Mail,
-                label: 'Messages',
-                href: '/dashboard/ministry?section=messages',
-              },
-              {
-                icon: Settings,
-                label: 'Profil',
-                href: '/dashboard/ministry?section=settings',
+                icon: ShieldCheck,
+                label: 'Conformité',
+                href: '/dashboard/ministry/compliance',
               },
             ]}
-            composeHref="/dashboard/ministry?section=messages&compose=1"
           />
         </Suspense>
       </div>
@@ -1121,80 +1114,25 @@ function AdminGetSidebar({
 function MinistrySidebar({
   pathname,
   onLogout,
-  unreadMessages,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
   onLogout: () => void;
-  unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
-  const national = [
+  const navigation = [
     {
-      label: 'Établissements',
-      icon: Building,
-      href: '/dashboard/ministry?section=schools',
-    },
-    {
-      label: 'Étudiants',
-      icon: UsersRound,
-      href: '/dashboard/ministry?section=students',
-    },
-    {
-      label: 'Inscriptions & Admissions',
-      icon: ClipboardList,
-      href: '/dashboard/ministry?section=enrollments',
-    },
-    {
-      label: 'Concours',
-      icon: Trophy,
-      href: '/dashboard/ministry?section=competitions',
-    },
-    {
-      label: 'Paiements',
-      icon: WalletCards,
-      href: '/dashboard/ministry?section=payments',
-    },
-    {
-      label: 'Statistiques & Rapports',
+      label: 'Rapports',
       icon: ChartNoAxesCombined,
       href: '/dashboard/ministry/reports',
     },
     {
-      label: 'Communication',
-      icon: Megaphone,
-      href: '/dashboard/ministry?section=communication',
-    },
-    {
-      label: 'Messages',
-      icon: Mail,
-      href: '/dashboard/ministry?section=messages',
-      badge: unreadMessages ? String(unreadMessages) : undefined,
-    },
-  ];
-  const settings = [
-    {
-      label: 'Utilisateurs',
-      icon: UserCog,
-      href: '/dashboard/ministry?section=users',
-    },
-    {
-      label: 'Rôles & Permissions',
+      label: 'Conformité',
       icon: ShieldCheck,
-      href: '/dashboard/ministry?section=roles',
-    },
-    {
-      label: 'Paramètres système',
-      icon: Settings,
-      href: '/dashboard/ministry?section=settings',
-    },
-    {
-      label: 'Journal d’activité',
-      icon: ScrollText,
-      href: '/dashboard/ministry?section=activity',
+      href: '/dashboard/ministry/compliance',
     },
   ];
   return (
@@ -1229,19 +1167,9 @@ function MinistrySidebar({
           active={isNavigationActive(currentUrl, '/dashboard/ministry')}
         />
         <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
-          Menu principal
+          Pilotage agrégé
         </p>
-        {national.map((item) => (
-          <MinistryNav
-            key={item.label}
-            {...item}
-            active={isNavigationActive(currentUrl, item.href)}
-          />
-        ))}
-        <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
-          Paramètres
-        </p>
-        {settings.map((item) => (
+        {navigation.map((item) => (
           <MinistryNav
             key={item.label}
             {...item}
