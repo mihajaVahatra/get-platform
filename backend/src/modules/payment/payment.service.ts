@@ -100,8 +100,12 @@ export class PaymentService {
     };
   }
 
-  async handleWebhook(dto: PaymentWebhookDto, signature?: string) {
-    this.assertValidWebhookSignature(dto, signature);
+  async handleWebhook(
+    dto: PaymentWebhookDto,
+    rawBody?: Buffer,
+    signature?: string,
+  ) {
+    this.assertValidWebhookSignature(dto, rawBody, signature);
     const payment = await this.prisma.payment.findFirst({
       where: { providerRef: dto.providerReference },
     });
@@ -121,83 +125,89 @@ export class PaymentService {
 
     const status = confirmation.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
 
-    const updatedPayment = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status,
-        paidAt: status === 'COMPLETED' ? new Date() : undefined,
-        providerRef: dto.providerReference,
-      },
-    });
-
-    if (status === 'COMPLETED' && payment.applicationId) {
-      await this.prisma.application.update({
-        where: { id: payment.applicationId },
-        data: { status: 'ENROLLED' },
-      });
-      const application = await this.prisma.application.findUnique({
-        where: { id: payment.applicationId },
-        include: { offer: true },
-      });
-      if (application?.offer.programId) {
-        const [program, academicYear] = await Promise.all([
-          this.prisma.schoolProgram.findFirst({
-            where: {
-              id: application.offer.programId,
-              schoolId: application.offer.schoolId,
-              isActive: true,
-            },
-          }),
-          this.prisma.schoolAcademicYear.findFirst({
-            where: { schoolId: application.offer.schoolId, isCurrent: true },
-          }),
-        ]);
-        if (program && academicYear) {
-          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          const student = await this.prisma.student.update({
-            where: { id: application.studentId },
-            data: {
-              enrolledSchoolId: application.offer.schoolId,
-              programId: program.id,
-              programLevel: 1,
-              academicYearId: academicYear.id,
-              enrolledYear,
-              enrollmentStatus: 'ACTIVE',
-            },
-          });
-          await this.schoolService.syncCourseEnrollments(
-            student.id,
-            application.offer.schoolId,
-            program.id,
-            1,
-          );
-          await this.prisma.applicationTimeline.create({
-            data: {
-              applicationId: application.id,
-              status: 'ENROLLED',
-              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-            },
-          });
-        }
-      }
-    }
-
-    if (status === 'COMPLETED') {
-      await this.prisma.transaction.create({
+    // Paiement + candidature + inscription + relevé doivent être atomiques :
+    // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
+    // sans inscription, ou l'inverse (cf. audit sécurité).
+    return this.prisma.$transaction(async (tx) => {
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
         data: {
-          paymentId: payment.id,
-          type: 'PAYMENT',
-          amount: payment.amount,
-          provider: payment.method,
-          providerTransactionId: confirmation.providerTransactionId,
-          status: 'SUCCESS',
-          rawResponse: confirmation.rawData,
-          completedAt: new Date(),
+          status,
+          paidAt: status === 'COMPLETED' ? new Date() : undefined,
+          providerRef: dto.providerReference,
         },
       });
-    }
 
-    return updatedPayment;
+      if (status === 'COMPLETED' && payment.applicationId) {
+        await tx.application.update({
+          where: { id: payment.applicationId },
+          data: { status: 'ENROLLED' },
+        });
+        const application = await tx.application.findUnique({
+          where: { id: payment.applicationId },
+          include: { offer: true },
+        });
+        if (application?.offer.programId) {
+          const [program, academicYear] = await Promise.all([
+            tx.schoolProgram.findFirst({
+              where: {
+                id: application.offer.programId,
+                schoolId: application.offer.schoolId,
+                isActive: true,
+              },
+            }),
+            tx.schoolAcademicYear.findFirst({
+              where: { schoolId: application.offer.schoolId, isCurrent: true },
+            }),
+          ]);
+          if (program && academicYear) {
+            const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+            const student = await tx.student.update({
+              where: { id: application.studentId },
+              data: {
+                enrolledSchoolId: application.offer.schoolId,
+                programId: program.id,
+                programLevel: 1,
+                academicYearId: academicYear.id,
+                enrolledYear,
+                enrollmentStatus: 'ACTIVE',
+              },
+            });
+            await this.schoolService.syncCourseEnrollments(
+              student.id,
+              application.offer.schoolId,
+              program.id,
+              1,
+              tx,
+            );
+            await tx.applicationTimeline.create({
+              data: {
+                applicationId: application.id,
+                status: 'ENROLLED',
+                note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+              },
+            });
+          }
+        }
+      }
+
+      if (status === 'COMPLETED') {
+        await tx.transaction.create({
+          data: {
+            paymentId: payment.id,
+            type: 'PAYMENT',
+            amount: payment.amount,
+            provider: payment.method,
+            providerTransactionId: confirmation.providerTransactionId,
+            status: 'SUCCESS',
+            rawResponse: confirmation.rawData,
+            completedAt: new Date(),
+          },
+        });
+      }
+
+      return updatedPayment;
+    });
   }
 
   async getPayment(paymentId: string, userId: string, role: string) {
@@ -205,8 +215,12 @@ export class PaymentService {
       where: { id: paymentId },
       include: {
         student: {
-          include: {
-            user: true,
+          select: {
+            id: true,
+            userId: true,
+            firstName: true,
+            lastName: true,
+            user: { select: { id: true, email: true } },
           },
         },
         transaction: true,
@@ -376,14 +390,19 @@ export class PaymentService {
 
   private assertValidWebhookSignature(
     dto: PaymentWebhookDto,
+    rawBody?: Buffer,
     signature?: string,
   ) {
     const secret = this.config.get<string>('PAYMENT_WEBHOOK_SECRET');
     if (!secret || !signature)
       throw new ForbiddenException('Signature webhook manquante');
+    // On signe les octets bruts reçus, pas le DTO re-sérialisé après
+    // transformation par class-validator (ordre des clés, coercions de
+    // type... peuvent différer de ce que l'expéditeur a réellement signé).
+    const payload = rawBody ?? Buffer.from(JSON.stringify(dto));
     const expected = crypto
       .createHmac('sha256', secret)
-      .update(JSON.stringify(dto))
+      .update(payload)
       .digest('hex');
     const received = Buffer.from(signature, 'hex');
     const expectedBuffer = Buffer.from(expected, 'hex');

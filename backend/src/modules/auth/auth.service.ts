@@ -7,12 +7,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import * as speakeasy from 'speakeasy';
-import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { EncryptionService } from '../../common/services/encryption.service';
+import { MfaService } from './mfa/mfa.service';
+
+const MFA_CHALLENGE_EXPIRATION = '5m';
 
 @Injectable()
 export class AuthService {
@@ -23,7 +23,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private config: ConfigService,
-    private encryption: EncryptionService,
+    private mfaService: MfaService,
   ) {}
 
   // ========== REGISTER ==========
@@ -100,6 +100,61 @@ export class AuthService {
 
     await this.resetLoginAttempts(user.id);
 
+    if (user.mfaEnabled) {
+      // Le mot de passe est valide mais le MFA est activé : on ne délivre
+      // aucun jeton d'accès tant que le code TOTP n'est pas vérifié.
+      const challengeToken = this.jwt.sign(
+        { sub: user.id, type: 'mfa_challenge' },
+        { expiresIn: MFA_CHALLENGE_EXPIRATION, secret: this.config.get('JWT_SECRET') },
+      );
+      return { mfaRequired: true as const, challengeToken };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
+    const tokens = this.generateTokens(user.id, user.email, user.role!.name);
+    const userInfo = this.extractUserInfo(user);
+
+    return {
+      mfaRequired: false as const,
+      ...tokens,
+      user: userInfo,
+    };
+  }
+
+  // ========== MFA LOGIN (étape 2) ==========
+
+  async completeMfaLogin(challengeToken: string, code: string) {
+    let payload: any;
+    try {
+      payload = this.jwt.verify(challengeToken, {
+        secret: this.config.get('JWT_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException(
+        'Session MFA expirée, veuillez vous reconnecter',
+      );
+    }
+    if (payload.type !== 'mfa_challenge') {
+      throw new UnauthorizedException('Jeton invalide');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { student: true, schoolAdmin: true, role: true },
+    });
+    if (!user || !user.mfaEnabled) {
+      throw new UnauthorizedException('Identifiants invalides');
+    }
+
+    const verified = await this.mfaService.verifyCode(user.id, code);
+    if (!verified) {
+      throw new BadRequestException('Code MFA invalide');
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLogin: new Date() },
@@ -166,94 +221,18 @@ export class AuthService {
     }
   }
 
-  // ========== MFA ==========
+  // ========== MFA (activation/désactivation, déléguées à MfaService) ==========
 
   async enableMfa(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    const secret = speakeasy.generateSecret({
-      name: `GET (${userId})`,
-    });
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        mfaSecret: this.encryption.encrypt(secret.base32),
-        mfaEnabled: false,
-      },
-    });
-
-    const qrCode = await QRCode.toDataURL(secret.otpauth_url);
-
-    return {
-      qrCode,
-      secret: secret.base32,
-    };
+    return this.mfaService.generateSecret(userId);
   }
 
   async verifyMfa(userId: string, code: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !user.mfaSecret) {
-      throw new BadRequestException('MFA not configured');
-    }
-
-    const verified = speakeasy.totp.verify({
-      secret: this.decryptMfaSecret(user.mfaSecret),
-      encoding: 'base32',
-      token: code,
-      window: 2,
-    });
-
-    if (!verified) {
-      throw new BadRequestException('Invalid MFA code');
-    }
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { mfaEnabled: true },
-    });
-
-    return { success: true };
+    return this.mfaService.verifyAndEnable(userId, code);
   }
 
   async disableMfa(userId: string, code: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !user.mfaSecret) {
-      throw new BadRequestException('MFA not configured');
-    }
-
-    const verified = speakeasy.totp.verify({
-      secret: this.decryptMfaSecret(user.mfaSecret),
-      encoding: 'base32',
-      token: code,
-      window: 2,
-    });
-
-    if (!verified) {
-      throw new BadRequestException('Invalid MFA code');
-    }
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        mfaSecret: null,
-        mfaEnabled: false,
-      },
-    });
-
-    return { success: true };
+    return this.mfaService.disable(userId, code);
   }
 
   // ========== PRIVATE HELPERS ==========
@@ -342,12 +321,4 @@ export class AuthService {
     });
   }
 
-  private decryptMfaSecret(secret: string) {
-    try {
-      return this.encryption.decrypt(secret);
-    } catch {
-      // Compatibilité avec les secrets MFA déjà enregistrés avant le chiffrement.
-      return secret;
-    }
-  }
 }

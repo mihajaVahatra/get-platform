@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
@@ -46,14 +47,16 @@ export class SchoolService {
     schoolId: string,
     programId: string,
     programLevel: number,
+    tx?: Prisma.TransactionClient,
   ) {
-    const courses = await this.prisma.course.findMany({
+    const client = tx ?? this.prisma;
+    const courses = await client.course.findMany({
       where: { schoolId, programId, programLevel, isPublished: true },
       select: { id: true },
     });
 
-    await this.prisma.$transaction([
-      this.prisma.courseEnrollment.deleteMany({
+    const operations = [
+      client.courseEnrollment.deleteMany({
         where: {
           studentId,
           courseId: { notIn: courses.map((course) => course.id) },
@@ -61,7 +64,7 @@ export class SchoolService {
         },
       }),
       ...courses.map((course) =>
-        this.prisma.courseEnrollment.upsert({
+        client.courseEnrollment.upsert({
           where: {
             courseId_studentId: { courseId: course.id, studentId },
           },
@@ -69,7 +72,18 @@ export class SchoolService {
           create: { courseId: course.id, studentId },
         }),
       ),
-    ]);
+    ];
+
+    if (tx) {
+      // Déjà à l'intérieur d'une transaction appelante (ex: webhook de
+      // paiement) : Prisma ne permet pas d'imbriquer un $transaction, on
+      // exécute donc les opérations séquentiellement sur le même client.
+      for (const operation of operations) {
+        await operation;
+      }
+    } else {
+      await this.prisma.$transaction(operations);
+    }
   }
 
   async create(dto: CreateSchoolDto, userId: string) {

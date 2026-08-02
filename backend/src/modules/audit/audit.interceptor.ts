@@ -34,16 +34,18 @@ export class AuditInterceptor implements NestInterceptor {
     const startTime = Date.now();
 
     return next.handle().pipe(
-      tap((data) => {
+      tap(() => {
         const duration = Date.now() - startTime;
-        // Enregistrer l'action en succès
+        // On journalise uniquement les métadonnées de l'action (jamais le corps de
+        // la réponse) : les payloads peuvent contenir des secrets (MFA, tokens,
+        // documents) et les endpoints d'audit reliraient sinon leurs propres
+        // journaux, les recopiant indéfiniment.
         this.auditService
           .log({
             userId: user?.id,
             action,
             resource,
             resourceId,
-            after: data,
             ip,
             userAgent,
             status: 'SUCCESS',

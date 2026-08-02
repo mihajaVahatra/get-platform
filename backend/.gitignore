@@ -3,6 +3,7 @@ node_modules
 .env
 
 /generated/prisma
+/coverage
 
 # User-uploaded media (runtime content, not source)
 /uploads

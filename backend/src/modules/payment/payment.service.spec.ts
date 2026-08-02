@@ -38,6 +38,7 @@ describe('PaymentService', () => {
     schoolAcademicYear: { findFirst: jest.Mock };
     applicationTimeline: { create: jest.Mock };
     transaction: { create: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -49,6 +50,9 @@ describe('PaymentService', () => {
       schoolAcademicYear: { findFirst: jest.fn() },
       applicationTimeline: { create: jest.fn() },
       transaction: { create: jest.fn() },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prisma),
+      ),
     };
     paymentProvider = { initiatePayment: jest.fn(), confirmPayment: jest.fn() };
     schoolService = { syncCourseEnrollments: jest.fn() };
@@ -139,14 +143,14 @@ describe('PaymentService', () => {
     const dto = { providerReference: 'provider-ref-1' } as any;
 
     it('refuse un webhook sans signature', async () => {
-      await expect(service.handleWebhook(dto, undefined)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.handleWebhook(dto, undefined, undefined),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('refuse un webhook avec une signature invalide', async () => {
       await expect(
-        service.handleWebhook(dto, 'signature-invalide'),
+        service.handleWebhook(dto, undefined, 'signature-invalide'),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
@@ -154,7 +158,7 @@ describe('PaymentService', () => {
       prisma.payment.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.handleWebhook(dto, signWebhook(dto)),
+        service.handleWebhook(dto, undefined, signWebhook(dto)),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -190,7 +194,7 @@ describe('PaymentService', () => {
       });
       prisma.student.update.mockResolvedValue({ id: 'student-1' });
 
-      await service.handleWebhook(dto, signWebhook(dto));
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
 
       expect(prisma.application.update).toHaveBeenCalledWith({
         where: { id: 'application-1' },
@@ -201,6 +205,7 @@ describe('PaymentService', () => {
         'school-1',
         'program-1',
         1,
+        prisma,
       );
       expect(prisma.transaction.create).toHaveBeenCalled();
     });

@@ -74,6 +74,11 @@ export class OfferService {
       city?: string;
     },
   ) {
+    // @Query() ne convertit pas les valeurs fournies explicitement dans
+    // l'URL : sans ce cast, page/limit restent des chaînes et Prisma rejette
+    // `take`/`skip` (Expected Int, provided String).
+    page = Number(page) || 1;
+    limit = Number(limit) || 20;
     const skip = (page - 1) * limit;
     const where: any = { deletedAt: null };
 
@@ -91,17 +96,7 @@ export class OfferService {
       ];
     }
     if (filters?.isOpen !== undefined) where.isOpen = filters.isOpen;
-
-    // If city filter, we need to join with school
-    let includeSchool = false;
-    if (filters?.city) {
-      includeSchool = true;
-      // We'll filter after join, but Prisma doesn't support filtering by related model in where easily.
-      // We'll do it in the query via include and filter later, but for simplicity we'll handle in controller or service with additional query.
-      // Actually, we can use 'some' on school relation.
-      // Better to do a raw query or use include with where on relation.
-      // Since the user is starting, we'll keep it simple and filter in memory.
-    }
+    if (filters?.city) where.school = { city: filters.city };
 
     const [items, total] = await Promise.all([
       this.prisma.offer.findMany({
@@ -116,21 +111,13 @@ export class OfferService {
       this.prisma.offer.count({ where }),
     ]);
 
-    // Apply city filter in memory (if needed)
-    let filteredItems = items;
-    if (filters?.city) {
-      filteredItems = items.filter(
-        (offer) => offer.school?.city === filters.city,
-      );
-    }
-
     return {
-      items: filteredItems,
+      items,
       meta: {
         page,
         limit,
-        total: filteredItems.length, // approximate; for better we'd do a join query
-        totalPages: Math.ceil(filteredItems.length / limit),
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }

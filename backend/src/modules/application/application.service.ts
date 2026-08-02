@@ -51,22 +51,23 @@ export class ApplicationService {
         continue;
       }
 
-      const application = await this.prisma.application.create({
-        data: {
-          studentId,
-          offerId,
-          status: ApplicationStatus.PENDING,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        const application = await tx.application.create({
+          data: {
+            studentId,
+            offerId,
+            status: ApplicationStatus.PENDING,
+          },
+        });
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId: application.id,
+            status: ApplicationStatus.PENDING,
+            note: 'Application submitted',
+          },
+        });
       });
       results.submitted.push(offerId);
-
-      await this.prisma.applicationTimeline.create({
-        data: {
-          applicationId: application.id,
-          status: ApplicationStatus.PENDING,
-          note: 'Application submitted',
-        },
-      });
     }
 
     return results;
@@ -313,73 +314,79 @@ export class ApplicationService {
     if (!application) throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(application, userId);
 
-    const updated = await this.prisma.application.update({
-      where: { id: applicationId },
-      data: {
-        status: dto.status,
-        score: dto.score,
-        decisionReason: dto.reason,
-        decisionDate: new Date(),
-      },
-    });
+    // Mise à jour de statut + inscription automatique : atomique, pour ne
+    // jamais laisser une candidature "ACCEPTED"/"ENROLLED" sans que l'étudiant
+    // soit réellement inscrit (cf. audit sécurité).
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.application.update({
+        where: { id: applicationId },
+        data: {
+          status: dto.status,
+          score: dto.score,
+          decisionReason: dto.reason,
+          decisionDate: new Date(),
+        },
+      });
 
-    await this.prisma.applicationTimeline.create({
-      data: {
-        applicationId,
-        status: dto.status,
-        note: dto.reason || `Status changed to ${dto.status}`,
-        createdBy: userId,
-      },
-    });
+      await tx.applicationTimeline.create({
+        data: {
+          applicationId,
+          status: dto.status,
+          note: dto.reason || `Status changed to ${dto.status}`,
+          createdBy: userId,
+        },
+      });
 
-    if (
-      (dto.status === ApplicationStatus.ACCEPTED ||
-        dto.status === ApplicationStatus.ENROLLED) &&
-      application.offer.programId
-    ) {
-      const [program, academicYear] = await Promise.all([
-        this.prisma.schoolProgram.findFirst({
-          where: {
-            id: application.offer.programId,
-            schoolId: application.offer.schoolId,
-            isActive: true,
-          },
-        }),
-        this.prisma.schoolAcademicYear.findFirst({
-          where: { schoolId: application.offer.schoolId, isCurrent: true },
-        }),
-      ]);
-      if (program && academicYear) {
-        const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-        const student = await this.prisma.student.update({
-          where: { id: application.studentId },
-          data: {
-            enrolledSchoolId: application.offer.schoolId,
-            programId: program.id,
-            programLevel: 1,
-            academicYearId: academicYear.id,
-            enrolledYear,
-            enrollmentStatus: 'ACTIVE',
-          },
-        });
-        await this.schoolService.syncCourseEnrollments(
-          student.id,
-          application.offer.schoolId,
-          program.id,
-          1,
-        );
-        await this.prisma.applicationTimeline.create({
-          data: {
-            applicationId,
-            status: dto.status,
-            note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-            createdBy: userId,
-          },
-        });
+      if (
+        (dto.status === ApplicationStatus.ACCEPTED ||
+          dto.status === ApplicationStatus.ENROLLED) &&
+        application.offer.programId
+      ) {
+        const [program, academicYear] = await Promise.all([
+          tx.schoolProgram.findFirst({
+            where: {
+              id: application.offer.programId,
+              schoolId: application.offer.schoolId,
+              isActive: true,
+            },
+          }),
+          tx.schoolAcademicYear.findFirst({
+            where: { schoolId: application.offer.schoolId, isCurrent: true },
+          }),
+        ]);
+        if (program && academicYear) {
+          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+          const student = await tx.student.update({
+            where: { id: application.studentId },
+            data: {
+              enrolledSchoolId: application.offer.schoolId,
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              enrollmentStatus: 'ACTIVE',
+            },
+          });
+          await this.schoolService.syncCourseEnrollments(
+            student.id,
+            application.offer.schoolId,
+            program.id,
+            1,
+            tx,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId,
+              status: dto.status,
+              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+              createdBy: userId,
+            },
+          });
+        }
       }
-    }
 
-    return updated;
+      return updated;
+    });
   }
 
   async scheduleTest(

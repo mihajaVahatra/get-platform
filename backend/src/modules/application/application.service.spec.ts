@@ -20,6 +20,7 @@ describe('ApplicationService', () => {
     user: { findUnique: jest.Mock };
     schoolProgram: { findFirst: jest.Mock };
     schoolAcademicYear: { findFirst: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
@@ -36,6 +37,9 @@ describe('ApplicationService', () => {
       user: { findUnique: jest.fn() },
       schoolProgram: { findFirst: jest.fn() },
       schoolAcademicYear: { findFirst: jest.fn() },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prisma),
+      ),
     };
     schoolService = { syncCourseEnrollments: jest.fn() };
     service = new ApplicationService(
@@ -174,6 +178,7 @@ describe('ApplicationService', () => {
         'school-1',
         'program-1',
         1,
+        prisma,
       );
     });
   });

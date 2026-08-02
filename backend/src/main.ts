@@ -8,10 +8,16 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
+import { createProtectedUploadsRouter } from './common/middleware/protected-uploads.middleware';
 import { resolve } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Nécessaire pour vérifier la signature HMAC du webhook de paiement sur
+    // les octets bruts envoyés par le fournisseur, plutôt que sur le JSON
+    // re-sérialisé après transformation par class-validator/class-transformer.
+    rawBody: true,
+  });
   const configService = app.get(ConfigService);
 
   app.disable('x-powered-by');
@@ -42,8 +48,14 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Fichiers statiques (uploads) — même résolution que StorageService
-  // (relative à process.cwd(), pas à __dirname qui pointe vers dist/ une fois compilé)
+  // Documents/pièces jointes sensibles : servis via un routeur authentifié
+  // (contrôle de propriété/rôle), jamais en statique public. Doit être monté
+  // avant useStaticAssets pour intercepter ces chemins en priorité.
+  app.use('/uploads', createProtectedUploadsRouter(app));
+
+  // Fichiers statiques publics (avatars, logos, bannières, illustrations) —
+  // même résolution que StorageService (relative à process.cwd(), pas à
+  // __dirname qui pointe vers dist/ une fois compilé).
   app.useStaticAssets(resolve(configService.get('UPLOAD_DIR') || './uploads'), {
     prefix: '/uploads/',
   });

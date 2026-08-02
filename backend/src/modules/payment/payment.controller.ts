@@ -10,7 +10,10 @@ import {
   UseGuards,
   StreamableFile,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -141,9 +144,14 @@ export class PaymentController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Webhook processed' })
   async handleWebhook(
     @Body() dto: PaymentWebhookDto,
+    @Req() req: RawBodyRequest<Request>,
     @Headers('x-webhook-signature') signature?: string,
   ) {
-    const result = await this.paymentService.handleWebhook(dto, signature);
+    const result = await this.paymentService.handleWebhook(
+      dto,
+      req.rawBody,
+      signature,
+    );
     return { success: true, data: result };
   }
 
