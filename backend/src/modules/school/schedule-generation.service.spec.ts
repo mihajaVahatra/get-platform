@@ -175,4 +175,41 @@ describe('ScheduleGenerationService', () => {
     expect(result.unresolved[0].subjectName).toBe('Maths');
     expect(result.unresolved[0].reason).toContain('Aucun créneau libre compatible');
   });
+
+  it('applique le filtre par matière à la requête des besoins', async () => {
+    await service.generate('school-1', { academicYearId: 'year-1', subjectId: 'subj-x' });
+
+    expect(prisma.schoolClass.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          requirements: expect.objectContaining({
+            where: expect.objectContaining({ subjectId: 'subj-x' }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('applique le filtre par professeur à la requête des besoins', async () => {
+    await service.generate('school-1', { academicYearId: 'year-1', teacherId: 'teacher-x' });
+
+    expect(prisma.schoolClass.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          requirements: expect.objectContaining({
+            where: expect.objectContaining({ assignment: { teacherId: 'teacher-x' } }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('applique le filtre par salle en ne chargeant que cette salle', async () => {
+    await service.generate('school-1', { academicYearId: 'year-1', roomId: 'room-x' });
+
+    expect(prisma.room.findMany).toHaveBeenCalledWith({
+      where: { schoolId: 'school-1', isActive: true, id: 'room-x' },
+      orderBy: { name: 'asc' },
+    });
+  });
 });

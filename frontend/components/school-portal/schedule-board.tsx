@@ -4,7 +4,6 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CalendarDaysIcon,
-  DoorOpenIcon,
   PlusIcon,
   SparklesIcon,
   Trash2Icon,
@@ -37,14 +36,13 @@ function axiosMessage(error: unknown): string | undefined {
 }
 
 export function SchoolSchedulePortal() {
-  const [activeTab, setActiveTab] = useState<'schedule' | 'rooms' | 'time-slots'>('schedule');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'time-slots'>('schedule');
   return (
     <div className="mx-auto max-w-[1500px] space-y-4">
       <nav className="flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
         {(
           [
             ['schedule', 'Emploi du temps'],
-            ['rooms', 'Salles'],
             ['time-slots', 'Créneaux-type'],
           ] as const
         ).map(([id, label]) => (
@@ -59,7 +57,6 @@ export function SchoolSchedulePortal() {
         ))}
       </nav>
       {activeTab === 'schedule' && <ScheduleBoard />}
-      {activeTab === 'rooms' && <RoomsManager />}
       {activeTab === 'time-slots' && <TimeSlotsManager />}
     </div>
   );
@@ -106,6 +103,12 @@ const EMPTY_FORM: SlotForm = {
 
 type AcademicYear = { id: string; label: string; isCurrent: boolean };
 type SchoolClassOption = { id: string; name: string };
+type SubjectOption = { id: string; name: string; isActive: boolean };
+type RoomOption = { id: string; name: string };
+type TeacherOption = {
+  teacherId: string;
+  teacher: { firstName: string | null; lastName: string | null; user: { email: string } };
+};
 type UnresolvedItem = {
   classId: string;
   className: string;
@@ -128,7 +131,16 @@ export function ScheduleBoard() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [schoolClasses, setSchoolClasses] = useState<SchoolClassOption[]>([]);
-  const [generateForm, setGenerateForm] = useState({ academicYearId: '', classId: '' });
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [rooms, setRooms] = useState<RoomOption[]>([]);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [generateForm, setGenerateForm] = useState({
+    academicYearId: '',
+    classId: '',
+    subjectId: '',
+    teacherId: '',
+    roomId: '',
+  });
   const [generating, setGenerating] = useState(false);
   const [unresolved, setUnresolved] = useState<UnresolvedItem[] | null>(null);
   const loadSchedule = useCallback(async () => {
@@ -198,20 +210,27 @@ export function ScheduleBoard() {
   const openGenerateDialog = async () => {
     setGenerateOpen(true);
     try {
-      const [yearsResponse, classesResponse] = await Promise.all([
-        apiClient.get('/academic-years'),
-        apiClient.get('/schools/me/classes'),
-      ]);
+      const [yearsResponse, classesResponse, subjectsResponse, roomsResponse, teachersResponse] =
+        await Promise.all([
+          apiClient.get('/academic-years'),
+          apiClient.get('/schools/me/classes'),
+          apiClient.get('/schools/me/subjects'),
+          apiClient.get('/schools/me/rooms'),
+          apiClient.get('/schools/me/teachers'),
+        ]);
       const years: AcademicYear[] = yearsResponse.data.data || [];
       setAcademicYears(years);
       setSchoolClasses(classesResponse.data.data || []);
+      setSubjects((subjectsResponse.data.data || []).filter((s: SubjectOption) => s.isActive));
+      setRooms(roomsResponse.data.data || []);
+      setTeachers(teachersResponse.data.data || []);
       setGenerateForm((current) => ({
         ...current,
         academicYearId: current.academicYearId || years.find((y) => y.isCurrent)?.id || years[0]?.id || '',
       }));
     } catch (error) {
-      console.error('Erreur chargement années/classes:', error);
-      toast.error('Impossible de charger les années scolaires et classes');
+      console.error('Erreur chargement des filtres de génération:', error);
+      toast.error('Impossible de charger les filtres de génération');
     }
   };
 
@@ -223,6 +242,9 @@ export function ScheduleBoard() {
         const response = await apiClient.post('/schools/me/schedule/generate', {
           academicYearId: generateForm.academicYearId,
           classId: generateForm.classId || undefined,
+          subjectId: generateForm.subjectId || undefined,
+          teacherId: generateForm.teacherId || undefined,
+          roomId: generateForm.roomId || undefined,
         });
         const result = response.data.data as { createdSlots: number; unresolved: UnresolvedItem[] };
         setUnresolved(result.unresolved);
@@ -488,6 +510,61 @@ export function ScheduleBoard() {
                   ))}
                 </select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="generate-subject">Matière (facultatif)</Label>
+                <select
+                  id="generate-subject"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  value={generateForm.subjectId}
+                  onChange={(event) =>
+                    setGenerateForm((current) => ({ ...current, subjectId: event.target.value }))
+                  }
+                >
+                  <option value="">Toutes les matières</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generate-teacher">Professeur (facultatif)</Label>
+                <select
+                  id="generate-teacher"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  value={generateForm.teacherId}
+                  onChange={(event) =>
+                    setGenerateForm((current) => ({ ...current, teacherId: event.target.value }))
+                  }
+                >
+                  <option value="">Tous les professeurs</option>
+                  {teachers.map((option) => (
+                    <option key={option.teacherId} value={option.teacherId}>
+                      {[option.teacher.firstName, option.teacher.lastName].filter(Boolean).join(' ') ||
+                        option.teacher.user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generate-room">Salle (facultatif)</Label>
+                <select
+                  id="generate-room"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  value={generateForm.roomId}
+                  onChange={(event) =>
+                    setGenerateForm((current) => ({ ...current, roomId: event.target.value }))
+                  }
+                >
+                  <option value="">Toutes les salles</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setGenerateOpen(false)}>
@@ -525,195 +602,6 @@ function TimeField({
         onChange={(event) => onChange(event.target.value)}
         required
       />
-    </div>
-  );
-}
-
-const ROOM_TYPES = [
-  ['STANDARD', 'Standard'],
-  ['LAB', 'Laboratoire'],
-  ['AMPHI', 'Amphithéâtre'],
-  ['SPORT', 'Sport'],
-] as const;
-
-type Room = {
-  id: string;
-  name: string;
-  capacity: number | null;
-  type: string;
-  isActive: boolean;
-};
-
-function RoomsManager() {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [type, setType] = useState('STANDARD');
-  const [saving, setSaving] = useState(false);
-
-  const loadRooms = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/schools/me/rooms');
-      setRooms(response.data.data || []);
-    } catch (error) {
-      console.error('Erreur chargement salles:', error);
-      toast.error('Impossible de charger les salles');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.resolve().then(() => {
-      if (active) return loadRooms();
-    });
-    return () => {
-      active = false;
-    };
-  }, [loadRooms]);
-
-  const createRoom = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void (async () => {
-      setSaving(true);
-      try {
-        await apiClient.post('/schools/me/rooms', {
-          name,
-          capacity: capacity ? Number(capacity) : undefined,
-          type,
-        });
-        toast.success('Salle ajoutée');
-        setDialogOpen(false);
-        setName('');
-        setCapacity('');
-        setType('STANDARD');
-        await loadRooms();
-      } catch (error) {
-        toast.error(axiosMessage(error) || 'Impossible de créer cette salle');
-      } finally {
-        setSaving(false);
-      }
-    })();
-  };
-
-  const deleteRoom = async (room: Room) => {
-    try {
-      await apiClient.delete(`/schools/me/rooms/${room.id}`);
-      toast.success('Salle supprimée');
-      await loadRooms();
-    } catch (error) {
-      toast.error(axiosMessage(error) || 'Impossible de supprimer cette salle');
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight text-[#111949]">Salles</h1>
-          <p className="mt-1 text-sm text-violet-600">
-            Gérez les salles disponibles pour vos cours.
-          </p>
-        </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <PlusIcon /> Ajouter une salle
-        </Button>
-      </header>
-      <Card>
-        <CardContent className="p-5">
-          {loading ? (
-            <p className="py-12 text-center text-sm text-slate-500">Chargement...</p>
-          ) : rooms.length === 0 ? (
-            <div className="py-12 text-center text-slate-500">
-              <DoorOpenIcon className="mx-auto size-8" />
-              <p className="mt-3 text-sm">Aucune salle enregistrée.</p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {rooms.map((room) => (
-                <div
-                  key={room.id}
-                  className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 p-3 text-xs"
-                >
-                  <div>
-                    <p className="font-bold text-slate-800">{room.name}</p>
-                    <p className="mt-1 text-slate-500">
-                      {ROOM_TYPES.find(([value]) => value === room.type)?.[1] || room.type}
-                      {room.capacity ? ` · ${room.capacity} places` : ''}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label={`Supprimer ${room.name}`}
-                    onClick={() => void deleteRoom(room)}
-                    className="text-slate-400 hover:text-rose-600"
-                  >
-                    <Trash2Icon className="size-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <form onSubmit={createRoom}>
-            <DialogHeader>
-              <DialogTitle>Ajouter une salle</DialogTitle>
-              <DialogDescription>
-                Le nom doit être unique dans votre établissement.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="room-name">Nom</Label>
-                <Input id="room-name" value={name} onChange={(event) => setName(event.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="room-capacity">Capacité (facultatif)</Label>
-                <Input
-                  id="room-capacity"
-                  type="number"
-                  min={1}
-                  value={capacity}
-                  onChange={(event) => setCapacity(event.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="room-type">Type</Label>
-                <Select
-                  items={ROOM_TYPES.map(([value, label]) => ({ value, label }))}
-                  value={type}
-                  onValueChange={(value) => setType(value ?? 'STANDARD')}
-                >
-                  <SelectTrigger id="room-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROOM_TYPES.map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={saving || !name}>
-                {saving ? 'Ajout...' : 'Ajouter'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

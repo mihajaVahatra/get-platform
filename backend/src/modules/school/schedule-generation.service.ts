@@ -44,7 +44,11 @@ export class ScheduleGenerationService {
         orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
       }),
       this.prisma.room.findMany({
-        where: { schoolId, isActive: true },
+        where: {
+          schoolId,
+          isActive: true,
+          ...(dto.roomId ? { id: dto.roomId } : {}),
+        },
         orderBy: { name: 'asc' },
       }),
     ]);
@@ -58,6 +62,10 @@ export class ScheduleGenerationService {
       include: {
         program: true,
         requirements: {
+          where: {
+            ...(dto.subjectId ? { subjectId: dto.subjectId } : {}),
+            ...(dto.teacherId ? { assignment: { teacherId: dto.teacherId } } : {}),
+          },
           include: {
             subject: true,
             assignment: { include: { teacher: true } },

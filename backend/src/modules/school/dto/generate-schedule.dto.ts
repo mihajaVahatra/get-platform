@@ -9,4 +9,19 @@ export class GenerateScheduleDto {
   @IsOptional()
   @IsUUID()
   classId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  subjectId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  teacherId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  roomId?: string;
 }
