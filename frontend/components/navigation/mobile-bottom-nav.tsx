@@ -25,8 +25,8 @@ export function MobileBottomNav({
   composeHref,
   dark = false,
 }: {
-  items: [BottomNavItem, BottomNavItem, BottomNavItem, BottomNavItem];
-  composeHref: string;
+  items: BottomNavItem[];
+  composeHref?: string;
   dark?: boolean;
 }) {
   const pathname = usePathname();
@@ -41,29 +41,42 @@ export function MobileBottomNav({
         dark ? 'border-white/10 bg-[#0d1b4d]' : 'border-slate-100 bg-white',
       )}
     >
-      {items.slice(0, 2).map((item) => (
-        <NavButton
-          key={item.href}
-          item={item}
-          active={isItemActive(currentUrl, item.href)}
-          dark={dark}
-        />
-      ))}
-      <Link
-        href={composeHref}
-        aria-label="Nouveau message"
-        className="relative -mt-7 grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 transition active:scale-95"
-      >
-        <PenLine className="size-6" />
-      </Link>
-      {items.slice(2, 4).map((item) => (
-        <NavButton
-          key={item.href}
-          item={item}
-          active={isItemActive(currentUrl, item.href)}
-          dark={dark}
-        />
-      ))}
+      {composeHref ? (
+        <>
+          {items.slice(0, 2).map((item) => (
+            <NavButton
+              key={item.href}
+              item={item}
+              active={isItemActive(currentUrl, item.href)}
+              dark={dark}
+            />
+          ))}
+          <Link
+            href={composeHref}
+            aria-label="Nouveau message"
+            className="relative -mt-7 grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 transition active:scale-95"
+          >
+            <PenLine className="size-6" />
+          </Link>
+          {items.slice(2, 4).map((item) => (
+            <NavButton
+              key={item.href}
+              item={item}
+              active={isItemActive(currentUrl, item.href)}
+              dark={dark}
+            />
+          ))}
+        </>
+      ) : (
+        items.map((item) => (
+          <NavButton
+            key={item.href}
+            item={item}
+            active={isItemActive(currentUrl, item.href)}
+            dark={dark}
+          />
+        ))
+      )}
     </nav>
   );
 }

@@ -494,8 +494,9 @@ export function StudentImportDirectory() {
             <DialogHeader>
               <DialogTitle>Inscrire un étudiant</DialogTitle>
               <DialogDescription>
-                Seuls les comptes étudiant existants peuvent être inscrits. Un
-                transfert vers une autre école nécessite une procédure dédiée.
+                Seuls les comptes étudiant existants peuvent être inscrits.
+                Un étudiant déjà inscrit dans un autre établissement peut
+                l'être aussi dans le vôtre (double cursus).
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">

@@ -131,6 +131,7 @@ export class AuthController {
         gender: user.gender,
         firstName: user.student?.firstName || user.email.split('@')[0],
         lastName: user.student?.lastName || '',
+        mfaEnabled: user.mfaEnabled,
       },
     };
   }
@@ -188,6 +189,7 @@ export class AuthController {
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Verify and enable MFA' })
   @ApiBody({
@@ -200,6 +202,7 @@ export class AuthController {
   @Post('mfa/disable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Disable MFA' })
   @ApiBody({

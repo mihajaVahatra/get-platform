@@ -21,7 +21,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "remediate:purge-exposed-secrets": "ts-node prisma/remediation/2026-08-02-purge-exposed-secrets.ts"
+    "seed:national": "ts-node prisma/seed/national.ts",
+    "remediate:purge-exposed-secrets": "ts-node prisma/remediation/2026-08-02-purge-exposed-secrets.ts",
+    "remediate:link-offers-courses": "ts-node prisma/remediation/2026-08-03-link-offers-and-courses-to-programs.ts",
+    "remediate:backfill-student-enrollments": "ts-node prisma/remediation/2026-08-03-backfill-student-enrollments.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

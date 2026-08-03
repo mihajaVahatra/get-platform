@@ -6,10 +6,16 @@ import { SchoolController } from './school.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageService } from '../../common/services/storage.service';
 import { NotificationModule } from '../notification/notification.module';
+import { AnnouncementModule } from '../announcement/announcement.module';
 import { TeacherAvailabilityModule } from '../teacher-availability/teacher-availability.module';
 
 @Module({
-  imports: [PrismaModule, NotificationModule, TeacherAvailabilityModule],
+  imports: [
+    PrismaModule,
+    NotificationModule,
+    AnnouncementModule,
+    TeacherAvailabilityModule,
+  ],
   controllers: [SchoolController],
   providers: [SchoolService, SchedulingService, ScheduleGenerationService, StorageService],
   exports: [SchoolService, SchedulingService],

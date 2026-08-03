@@ -22,10 +22,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
-      exception instanceof HttpException
-        ? exception.message
-        : 'Internal server error';
+    const message = this.extractMessage(exception);
 
     const responseBody = {
       success: false,
@@ -40,5 +37,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     );
 
     response.status(status).json(responseBody);
+  }
+
+  // ValidationPipe (class-validator) renvoie un tableau de messages détaillés
+  // par champ dans le corps de l'exception (`getResponse().message`) ;
+  // `exception.message` seul ne vaut que le texte générique "Bad Request
+  // Exception" et masquait ces détails à l'appelant.
+  private extractMessage(exception: unknown): string {
+    if (!(exception instanceof HttpException)) return 'Internal server error';
+    const response = exception.getResponse();
+    if (typeof response === 'object' && response !== null && 'message' in response) {
+      const raw = (response as { message: unknown }).message;
+      if (Array.isArray(raw)) return raw.join(' ; ');
+      if (typeof raw === 'string') return raw;
+    }
+    return exception.message;
   }
 }

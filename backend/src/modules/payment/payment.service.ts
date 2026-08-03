@@ -37,6 +37,11 @@ export class PaymentService {
     if (application.studentId !== studentId) {
       throw new ForbiddenException('Cette candidature ne vous appartient pas');
     }
+    if (application.status !== 'ACCEPTED') {
+      throw new BadRequestException(
+        "Cette candidature n'est pas encore acceptée : le paiement n'est possible qu'après une réponse favorable de l'établissement",
+      );
+    }
 
     // Le tarif ne vient jamais du client : l'offre est la source de vérité.
     const amount = application.offer.tuitionFees;
@@ -147,8 +152,11 @@ export class PaymentService {
           where: { id: payment.applicationId },
           include: { offer: true },
         });
+
+        let program: { id: string; name: string } | null = null;
+        let academicYear: { id: string; label: string } | null = null;
         if (application?.offer.programId) {
-          const [program, academicYear] = await Promise.all([
+          [program, academicYear] = await Promise.all([
             tx.schoolProgram.findFirst({
               where: {
                 id: application.offer.programId,
@@ -160,34 +168,66 @@ export class PaymentService {
               where: { schoolId: application.offer.schoolId, isCurrent: true },
             }),
           ]);
-          if (program && academicYear) {
-            const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-            const student = await tx.student.update({
-              where: { id: application.studentId },
-              data: {
-                enrolledSchoolId: application.offer.schoolId,
-                programId: program.id,
-                programLevel: 1,
-                academicYearId: academicYear.id,
-                enrolledYear,
-                enrollmentStatus: 'ACTIVE',
+        }
+
+        if (application && program && academicYear) {
+          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+          await tx.studentEnrollment.upsert({
+            where: {
+              studentId_schoolId: {
+                studentId: application.studentId,
+                schoolId: application.offer.schoolId,
               },
-            });
-            await this.schoolService.syncCourseEnrollments(
-              student.id,
-              application.offer.schoolId,
-              program.id,
-              1,
-              tx,
-            );
-            await tx.applicationTimeline.create({
-              data: {
-                applicationId: application.id,
-                status: 'ENROLLED',
-                note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-              },
-            });
-          }
+            },
+            create: {
+              studentId: application.studentId,
+              schoolId: application.offer.schoolId,
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              status: 'ACTIVE',
+            },
+            update: {
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              status: 'ACTIVE',
+            },
+          });
+          await this.schoolService.syncCourseEnrollments(
+            application.studentId,
+            application.offer.schoolId,
+            program.id,
+            1,
+            tx,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+            },
+          });
+        } else if (application) {
+          // Le paiement est bien confirmé, mais l'inscription automatique
+          // n'a pas pu aboutir (offre sans programme lié, ou programme/année
+          // académique introuvable). Ne JAMAIS laisser passer ça en silence
+          // — un paiement réel sans inscription réelle est le pire des cas.
+          const reason = !application.offer.programId
+            ? "l'offre n'est liée à aucun programme"
+            : "aucun programme actif ou année académique en cours pour cette école";
+          console.error(
+            `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+            },
+          });
         }
       }
 
@@ -238,11 +278,7 @@ export class PaymentService {
     });
     if (!payment) throw new NotFoundException('Payment not found');
 
-    if (
-      payment.student.userId !== userId &&
-      role !== 'ADMIN_GET' &&
-      role !== 'MINISTRY'
-    ) {
+    if (payment.student.userId !== userId && role !== 'ADMIN_GET') {
       throw new ForbiddenException(
         'Vous n’êtes pas autorisé à consulter ce paiement',
       );
@@ -302,7 +338,7 @@ export class PaymentService {
 
   async openBankAccount(studentId: string, bankId: string) {
     return {
-      accountNumber: `MG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      accountNumber: `MG-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`,
       bankName: 'Banque Partenaire',
       status: 'ACTIVE',
     };
@@ -327,9 +363,19 @@ export class PaymentService {
         take: currentLimit,
         orderBy: { createdAt: 'desc' },
         include: {
-          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
           application: {
-            select: { offer: { select: { title: true, school: { select: { name: true } } } } },
+            select: {
+              offer: {
+                select: { title: true, school: { select: { name: true } } },
+              },
+            },
           },
         },
       }),
@@ -346,8 +392,9 @@ export class PaymentService {
         status: payment.status,
         createdAt: payment.createdAt,
         studentName:
-          [payment.student.firstName, payment.student.lastName].filter(Boolean).join(' ') ||
-          payment.student.user.email,
+          [payment.student.firstName, payment.student.lastName]
+            .filter(Boolean)
+            .join(' ') || payment.student.user.email,
         school: payment.application?.offer.school.name || null,
       })),
       meta: {

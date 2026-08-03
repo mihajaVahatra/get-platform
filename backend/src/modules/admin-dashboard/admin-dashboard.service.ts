@@ -9,14 +9,24 @@ export class AdminDashboardService {
     const [
       activeSchools,
       enrolledStudents,
+      distinctEnrolledStudents,
       totalApplications,
       pendingApplications,
       acceptedApplications,
       revenue,
     ] = await Promise.all([
       this.prisma.school.count({ where: { isActive: true, deletedAt: null } }),
+      // Nombre d'inscriptions actives (un étudiant à double cursus compte
+      // pour 2, une par école) — voir distinctEnrolledStudents ci-dessous
+      // pour le nombre réel d'étudiants.
+      this.prisma.studentEnrollment.count({
+        where: { status: 'ACTIVE', student: { deletedAt: null } },
+      }),
       this.prisma.student.count({
-        where: { enrolledSchoolId: { not: null }, enrollmentStatus: 'ACTIVE', deletedAt: null },
+        where: {
+          deletedAt: null,
+          schoolEnrollments: { some: { status: 'ACTIVE' } },
+        },
       }),
       this.prisma.application.count({ where: { deletedAt: null } }),
       this.prisma.application.count({ where: { deletedAt: null, status: 'PENDING' } }),
@@ -30,6 +40,7 @@ export class AdminDashboardService {
     return {
       activeSchools,
       enrolledStudents,
+      distinctEnrolledStudents,
       totalApplications,
       pendingApplications,
       acceptanceRate: totalApplications

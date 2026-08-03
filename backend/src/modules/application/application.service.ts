@@ -6,11 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
+import { NotificationService } from '../notification/notification.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction, AuditResource } from '../audit/dto/audit-log.dto';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import {
   UpdateApplicationStatusDto,
   ScheduleInterviewDto,
+  ScheduleTestDto,
   ApplicationStatus,
+  APPLICATION_STATUS_TRANSITIONS,
 } from './dto/update-application-status.dto';
 
 @Injectable()
@@ -18,7 +23,30 @@ export class ApplicationService {
   constructor(
     private prisma: PrismaService,
     private schoolService: SchoolService,
+    private notificationService: NotificationService,
+    private auditService: AuditService,
   ) {}
+
+  // Ne doit jamais faire échouer l'action métier appelante : l'envoi de
+  // notification est un effet secondaire, pas une condition de succès.
+  private async notifyStatusChange(
+    userId: string,
+    applicationId: string,
+    status: ApplicationStatus,
+  ) {
+    try {
+      await this.notificationService.sendApplicationStatusUpdate(
+        userId,
+        applicationId,
+        status,
+      );
+    } catch (error) {
+      console.error(
+        `[NOTIFICATION] Échec d'envoi pour la candidature ${applicationId} :`,
+        error,
+      );
+    }
+  }
 
   // ========== STUDENT ==========
 
@@ -42,6 +70,13 @@ export class ApplicationService {
         results.failed.push(offerId);
         continue;
       }
+      // Une offre encore marquée "ouverte" mais dont la date limite est
+      // dépassée ne doit plus accepter de nouvelles candidatures (faille
+      // corrigée suite à l'audit QA : la deadline n'était jamais relue).
+      if (offer.applicationDeadline && offer.applicationDeadline < new Date()) {
+        results.failed.push(offerId);
+        continue;
+      }
 
       const existing = await this.prisma.application.findFirst({
         where: { studentId, offerId },
@@ -51,6 +86,7 @@ export class ApplicationService {
         continue;
       }
 
+      let createdApplicationId: string | null = null;
       await this.prisma.$transaction(async (tx) => {
         const application = await tx.application.create({
           data: {
@@ -59,6 +95,7 @@ export class ApplicationService {
             status: ApplicationStatus.PENDING,
           },
         });
+        createdApplicationId = application.id;
         await tx.applicationTimeline.create({
           data: {
             applicationId: application.id,
@@ -68,6 +105,14 @@ export class ApplicationService {
         });
       });
       results.submitted.push(offerId);
+
+      if (createdApplicationId && student.userId) {
+        await this.notifyStatusChange(
+          student.userId,
+          createdApplicationId,
+          ApplicationStatus.PENDING,
+        );
+      }
     }
 
     return results;
@@ -117,7 +162,7 @@ export class ApplicationService {
     };
   }
 
-  // ========== SCHOOL ADMIN / MINISTRY ==========
+  // ========== SCHOOL ADMIN ==========
 
   async getSchoolApplications(
     schoolAdminId: string,
@@ -217,8 +262,19 @@ export class ApplicationService {
         take: limit,
         orderBy: { submittedAt: 'desc' },
         include: {
-          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
-          offer: { select: { title: true, school: { select: { id: true, name: true } } } },
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
+          offer: {
+            select: {
+              title: true,
+              school: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
       this.prisma.application.count({ where }),
@@ -230,8 +286,9 @@ export class ApplicationService {
         status: application.status,
         submittedAt: application.submittedAt,
         studentName:
-          [application.student.firstName, application.student.lastName].filter(Boolean).join(' ') ||
-          application.student.user.email,
+          [application.student.firstName, application.student.lastName]
+            .filter(Boolean)
+            .join(' ') || application.student.user.email,
         offerTitle: application.offer.title,
         school: application.offer.school.name,
       })),
@@ -309,16 +366,63 @@ export class ApplicationService {
   ) {
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { offer: { include: { school: true } } },
+      include: { offer: { include: { school: true } }, student: true },
     });
     if (!application) throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(application, userId);
 
+    const previousStatus = application.status as ApplicationStatus;
+
+    // Machine à états : REJECTED/CANCELLED sont terminaux et n'autorisent
+    // plus aucune transition — auparavant une candidature rejetée pouvait
+    // être renvoyée directement à ACCEPTED et redéclencher une inscription
+    // réelle (faille corrigée suite à l'audit QA).
+    const allowedNextStatuses =
+      APPLICATION_STATUS_TRANSITIONS[previousStatus] ?? [];
+    if (
+      previousStatus !== dto.status &&
+      !allowedNextStatuses.includes(dto.status)
+    ) {
+      throw new BadRequestException(
+        `Transition de statut invalide : ${previousStatus} → ${dto.status}`,
+      );
+    }
+
+    // La capacité d'une offre n'a de sens qu'au moment où une candidature
+    // devient effectivement ACCEPTED — sans ce contrôle, une offre à
+    // capacité limitée pouvait accepter un nombre illimité de candidats
+    // (faille corrigée suite à l'audit QA).
+    if (
+      dto.status === ApplicationStatus.ACCEPTED &&
+      previousStatus !== ApplicationStatus.ACCEPTED &&
+      application.offer.capacity
+    ) {
+      const acceptedCount = await this.prisma.application.count({
+        where: {
+          offerId: application.offerId,
+          status: {
+            in: [ApplicationStatus.ACCEPTED, ApplicationStatus.ENROLLED],
+          },
+        },
+      });
+      if (acceptedCount >= application.offer.capacity) {
+        throw new BadRequestException(
+          'La capacité maximale de cette offre est déjà atteinte',
+        );
+      }
+    }
+
+    const freesASeat =
+      (previousStatus === ApplicationStatus.ACCEPTED ||
+        previousStatus === ApplicationStatus.ENROLLED) &&
+      (dto.status === ApplicationStatus.CANCELLED ||
+        dto.status === ApplicationStatus.REJECTED);
+
     // Mise à jour de statut + inscription automatique : atomique, pour ne
     // jamais laisser une candidature "ACCEPTED"/"ENROLLED" sans que l'étudiant
     // soit réellement inscrit (cf. audit sécurité).
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.application.update({
+    const { updated, promoted } = await this.prisma.$transaction(async (tx) => {
+      const updatedApplication = await tx.application.update({
         where: { id: applicationId },
         data: {
           status: dto.status,
@@ -338,37 +442,57 @@ export class ApplicationService {
       });
 
       if (
-        (dto.status === ApplicationStatus.ACCEPTED ||
-          dto.status === ApplicationStatus.ENROLLED) &&
-        application.offer.programId
+        dto.status === ApplicationStatus.ACCEPTED ||
+        dto.status === ApplicationStatus.ENROLLED
       ) {
-        const [program, academicYear] = await Promise.all([
-          tx.schoolProgram.findFirst({
-            where: {
-              id: application.offer.programId,
-              schoolId: application.offer.schoolId,
-              isActive: true,
-            },
-          }),
-          tx.schoolAcademicYear.findFirst({
-            where: { schoolId: application.offer.schoolId, isCurrent: true },
-          }),
-        ]);
+        // Un étudiant peut être inscrit activement dans plusieurs écoles à
+        // la fois (double diplôme, cursus parallèle) : une ligne
+        // StudentEnrollment par (étudiant, école), jamais un écrasement.
+        let program: { id: string; name: string } | null = null;
+        let academicYear: { id: string; label: string } | null = null;
+        if (application.offer.programId) {
+          [program, academicYear] = await Promise.all([
+            tx.schoolProgram.findFirst({
+              where: {
+                id: application.offer.programId,
+                schoolId: application.offer.schoolId,
+                isActive: true,
+              },
+            }),
+            tx.schoolAcademicYear.findFirst({
+              where: { schoolId: application.offer.schoolId, isCurrent: true },
+            }),
+          ]);
+        }
+
         if (program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          const student = await tx.student.update({
-            where: { id: application.studentId },
-            data: {
-              enrolledSchoolId: application.offer.schoolId,
+          await tx.studentEnrollment.upsert({
+            where: {
+              studentId_schoolId: {
+                studentId: application.studentId,
+                schoolId: application.offer.schoolId,
+              },
+            },
+            create: {
+              studentId: application.studentId,
+              schoolId: application.offer.schoolId,
               programId: program.id,
               programLevel: 1,
               academicYearId: academicYear.id,
               enrolledYear,
-              enrollmentStatus: 'ACTIVE',
+              status: 'ACTIVE',
+            },
+            update: {
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              status: 'ACTIVE',
             },
           });
           await this.schoolService.syncCourseEnrollments(
-            student.id,
+            application.studentId,
             application.offer.schoolId,
             program.id,
             1,
@@ -382,21 +506,109 @@ export class ApplicationService {
               createdBy: userId,
             },
           });
+        } else {
+          // Statut ACCEPTED/ENROLLED confirmé par un humain, mais
+          // l'inscription automatique n'a pas pu aboutir — jamais silencieux
+          // (cf. audit sécurité / test bout-en-bout).
+          const reason = !application.offer.programId
+            ? "l'offre n'est liée à aucun programme"
+            : "aucun programme actif ou année académique en cours pour cette école";
+          console.error(
+            `[ALERTE INSCRIPTION] Candidature ${applicationId} passée à ${dto.status} mais inscription automatique impossible : ${reason}.`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId,
+              status: dto.status,
+              note: `⚠️ Statut mis à jour mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+              createdBy: userId,
+            },
+          });
         }
       }
 
-      return updated;
+      // Une place qui se libère (désistement/refus après acceptation) fait
+      // automatiquement remonter le candidat le plus ancien en liste
+      // d'attente — auparavant cette promotion n'existait pas du tout.
+      let promotedCandidate: { id: string; studentUserId: string } | null =
+        null;
+      if (freesASeat) {
+        const nextWaitlisted = await tx.application.findFirst({
+          where: {
+            offerId: application.offerId,
+            status: ApplicationStatus.WAITLISTED,
+          },
+          orderBy: { submittedAt: 'asc' },
+          include: { student: true },
+        });
+        if (nextWaitlisted) {
+          await tx.application.update({
+            where: { id: nextWaitlisted.id },
+            data: {
+              status: ApplicationStatus.ACCEPTED,
+              decisionDate: new Date(),
+              decisionReason:
+                'Promotion automatique depuis la liste d’attente (place libérée)',
+            },
+          });
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: nextWaitlisted.id,
+              status: ApplicationStatus.ACCEPTED,
+              note: 'Promu automatiquement depuis la liste d’attente suite à une place libérée.',
+              createdBy: userId,
+            },
+          });
+          promotedCandidate = {
+            id: nextWaitlisted.id,
+            studentUserId: nextWaitlisted.student.userId,
+          };
+        }
+      }
+
+      return { updated: updatedApplication, promoted: promotedCandidate };
     });
+
+    if (application.student?.userId) {
+      await this.notifyStatusChange(
+        application.student.userId,
+        applicationId,
+        dto.status,
+      );
+    }
+    if (promoted) {
+      await this.notifyStatusChange(
+        promoted.studentUserId,
+        promoted.id,
+        ApplicationStatus.ACCEPTED,
+      );
+    }
+
+    await this.auditService.log({
+      userId,
+      action: AuditAction.UPDATE,
+      resource: AuditResource.APPLICATION,
+      resourceId: applicationId,
+      before: { status: previousStatus },
+      after: {
+        status: dto.status,
+        reason: dto.reason ?? null,
+        score: dto.score ?? null,
+      },
+      status: 'SUCCESS',
+    });
+
+    return updated;
   }
 
   async scheduleTest(
     applicationId: string,
-    data: { date: Date; type: string; details?: string },
+    dto: ScheduleTestDto,
     userId: string,
   ) {
     const applicationToManage = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { offer: true },
+      include: { offer: true, student: true },
     });
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
@@ -406,9 +618,11 @@ export class ApplicationService {
       data: {
         status: ApplicationStatus.TEST_SCHEDULED,
         testResults: {
-          type: data.type,
-          details: data.details,
-          scheduledAt: data.date,
+          type: dto.type,
+          details: dto.details,
+          location: dto.location,
+          requiredDocuments: dto.requiredDocuments ?? [],
+          scheduledAt: new Date(dto.date),
         },
       },
     });
@@ -417,10 +631,18 @@ export class ApplicationService {
       data: {
         applicationId,
         status: ApplicationStatus.TEST_SCHEDULED,
-        note: `Test scheduled: ${data.type} on ${data.date}`,
+        note: `Test scheduled: ${dto.type} on ${dto.date}${dto.location ? ` (lieu : ${dto.location})` : ''}`,
         createdBy: userId,
       },
     });
+
+    if (applicationToManage.student?.userId) {
+      await this.notifyStatusChange(
+        applicationToManage.student.userId,
+        applicationId,
+        ApplicationStatus.TEST_SCHEDULED,
+      );
+    }
 
     return application;
   }
@@ -432,7 +654,7 @@ export class ApplicationService {
   ) {
     const applicationToManage = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { offer: true },
+      include: { offer: true, student: true },
     });
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
@@ -455,6 +677,14 @@ export class ApplicationService {
       },
     });
 
+    if (applicationToManage.student?.userId) {
+      await this.notifyStatusChange(
+        applicationToManage.student.userId,
+        applicationId,
+        ApplicationStatus.INTERVIEW_SCHEDULED,
+      );
+    }
+
     return application;
   }
 
@@ -465,16 +695,27 @@ export class ApplicationService {
   ) {
     const applicationToManage = await this.prisma.application.findUnique({
       where: { id: applicationId },
-      include: { offer: true },
+      include: { offer: true, student: true },
     });
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(applicationToManage, userId);
+
+    // Fusion et non écrasement du JSON `testResults` : on conserve le
+    // type/date/lieu du test déjà enregistrés par `scheduleTest` au lieu
+    // de les effacer (perte de données corrigée suite à l'audit QA).
+    const previousTestResults =
+      applicationToManage.testResults &&
+      typeof applicationToManage.testResults === 'object' &&
+      !Array.isArray(applicationToManage.testResults)
+        ? (applicationToManage.testResults as Record<string, unknown>)
+        : {};
+
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
         score: data.score,
-        testResults: { comments: data.comments },
+        testResults: { ...previousTestResults, comments: data.comments },
         status: ApplicationStatus.TEST_COMPLETED,
       },
     });
@@ -487,6 +728,14 @@ export class ApplicationService {
         createdBy: userId,
       },
     });
+
+    if (applicationToManage.student?.userId) {
+      await this.notifyStatusChange(
+        applicationToManage.student.userId,
+        applicationId,
+        ApplicationStatus.TEST_COMPLETED,
+      );
+    }
 
     return application;
   }
@@ -520,7 +769,7 @@ export class ApplicationService {
     userId: string,
     role: string,
   ) {
-    if (role === 'ADMIN_GET' || role === 'MINISTRY') return;
+    if (role === 'ADMIN_GET') return;
     if (role === 'STUDENT' && application.student.userId === userId) return;
     if (role === 'SCHOOL_ADMIN') {
       const admin = await this.prisma.schoolAdmin.findUnique({

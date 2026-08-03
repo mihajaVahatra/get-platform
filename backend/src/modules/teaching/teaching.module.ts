@@ -8,10 +8,10 @@ import {
   TeachingController,
 } from './teaching.controller';
 import { TeachingService } from './teaching.service';
-import { NotificationModule } from '../notification/notification.module';
+import { AnnouncementModule } from '../announcement/announcement.module';
 import { StorageService } from '../../common/services/storage.service';
 @Module({
-  imports: [PrismaModule, NotificationModule],
+  imports: [PrismaModule, AnnouncementModule],
   controllers: [
     TeachingController,
     TeacherEvaluationsController,

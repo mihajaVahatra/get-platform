@@ -5,6 +5,7 @@ import { Building2Icon, DoorOpenIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { MfaSettingsCard } from '@/components/auth/MfaSettingsCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -958,6 +959,8 @@ function RoomsManager() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <MfaSettingsCard />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 
-const REVIEWER_ROLES = new Set(['ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY']);
+const REVIEWER_ROLES = new Set(['ADMIN_GET', 'SCHOOL_ADMIN']);
 
 function extractToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
@@ -27,9 +27,7 @@ function extractToken(req: Request): string | null {
  * Les images publiques (avatars, logos, bannières) continuent d'être
  * servies par `useStaticAssets`, monté après ce routeur.
  */
-export function createProtectedUploadsRouter(
-  app: INestApplication,
-): Router {
+export function createProtectedUploadsRouter(app: INestApplication): Router {
   const router = Router();
   const jwt = app.get(JwtService);
   const config = app.get(ConfigService);
@@ -48,7 +46,7 @@ export function createProtectedUploadsRouter(
       });
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { student: true, role: true },
+        include: { student: true, teacher: true, role: true, schoolAdmin: true },
       });
       if (!user || !user.isActive) {
         res.status(401).json({ message: 'Utilisateur invalide' });
@@ -79,10 +77,32 @@ export function createProtectedUploadsRouter(
   router.get('/documents/:studentId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
+    if (user.role === 'MINISTRY') {
+      res.status(403).json({ message: 'Accès refusé' });
+      return;
+    }
 
     const { studentId, fileName } = req.params;
     const isOwner = user.student?.id === studentId;
-    if (!isOwner && !REVIEWER_ROLES.has(user.role)) {
+    // Un ADMIN_GET (plateforme) peut tout consulter ; un SCHOOL_ADMIN ne
+    // peut consulter les documents d'un candidat que si celui-ci a
+    // effectivement postulé dans SON école — sans cette vérification,
+    // n'importe quel SCHOOL_ADMIN pouvait télécharger les documents de
+    // n'importe quel candidat d'une autre école (faille IDOR corrigée).
+    let isAuthorizedReviewer = false;
+    if (user.role === 'ADMIN_GET') {
+      isAuthorizedReviewer = true;
+    } else if (user.role === 'SCHOOL_ADMIN' && user.schoolAdmin) {
+      const hasApplicationAtThisSchool = await prisma.application.findFirst({
+        where: {
+          studentId,
+          offer: { schoolId: user.schoolAdmin.schoolId },
+        },
+        select: { id: true },
+      });
+      isAuthorizedReviewer = !!hasApplicationAtThisSchool;
+    }
+    if (!isOwner && !isAuthorizedReviewer) {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
@@ -92,15 +112,40 @@ export function createProtectedUploadsRouter(
   router.get('/course-materials/:courseId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
-    // Authentification requise ; le contrôle d'inscription fin par cours
-    // reste à affiner (cf. audit sécurité).
+    // Ministry est limité aux statistiques institutionnelles agrégées : ce
+    // rôle ne peut pas télécharger de supports, même si l'URL est connue.
+    if (user.role === 'MINISTRY') {
+      res.status(403).json({ message: 'Accès refusé' });
+      return;
+    }
     const { courseId, fileName } = req.params;
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { teacherId: true },
+    });
+    const isTeacher = course && user.teacher?.id === course.teacherId;
+    const isEnrolledStudent =
+      user.student &&
+      (await prisma.courseEnrollment.findUnique({
+        where: {
+          courseId_studentId: { courseId, studentId: user.student.id },
+        },
+        select: { id: true },
+      }));
+    if (!isTeacher && !isEnrolledStudent && !REVIEWER_ROLES.has(user.role)) {
+      res.status(403).json({ message: 'Accès refusé' });
+      return;
+    }
     sendUploadFile(res, ['course-materials', courseId, fileName]);
   });
 
   router.get('/messages/:messageId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
+    if (user.role === 'MINISTRY') {
+      res.status(403).json({ message: 'Accès refusé' });
+      return;
+    }
 
     const { messageId, fileName } = req.params;
     const message = await prisma.message.findUnique({

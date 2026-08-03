@@ -26,6 +26,7 @@ import {
 import {
   UpdateApplicationStatusDto,
   ScheduleInterviewDto,
+  ScheduleTestDto,
   ApplicationStatus,
 } from './dto/update-application-status.dto';
 import { ApplicationResponseDto } from './dto/application-response.dto';
@@ -50,6 +51,8 @@ export class ApplicationController {
   // ========== STUDENT ==========
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiOperation({ summary: 'Submit applications to multiple offers' })
   @ApiBody({ type: SubmitApplicationDto })
   @ApiResponse({
@@ -80,6 +83,8 @@ export class ApplicationController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiOperation({ summary: 'Get my applications' })
   @ApiQuery({ name: 'status', required: false, enum: ApplicationStatus })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -149,7 +154,8 @@ export class ApplicationController {
   // ========== DETAIL (Authorized) ==========
 
   @Get(':id/documents')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Get documents for an authorized application' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({
@@ -208,7 +214,9 @@ export class ApplicationController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
-  @ApiOperation({ summary: 'List all applications across the platform (Admin only)' })
+  @ApiOperation({
+    summary: 'List all applications across the platform (Admin only)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'status', required: false })
@@ -232,6 +240,8 @@ export class ApplicationController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Application details' })
@@ -294,26 +304,16 @@ export class ApplicationController {
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Schedule a test for a candidate' })
   @ApiParam({ name: 'id', description: 'Application ID' })
-  @ApiBody({
-    schema: {
-      properties: {
-        date: { type: 'string', example: '2024-02-10T10:00:00Z' },
-        type: { type: 'string', example: 'QCM' },
-        details: { type: 'string', example: 'Logic test' },
-      },
-    },
-  })
+  @ApiBody({ type: ScheduleTestDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Test scheduled' })
   async scheduleTest(
     @Param('id') id: string,
-    @Body('date') date: string,
-    @Body('type') type: string,
-    @Body('details') details: string,
+    @Body() dto: ScheduleTestDto,
     @GetUser('id') userId: string,
   ) {
     const application = await this.applicationService.scheduleTest(
       id,
-      { date: new Date(date), type, details },
+      dto,
       userId,
     );
     return {
