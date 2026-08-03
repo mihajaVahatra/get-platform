@@ -24,8 +24,13 @@ export class MinistryService {
   // ============================================================
 
   async getDashboard(filters?: { from?: Date; to?: Date }) {
-    try {
-      const where: any = {};
+    // Pas de try/catch global ici : une vraie panne DB doit remonter comme
+    // une erreur au ministère, pas ressembler silencieusement à "aucune
+    // candidature ce mois-ci" (cf. audit sécurité). Les sous-requêtes
+    // secondaires ci-dessous (genre, région, filière, tendances, alertes)
+    // gardent chacune leur propre repli à vide : elles sont non critiques et
+    // ne doivent pas faire échouer tout le tableau de bord.
+    const where: any = {};
       if (filters?.from) where.createdAt = { gte: filters.from };
       if (filters?.to)
         where.createdAt = { ...where.createdAt, lte: filters.to };
@@ -46,13 +51,26 @@ export class MinistryService {
           ? Math.round((acceptedCount / totalApplications) * 100)
           : 0;
 
-      // Répartition par genre (fallback)
-      const genderDistribution = {
-        male: 0,
-        female: 0,
-        other: 0,
-        unknown: totalStudents,
-      };
+      // Répartition par genre
+      const genderDistribution = { male: 0, female: 0, other: 0 };
+      try {
+        const genderRows = await this.prisma.$queryRaw<
+          { gender: string; count: number }[]
+        >`
+          SELECT u.gender as gender, COUNT(*)::int as count
+          FROM students s
+          JOIN users u ON u.id = s."userId"
+          GROUP BY u.gender
+        `;
+        for (const row of genderRows) {
+          if (row.gender === 'MALE') genderDistribution.male = row.count;
+          else if (row.gender === 'FEMALE')
+            genderDistribution.female = row.count;
+          else genderDistribution.other += row.count;
+        }
+      } catch {
+        // valeurs à zéro si la requête échoue
+      }
 
       // Répartition par région (simplifiée)
       let regionalDistribution: any[] = [];
@@ -112,6 +130,54 @@ export class MinistryService {
         monthAggregation = [];
       }
 
+      // Alertes de suivi — comptent ce qui nécessite l'attention du
+      // ministère, calculé depuis les données réelles (pas de texte statique).
+      let nonCompliantSchools = 0;
+      try {
+        const rows = await this.prisma.$queryRaw<{ count: number }[]>`
+          SELECT COUNT(*)::int as count FROM (
+            SELECT DISTINCT ON ("schoolId") "schoolId", status
+            FROM compliance_checks
+            ORDER BY "schoolId", "checkedAt" DESC
+          ) latest
+          WHERE status = 'FAILED'
+        `;
+        nonCompliantSchools = rows[0]?.count || 0;
+      } catch {
+        nonCompliantSchools = 0;
+      }
+
+      const pendingOver48h = await this.prisma.application.count({
+        where: {
+          status: 'PENDING',
+          submittedAt: { lte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+        },
+      });
+
+      const recentApplicationRows = await this.prisma.application.findMany({
+        where,
+        orderBy: { submittedAt: 'desc' },
+        take: 5,
+        select: {
+          status: true,
+          submittedAt: true,
+          student: { select: { firstName: true, lastName: true } },
+          offer: { select: { title: true, school: { select: { name: true } } } },
+        },
+      });
+      const recentApplications = recentApplicationRows.map((a) => ({
+        studentName: `${a.student.firstName} ${a.student.lastName}`.trim(),
+        school: a.offer.school.name,
+        filiere: a.offer.title,
+        status: a.status,
+        submittedAt: a.submittedAt,
+      }));
+
+      const alerts = {
+        nonCompliantSchools,
+        pendingApplicationsOver48h: pendingOver48h,
+      };
+
       return {
         totalApplications,
         totalStudents,
@@ -122,21 +188,9 @@ export class MinistryService {
         regionalDistribution,
         applicationsByFiliere: filiereData,
         trends: monthAggregation,
+        alerts,
+        recentApplications,
       };
-    } catch (error) {
-      console.error('Erreur dashboard:', error);
-      return {
-        totalApplications: 0,
-        totalStudents: 0,
-        totalSchools: 0,
-        totalOffers: 0,
-        acceptanceRate: 0,
-        genderDistribution: { male: 0, female: 0, other: 0, unknown: 0 },
-        regionalDistribution: [],
-        applicationsByFiliere: [],
-        trends: [],
-      };
-    }
   }
 
   // ============================================================
@@ -150,7 +204,6 @@ export class MinistryService {
     filiere?: string;
     schoolId?: string;
   }) {
-    try {
       const where: any = {};
       if (filters?.from) where.submittedAt = { gte: filters.from };
       if (filters?.to)
@@ -211,15 +264,6 @@ export class MinistryService {
         byRegion: regionData,
         byFiliere: filiereData,
       };
-    } catch (error) {
-      console.error('Erreur stats applications:', error);
-      return {
-        total: 0,
-        byStatus: [],
-        byRegion: [],
-        byFiliere: [],
-      };
-    }
   }
 
   // ============================================================
@@ -227,7 +271,6 @@ export class MinistryService {
   // ============================================================
 
   async getSchoolStats() {
-    try {
       const [
         totalSchools,
         publicSchools,
@@ -286,17 +329,6 @@ export class MinistryService {
         averageOffersPerSchool: Number(avgOffers) || 0,
         averageApplicationsPerSchool: Number(avgApps) || 0,
       };
-    } catch (error) {
-      console.error('Erreur stats écoles:', error);
-      return {
-        totalSchools: 0,
-        publicSchools: 0,
-        privateSchools: 0,
-        schoolsByRegion: [],
-        averageOffersPerSchool: 0,
-        averageApplicationsPerSchool: 0,
-      };
-    }
   }
 
   // ============================================================
@@ -304,7 +336,6 @@ export class MinistryService {
   // ============================================================
 
   async getGeographicStats() {
-    try {
       const byRegion = await this.prisma.student.groupBy({
         by: ['region'],
         _count: true,
@@ -332,10 +363,6 @@ export class MinistryService {
           .sort((a, b) => b.count - a.count)
           .slice(0, 20),
       };
-    } catch (error) {
-      console.error('Erreur stats géographiques:', error);
-      return { byRegion: [], byCity: [] };
-    }
   }
 
   // ============================================================
@@ -354,7 +381,6 @@ export class MinistryService {
     const where: any = {};
     if (options?.status) where.status = options.status;
 
-    try {
       const [items, total] = await Promise.all([
         this.prisma.complianceCheck.findMany({
           where,
@@ -385,10 +411,6 @@ export class MinistryService {
           totalPages: Math.ceil(total / limit),
         },
       };
-    } catch (error) {
-      console.error('Erreur conformité:', error);
-      return { items: [], meta: { page, limit, total: 0, totalPages: 0 } };
-    }
   }
 
   // ============================================================

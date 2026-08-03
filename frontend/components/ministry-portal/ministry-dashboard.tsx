@@ -1,78 +1,97 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import {
-  AlertTriangle,
   Building2,
-  CalendarDays,
-  ChevronRight,
-  CircleDollarSign,
+  Clock3,
   Download,
-  FileCheck2,
   FileText,
-  MapPinned,
-  MessageSquare,
-  UserPlus,
+  ShieldAlert,
   UsersRound,
-  WalletCards,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { apiClient } from '@/lib/api-client';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { MessageIconLink } from '@/components/messages/message-icon-link';
 import { MessagesScreen } from '@/components/messages/messages-screen';
 
-const activities: Array<[string, string, string, LucideIcon, string]> = [
-  [
-    'Nouvel établissement enregistré : IST Mahajanga',
-    'Institut Supérieur de Technologie de Mahajanga',
-    'Il y a 10 min',
-    Building2,
-    'violet',
-  ],
-  [
-    '12 450 nouvelles inscriptions aujourd’hui',
-    'Sur la plateforme GET',
-    'Il y a 30 min',
-    UserPlus,
-    'blue',
-  ],
-  [
-    'Paiement de 125 000 000 Ar reçu',
-    'par BNI Madagascar',
-    'Il y a 1 h',
-    WalletCards,
-    'green',
-  ],
-  [
-    'Rapport mensuel généré',
-    'Rapport national – Mai 2025',
-    'Il y a 2 h',
-    FileText,
-    'blue',
-  ],
-  [
-    'Mise à jour des données établissements',
-    '156 établissements synchronisés',
-    'Il y a 3 h',
-    FileCheck2,
-    'green',
-  ],
-];
+type DashboardData = {
+  totalApplications: number;
+  totalStudents: number;
+  totalSchools: number;
+  totalOffers: number;
+  acceptanceRate: number;
+  genderDistribution: { male: number; female: number; other: number };
+  regionalDistribution: { region: string; count: number }[];
+  applicationsByFiliere: { filiere: string; count: number }[];
+  trends: { period: string; count: number }[];
+  alerts: {
+    nonCompliantSchools: number;
+    pendingApplicationsOver48h: number;
+  };
+  recentApplications: {
+    studentName: string;
+    school: string;
+    filiere: string;
+    status: string;
+    submittedAt: string;
+  }[];
+};
 
-const regions = [
-  ['Analamanga', '42 561', '51,8%', 100],
-  ['Vakinankaratra', '12 865', '15,7%', 53],
-  ['Atsinanana', '8 745', '10,6%', 42],
-  ['Atsimo-Andrefana', '6 321', '7,7%', 32],
-  ['Diana', '4 521', '5,5%', 24],
-  ['Autres régions', '7 132', '8,7%', 36],
-] as const;
+const numberFormatter = new Intl.NumberFormat('fr-FR');
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'En attente',
+  UNDER_REVIEW: 'En cours',
+  TEST_SCHEDULED: 'Test planifié',
+  INTERVIEW_SCHEDULED: 'Entretien planifié',
+  PRESELECTED: 'Présélectionnée',
+  WAITLISTED: 'Liste d’attente',
+  ACCEPTED: 'Acceptée',
+  REJECTED: 'Rejetée',
+  ENROLLED: 'Inscrite',
+};
 
 export function MinistryDashboard() {
   const searchParams = useSearchParams();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const fetchDashboard = async (params?: { from?: string; to?: string }) => {
+    setLoading(true);
+    setError(false);
+    try {
+      const response = await apiClient.get('/ministry/dashboard', {
+        params: {
+          from: params?.from || undefined,
+          to: params?.to || undefined,
+        },
+      });
+      setData(response.data.data);
+    } catch (err) {
+      console.error('Erreur chargement du tableau de bord ministère:', err);
+      setError(true);
+      toast.error('Impossible de charger le tableau de bord');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (searchParams.get('section') === 'messages') {
     return <MessagesScreen />;
   }
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-4">
@@ -84,211 +103,239 @@ export function MinistryDashboard() {
             Vue d’ensemble du système post-bac national
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]">
-            <CalendarDays className="size-4 text-violet-600" />
-            01 mai – 31 mai 2025⌄
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            aria-label="Date de début"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs text-[#34406b]"
+          />
+          <span className="text-xs text-slate-400">→</span>
+          <input
+            type="date"
+            aria-label="Date de fin"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-xs text-[#34406b]"
+          />
+          <button
+            onClick={() => fetchDashboard({ from, to })}
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]"
+          >
+            Appliquer
           </button>
+          {(from || to) && (
+            <button
+              onClick={() => {
+                setFrom('');
+                setTo('');
+                fetchDashboard();
+              }}
+              className="h-10 rounded-lg px-2 text-xs font-semibold text-slate-400"
+            >
+              Réinitialiser
+            </button>
+          )}
           <NotificationBell />
           <MessageIconLink href="/dashboard/ministry?section=messages" />
-          <button className="hidden h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 sm:flex">
+          <Link
+            href="/dashboard/ministry/reports"
+            className="hidden h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 sm:flex"
+          >
             <Download className="size-4" />
-            Exporter le rapport
-          </button>
+            Générer un rapport
+          </Link>
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Kpi
-          icon={UsersRound}
-          tone="violet"
-          label="Total étudiants"
-          value="156 284"
-          note="+8,5% vs avril 2025"
-        />
-        <Kpi
-          icon={Building2}
-          tone="blue"
-          label="Établissements actifs"
-          value="156"
-          note="+2 nouveaux"
-        />
-        <Kpi
-          icon={FileText}
-          tone="green"
-          label="Inscriptions totales"
-          value="82 145"
-          note="+12,2% vs avril 2025"
-        />
-        <Kpi
-          icon={WalletCards}
-          tone="orange"
-          label="Revenus collectés"
-          value="1 245 000 000 Ar"
-          note="+15,4% vs avril 2025"
-        />
-      </section>
+      {loading && (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-xl border border-slate-100 bg-slate-50"
+            />
+          ))}
+        </div>
+      )}
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
-        <LineChart />
-        <Donut
-          title="Répartition des inscriptions par filière"
-          total="82 145"
-          labels={[
-            ['Sciences & Techniques', '28% (22 999)', 'bg-violet-600'],
-            ['Sciences de l’ingénieur', '24% (19 727)', 'bg-emerald-500'],
-            ['Économie & Gestion', '18% (14 783)', 'bg-orange-400'],
-            ['Sciences Humaines', '16% (13 139)', 'bg-blue-500'],
-            ['Santé', '8% (6 577)', 'bg-indigo-400'],
-            ['Autres', '6% (4 920)', 'bg-slate-300'],
-          ]}
-          gradient="conic-gradient(#5b42e9 0 28%, #36c3a5 28% 52%, #ff9b27 52% 70%, #3998e9 70% 86%, #7682ed 86% 94%, #dce1ec 94% 100%)"
-        />
-        <Donut
-          title="Inscriptions par statut"
-          total="82 145"
-          labels={[
-            ['Validées', '50% (45 201)', 'bg-emerald-500'],
-            ['En attente', '22% (18 102)', 'bg-orange-400'],
-            ['En cours', '14% (11 483)', 'bg-blue-500'],
-            ['Rejetées', '7% (6 519)', 'bg-rose-400'],
-          ]}
-          gradient="conic-gradient(#36c3a5 0 55%, #ff9b27 55% 77%, #3998e9 77% 91%, #f47070 91% 100%)"
-        />
-      </section>
+      {!loading && error && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-6 text-center">
+          <p className="text-sm font-semibold text-rose-600">
+            Le tableau de bord n’a pas pu être chargé.
+          </p>
+          <button
+            onClick={() => fetchDashboard({ from, to })}
+            className="mt-3 rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
-        <Card
-          title="Cartographie des inscriptions par région"
-          action="Voir tout"
-        >
-          <div className="flex gap-4">
-            <div className="grid h-44 w-28 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-50 via-indigo-100 to-violet-200 text-violet-600">
-              <MapPinned className="size-12" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              {regions.map(([region, value, share, width]) => (
-                <div key={region}>
-                  <div className="flex justify-between text-[10px]">
-                    <span className="font-bold text-[#34406b]">{region}</span>
-                    <span className="text-slate-500">
-                      {value} ({share})
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded bg-slate-100">
+      {!loading && !error && data && (
+        <>
+          <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <Kpi
+              icon={UsersRound}
+              tone="violet"
+              label="Total étudiants"
+              value={numberFormatter.format(data.totalStudents)}
+              note={`${data.totalSchools} établissement(s) actif(s)`}
+            />
+            <Kpi
+              icon={Building2}
+              tone="blue"
+              label="Offres publiées"
+              value={numberFormatter.format(data.totalOffers)}
+              note={`sur ${data.totalSchools} établissements`}
+            />
+            <Kpi
+              icon={FileText}
+              tone="green"
+              label="Candidatures"
+              value={numberFormatter.format(data.totalApplications)}
+              note={`${data.acceptanceRate}% acceptées`}
+            />
+            <Kpi
+              icon={ShieldAlert}
+              tone="orange"
+              label="Établissements non conformes"
+              value={numberFormatter.format(data.alerts.nonCompliantSchools)}
+              note="Dernier contrôle en échec"
+            />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
+            <TrendChart trends={data.trends} />
+            <Donut
+              title="Répartition des candidatures par filière"
+              total={numberFormatter.format(data.totalApplications)}
+              items={data.applicationsByFiliere.slice(0, 6).map((f, i) => ({
+                label: f.filiere,
+                count: f.count,
+                color: FILIERE_COLORS[i % FILIERE_COLORS.length],
+              }))}
+            />
+            <Donut
+              title="Répartition par genre"
+              total={numberFormatter.format(data.totalStudents)}
+              items={[
+                {
+                  label: 'Hommes',
+                  count: data.genderDistribution.male,
+                  color: 'bg-blue-500',
+                },
+                {
+                  label: 'Femmes',
+                  count: data.genderDistribution.female,
+                  color: 'bg-violet-600',
+                },
+                {
+                  label: 'Autre / non renseigné',
+                  count: data.genderDistribution.other,
+                  color: 'bg-slate-300',
+                },
+              ]}
+            />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.92fr]">
+            <Card title="Candidatures par région">
+              {data.regionalDistribution.length === 0 ? (
+                <EmptyNote text="Aucune donnée régionale disponible." />
+              ) : (
+                <div className="space-y-3">
+                  {data.regionalDistribution.slice(0, 6).map((r) => {
+                    const max = data.regionalDistribution[0]?.count || 1;
+                    const width = Math.round((r.count / max) * 100);
+                    return (
+                      <div key={r.region}>
+                        <div className="flex justify-between text-[10px]">
+                          <span className="font-bold text-[#34406b]">
+                            {r.region}
+                          </span>
+                          <span className="text-slate-500">{r.count}</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded bg-slate-100">
+                          <div
+                            className="h-1.5 rounded bg-violet-500"
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+            <Card title="Dernières candidatures">
+              {data.recentApplications.length === 0 ? (
+                <EmptyNote text="Aucune candidature récente." />
+              ) : (
+                <div className="space-y-1">
+                  {data.recentApplications.map((a, i) => (
                     <div
-                      className="h-1.5 rounded bg-violet-500"
-                      style={{ width: `${width}%` }}
-                    />
-                  </div>
+                      key={i}
+                      className="flex gap-3 border-b border-slate-100 py-2.5 last:border-0"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                        <FileText className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-bold text-[#28315e]">
+                          {a.studentName} — {a.filiere}
+                        </p>
+                        <p className="truncate text-[10px] text-slate-500">
+                          {a.school}
+                        </p>
+                      </div>
+                      <span className="whitespace-nowrap text-[10px] font-semibold text-slate-500">
+                        {STATUS_LABELS[a.status] || a.status}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-        <Card title="Activités récentes" action="Voir tout">
-          <div className="space-y-1">
-            {activities.map(([title, description, time, Icon, tone]) => (
-              <div
-                key={title}
-                className="flex gap-3 border-b border-slate-100 py-2.5 last:border-0"
-              >
-                <span
-                  className={`grid size-8 shrink-0 place-items-center rounded-lg ${tone === 'green' ? 'bg-emerald-50 text-emerald-600' : tone === 'blue' ? 'bg-blue-50 text-blue-500' : 'bg-violet-50 text-violet-600'}`}
-                >
-                  <Icon className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-bold text-[#28315e]">
-                    {title}
-                  </p>
-                  <p className="truncate text-[10px] text-slate-500">
-                    {description}
-                  </p>
-                </div>
-                <span className="whitespace-nowrap text-[10px] text-slate-400">
-                  {time}
-                </span>
+              )}
+            </Card>
+            <Card title="Alertes de suivi">
+              <div className="space-y-1">
+                <Notice
+                  icon={ShieldAlert}
+                  tone={data.alerts.nonCompliantSchools > 0 ? 'rose' : 'green'}
+                  title={`${data.alerts.nonCompliantSchools} établissement(s) non conforme(s)`}
+                  href="/dashboard/ministry/compliance"
+                />
+                <Notice
+                  icon={Clock3}
+                  tone={
+                    data.alerts.pendingApplicationsOver48h > 0
+                      ? 'blue'
+                      : 'green'
+                  }
+                  title={`${data.alerts.pendingApplicationsOver48h} candidature(s) en attente depuis +48h`}
+                />
               </div>
-            ))}
-          </div>
-        </Card>
-        <Card title="Alertes & notifications" action="Voir tout">
-          <div className="space-y-1">
-            <Notice
-              icon={AlertTriangle}
-              tone="rose"
-              title="12 inscriptions en attente de validation"
-              text="Depuis plus de 48h"
-            />
-            <Notice
-              icon={AlertTriangle}
-              tone="blue"
-              title="3 établissements n’ont pas encore transmis leurs résultats de concours"
-              text="À relancer"
-            />
-            <Notice
-              icon={CircleDollarSign}
-              tone="rose"
-              title="5 paiements échoués"
-              text="À réessayer"
-            />
-            <Notice
-              icon={MessageSquare}
-              tone="blue"
-              title="Campagne de bourses en cours"
-              text="Date limite : 30 juin 2025"
-            />
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-3">
-        <MiniTable
-          title="Inscriptions & Admissions"
-          columns={['Étudiant', 'Établissement', 'Filière', 'Statut']}
-          rows={[
-            ['Rasolonjato Tina', 'ENI', 'Informatique', 'Validée'],
-            ['Rakotoarivelo Mamy', 'ISPM', 'Génie Civil', 'Validée'],
-            ['Andriamialana Fanja', 'ESPA', 'Management', 'En attente'],
-            ['Rabeharisoa Lia', 'IST', 'Électrotechnique', 'En cours'],
-          ]}
-        />
-        <MiniTable
-          title="Concours"
-          columns={['Concours', 'Établissement', 'Candidats', 'Statut']}
-          rows={[
-            ['Concours ENI 2025', 'ENI', '2 450', 'Planifié'],
-            ['Concours ISPM 2025', 'ISPM', '1 980', 'Planifié'],
-            ['Concours ESPA 2025', 'ESPA', '2 860', 'En cours'],
-            ['Concours IST 2025', 'IST', '1 620', 'Planifié'],
-          ]}
-        />
-        <Card title="Paiements" action="Exporter">
-          <div className="grid grid-cols-1 gap-2 border-b border-slate-100 pb-3 text-center sm:grid-cols-2 xl:grid-cols-3">
-            <Metric label="Total collecté" value="1 245 000 000 Ar" />
-            <Metric label="Transactions" value="18 750" />
-            <Metric label="Échoués" value="245" tone="rose" />
-          </div>
-          <div className="mt-3 space-y-2">
-            {[
-              'TRX-2025-0001  ·  Mobile Money  ·  Réussi',
-              'TRX-2025-0002  ·  Banque  ·  Réussi',
-              'TRX-2025-0003  ·  Carte bancaire  ·  Échoué',
-              'TRX-2025-0004  ·  Mobile Money  ·  Réussi',
-            ].map((item) => (
-              <p
-                key={item}
-                className="rounded-lg bg-slate-50 px-3 py-2 text-[10px] text-slate-600"
-              >
-                {item}
-              </p>
-            ))}
-          </div>
-        </Card>
-      </section>
+            </Card>
+          </section>
+        </>
+      )}
     </div>
   );
+}
+
+const FILIERE_COLORS = [
+  'bg-violet-600',
+  'bg-emerald-500',
+  'bg-orange-400',
+  'bg-blue-500',
+  'bg-indigo-400',
+  'bg-slate-300',
+];
+
+function EmptyNote({ text }: { text: string }) {
+  return <p className="py-6 text-center text-xs text-slate-400">{text}</p>;
 }
 
 function Kpi({
@@ -323,210 +370,188 @@ function Kpi({
           <p className="mt-1 text-2xl font-extrabold text-[#111949]">{value}</p>
         </div>
       </div>
-      <p className="mt-3 text-[10px] font-semibold text-emerald-600">
-        ↗ {note}
+      <p className="mt-3 truncate text-[10px] font-semibold text-slate-500">
+        {note}
       </p>
     </article>
   );
 }
+
 function Card({
   title,
-  action,
   children,
 }: {
   title: string;
-  action?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-[#17204e]">{title}</h2>
-        {action && (
-          <button className="text-[10px] font-bold text-violet-600">
-            {action}
-          </button>
-        )}
       </div>
       <div className="mt-4">{children}</div>
     </section>
   );
 }
-function LineChart() {
-  const points = [27, 39, 51, 64, 65, 76, 86, 72, 84];
+
+function TrendChart({ trends }: { trends: { period: string; count: number }[] }) {
+  const ordered = [...trends].reverse();
+  const max = Math.max(...ordered.map((t) => t.count), 1);
+  const points = ordered.map((t) => (t.count / max) * 130);
+
   return (
-    <Card title="Évolution des inscriptions" action="6 derniers mois⌄">
-      <div className="relative h-40 border-b border-l border-slate-100">
-        <svg
-          viewBox="0 0 400 160"
-          className="absolute inset-0 size-full overflow-visible"
-          preserveAspectRatio="none"
-        >
-          <polyline
-            points={points
-              .map((point, index) => `${index * 50},${150 - point * 1.35}`)
-              .join(' ')}
-            fill="none"
-            stroke="#593bef"
-            strokeWidth="3"
-          />
-          <polyline
-            points={`0,150 ${points.map((point, index) => `${index * 50},${150 - point * 1.35}`).join(' ')} 400,150`}
-            fill="url(#area)"
-            opacity=".16"
-          />
-          <defs>
-            <linearGradient id="area" x1="0" x2="0" y1="0" y2="1">
-              <stop stopColor="#6144ef" />
-              <stop offset="1" stopColor="#6144ef" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {points.map((point, index) => (
-            <circle
-              key={index}
-              cx={index * 50}
-              cy={150 - point * 1.35}
-              r="3.5"
-              fill="#593bef"
-            />
-          ))}
-        </svg>
-        <span className="absolute right-4 top-14 rounded-lg bg-white p-2 text-[10px] font-bold shadow-lg">
-          Mai 2025
-          <br />
-          82 145 inscriptions
-        </span>
-      </div>
-      <div className="mt-3 flex justify-between text-[9px] text-slate-500">
-        <span>Déc. 2024</span>
-        <span>Jan. 2025</span>
-        <span>Fév. 2025</span>
-        <span>Mars 2025</span>
-        <span>Avr. 2025</span>
-        <span>Mai 2025</span>
-      </div>
+    <Card title="Évolution des candidatures (12 derniers mois)">
+      {ordered.length === 0 ? (
+        <EmptyNote text="Pas encore de candidature soumise." />
+      ) : (
+        <>
+          <div className="relative h-40 border-b border-l border-slate-100">
+            <svg
+              viewBox={`0 0 ${Math.max(ordered.length - 1, 1) * 50} 160`}
+              className="absolute inset-0 size-full overflow-visible"
+              preserveAspectRatio="none"
+            >
+              <polyline
+                points={points
+                  .map((point, index) => `${index * 50},${150 - point}`)
+                  .join(' ')}
+                fill="none"
+                stroke="#593bef"
+                strokeWidth="3"
+              />
+              {points.map((point, index) => (
+                <circle
+                  key={index}
+                  cx={index * 50}
+                  cy={150 - point}
+                  r="3.5"
+                  fill="#593bef"
+                />
+              ))}
+            </svg>
+          </div>
+          <div className="mt-3 flex justify-between text-[9px] text-slate-500">
+            {ordered.map((t) => (
+              <span key={t.period}>
+                {new Date(t.period).toLocaleDateString('fr-FR', {
+                  month: 'short',
+                  year: '2-digit',
+                })}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   );
 }
+
 function Donut({
   title,
   total,
-  labels,
-  gradient,
+  items,
 }: {
   title: string;
   total: string;
-  labels: string[][];
-  gradient: string;
+  items: { label: string; count: number; color: string }[];
 }) {
+  const sum = items.reduce((acc, i) => acc + i.count, 0) || 1;
+  let cursor = 0;
+  const stops = items.map((item) => {
+    const start = (cursor / sum) * 100;
+    cursor += item.count;
+    const end = (cursor / sum) * 100;
+    return { ...item, start, end };
+  });
+  const colorHex: Record<string, string> = {
+    'bg-violet-600': '#5b42e9',
+    'bg-emerald-500': '#36c3a5',
+    'bg-orange-400': '#ff9b27',
+    'bg-blue-500': '#3998e9',
+    'bg-indigo-400': '#7682ed',
+    'bg-slate-300': '#dce1ec',
+  };
+  const gradient = stops.length
+    ? `conic-gradient(${stops
+        .map(
+          (s) =>
+            `${colorHex[s.color] || '#dce1ec'} ${s.start}% ${s.end}%`,
+        )
+        .join(', ')})`
+    : '#f1f5f9';
+
   return (
-    <Card title={title} action="Voir tout">
-      <div className="flex items-center gap-5 py-3">
-        <div
-          className="grid size-32 shrink-0 place-items-center rounded-full"
-          style={{ background: gradient }}
-        >
-          <div className="grid size-20 place-items-center rounded-full bg-white text-center">
-            <strong className="text-xl text-[#111949]">{total}</strong>
-            <span className="text-[10px] text-slate-500">Total</span>
+    <Card title={title}>
+      {sum === 0 || items.every((i) => i.count === 0) ? (
+        <EmptyNote text="Aucune donnée sur la période." />
+      ) : (
+        <div className="flex items-center gap-5 py-3">
+          <div
+            className="grid size-32 shrink-0 place-items-center rounded-full"
+            style={{ background: gradient }}
+          >
+            <div className="grid size-20 place-items-center rounded-full bg-white text-center">
+              <strong className="text-xl text-[#111949]">{total}</strong>
+              <span className="text-[10px] text-slate-500">Total</span>
+            </div>
           </div>
+          <ul className="min-w-0 space-y-2 text-[9px] text-slate-600">
+            {items.map((item) => (
+              <li key={item.label} className="flex items-center gap-2">
+                <i className={`size-2 shrink-0 rounded-full ${item.color}`} />
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                <b className="whitespace-nowrap font-medium">
+                  {item.count} ({Math.round((item.count / sum) * 100)}%)
+                </b>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="min-w-0 space-y-2 text-[9px] text-slate-600">
-          {labels.map(([name, value, color]) => (
-            <li key={name} className="flex items-center gap-2">
-              <i className={`size-2 shrink-0 rounded-full ${color}`} />
-              <span className="flex-1">{name}</span>
-              <b className="whitespace-nowrap font-medium">{value}</b>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
     </Card>
   );
 }
+
 function Notice({
   icon: Icon,
   tone,
   title,
-  text,
+  href,
 }: {
   icon: LucideIcon;
-  tone: 'rose' | 'blue';
+  tone: 'rose' | 'blue' | 'green';
   title: string;
-  text: string;
+  href?: string;
 }) {
-  return (
-    <button className="flex w-full items-center gap-3 border-b border-slate-100 py-2.5 text-left last:border-0">
-      <span
-        className={`grid size-8 place-items-center rounded-lg ${tone === 'rose' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'}`}
-      >
+  const toneClasses =
+    tone === 'rose'
+      ? 'bg-rose-50 text-rose-500'
+      : tone === 'green'
+        ? 'bg-emerald-50 text-emerald-600'
+        : 'bg-blue-50 text-blue-500';
+  const content = (
+    <>
+      <span className={`grid size-8 place-items-center rounded-lg ${toneClasses}`}>
         <Icon className="size-4" />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 text-left">
         <b className="block text-[11px] text-[#34406b]">{title}</b>
-        <small className="text-[10px] text-slate-500">{text}</small>
       </span>
-      <ChevronRight className="size-4 text-slate-400" />
-    </button>
+    </>
   );
-}
-function MiniTable({
-  title,
-  columns,
-  rows,
-}: {
-  title: string;
-  columns: string[];
-  rows: string[][];
-}) {
-  return (
-    <Card title={title} action="Exporter">
-      <div className="space-y-2 text-[10px]">
-        {rows.map((row) => {
-          const status = row[row.length - 1];
-          return (
-            <div
-              key={row[0]}
-              className="rounded-lg border border-slate-50 p-2.5"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="truncate font-bold text-[#28315e]">{row[0]}</p>
-                <span
-                  className={`shrink-0 rounded px-1.5 py-1 font-bold ${status === 'Validée' || status === 'Planifié' ? 'bg-emerald-50 text-emerald-600' : status === 'En attente' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'}`}
-                >
-                  {status}
-                </span>
-              </div>
-              <p className="mt-1 text-slate-500">
-                {row
-                  .slice(1, -1)
-                  .map((cell, index) => `${columns[index + 1]}: ${cell}`)
-                  .join(' · ')}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-function Metric({
-  label,
-  value,
-  tone = 'violet',
-}: {
-  label: string;
-  value: string;
-  tone?: 'violet' | 'rose';
-}) {
-  return (
-    <div>
-      <p className="text-[9px] text-slate-500">{label}</p>
-      <p
-        className={`mt-1 text-sm font-extrabold ${tone === 'rose' ? 'text-rose-500' : 'text-violet-600'}`}
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="flex w-full items-center gap-3 border-b border-slate-100 py-2.5 last:border-0"
       >
-        {value}
-      </p>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div className="flex w-full items-center gap-3 border-b border-slate-100 py-2.5 last:border-0">
+      {content}
     </div>
   );
 }

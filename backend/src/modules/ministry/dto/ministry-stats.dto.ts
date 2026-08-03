@@ -92,4 +92,19 @@ export class DashboardDto {
     period: string;
     count: number;
   }[];
+
+  @ApiProperty()
+  alerts: {
+    nonCompliantSchools: number;
+    pendingApplicationsOver48h: number;
+  };
+
+  @ApiProperty({ type: [Object] })
+  recentApplications: {
+    studentName: string;
+    school: string;
+    filiere: string;
+    status: string;
+    submittedAt: Date;
+  }[];
 }
