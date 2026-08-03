@@ -60,8 +60,11 @@ export class MessageService {
 
       const attachments = files.length
         ? await Promise.all(
-            files.map((file) => {
-              const saved = this.storage.saveMessageAttachment(file, messageId);
+            files.map(async (file) => {
+              const saved = await this.storage.saveMessageAttachment(
+                file,
+                messageId,
+              );
               return transaction.messageAttachment.create({
                 data: { messageId, ...saved },
               });

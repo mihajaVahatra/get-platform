@@ -2,7 +2,14 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as path from 'path';
-import * as fs from 'fs';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 
 export enum ImageEntityType {
@@ -33,18 +40,52 @@ const MESSAGE_ATTACHMENT_LIMITS: Record<MessageAttachmentKind, number> = {
   VIDEO: 20 * 1024 * 1024,
 };
 
+// Durée de validité des URLs présignées servies pour les fichiers protégés
+// (documents, supports de cours, pièces jointes) : courte pour limiter la
+// fenêtre de partage involontaire d'un lien, largement suffisante pour un
+// téléchargement immédiat déclenché par le navigateur.
+const PRESIGNED_URL_TTL_SECONDS = 60;
+
+/**
+ * Stockage S3-compatible (MinIO en local/self-hosted, Cloudflare R2, AWS S3
+ * en production). Remplace l'ancien stockage sur disque local : le
+ * filesystem d'un hébergeur comme Railway est éphémère (perdu à chaque
+ * redéploiement), donc tout fichier utilisateur doit vivre en dehors du
+ * process applicatif.
+ *
+ * Toutes les validations de contenu (magic bytes, mimetypes) sont
+ * inchangées par rapport à la version disque — elles opèrent sur le buffer
+ * en mémoire, jamais sur le filesystem.
+ */
 @Injectable()
 export class StorageService {
-  private uploadDir: string;
+  private client: S3Client;
+  // Deux buckets plutôt qu'une ACL par objet : la plupart des fournisseurs
+  // S3-compatibles (MinIO en tête) ne respectent pas de façon fiable l'ACL
+  // "public-read" posée sur un objet individuel — seule une politique au
+  // niveau du bucket est honorée partout (MinIO, R2, AWS S3).
+  private privateBucket: string;
+  private publicBucket: string;
+  private publicUrl?: string;
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
   ) {
-    this.uploadDir = this.config.get('UPLOAD_DIR') || './uploads';
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
-    }
+    this.privateBucket =
+      this.config.get<string>('S3_BUCKET') || 'get-poc-uploads';
+    this.publicBucket =
+      this.config.get<string>('S3_PUBLIC_BUCKET') || 'get-poc-public';
+    this.publicUrl = this.config.get<string>('S3_PUBLIC_URL');
+    this.client = new S3Client({
+      region: this.config.get<string>('S3_REGION') || 'us-east-1',
+      endpoint: this.config.get<string>('S3_ENDPOINT'),
+      forcePathStyle: this.config.get('S3_FORCE_PATH_STYLE') !== 'false',
+      credentials: {
+        accessKeyId: this.config.get<string>('S3_ACCESS_KEY_ID') || '',
+        secretAccessKey: this.config.get<string>('S3_SECRET_ACCESS_KEY') || '',
+      },
+    });
   }
 
   async uploadImage(
@@ -61,23 +102,12 @@ export class StorageService {
     const folder = options.entityType.toLowerCase();
     const subFolder = options.type.toLowerCase();
     const entityFolder = options.entityId || 'system';
-    const fullPath = this.resolveUploadPath(folder, subFolder, entityFolder);
+    const key = this.buildKey(folder, subFolder, entityFolder, fileName);
 
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
-
-    const filePath = this.resolveUploadPath(
-      folder,
-      subFolder,
-      entityFolder,
-      fileName,
-    );
-    fs.writeFileSync(filePath, file.buffer);
-
-    const baseUrl =
-      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
-    const url = `${baseUrl}/uploads/${folder}/${subFolder}/${entityFolder}/${fileName}`;
+    // Fichier public par nature (avatar, logo, bannière) : bucket public,
+    // accès direct via son URL, pas besoin de passer par ce backend.
+    await this.putObject(this.publicBucket, key, file);
+    const url = this.publicObjectUrl(key);
 
     const image = await this.prisma.image.create({
       data: {
@@ -93,81 +123,55 @@ export class StorageService {
     return { id: image.id, url: image.url };
   }
 
-  uploadDocument(
+  async uploadDocument(
     file: Express.Multer.File,
     studentId: string,
-  ): { url: string } {
+  ): Promise<{ url: string }> {
     this.assertSafeDocument(file);
     this.assertSafeEntityId(studentId);
 
     const fileName = this.generateFileName(file.originalname);
-    const fullPath = this.resolveUploadPath('documents', studentId);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
+    const key = this.buildKey('documents', studentId, fileName);
+    await this.putObject(this.privateBucket, key, file);
 
-    fs.writeFileSync(
-      this.resolveUploadPath('documents', studentId, fileName),
-      file.buffer,
-    );
-
-    const baseUrl =
-      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
-    return { url: `${baseUrl}/uploads/documents/${studentId}/${fileName}` };
+    return { url: this.protectedObjectUrl('documents', studentId, fileName) };
   }
 
-  uploadCourseMaterial(
+  async uploadCourseMaterial(
     file: Express.Multer.File,
     courseId: string,
-  ): { url: string } {
+  ): Promise<{ url: string }> {
     this.assertSafeDocument(file, { allowCourseMaterials: true });
     this.assertSafeEntityId(courseId);
 
     const fileName = this.generateFileName(file.originalname);
-    const fullPath = this.resolveUploadPath('course-materials', courseId);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
+    const key = this.buildKey('course-materials', courseId, fileName);
+    await this.putObject(this.privateBucket, key, file);
 
-    fs.writeFileSync(
-      this.resolveUploadPath('course-materials', courseId, fileName),
-      file.buffer,
-    );
-
-    const baseUrl =
-      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
     return {
-      url: `${baseUrl}/uploads/course-materials/${courseId}/${fileName}`,
+      url: this.protectedObjectUrl('course-materials', courseId, fileName),
     };
   }
 
-  saveMessageAttachment(
+  async saveMessageAttachment(
     file: Express.Multer.File,
     messageId: string,
-  ): {
+  ): Promise<{
     url: string;
     fileName: string;
     mimeType: string;
     size: number;
     kind: MessageAttachmentKind;
-  } {
+  }> {
     const kind = this.assertSafeMessageAttachment(file);
     this.assertSafeEntityId(messageId);
 
     const fileName = this.generateFileName(file.originalname);
-    const fullPath = this.resolveUploadPath('messages', messageId);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(fullPath, { recursive: true });
-    }
-    fs.writeFileSync(
-      this.resolveUploadPath('messages', messageId, fileName),
-      file.buffer,
-    );
+    const key = this.buildKey('messages', messageId, fileName);
+    await this.putObject(this.privateBucket, key, file);
 
-    const baseUrl =
-      this.config.get<string>('STORAGE_URL') || 'http://localhost:3001';
     return {
-      url: `${baseUrl}/uploads/messages/${messageId}/${fileName}`,
+      url: this.protectedObjectUrl('messages', messageId, fileName),
       fileName: file.originalname,
       mimeType: file.mimetype,
       size: file.size,
@@ -192,7 +196,93 @@ export class StorageService {
       where: { id: imageId },
     });
     if (!image) return;
+    const key = this.keyFromPublicUrl(image.url);
+    if (key) {
+      await this.client
+        .send(
+          new DeleteObjectCommand({ Bucket: this.publicBucket, Key: key }),
+        )
+        .catch(() => undefined);
+    }
     await this.prisma.image.delete({ where: { id: imageId } });
+  }
+
+  /**
+   * Génère une URL de téléchargement à courte durée de vie pour un fichier
+   * protégé, une fois l'autorisation déjà vérifiée par l'appelant (voir
+   * `protected-uploads.middleware.ts`).
+   */
+  async createPresignedDownloadUrl(
+    ...segments: string[]
+  ): Promise<string | null> {
+    const key = this.buildKey(...segments);
+    const exists = await this.headObject(this.privateBucket, key);
+    if (!exists) return null;
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.privateBucket, Key: key }),
+      { expiresIn: PRESIGNED_URL_TTL_SECONDS },
+    );
+  }
+
+  private async putObject(
+    bucket: string,
+    key: string,
+    file: Express.Multer.File,
+  ) {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+  }
+
+  private async headObject(bucket: string, key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: bucket, Key: key }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private buildKey(...segments: string[]) {
+    // Même garde-fou de traversée de chemin que l'ancienne version disque,
+    // appliqué ici à la clé d'objet plutôt qu'à un chemin filesystem.
+    for (const segment of segments) {
+      if (segment.includes('..') || path.isAbsolute(segment)) {
+        throw new BadRequestException('Chemin de stockage invalide');
+      }
+    }
+    return segments.join('/');
+  }
+
+  private publicObjectUrl(key: string): string {
+    if (this.publicUrl) return `${this.publicUrl.replace(/\/$/, '')}/${key}`;
+    const endpoint = this.config.get<string>('S3_ENDPOINT') || '';
+    return `${endpoint.replace(/\/$/, '')}/${this.publicBucket}/${key}`;
+  }
+
+  private keyFromPublicUrl(url: string): string | null {
+    if (this.publicUrl && url.startsWith(this.publicUrl)) {
+      return url.slice(this.publicUrl.replace(/\/$/, '').length + 1);
+    }
+    return null;
+  }
+
+  // Conserve exactement la même forme d'URL/route qu'à l'époque du disque
+  // local (`/uploads/<dossier>/...`) : `protected-uploads.middleware.ts`
+  // continue d'intercepter ces routes, il ne fait plus que rediriger vers
+  // une URL présignée au lieu de streamer le fichier depuis le disque.
+  private protectedObjectUrl(...segments: string[]): string {
+    const baseUrl =
+      this.config.get<string>('APP_URL') || 'http://localhost:3001';
+    return `${baseUrl}/uploads/${segments.join('/')}`;
   }
 
   private generateFileName(originalName: string): string {
@@ -209,20 +299,6 @@ export class StorageService {
     if (!uuid.test(entityId)) {
       throw new BadRequestException('Identifiant de dossier invalide');
     }
-  }
-
-  private resolveUploadPath(...segments: string[]) {
-    const root = path.resolve(this.uploadDir);
-    const resolved = path.resolve(root, ...segments);
-    const relative = path.relative(root, resolved);
-    if (
-      relative === '..' ||
-      relative.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relative)
-    ) {
-      throw new BadRequestException('Chemin de stockage invalide');
-    }
-    return resolved;
   }
 
   private assertSafeImage(file: Express.Multer.File) {

@@ -2,9 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Router, Request, Response } from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../../modules/prisma/prisma.service';
+import { StorageService } from '../services/storage.service';
 
 const REVIEWER_ROLES = new Set(['ADMIN_GET', 'SCHOOL_ADMIN']);
 
@@ -24,15 +23,20 @@ function extractToken(req: Request): string | null {
  * Sert les fichiers sensibles (documents étudiants, supports de cours,
  * pièces jointes de messages) qui ne doivent jamais être exposés en statique
  * public : ils exigent un JWT valide et un contrôle de propriété/rôle.
- * Les images publiques (avatars, logos, bannières) continuent d'être
- * servies par `useStaticAssets`, monté après ce routeur.
+ * Les images publiques (avatars, logos, bannières) sont uploadées en
+ * accès public sur le bucket S3 et ne transitent jamais par ce routeur.
+ *
+ * Le fichier lui-même vit sur le stockage S3-compatible (voir
+ * StorageService) : une fois l'autorisation vérifiée, ce routeur ne
+ * streame plus rien lui-même, il redirige (302) vers une URL présignée à
+ * courte durée de vie.
  */
 export function createProtectedUploadsRouter(app: INestApplication): Router {
   const router = Router();
   const jwt = app.get(JwtService);
   const config = app.get(ConfigService);
   const prisma = app.get(PrismaService);
-  const uploadDir = path.resolve(config.get('UPLOAD_DIR') || './uploads');
+  const storage = app.get(StorageService);
 
   async function requireUser(req: Request, res: Response) {
     const token = extractToken(req);
@@ -59,19 +63,13 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     }
   }
 
-  function sendUploadFile(res: Response, relativeSegments: string[]) {
-    const resolved = path.resolve(uploadDir, ...relativeSegments);
-    const relative = path.relative(uploadDir, resolved);
-    if (
-      relative.startsWith(`..${path.sep}`) ||
-      relative === '..' ||
-      path.isAbsolute(relative) ||
-      !fs.existsSync(resolved)
-    ) {
+  async function redirectToFile(res: Response, segments: string[]) {
+    const url = await storage.createPresignedDownloadUrl(...segments);
+    if (!url) {
       res.status(404).json({ message: 'Fichier introuvable' });
       return;
     }
-    res.sendFile(resolved);
+    res.redirect(302, url);
   }
 
   router.get('/documents/:studentId/:fileName', async (req, res) => {
@@ -106,7 +104,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['documents', studentId, fileName]);
+    await redirectToFile(res, ['documents', studentId, fileName]);
   });
 
   router.get('/course-materials/:courseId/:fileName', async (req, res) => {
@@ -136,7 +134,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['course-materials', courseId, fileName]);
+    await redirectToFile(res, ['course-materials', courseId, fileName]);
   });
 
   router.get('/messages/:messageId/:fileName', async (req, res) => {
@@ -159,7 +157,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['messages', messageId, fileName]);
+    await redirectToFile(res, ['messages', messageId, fileName]);
   });
 
   return router;

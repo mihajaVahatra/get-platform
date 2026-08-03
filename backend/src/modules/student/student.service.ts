@@ -98,7 +98,7 @@ export class StudentService {
       );
     }
 
-    const { url: contentUrl } = this.storageService.uploadDocument(
+    const { url: contentUrl } = await this.storageService.uploadDocument(
       file,
       student.id,
     );
