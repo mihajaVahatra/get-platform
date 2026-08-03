@@ -54,9 +54,9 @@ export class NotificationController {
 
   @Post('send')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN_GET', 'MINISTRY')
+  @Roles('ADMIN_GET')
   @ApiOperation({
-    summary: 'Send a notification to a user (Admin/Ministry only)',
+    summary: 'Send a notification to a user (Admin only)',
   })
   @ApiBody({ type: SendNotificationDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Notification sent' })

@@ -1,40 +1,45 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
   Post,
   Put,
-  Body,
-  Param,
   Query,
-  HttpStatus,
-  UseGuards,
   StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
   ApiBearerAuth,
-  ApiQuery,
-  ApiParam,
   ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
-import { MinistryService } from './ministry.service';
-import {
-  GenerateReportDto,
-  ReportType,
-  ExportFormat,
-} from './dto/report-request.dto';
-import { ComplianceUpdateDto } from './dto/compliance-update.dto';
+import { GetUser } from '../../common/decorators/get-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { GetUser } from '../../common/decorators/get-user.decorator';
+import { ComplianceUpdateDto } from './dto/compliance-update.dto';
 import {
-  DashboardDto,
+  ApplicationStatsQueryDto,
+  ComplianceQueryDto,
+  DateRangeQueryDto,
+  ExportReportQueryDto,
+  ReportsQueryDto,
+} from './dto/ministry-query.dto';
+import {
   ApplicationStatsDto,
+  DashboardDto,
   SchoolStatsDto,
 } from './dto/ministry-stats.dto';
+import { ExportFormat, GenerateReportDto } from './dto/report-request.dto';
+import { MinistryService } from './ministry.service';
 
 @ApiTags('ministry')
 @Controller('ministry')
@@ -44,81 +49,56 @@ import {
 export class MinistryController {
   constructor(private readonly ministryService: MinistryService) {}
 
-  // ============================================================
-  // 1. DASHBOARD
-  // ============================================================
-
   @Get('dashboard')
-  @ApiOperation({ summary: 'Get national dashboard data' })
-  @ApiQuery({
-    name: 'from',
-    required: false,
-    description: 'Start date (ISO format)',
-  })
-  @ApiQuery({
-    name: 'to',
-    required: false,
-    description: 'End date (ISO format)',
+  @ApiOperation({
+    summary: 'Vue nationale agrégée, sans données personnelles étudiantes',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Dashboard data retrieved',
+    description: 'Dashboard agrégé récupéré',
     type: DashboardDto,
   })
-  async getDashboard(@Query('from') from?: string, @Query('to') to?: string) {
-    const data = await this.ministryService.getDashboard({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-    });
+  async getDashboard(@Query() query: DateRangeQueryDto) {
+    const data = await this.ministryService.getDashboard(
+      this.toDateRange(query),
+    );
     return {
       success: true,
       data,
-      message: 'Dashboard retrieved successfully',
+      message: 'Dashboard agrégé récupéré avec succès',
     };
   }
 
-  // ============================================================
-  // 2. STATISTIQUES
-  // ============================================================
-
   @Get('stats/applications')
-  @ApiOperation({ summary: 'Get detailed application statistics' })
-  @ApiQuery({ name: 'from', required: false })
-  @ApiQuery({ name: 'to', required: false })
-  @ApiQuery({ name: 'region', required: false })
-  @ApiQuery({ name: 'filiere', required: false })
-  @ApiQuery({ name: 'schoolId', required: false })
+  @ApiOperation({
+    summary:
+      'Statistiques de candidatures agrégées par établissement et filière',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Application statistics',
+    description: 'Statistiques de candidatures récupérées',
     type: ApplicationStatsDto,
   })
-  async getApplicationStats(
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-    @Query('region') region?: string,
-    @Query('filiere') filiere?: string,
-    @Query('schoolId') schoolId?: string,
-  ) {
+  async getApplicationStats(@Query() query: ApplicationStatsQueryDto) {
     const stats = await this.ministryService.getApplicationStats({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-      region,
-      filiere,
-      schoolId,
+      ...this.toDateRange(query),
+      region: query.region,
+      filiere: query.filiere,
+      schoolId: query.schoolId,
+      limit: query.limit,
     });
     return {
       success: true,
       data: stats,
-      message: 'Application statistics retrieved successfully',
+      message: 'Statistiques de candidatures récupérées avec succès',
     };
   }
 
   @Get('stats/schools')
-  @ApiOperation({ summary: 'Get school statistics' })
+  @ApiOperation({ summary: 'Statistiques agrégées des établissements' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'School statistics',
+    description: 'Statistiques des établissements récupérées',
     type: SchoolStatsDto,
   })
   async getSchoolStats() {
@@ -126,73 +106,51 @@ export class MinistryController {
     return {
       success: true,
       data: stats,
-      message: 'School statistics retrieved successfully',
+      message: 'Statistiques des établissements récupérées avec succès',
     };
   }
 
   @Get('stats/geographic')
-  @ApiOperation({ summary: 'Get geographic distribution of students' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Geographic data for mapping',
+  @ApiOperation({
+    summary: 'Répartition géographique agrégée des étudiants, sans identité',
   })
   async getGeographicStats() {
     const data = await this.ministryService.getGeographicStats();
     return {
       success: true,
       data,
-      message: 'Geographic statistics retrieved successfully',
+      message: 'Statistiques géographiques récupérées avec succès',
     };
   }
 
-  // ============================================================
-  // 3. CONFORMITÉ
-  // ============================================================
-
   @Get('compliance')
-  @ApiOperation({ summary: 'Get compliance checks list' })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    enum: ['PASSED', 'FAILED', 'PENDING'],
+  @ApiOperation({
+    summary: 'Liste paginée des contrôles de conformité par établissement',
   })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Compliance checks retrieved',
-  })
-  async getCompliance(
-    @Query('status') status?: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
+  async getCompliance(@Query() query: ComplianceQueryDto) {
     const result = await this.ministryService.getCompliance({
-      status,
-      page,
-      limit,
+      status: query.status,
+      page: query.page,
+      limit: query.limit,
+      latestOnly: query.latestOnly,
     });
     return {
       success: true,
       data: result.items,
       meta: result.meta,
-      message: 'Compliance checks retrieved successfully',
+      message: 'Contrôles de conformité récupérés avec succès',
     };
   }
 
   @Put('compliance/:schoolId')
-  @ApiOperation({ summary: 'Update compliance status for a school' })
-  @ApiParam({ name: 'schoolId', description: 'School ID' })
+  @ApiOperation({ summary: 'Enregistrer un contrôle de conformité' })
+  @ApiParam({ name: 'schoolId', description: "Identifiant de l'établissement" })
   @ApiBody({ type: ComplianceUpdateDto })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Compliance updated' })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'School not found',
-  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Conformité mise à jour' })
   async updateCompliance(
-    @Param('schoolId') schoolId: string,
+    @Param('schoolId', ParseUUIDPipe) schoolId: string,
     @Body() dto: ComplianceUpdateDto,
-    @GetUser('id') userId?: string,
+    @GetUser('id') userId: string,
   ) {
     const result = await this.ministryService.updateCompliance(
       schoolId,
@@ -202,118 +160,77 @@ export class MinistryController {
     return {
       success: true,
       data: result,
-      message: 'Compliance updated successfully',
+      message: 'Conformité mise à jour avec succès',
     };
   }
 
-  // ============================================================
-  // 4. RAPPORTS
-  // ============================================================
-
   @Get('reports')
-  @ApiOperation({ summary: 'Get list of generated reports' })
-  @ApiQuery({
-    name: 'type',
-    required: false,
-    enum: ['NATIONAL', 'REGIONAL', 'SECTORIAL'],
-  })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Reports list retrieved' })
-  async getReports(
-    @Query('type') type?: string,
-    @Query('page') page = 1,
-    @Query('limit') limit = 20,
-  ) {
-    let reportType: ReportType | undefined;
-    if (type && Object.values(ReportType).includes(type as ReportType)) {
-      reportType = type as ReportType;
-    }
-    const result = await this.ministryService.getReports({
-      type: reportType,
-      page,
-      limit,
-    });
+  @ApiOperation({ summary: 'Liste paginée des rapports agrégés générés' })
+  async getReports(@Query() query: ReportsQueryDto) {
+    const result = await this.ministryService.getReports(query);
     return {
       success: true,
       data: result.items,
       meta: result.meta,
-      message: 'Reports retrieved successfully',
+      message: 'Rapports récupérés avec succès',
     };
   }
 
   @Post('reports/generate')
-  @ApiOperation({ summary: 'Generate a new report' })
+  @ApiOperation({
+    summary: 'Générer un rapport agrégé ne contenant aucune donnée nominative',
+  })
   @ApiBody({ type: GenerateReportDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Report generation started',
+    description: 'Rapport généré',
   })
   async generateReport(
     @Body() dto: GenerateReportDto,
-    @GetUser('id') userId?: string,
+    @GetUser('id') userId: string,
   ) {
     const result = await this.ministryService.generateReport(dto, userId);
     return {
       success: true,
       data: result,
-      message: 'Report generation started',
+      message: 'Rapport agrégé généré avec succès',
     };
   }
 
   @Get('reports/:id')
-  @ApiOperation({ summary: 'Get report details' })
-  @ApiParam({ name: 'id', description: 'Report ID' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Report details retrieved',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Report not found',
-  })
-  async getReport(@Param('id') id: string) {
+  @ApiOperation({ summary: "Détail d'un rapport agrégé" })
+  @ApiParam({ name: 'id', description: 'Identifiant du rapport' })
+  async getReport(@Param('id', ParseUUIDPipe) id: string) {
     const report = await this.ministryService.getReport(id);
     return {
       success: true,
       data: report,
-      message: 'Report retrieved successfully',
+      message: 'Rapport récupéré avec succès',
     };
   }
 
   @Get('reports/:id/export')
-  @ApiOperation({ summary: 'Export a report' })
-  @ApiParam({ name: 'id', description: 'Report ID' })
-  @ApiQuery({
-    name: 'format',
-    enum: ['PDF', 'EXCEL', 'CSV', 'JSON'],
-    default: 'PDF',
-  })
-  @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
+  @ApiOperation({ summary: 'Télécharger un rapport agrégé' })
+  @ApiParam({ name: 'id', description: 'Identifiant du rapport' })
   async exportReport(
-    @Param('id') id: string,
-    @Query('format') format: ExportFormat = ExportFormat.PDF,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: ExportReportQueryDto,
   ) {
-    const { buffer, contentType } = await this.ministryService.exportReport(
-      id,
-      format,
-    );
-    const extension = format.toLowerCase();
+    const { buffer, contentType, extension } =
+      await this.ministryService.exportReport(
+        id,
+        query.format ?? ExportFormat.PDF,
+      );
     return new StreamableFile(buffer, {
       type: contentType,
-      disposition: `attachment; filename="report-${id}.${extension}"`,
+      disposition: `attachment; filename="rapport-${id}.${extension}"`,
     });
   }
 
-  // ============================================================
-  // 5. STATISTIQUES PUBLIQUES (API ouverte)
-  // ============================================================
-
+  @Public()
   @Get('public/stats')
-  @ApiOperation({ summary: 'Public statistics (no authentication required)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Public statistics retrieved',
+  @ApiOperation({
+    summary: 'Statistiques nationales publiques et strictement agrégées',
   })
   async getPublicStats() {
     const dashboard = await this.ministryService.getDashboard();
@@ -325,7 +242,43 @@ export class MinistryController {
         totalApplications: dashboard.totalApplications,
         acceptanceRate: dashboard.acceptanceRate,
       },
-      message: 'Public statistics retrieved successfully',
+      message: 'Statistiques publiques récupérées avec succès',
     };
+  }
+
+  private toDateRange(query: DateRangeQueryDto): {
+    from?: Date;
+    to?: Date;
+  } {
+    const from = query.from ? this.toBoundary(query.from, false) : undefined;
+    const to = query.to ? this.toBoundary(query.to, true) : undefined;
+
+    if (from && to && from > to) {
+      throw new BadRequestException(
+        'La date de début doit être antérieure ou égale à la date de fin',
+      );
+    }
+
+    return { from, to };
+  }
+
+  private toBoundary(value: string, endOfDay: boolean): Date {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('Date invalide');
+    }
+
+    // Les champs HTML date transmettent YYYY-MM-DD. La borne haute doit
+    // inclure toute la journée sélectionnée, pas uniquement minuit.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      date.setUTCHours(
+        endOfDay ? 23 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 999 : 0,
+      );
+    }
+
+    return date;
   }
 }

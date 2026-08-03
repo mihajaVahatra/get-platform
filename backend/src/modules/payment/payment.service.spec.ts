@@ -33,7 +33,12 @@ describe('PaymentService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
-    payment: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
+    payment: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     schoolProgram: { findFirst: jest.Mock };
     schoolAcademicYear: { findFirst: jest.Mock };
     applicationTimeline: { create: jest.Mock };
@@ -45,7 +50,12 @@ describe('PaymentService', () => {
     prisma = {
       student: { findUnique: jest.fn(), update: jest.fn() },
       application: { findUnique: jest.fn(), update: jest.fn() },
-      payment: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+      payment: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
       schoolProgram: { findFirst: jest.fn() },
       schoolAcademicYear: { findFirst: jest.fn() },
       applicationTimeline: { create: jest.fn() },
@@ -271,6 +281,24 @@ describe('PaymentService', () => {
         expect.stringContaining('[ALERTE INSCRIPTION]'),
       );
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('getPayment', () => {
+    it('refuse au rôle Ministry le détail nominatif d’un paiement', async () => {
+      prisma.payment.findUnique.mockResolvedValue({
+        id: 'payment-1',
+        student: {
+          userId: 'student-user',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          user: { email: 'ada@example.test' },
+        },
+      });
+
+      await expect(
+        service.getPayment('payment-1', 'ministry-user', 'MINISTRY'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

@@ -265,11 +265,7 @@ export class PaymentService {
     });
     if (!payment) throw new NotFoundException('Payment not found');
 
-    if (
-      payment.student.userId !== userId &&
-      role !== 'ADMIN_GET' &&
-      role !== 'MINISTRY'
-    ) {
+    if (payment.student.userId !== userId && role !== 'ADMIN_GET') {
       throw new ForbiddenException(
         'Vous n’êtes pas autorisé à consulter ce paiement',
       );
@@ -354,9 +350,19 @@ export class PaymentService {
         take: currentLimit,
         orderBy: { createdAt: 'desc' },
         include: {
-          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
           application: {
-            select: { offer: { select: { title: true, school: { select: { name: true } } } } },
+            select: {
+              offer: {
+                select: { title: true, school: { select: { name: true } } },
+              },
+            },
           },
         },
       }),
@@ -373,8 +379,9 @@ export class PaymentService {
         status: payment.status,
         createdAt: payment.createdAt,
         studentName:
-          [payment.student.firstName, payment.student.lastName].filter(Boolean).join(' ') ||
-          payment.student.user.email,
+          [payment.student.firstName, payment.student.lastName]
+            .filter(Boolean)
+            .join(' ') || payment.student.user.email,
         school: payment.application?.offer.school.name || null,
       })),
       meta: {

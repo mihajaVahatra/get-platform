@@ -27,7 +27,7 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 @ApiTags('audit')
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN_GET', 'MINISTRY')
+@Roles('ADMIN_GET')
 @ApiBearerAuth('access-token')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -38,7 +38,7 @@ export class AuditController {
 
   @Get()
   @ApiOperation({
-    summary: 'Get audit logs with filters (Admin/Ministry only)',
+    summary: 'Get audit logs with filters (Admin only)',
   })
   @ApiPaginatedResponse(AuditLogDto)
   @ApiResponse({ status: HttpStatus.OK, description: 'Audit logs retrieved' })

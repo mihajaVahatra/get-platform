@@ -50,6 +50,8 @@ export class ApplicationController {
   // ========== STUDENT ==========
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiOperation({ summary: 'Submit applications to multiple offers' })
   @ApiBody({ type: SubmitApplicationDto })
   @ApiResponse({
@@ -80,6 +82,8 @@ export class ApplicationController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiOperation({ summary: 'Get my applications' })
   @ApiQuery({ name: 'status', required: false, enum: ApplicationStatus })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -149,7 +153,8 @@ export class ApplicationController {
   // ========== DETAIL (Authorized) ==========
 
   @Get(':id/documents')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Get documents for an authorized application' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({
@@ -208,7 +213,9 @@ export class ApplicationController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
-  @ApiOperation({ summary: 'List all applications across the platform (Admin only)' })
+  @ApiOperation({
+    summary: 'List all applications across the platform (Admin only)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'status', required: false })
@@ -232,6 +239,8 @@ export class ApplicationController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Get application details' })
   @ApiParam({ name: 'id', description: 'Application ID' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Application details' })
