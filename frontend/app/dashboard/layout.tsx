@@ -9,7 +9,9 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
+  Compass,
   FileText,
   Headphones,
   Home,
@@ -51,6 +53,7 @@ type DashboardUser = {
   gender?: string;
   avatarUrl?: string;
   enrolledYear?: string;
+  enrolledSchoolId?: string | null;
 };
 
 export default function DashboardLayout({
@@ -172,6 +175,7 @@ export default function DashboardLayout({
           initials={initials}
           year={user?.enrolledYear}
           gender={user?.gender}
+          isEnrolled={Boolean(user?.enrolledSchoolId)}
           onAvatarUpload={(avatarUrl) =>
             setUser((current) => ({ ...current, avatarUrl }))
           }
@@ -186,24 +190,45 @@ export default function DashboardLayout({
         </main>
         <Suspense fallback={null}>
           <MobileBottomNav
-            items={[
-              { icon: Home, label: 'Accueil', href: '/dashboard/student' },
-              {
-                icon: BookOpen,
-                label: 'Cours',
-                href: '/dashboard/student/courses',
-              },
-              {
-                icon: Mail,
-                label: 'Messages',
-                href: '/dashboard/student/messages',
-              },
-              {
-                icon: Settings,
-                label: 'Profil',
-                href: '/dashboard/student/settings',
-              },
-            ]}
+            items={
+              user?.enrolledSchoolId
+                ? [
+                    { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+                    {
+                      icon: BookOpen,
+                      label: 'Cours',
+                      href: '/dashboard/student/courses',
+                    },
+                    {
+                      icon: Mail,
+                      label: 'Messages',
+                      href: '/dashboard/student/messages',
+                    },
+                    {
+                      icon: Settings,
+                      label: 'Profil',
+                      href: '/dashboard/student/settings',
+                    },
+                  ]
+                : [
+                    { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+                    {
+                      icon: Compass,
+                      label: 'Offres',
+                      href: '/dashboard/student/offers',
+                    },
+                    {
+                      icon: ClipboardCheck,
+                      label: 'Candidatures',
+                      href: '/dashboard/student/applications',
+                    },
+                    {
+                      icon: Settings,
+                      label: 'Profil',
+                      href: '/dashboard/student/settings',
+                    },
+                  ]
+            }
             composeHref="/dashboard/student/messages?compose=1"
           />
         </Suspense>
@@ -1306,6 +1331,7 @@ function StudentSidebar({
   initials,
   year,
   gender,
+  isEnrolled,
   onAvatarUpload,
   onLogout,
   pathname,
@@ -1318,6 +1344,7 @@ function StudentSidebar({
   initials: string;
   year?: string;
   gender?: string;
+  isEnrolled: boolean;
   onAvatarUpload: (url: string) => void;
   onLogout: () => void;
   pathname: string;
@@ -1325,58 +1352,114 @@ function StudentSidebar({
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
-  const items = [
-    { label: 'Accueil', icon: Home, href: '/dashboard/student' },
-    { label: 'Mon parcours', icon: Route, href: '/dashboard/student/parcours' },
-    { label: 'Mes cours', icon: BookOpen, href: '/dashboard/student/courses' },
-    {
-      label: 'Emploi du temps',
-      icon: CalendarDays,
-      href: '/dashboard/student/schedule',
-    },
-    {
-      label: 'Mes notes',
-      icon: ClipboardList,
-      href: '/dashboard/student/grades',
-    },
-    {
-      label: 'Devoirs',
-      icon: FileText,
-      href: '/dashboard/student/assignments',
-    },
-    {
-      label: 'Finances',
-      icon: WalletCards,
-      href: '/dashboard/student/payments',
-    },
-    {
-      label: 'Documents',
-      icon: FileText,
-      href: '/dashboard/student/documents',
-    },
-    {
-      label: 'Messages',
-      icon: Mail,
-      href: '/dashboard/student/messages',
-      badge: unreadMessages ? String(unreadMessages) : undefined,
-    },
-    { label: 'Actualités', icon: Newspaper, href: '/dashboard/student/news' },
-    {
-      label: 'Stages & emplois',
-      icon: BriefcaseBusiness,
-      href: '/dashboard/student/opportunities',
-    },
-    {
-      label: 'Bibliothèque',
-      icon: LibraryBig,
-      href: '/dashboard/student/library',
-    },
-    {
-      label: 'Paramètres',
-      icon: Settings,
-      href: '/dashboard/student/settings',
-    },
-  ];
+  // Tant qu'aucune école n'a accepté le candidat, le menu ne montre que ce
+  // qui le concerne réellement (découvrir, candidater, suivre) : les liens
+  // vers cours/emploi du temps/notes/devoirs n'ont aucun contenu avant
+  // l'inscription et redirigeraient vers des écrans vides ou trompeurs.
+  const items = isEnrolled
+    ? [
+        { label: 'Accueil', icon: Home, href: '/dashboard/student' },
+        {
+          label: 'Mon parcours',
+          icon: Route,
+          href: '/dashboard/student/parcours',
+        },
+        {
+          label: 'Mes cours',
+          icon: BookOpen,
+          href: '/dashboard/student/courses',
+        },
+        {
+          label: 'Emploi du temps',
+          icon: CalendarDays,
+          href: '/dashboard/student/schedule',
+        },
+        {
+          label: 'Mes notes',
+          icon: ClipboardList,
+          href: '/dashboard/student/grades',
+        },
+        {
+          label: 'Devoirs',
+          icon: FileText,
+          href: '/dashboard/student/assignments',
+        },
+        {
+          label: 'Finances',
+          icon: WalletCards,
+          href: '/dashboard/student/payments',
+        },
+        {
+          label: 'Documents',
+          icon: FileText,
+          href: '/dashboard/student/documents',
+        },
+        {
+          label: 'Messages',
+          icon: Mail,
+          href: '/dashboard/student/messages',
+          badge: unreadMessages ? String(unreadMessages) : undefined,
+        },
+        {
+          label: 'Actualités',
+          icon: Newspaper,
+          href: '/dashboard/student/news',
+        },
+        {
+          label: 'Stages & emplois',
+          icon: BriefcaseBusiness,
+          href: '/dashboard/student/opportunities',
+        },
+        {
+          label: 'Bibliothèque',
+          icon: LibraryBig,
+          href: '/dashboard/student/library',
+        },
+        {
+          label: 'Paramètres',
+          icon: Settings,
+          href: '/dashboard/student/settings',
+        },
+      ]
+    : [
+        { label: 'Accueil', icon: Home, href: '/dashboard/student' },
+        {
+          label: 'Mon dossier',
+          icon: FileText,
+          href: '/dashboard/student/profile',
+        },
+        {
+          label: 'Mes documents',
+          icon: FileText,
+          href: '/dashboard/student/documents',
+        },
+        {
+          label: 'Offres',
+          icon: Compass,
+          href: '/dashboard/student/offers',
+        },
+        {
+          label: 'Mes candidatures',
+          icon: ClipboardCheck,
+          href: '/dashboard/student/applications',
+        },
+        {
+          label: 'Paiements',
+          icon: WalletCards,
+          href: '/dashboard/student/payments',
+        },
+        {
+          label: 'Messages',
+          icon: Mail,
+          href: '/dashboard/student/messages',
+          badge: unreadMessages ? String(unreadMessages) : undefined,
+        },
+        {
+          label: 'Paramètres',
+          icon: Settings,
+          href: '/dashboard/student/settings',
+        },
+      ];
 
   return (
     <aside

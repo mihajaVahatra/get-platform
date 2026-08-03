@@ -37,6 +37,11 @@ export class PaymentService {
     if (application.studentId !== studentId) {
       throw new ForbiddenException('Cette candidature ne vous appartient pas');
     }
+    if (application.status !== 'ACCEPTED') {
+      throw new BadRequestException(
+        "Cette candidature n'est pas encore acceptée : le paiement n'est possible qu'après une réponse favorable de l'établissement",
+      );
+    }
 
     // Le tarif ne vient jamais du client : l'offre est la source de vérité.
     const amount = application.offer.tuitionFees;

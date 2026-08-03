@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import {
   Card,
@@ -63,21 +64,55 @@ type PaymentApplication = {
 };
 
 export default function StudentPaymentsPage() {
+  return (
+    <Suspense
+      fallback={<div className="flex justify-center p-8">Chargement...</div>}
+    >
+      <StudentPaymentsContent />
+    </Suspense>
+  );
+}
+
+function StudentPaymentsContent() {
+  const searchParams = useSearchParams();
+  const preselectedApplicationId = searchParams.get('applicationId');
+
   const [payments, setPayments] = useState<Payment[]>([]);
   const [applications, setApplications] = useState<PaymentApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('ALL');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInitiating, setIsInitiating] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [paymentData, setPaymentData] = useState({
     applicationId: '',
     method: '',
   });
 
+  // Payables : seules les candidatures acceptées peuvent donner lieu à un
+  // paiement (le backend le vérifie aussi, ceci évite juste de proposer un
+  // choix qui serait de toute façon refusé).
+  const payableApplications = applications.filter(
+    (application) => application.status === 'ACCEPTED',
+  );
+
   useEffect(() => {
     fetchPayments();
     fetchApplications();
   }, []);
+
+  // Arrivée depuis "Payer les frais" sur une candidature acceptée : ouvre
+  // directement le dialogue de paiement avec cette candidature pré-remplie.
+  useEffect(() => {
+    if (preselectedApplicationId && applications.length > 0) {
+      setPaymentData((current) => ({
+        ...current,
+        applicationId: preselectedApplicationId,
+      }));
+      setIsDialogOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedApplicationId, applications]);
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -190,6 +225,32 @@ export default function StudentPaymentsPage() {
     }
   };
 
+  const handleRetry = async (payment: Payment) => {
+    if (!payment.application?.id) {
+      toast.error('Candidature introuvable pour ce paiement');
+      return;
+    }
+    setRetryingId(payment.id);
+    try {
+      const response = await apiClient.post('/payments/initiate', {
+        method: payment.method,
+        applicationId: payment.application.id,
+      });
+      toast.success('Nouveau paiement initié');
+      if (response.data.data?.redirectUrl) {
+        window.location.href = response.data.data.redirectUrl;
+      } else {
+        fetchPayments();
+      }
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message || 'Erreur lors de la relance du paiement';
+      toast.error(message);
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   const handleDownloadReceipt = async (paymentId: string) => {
     try {
       const response = await apiClient.get(`/payments/${paymentId}/receipt`, {
@@ -246,7 +307,7 @@ export default function StudentPaymentsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="applicationId">Candidature</Label>
                   <Select
-                    items={applications.map((application) => ({
+                    items={payableApplications.map((application) => ({
                       value: application.id,
                       label: `${application.offer.title} — ${application.offer.school.name} (${formatAmount(application.offer.tuitionFees)})`,
                     }))}
@@ -262,7 +323,7 @@ export default function StudentPaymentsPage() {
                       <SelectValue placeholder="Choisir une candidature" />
                     </SelectTrigger>
                     <SelectContent>
-                      {applications.map((application) => (
+                      {payableApplications.map((application) => (
                         <SelectItem key={application.id} value={application.id}>
                           {application.offer.title} —{' '}
                           {application.offer.school.name} (
@@ -271,9 +332,11 @@ export default function StudentPaymentsPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {applications.length === 0 && (
+                  {payableApplications.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      Aucune candidature disponible pour un paiement.
+                      Aucune candidature acceptée pour l’instant : le paiement
+                      n’est possible qu’après une réponse favorable de
+                      l’établissement.
                     </p>
                   )}
                 </div>
@@ -421,8 +484,12 @@ export default function StudentPaymentsPage() {
                         variant="outline"
                         size="sm"
                         className="text-red-600"
+                        disabled={retryingId === payment.id}
+                        onClick={() => handleRetry(payment)}
                       >
-                        🔄 Réessayer
+                        {retryingId === payment.id
+                          ? 'Relance…'
+                          : '🔄 Réessayer'}
                       </Button>
                     )}
                   </div>

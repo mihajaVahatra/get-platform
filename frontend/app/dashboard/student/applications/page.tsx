@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -109,6 +109,7 @@ export default function StudentApplicationsPage() {
 }
 
 function StudentApplicationsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get('status') || 'ALL';
 
@@ -276,9 +277,24 @@ function StudentApplicationsContent() {
                       )}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    Voir détails →
-                  </Button>
+                  <div className="flex shrink-0 gap-2">
+                    {app.status === 'ACCEPTED' && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(
+                            `/dashboard/student/payments?applicationId=${app.id}`,
+                          );
+                        }}
+                      >
+                        Payer
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm">
+                      Voir détails →
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -428,6 +444,17 @@ function StudentApplicationsContent() {
                 >
                   Fermer
                 </Button>
+                {selectedApp.status === 'ACCEPTED' && (
+                  <Button
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/student/payments?applicationId=${selectedApp.id}`,
+                      )
+                    }
+                  >
+                    Payer les frais de scolarité
+                  </Button>
+                )}
               </DialogFooter>
             </div>
           )}

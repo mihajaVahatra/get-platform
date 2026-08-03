@@ -81,6 +81,7 @@ describe('PaymentService', () => {
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'another-student',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
 
@@ -89,11 +90,27 @@ describe('PaymentService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('refuse un paiement pour une candidature pas encore acceptée', async () => {
+      prisma.student.findUnique.mockResolvedValue({ id: 'student-1' });
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: 'PENDING',
+        offer: { tuitionFees: 5000 },
+      });
+
+      await expect(
+        service.initiatePayment('student-1', dto),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
     it('refuse un second paiement si un paiement est déjà en cours ou complété', async () => {
       prisma.student.findUnique.mockResolvedValue({ id: 'student-1' });
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'student-1',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
       prisma.payment.findFirst.mockResolvedValue({
@@ -112,6 +129,7 @@ describe('PaymentService', () => {
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'student-1',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
       prisma.payment.findFirst.mockResolvedValue(null);

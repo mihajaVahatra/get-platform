@@ -36,7 +36,28 @@ type Student = {
   enrolledSchoolId?: string | null;
   enrolledYear?: string | null;
   enrolledSchool?: { name: string } | null;
+  profileCompleted?: boolean;
 };
+
+type CandidateApplication = {
+  id: string;
+  status: string;
+  offer: { title: string; school: { name: string } };
+};
+
+type CandidateOffer = {
+  id: string;
+  title: string;
+  diploma: string;
+  school: { name: string; city: string };
+};
+
+const DECIDED_STATUSES = new Set([
+  'ACCEPTED',
+  'REJECTED',
+  'WAITLISTED',
+  'ENROLLED',
+]);
 
 const schedule = [
   {
@@ -504,36 +525,81 @@ export default function StudentDashboardPage() {
 }
 
 function CandidateDashboard({ student }: { student: Student }) {
+  const [applications, setApplications] = useState<CandidateApplication[]>(
+    [],
+  );
+  const [totalApplications, setTotalApplications] = useState(0);
+  const [recentOffers, setRecentOffers] = useState<CandidateOffer[]>([]);
+  const [totalOffers, setTotalOffers] = useState(0);
+
+  useEffect(() => {
+    apiClient
+      .get('/applications/me?limit=100')
+      .then((response) => {
+        setApplications(response.data.data || []);
+        setTotalApplications(response.data.meta?.total ?? 0);
+      })
+      .catch((error) =>
+        console.error('Erreur chargement candidatures:', error),
+      );
+    apiClient
+      .get('/offers?limit=3')
+      .then((response) => {
+        setRecentOffers(response.data.data || []);
+        setTotalOffers(response.data.meta?.total ?? 0);
+      })
+      .catch((error) => console.error('Erreur chargement formations:', error));
+  }, []);
+
+  const hasDecision = applications.some((a) => DECIDED_STATUSES.has(a.status));
+  const accepted = applications.filter((a) => a.status === 'ACCEPTED').length;
+  const pending = totalApplications - applications.filter((a) => DECIDED_STATUSES.has(a.status)).length;
+
   const steps = [
     {
-      title: 'Complète ton profil',
-      text: 'Ajoute tes informations personnelles et ton parcours.',
+      title: 'Complète ton dossier',
+      text: 'Ajoute tes informations personnelles et ton parcours scolaire.',
       icon: FileUp,
-      done: false,
+      done: Boolean(student.profileCompleted),
       href: '/dashboard/student/profile',
     },
     {
-      title: 'Découvre les formations',
-      text: 'Compare les établissements et programmes disponibles.',
+      title: 'Candidate aux formations qui t’intéressent',
+      text: 'Explore les établissements et postule en ligne.',
       icon: Compass,
-      done: false,
-      href: '/dashboard/student/offers',
-    },
-    {
-      title: 'Dépose tes candidatures',
-      text: 'Postule en ligne auprès des établissements qui te correspondent.',
-      icon: ClipboardCheck,
-      done: false,
+      done: totalApplications > 0,
       href: '/dashboard/student/offers',
     },
     {
       title: 'Suis tes admissions',
-      text: 'Retrouve ici les réponses et prochaines étapes.',
+      text: 'Retrouve ici les réponses et la suite à donner.',
       icon: CircleCheck,
-      done: false,
+      done: hasDecision,
       href: '/dashboard/student/applications',
     },
   ];
+  const doneCount = steps.filter((s) => s.done).length;
+
+  const dossierCard = student.profileCompleted
+    ? { value: 'Complet', text: 'Ton dossier est prêt pour candidater.' }
+    : {
+        value: 'À compléter',
+        text: 'Renseigne tes informations pour pouvoir postuler.',
+      };
+
+  const applicationsCard =
+    totalApplications === 0
+      ? {
+          value: 'Aucune candidature',
+          text: 'Tu n’as pas encore envoyé de dossier.',
+        }
+      : {
+          value: `${totalApplications} candidature${totalApplications > 1 ? 's' : ''}`,
+          text:
+            accepted > 0
+              ? `${accepted} accepté${accepted > 1 ? 'es' : 'e'} · ${pending} en attente`
+              : `${pending} en attente de réponse`,
+        };
 
   return (
     <div className="mx-auto max-w-[1280px] space-y-5 text-[#111a4b]">
@@ -591,16 +657,22 @@ function CandidateDashboard({ student }: { student: Student }) {
           icon={FileCheck2}
           tone="violet"
           title="Mon dossier"
-          value="À compléter"
-          text="Renseigne tes informations pour pouvoir postuler."
-          action="Compléter mon profil"
+          value={dossierCard.value}
+          text={dossierCard.text}
+          action={
+            student.profileCompleted ? 'Voir mon profil' : 'Compléter mon profil'
+          }
           href="/dashboard/student/profile"
         />
         <CandidateCard
           icon={BookOpen}
           tone="blue"
           title="Formations disponibles"
-          value="156 établissements"
+          value={
+            totalOffers > 0
+              ? `${totalOffers} formation${totalOffers > 1 ? 's' : ''}`
+              : '—'
+          }
           text="Des programmes à découvrir selon ton projet."
           action="Explorer les formations"
           href="/dashboard/student/offers"
@@ -609,10 +681,16 @@ function CandidateDashboard({ student }: { student: Student }) {
           icon={ClipboardCheck}
           tone="green"
           title="Mes candidatures"
-          value="Aucune candidature"
-          text="Tu n’as pas encore envoyé de dossier."
-          action="Commencer ma recherche"
-          href="/dashboard/student/offers"
+          value={applicationsCard.value}
+          text={applicationsCard.text}
+          action={
+            totalApplications === 0 ? 'Commencer ma recherche' : 'Voir mes candidatures'
+          }
+          href={
+            totalApplications === 0
+              ? '/dashboard/student/offers'
+              : '/dashboard/student/applications'
+          }
         />
       </section>
 
@@ -620,27 +698,35 @@ function CandidateDashboard({ student }: { student: Student }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">
-              Les 4 étapes de ton parcours
+              Les étapes de ton parcours
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               Avance à ton rythme : tout se fait en ligne.
             </p>
           </div>
           <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">
-            0 / 4 terminées
+            {doneCount} / {steps.length} terminées
           </span>
         </div>
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           {steps.map((step, index) => (
             <Link
               key={step.title}
               href={step.href}
-              className="group relative rounded-xl border border-slate-100 p-4 transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md"
+              className={`group relative rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${step.done ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-slate-100 hover:border-violet-200'}`}
             >
-              <span className="grid size-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
-                <step.icon className="size-5" />
+              <span
+                className={`grid size-10 place-items-center rounded-xl ${step.done ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}
+              >
+                {step.done ? (
+                  <CircleCheck className="size-5" />
+                ) : (
+                  <step.icon className="size-5" />
+                )}
               </span>
-              <span className="absolute right-4 top-4 grid size-6 place-items-center rounded-full border border-slate-200 text-[10px] font-bold text-slate-500">
+              <span
+                className={`absolute right-4 top-4 grid size-6 place-items-center rounded-full border text-[10px] font-bold ${step.done ? 'border-emerald-300 text-emerald-600' : 'border-slate-200 text-slate-500'}`}
+              >
                 {index + 1}
               </span>
               <h3 className="mt-4 text-sm font-extrabold text-slate-800">
@@ -650,7 +736,7 @@ function CandidateDashboard({ student }: { student: Student }) {
                 {step.text}
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-violet-600">
-                Commencer{' '}
+                {step.done ? 'Terminé — revoir' : 'Commencer'}{' '}
                 <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
               </span>
             </Link>
@@ -660,44 +746,36 @@ function CandidateDashboard({ student }: { student: Student }) {
 
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
-          <h2 className="text-sm font-extrabold">Suggestions pour toi</h2>
+          <h2 className="text-sm font-extrabold">Dernières formations publiées</h2>
           <div className="mt-4 space-y-3">
-            {[
-              [
-                'Informatique & numérique',
-                'Développement, data, réseaux et intelligence artificielle',
-                '124 formations',
-              ],
-              [
-                'Économie & gestion',
-                'Management, finance, comptabilité et entrepreneuriat',
-                '89 formations',
-              ],
-              [
-                'Sciences de l’ingénieur',
-                'Génie civil, industriel, électronique et énergie',
-                '76 formations',
-              ],
-            ].map(([title, text, count]) => (
-              <Link
-                href="/dashboard/student/offers"
-                key={title}
-                className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition hover:bg-violet-50"
-              >
-                <span className="grid size-10 place-items-center rounded-lg bg-white text-violet-600 shadow-sm">
-                  <BookOpen className="size-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <b className="block text-xs text-slate-800">{title}</b>
-                  <small className="block truncate text-[11px] text-slate-500">
-                    {text}
-                  </small>
-                </span>
-                <span className="text-[10px] font-bold text-violet-600">
-                  {count}
-                </span>
-              </Link>
-            ))}
+            {recentOffers.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                Aucune formation disponible pour le moment.
+              </p>
+            ) : (
+              recentOffers.map((offer) => (
+                <Link
+                  href="/dashboard/student/offers"
+                  key={offer.id}
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition hover:bg-violet-50"
+                >
+                  <span className="grid size-10 place-items-center rounded-lg bg-white text-violet-600 shadow-sm">
+                    <BookOpen className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <b className="block truncate text-xs text-slate-800">
+                      {offer.title}
+                    </b>
+                    <small className="block truncate text-[11px] text-slate-500">
+                      {offer.school.name} · {offer.school.city}
+                    </small>
+                  </span>
+                  <span className="text-[10px] font-bold text-violet-600">
+                    {offer.diploma}
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
