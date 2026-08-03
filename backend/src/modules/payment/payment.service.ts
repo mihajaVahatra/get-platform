@@ -152,8 +152,11 @@ export class PaymentService {
           where: { id: payment.applicationId },
           include: { offer: true },
         });
+
+        let program: { id: string; name: string } | null = null;
+        let academicYear: { id: string; label: string } | null = null;
         if (application?.offer.programId) {
-          const [program, academicYear] = await Promise.all([
+          [program, academicYear] = await Promise.all([
             tx.schoolProgram.findFirst({
               where: {
                 id: application.offer.programId,
@@ -165,34 +168,53 @@ export class PaymentService {
               where: { schoolId: application.offer.schoolId, isCurrent: true },
             }),
           ]);
-          if (program && academicYear) {
-            const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-            const student = await tx.student.update({
-              where: { id: application.studentId },
-              data: {
-                enrolledSchoolId: application.offer.schoolId,
-                programId: program.id,
-                programLevel: 1,
-                academicYearId: academicYear.id,
-                enrolledYear,
-                enrollmentStatus: 'ACTIVE',
-              },
-            });
-            await this.schoolService.syncCourseEnrollments(
-              student.id,
-              application.offer.schoolId,
-              program.id,
-              1,
-              tx,
-            );
-            await tx.applicationTimeline.create({
-              data: {
-                applicationId: application.id,
-                status: 'ENROLLED',
-                note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-              },
-            });
-          }
+        }
+
+        if (application && program && academicYear) {
+          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+          const student = await tx.student.update({
+            where: { id: application.studentId },
+            data: {
+              enrolledSchoolId: application.offer.schoolId,
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              enrollmentStatus: 'ACTIVE',
+            },
+          });
+          await this.schoolService.syncCourseEnrollments(
+            student.id,
+            application.offer.schoolId,
+            program.id,
+            1,
+            tx,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+            },
+          });
+        } else if (application) {
+          // Le paiement est bien confirmé, mais l'inscription automatique
+          // n'a pas pu aboutir (offre sans programme lié, ou programme/année
+          // académique introuvable). Ne JAMAIS laisser passer ça en silence
+          // — un paiement réel sans inscription réelle est le pire des cas.
+          const reason = !application.offer.programId
+            ? "l'offre n'est liée à aucun programme"
+            : "aucun programme actif ou année académique en cours pour cette école";
+          console.error(
+            `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+            },
+          });
         }
       }
 

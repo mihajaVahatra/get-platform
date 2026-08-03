@@ -227,5 +227,50 @@ describe('PaymentService', () => {
       );
       expect(prisma.transaction.create).toHaveBeenCalled();
     });
+
+    it('ne reste jamais silencieux si le paiement est confirmé mais l’inscription automatique est impossible', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      prisma.payment.findFirst.mockResolvedValue({
+        id: 'payment-1',
+        status: 'PROCESSING',
+        amount: 5000,
+        method: 'MVOLA',
+        applicationId: 'application-1',
+      });
+      paymentProvider.confirmPayment.mockResolvedValue({
+        status: 'COMPLETED',
+        providerTransactionId: 'txn-1',
+        rawData: {},
+      });
+      prisma.payment.update.mockResolvedValue({
+        id: 'payment-1',
+        status: 'COMPLETED',
+      });
+      // Offre non liée à un programme (le bug corrigé le 2026-08-03).
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        offer: { programId: null, schoolId: 'school-1' },
+      });
+
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
+
+      expect(prisma.student.update).not.toHaveBeenCalled();
+      expect(schoolService.syncCourseEnrollments).not.toHaveBeenCalled();
+      expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            applicationId: 'application-1',
+            note: expect.stringContaining('inscription automatique impossible'),
+          }),
+        }),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ALERTE INSCRIPTION]'),
+      );
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

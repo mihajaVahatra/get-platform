@@ -181,5 +181,41 @@ describe('ApplicationService', () => {
         prisma,
       );
     });
+
+    it('ne reste jamais silencieux si l’offre n’est liée à aucun programme', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        offer: { schoolId: 'school-1', programId: null },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.ACCEPTED,
+      });
+
+      await service.updateStatus(
+        'application-1',
+        { status: ApplicationStatus.ACCEPTED } as any,
+        'admin-1',
+      );
+
+      expect(prisma.student.update).not.toHaveBeenCalled();
+      expect(schoolService.syncCourseEnrollments).not.toHaveBeenCalled();
+      expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            note: expect.stringContaining('inscription automatique impossible'),
+          }),
+        }),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ALERTE INSCRIPTION]'),
+      );
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

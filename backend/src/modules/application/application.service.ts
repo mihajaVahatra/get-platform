@@ -338,22 +338,26 @@ export class ApplicationService {
       });
 
       if (
-        (dto.status === ApplicationStatus.ACCEPTED ||
-          dto.status === ApplicationStatus.ENROLLED) &&
-        application.offer.programId
+        dto.status === ApplicationStatus.ACCEPTED ||
+        dto.status === ApplicationStatus.ENROLLED
       ) {
-        const [program, academicYear] = await Promise.all([
-          tx.schoolProgram.findFirst({
-            where: {
-              id: application.offer.programId,
-              schoolId: application.offer.schoolId,
-              isActive: true,
-            },
-          }),
-          tx.schoolAcademicYear.findFirst({
-            where: { schoolId: application.offer.schoolId, isCurrent: true },
-          }),
-        ]);
+        let program: { id: string; name: string } | null = null;
+        let academicYear: { id: string; label: string } | null = null;
+        if (application.offer.programId) {
+          [program, academicYear] = await Promise.all([
+            tx.schoolProgram.findFirst({
+              where: {
+                id: application.offer.programId,
+                schoolId: application.offer.schoolId,
+                isActive: true,
+              },
+            }),
+            tx.schoolAcademicYear.findFirst({
+              where: { schoolId: application.offer.schoolId, isCurrent: true },
+            }),
+          ]);
+        }
+
         if (program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
           const student = await tx.student.update({
@@ -379,6 +383,24 @@ export class ApplicationService {
               applicationId,
               status: dto.status,
               note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+              createdBy: userId,
+            },
+          });
+        } else {
+          // Statut ACCEPTED/ENROLLED confirmé par un humain, mais
+          // l'inscription automatique n'a pas pu aboutir — jamais silencieux
+          // (cf. audit sécurité / test bout-en-bout).
+          const reason = !application.offer.programId
+            ? "l'offre n'est liée à aucun programme"
+            : "aucun programme actif ou année académique en cours pour cette école";
+          console.error(
+            `[ALERTE INSCRIPTION] Candidature ${applicationId} passée à ${dto.status} mais inscription automatique impossible : ${reason}.`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId,
+              status: dto.status,
+              note: `⚠️ Statut mis à jour mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
               createdBy: userId,
             },
           });
