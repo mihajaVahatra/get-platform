@@ -20,9 +20,16 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
+import {
+  SendWelcomeEmailDto,
+  SendPaymentConfirmationDto,
+  SendStatusUpdateDto,
+  SendReminderDto,
+} from './dto/notification-actions.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -179,15 +186,13 @@ export class NotificationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
   @ApiOperation({ summary: 'Send welcome email (Admin only)' })
-  @ApiBody({
-    schema: { properties: { userId: { type: 'string', example: 'user-123' } } },
-  })
+  @ApiBody({ type: SendWelcomeEmailDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Welcome email sent',
   })
-  async sendWelcomeEmail(@Body('userId') userId: string) {
-    const result = await this.notificationService.sendWelcomeEmail(userId);
+  async sendWelcomeEmail(@Body() dto: SendWelcomeEmailDto) {
+    const result = await this.notificationService.sendWelcomeEmail(dto.userId);
     return {
       success: true,
       data: result,
@@ -199,28 +204,16 @@ export class NotificationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
   @ApiOperation({ summary: 'Send payment confirmation (Admin only)' })
-  @ApiBody({
-    schema: {
-      properties: {
-        userId: { type: 'string', example: 'user-123' },
-        paymentId: { type: 'string', example: 'pay-123' },
-        amount: { type: 'number', example: 4500000 },
-      },
-    },
-  })
+  @ApiBody({ type: SendPaymentConfirmationDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Payment confirmation sent',
   })
-  async sendPaymentConfirmation(
-    @Body('userId') userId: string,
-    @Body('paymentId') paymentId: string,
-    @Body('amount') amount: number,
-  ) {
+  async sendPaymentConfirmation(@Body() dto: SendPaymentConfirmationDto) {
     const result = await this.notificationService.sendPaymentConfirmation(
-      userId,
-      paymentId,
-      amount,
+      dto.userId,
+      dto.paymentId,
+      dto.amount,
     );
     return {
       success: true,
@@ -235,28 +228,20 @@ export class NotificationController {
   @ApiOperation({
     summary: 'Send application status update (Admin/School Admin)',
   })
-  @ApiBody({
-    schema: {
-      properties: {
-        userId: { type: 'string', example: 'user-123' },
-        applicationId: { type: 'string', example: 'app-123' },
-        status: { type: 'string', example: 'ACCEPTED' },
-      },
-    },
-  })
+  @ApiBody({ type: SendStatusUpdateDto })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Status update sent',
   })
   async sendStatusUpdate(
-    @Body('userId') userId: string,
-    @Body('applicationId') applicationId: string,
-    @Body('status') status: string,
+    @GetUser() caller: any,
+    @Body() dto: SendStatusUpdateDto,
   ) {
+    await this.ensureApplicationInCallerSchool(caller, dto.applicationId);
     const result = await this.notificationService.sendApplicationStatusUpdate(
-      userId,
-      applicationId,
-      status,
+      dto.userId,
+      dto.applicationId,
+      dto.status,
     );
     return {
       success: true,
@@ -269,31 +254,53 @@ export class NotificationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN')
   @ApiOperation({ summary: 'Send deadline reminder (Admin/School Admin)' })
-  @ApiBody({
-    schema: {
-      properties: {
-        userId: { type: 'string', example: 'user-123' },
-        offerId: { type: 'string', example: 'offer-123' },
-        deadline: { type: 'string', example: '2025-03-15T00:00:00.000Z' },
-      },
-    },
-  })
+  @ApiBody({ type: SendReminderDto })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Reminder sent' })
-  async sendReminder(
-    @Body('userId') userId: string,
-    @Body('offerId') offerId: string,
-    @Body('deadline') deadline: string,
-  ) {
+  async sendReminder(@GetUser() caller: any, @Body() dto: SendReminderDto) {
+    await this.ensureOfferInCallerSchool(caller, dto.offerId);
     const result = await this.notificationService.sendDeadlineReminder(
-      userId,
-      offerId,
-      new Date(deadline),
+      dto.userId,
+      dto.offerId,
+      new Date(dto.deadline),
     );
     return {
       success: true,
       data: result,
       message: 'Reminder sent successfully',
     };
+  }
+
+  // Un SCHOOL_ADMIN ne doit pouvoir notifier qu'à propos d'une candidature/
+  // offre de sa propre école — ADMIN_GET a une portée plateforme.
+  private async ensureApplicationInCallerSchool(
+    caller: any,
+    applicationId: string,
+  ) {
+    if (caller.role === 'ADMIN_GET') return;
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+      select: { offer: { select: { schoolId: true } } },
+    });
+    if (!application) throw new NotFoundException('Candidature introuvable');
+    if (application.offer.schoolId !== caller.schoolAdmin?.schoolId) {
+      throw new ForbiddenException(
+        'Cette candidature ne relève pas de votre établissement',
+      );
+    }
+  }
+
+  private async ensureOfferInCallerSchool(caller: any, offerId: string) {
+    if (caller.role === 'ADMIN_GET') return;
+    const offer = await this.prisma.offer.findUnique({
+      where: { id: offerId },
+      select: { schoolId: true },
+    });
+    if (!offer) throw new NotFoundException('Offre introuvable');
+    if (offer.schoolId !== caller.schoolAdmin?.schoolId) {
+      throw new ForbiddenException(
+        'Cette offre ne relève pas de votre établissement',
+      );
+    }
   }
 
   // ============================================================

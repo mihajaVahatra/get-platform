@@ -307,7 +307,7 @@ export class PaymentService {
 
   async openBankAccount(studentId: string, bankId: string) {
     return {
-      accountNumber: `MG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      accountNumber: `MG-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`,
       bankName: 'Banque Partenaire',
       status: 'ACTIVE',
     };

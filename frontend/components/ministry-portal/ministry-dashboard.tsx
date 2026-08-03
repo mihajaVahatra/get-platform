@@ -17,6 +17,7 @@ import { apiClient } from '@/lib/api-client';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { MessageIconLink } from '@/components/messages/message-icon-link';
 import { MessagesScreen } from '@/components/messages/messages-screen';
+import { MfaSettingsCard } from '@/components/auth/MfaSettingsCard';
 
 type DashboardData = {
   totalApplications: number;
@@ -90,6 +91,22 @@ export function MinistryDashboard() {
 
   if (searchParams.get('section') === 'messages') {
     return <MessagesScreen />;
+  }
+
+  if (searchParams.get('section') === 'settings') {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
+            Paramètres
+          </h1>
+          <p className="mt-1 text-sm text-violet-600">
+            Sécurité de votre compte
+          </p>
+        </div>
+        <MfaSettingsCard />
+      </div>
+    );
   }
 
   return (

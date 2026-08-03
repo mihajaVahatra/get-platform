@@ -30,7 +30,7 @@ import {
   UpdateSchoolAcademicYearDto,
 } from './dto/school-academic-year.dto';
 import { NotificationService } from '../notification/notification.service';
-import { NotificationType } from '../notification/dto/send-notification.dto';
+import { AnnouncementService } from '../announcement/announcement.service';
 import { TeacherAvailabilityService } from '../teacher-availability/teacher-availability.service';
 import slugify from 'slugify';
 
@@ -39,6 +39,7 @@ export class SchoolService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private announcementService: AnnouncementService,
     private teacherAvailabilityService: TeacherAvailabilityService,
   ) {}
 
@@ -735,26 +736,30 @@ export class SchoolService {
   ) {
     const succeeded: string[] = [];
     const failed: Array<{ row: unknown; reason: string }> = [];
+
+    // Pré-charger une bonne fois pour toutes les filières/années de l'école
+    // au lieu de refaire les deux mêmes requêtes pour chaque ligne du
+    // fichier importé (un import de 500 étudiants faisait jusqu'ici 1000
+    // requêtes rien que pour cette résolution).
+    const [programs, academicYears] = await Promise.all([
+      this.prisma.schoolProgram.findMany({
+        where: { schoolId, isActive: true },
+      }),
+      this.prisma.schoolAcademicYear.findMany({ where: { schoolId } }),
+    ]);
+    const programByName = new Map(
+      programs.map((p) => [p.name.trim().toLowerCase(), p]),
+    );
+    const yearByLabel = new Map(
+      academicYears.map((y) => [y.label.trim().toLowerCase(), y]),
+    );
+
     for (const row of rows) {
       try {
-        const [program, academicYear] = await Promise.all([
-          this.prisma.schoolProgram.findFirst({
-            where: {
-              schoolId,
-              name: { equals: row.programName.trim(), mode: 'insensitive' },
-              isActive: true,
-            },
-          }),
-          this.prisma.schoolAcademicYear.findFirst({
-            where: {
-              schoolId,
-              label: {
-                equals: row.academicYearLabel.trim(),
-                mode: 'insensitive',
-              },
-            },
-          }),
-        ]);
+        const program = programByName.get(row.programName.trim().toLowerCase());
+        const academicYear = yearByLabel.get(
+          row.academicYearLabel.trim().toLowerCase(),
+        );
         if (!program) throw new NotFoundException('Filière introuvable');
         if (!academicYear)
           throw new NotFoundException('Année académique introuvable');
@@ -836,33 +841,17 @@ export class SchoolService {
       userIds = students.map((student) => student.userId);
     }
 
-    const announcement = await this.prisma.announcement.create({
-      data: {
+    return this.announcementService.createAndNotify(
+      {
         schoolId,
         authorId: senderId,
-        title: dto.title.trim(),
-        body: dto.body.trim(),
+        title: dto.title,
+        body: dto.body,
         targetType: dto.targetType,
         targetClasses: dto.targetType === 'CLASSES' ? classes : [],
       },
-    });
-    const recipients = await this.notificationService.sendInAppBatch(userIds, {
-      title: announcement.title,
-      body: announcement.body,
-    });
-    if (recipients.length) {
-      await this.prisma.announcementRecipient.createMany({
-        data: recipients.map((recipient) => ({
-          announcementId: announcement.id,
-          ...recipient,
-        })),
-      });
-    }
-
-    return {
-      announcementId: announcement.id,
-      recipientCount: recipients.length,
-    };
+      userIds,
+    );
   }
 
   async broadcastAnnouncement(
@@ -880,28 +869,17 @@ export class SchoolService {
         where: { enrolledSchoolId: school.id, deletedAt: null },
         select: { userId: true },
       });
-      const announcement = await this.prisma.announcement.create({
-        data: {
+      const result = await this.announcementService.createAndNotify(
+        {
           schoolId: school.id,
           authorId: adminUserId,
-          title: dto.title.trim(),
-          body: dto.body.trim(),
+          title: dto.title,
+          body: dto.body,
           targetType: 'ALL_STUDENTS',
         },
-      });
-      const recipients = await this.notificationService.sendInAppBatch(
         students.map((student) => student.userId),
-        { title: announcement.title, body: announcement.body },
       );
-      if (recipients.length) {
-        await this.prisma.announcementRecipient.createMany({
-          data: recipients.map((recipient) => ({
-            announcementId: announcement.id,
-            ...recipient,
-          })),
-        });
-      }
-      recipientCount += recipients.length;
+      recipientCount += result.recipientCount;
     }
 
     return { schoolsCount: schools.length, recipientCount };
@@ -1307,7 +1285,12 @@ export class SchoolService {
   async findTeacherByEmail(email: string) {
     const teacher = await this.prisma.teacher.findFirst({
       where: { user: { email: { equals: email.trim(), mode: 'insensitive' } } },
-      include: { user: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        user: { select: { id: true, email: true } },
+      },
     });
     if (!teacher)
       throw new NotFoundException(

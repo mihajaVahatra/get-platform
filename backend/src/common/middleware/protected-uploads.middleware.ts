@@ -48,7 +48,7 @@ export function createProtectedUploadsRouter(
       });
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { student: true, role: true },
+        include: { student: true, teacher: true, role: true },
       });
       if (!user || !user.isActive) {
         res.status(401).json({ message: 'Utilisateur invalide' });
@@ -92,9 +92,25 @@ export function createProtectedUploadsRouter(
   router.get('/course-materials/:courseId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
-    // Authentification requise ; le contrôle d'inscription fin par cours
-    // reste à affiner (cf. audit sécurité).
+
     const { courseId, fileName } = req.params;
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { teacherId: true },
+    });
+    const isTeacher = course && user.teacher?.id === course.teacherId;
+    const isEnrolledStudent =
+      user.student &&
+      (await prisma.courseEnrollment.findUnique({
+        where: {
+          courseId_studentId: { courseId, studentId: user.student.id },
+        },
+        select: { id: true },
+      }));
+    if (!isTeacher && !isEnrolledStudent && !REVIEWER_ROLES.has(user.role)) {
+      res.status(403).json({ message: 'Accès refusé' });
+      return;
+    }
     sendUploadFile(res, ['course-materials', courseId, fileName]);
   });
 

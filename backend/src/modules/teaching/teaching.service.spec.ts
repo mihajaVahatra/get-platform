@@ -1,12 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
-import { NotificationService } from '../notification/notification.service';
+import { AnnouncementService } from '../announcement/announcement.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../../common/services/storage.service';
 import { TeachingService } from './teaching.service';
 
 describe('TeachingService', () => {
   let service: TeachingService;
-  let notificationService: { sendInAppBatch: jest.Mock };
+  let announcementService: { createAndNotify: jest.Mock };
   let storageService: { uploadCourseMaterial: jest.Mock };
   let prisma: {
     teacher: { findUnique: jest.Mock; update: jest.Mock };
@@ -99,11 +99,11 @@ describe('TeachingService', () => {
       grade: { findMany: jest.fn(), upsert: jest.fn() },
       message: { count: jest.fn() },
     };
-    notificationService = { sendInAppBatch: jest.fn() };
+    announcementService = { createAndNotify: jest.fn() };
     storageService = { uploadCourseMaterial: jest.fn() };
     service = new TeachingService(
       prisma as unknown as PrismaService,
-      notificationService as unknown as NotificationService,
+      announcementService as unknown as AnnouncementService,
       storageService as unknown as StorageService,
     );
   });
@@ -326,21 +326,10 @@ describe('TeachingService', () => {
       { student: { userId: 'student-user-1' } },
       { student: { userId: 'student-user-2' } },
     ]);
-    prisma.announcement.create.mockResolvedValue({
-      id: 'announcement-1',
-      title: 'Consigne',
-      body: 'À lire',
+    announcementService.createAndNotify.mockResolvedValue({
+      announcementId: 'announcement-1',
+      recipientCount: 2,
     });
-    notificationService.sendInAppBatch.mockResolvedValue([
-      {
-        userId: 'student-user-1',
-        notificationId: 'notification-1',
-      },
-      {
-        userId: 'student-user-2',
-        notificationId: 'notification-2',
-      },
-    ]);
 
     await service.createAnnouncement('user-1', 'course-1', {
       title: ' Consigne ',
@@ -351,35 +340,17 @@ describe('TeachingService', () => {
       where: { courseId: 'course-1' },
       select: { student: { select: { userId: true } } },
     });
-    expect(prisma.announcement.create).toHaveBeenCalledWith({
-      data: {
+    expect(announcementService.createAndNotify).toHaveBeenCalledWith(
+      {
         schoolId: 'school-1',
         authorId: 'user-1',
         courseId: 'course-1',
         targetType: 'COURSE_STUDENTS',
-        targetClasses: [],
-        title: 'Consigne',
-        body: 'À lire',
+        title: ' Consigne ',
+        body: ' À lire ',
       },
-    });
-    expect(notificationService.sendInAppBatch).toHaveBeenCalledWith(
       ['student-user-1', 'student-user-2'],
-      { title: 'Consigne', body: 'À lire' },
     );
-    expect(prisma.announcementRecipient.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          announcementId: 'announcement-1',
-          userId: 'student-user-1',
-          notificationId: 'notification-1',
-        },
-        {
-          announcementId: 'announcement-1',
-          userId: 'student-user-2',
-          notificationId: 'notification-2',
-        },
-      ],
-    });
   });
 
   it('refuse l’accès aux notes lorsqu’un cours n’appartient pas au professeur', async () => {

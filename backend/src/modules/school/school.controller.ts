@@ -69,6 +69,13 @@ import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { BroadcastAnnouncementDto } from './dto/broadcast-announcement.dto';
 import { CreateSchoolProgramDto, UpdateSchoolProgramDto } from './dto/school-program.dto';
 import { CreateSchoolAcademicYearDto, UpdateSchoolAcademicYearDto } from './dto/school-academic-year.dto';
+import {
+  CreateSubjectDto,
+  UpdateSubjectDto,
+  CreateSchoolRequirementDto,
+  UpdateSchoolRequirementDto,
+  UpdateSchoolStudentEnrollmentDto,
+} from './dto/school-admin-actions.dto';
 
 type SchoolAdminSession = {
   schoolAdmin?: {
@@ -356,11 +363,11 @@ export class SchoolController {
   @Get('me/teachers/inactive') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async getMyInactiveTeachers(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getInactiveTeacherAssignments(user.schoolAdmin.schoolId) }; }
   @Get('me/teachers/search') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
-  async searchMyTeacher(@Query('email') email: string) { return { success: true, data: await this.schoolService.findTeacherByEmail(email) }; }
+  async searchMyTeacher(@GetUser() user: SchoolAdminSession, @Query('email') email: string) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.findTeacherByEmail(email) }; }
   @Post('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
-  async createMySubject(@GetUser() user: SchoolAdminSession, @Body() body: { name: string }) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.createSubject(user.schoolAdmin.schoolId, body.name) }; }
+  async createMySubject(@GetUser() user: SchoolAdminSession, @Body() body: CreateSubjectDto) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.createSubject(user.schoolAdmin.schoolId, body.name) }; }
   @Patch('me/subjects/:id') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
-  async updateMySubject(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() body: { isActive: boolean }) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.updateSubject(user.schoolAdmin.schoolId, id, body.isActive) }; }
+  async updateMySubject(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() body: UpdateSubjectDto) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.updateSubject(user.schoolAdmin.schoolId, id, body.isActive) }; }
 
   @Get('me/programs')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -547,7 +554,7 @@ export class SchoolController {
   }
 
   @Patch('me/students/:studentId') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
-  async updateMySchoolStudentEnrollment(@GetUser() user: SchoolAdminSession, @Param('studentId') studentId: string, @Body() body: { programId?: string; level?: number; academicYearId?: string; status: 'ACTIVE' | 'WITHDRAWN' | 'GRADUATED' }) {
+  async updateMySchoolStudentEnrollment(@GetUser() user: SchoolAdminSession, @Param('studentId') studentId: string, @Body() body: UpdateSchoolStudentEnrollmentDto) {
     if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
     return { success: true, data: await this.schoolService.updateEnrollment(user.schoolAdmin.schoolId, studentId, body) };
   }
@@ -1091,7 +1098,7 @@ export class SchoolController {
   @Post('me/requirements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
-  async createMyRequirement(@GetUser('id') userId: string, @Body() body: { name: string; description?: string; type?: string; diploma?: string; isRequired?: boolean }) {
+  async createMyRequirement(@GetUser('id') userId: string, @Body() body: CreateSchoolRequirementDto) {
     const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
     if (!admin) throw new ForbiddenException('Profil administrateur introuvable');
     return this.prisma.schoolRequirement.create({ data: { schoolId: admin.schoolId, name: body.name, description: body.description, type: body.type || 'DOCUMENT', diploma: body.diploma, isRequired: body.isRequired ?? true } });
@@ -1100,7 +1107,7 @@ export class SchoolController {
   @Patch('me/requirements/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
-  async updateMyRequirement(@GetUser('id') userId: string, @Param('id') id: string, @Body() body: { name?: string; description?: string; type?: string; isRequired?: boolean; isActive?: boolean }) {
+  async updateMyRequirement(@GetUser('id') userId: string, @Param('id') id: string, @Body() body: UpdateSchoolRequirementDto) {
     const admin = await this.prisma.schoolAdmin.findUnique({ where: { userId } });
     if (!admin) throw new ForbiddenException('Profil administrateur introuvable');
     const item = await this.prisma.schoolRequirement.findFirst({ where: { id, schoolId: admin.schoolId } });

@@ -102,7 +102,12 @@ export class MfaService {
     try {
       return this.encryption.decrypt(secret);
     } catch {
-      return secret;
+      // Ne jamais retourner un secret potentiellement non déchiffré : mieux
+      // vaut refuser l'opération que de comparer un code TOTP à une valeur
+      // dont on ne sait pas si elle est réellement le secret en clair.
+      throw new BadRequestException(
+        'Secret MFA illisible, contactez un administrateur',
+      );
     }
   }
 }
