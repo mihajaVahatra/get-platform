@@ -1,8 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsString, IsOptional, IsNumber } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsArray,
+  IsDateString,
+  MaxLength,
+} from 'class-validator';
 
 export enum ApplicationStatus {
   PENDING = 'PENDING',
+  // Utilisé par le tableau de bord Ministère et les imports de données —
+  // doit rester dans cette énumération pour que l'API candidat/école le
+  // reconnaisse au lieu d'afficher un statut vide/inconnu.
+  UNDER_REVIEW = 'UNDER_REVIEW',
   PRESELECTED = 'PRESELECTED',
   TEST_SCHEDULED = 'TEST_SCHEDULED',
   TEST_COMPLETED = 'TEST_COMPLETED',
@@ -14,6 +26,76 @@ export enum ApplicationStatus {
   ENROLLED = 'ENROLLED',
   CANCELLED = 'CANCELLED',
 }
+
+// Transitions autorisées à partir de chaque statut. REJECTED et CANCELLED
+// sont des états terminaux : sans cette garde, une candidature rejetée
+// pouvait être renvoyée directement à ACCEPTED et redéclencher une
+// inscription réelle (faille corrigée suite à l'audit QA).
+export const APPLICATION_STATUS_TRANSITIONS: Record<
+  ApplicationStatus,
+  ApplicationStatus[]
+> = {
+  [ApplicationStatus.PENDING]: [
+    ApplicationStatus.UNDER_REVIEW,
+    ApplicationStatus.PRESELECTED,
+    ApplicationStatus.TEST_SCHEDULED,
+    ApplicationStatus.INTERVIEW_SCHEDULED,
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WAITLISTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.UNDER_REVIEW]: [
+    ApplicationStatus.PRESELECTED,
+    ApplicationStatus.TEST_SCHEDULED,
+    ApplicationStatus.INTERVIEW_SCHEDULED,
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WAITLISTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.PRESELECTED]: [
+    ApplicationStatus.TEST_SCHEDULED,
+    ApplicationStatus.INTERVIEW_SCHEDULED,
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WAITLISTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.TEST_SCHEDULED]: [
+    ApplicationStatus.TEST_COMPLETED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.TEST_COMPLETED]: [
+    ApplicationStatus.INTERVIEW_SCHEDULED,
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WAITLISTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.INTERVIEW_SCHEDULED]: [
+    ApplicationStatus.INTERVIEW_COMPLETED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.INTERVIEW_COMPLETED]: [
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WAITLISTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.WAITLISTED]: [
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.ACCEPTED]: [
+    ApplicationStatus.ENROLLED,
+    ApplicationStatus.CANCELLED,
+  ],
+  [ApplicationStatus.ENROLLED]: [ApplicationStatus.CANCELLED],
+  [ApplicationStatus.REJECTED]: [],
+  [ApplicationStatus.CANCELLED]: [],
+};
 
 export class UpdateApplicationStatusDto {
   @ApiProperty({ enum: ApplicationStatus })
@@ -45,4 +127,33 @@ export class ScheduleInterviewDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+export class ScheduleTestDto {
+  @ApiProperty({ example: '2024-02-10T10:00:00Z' })
+  @IsDateString()
+  date: string;
+
+  @ApiProperty({ example: 'QCM' })
+  @IsString()
+  @MaxLength(50)
+  type: string;
+
+  @ApiPropertyOptional({ example: 'Logic test' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  details?: string;
+
+  @ApiPropertyOptional({ example: 'Amphithéâtre A, Campus Ankatso' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  location?: string;
+
+  @ApiPropertyOptional({ example: ["Pièce d'identité", 'Calculatrice'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredDocuments?: string[];
 }

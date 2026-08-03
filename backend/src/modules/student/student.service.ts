@@ -141,7 +141,13 @@ export class StudentService {
             orderBy: { submittedAt: 'desc' },
             take: 10,
           },
-          enrolledSchool: true,
+          // Un étudiant peut être inscrit activement dans plusieurs écoles
+          // à la fois (double diplôme, cursus parallèle) : liste, pas un
+          // objet unique.
+          schoolEnrollments: {
+            where: { status: 'ACTIVE' },
+            include: { school: true, program: true, academicYear: true },
+          },
         },
       });
 
@@ -223,22 +229,21 @@ export class StudentService {
       try {
         data.phone = this.encryption.encrypt(dto.phone);
       } catch (e) {
-        console.warn(
-          '⚠️ Erreur chiffrement phone, stockage en clair:',
-          e.message,
+        // Ne jamais stocker une donnée sensible en clair en cas d'échec du
+        // chiffrement : on refuse l'opération plutôt que de dégrader la
+        // confidentialité silencieusement.
+        throw new BadRequestException(
+          'Impossible de sécuriser le numéro de téléphone, réessayez plus tard',
         );
-        data.phone = dto.phone;
       }
     }
     if (dto.cin) {
       try {
         data.cin = this.encryption.encrypt(dto.cin);
       } catch (e) {
-        console.warn(
-          '⚠️ Erreur chiffrement cin, stockage en clair:',
-          e.message,
+        throw new BadRequestException(
+          'Impossible de sécuriser le CIN, réessayez plus tard',
         );
-        data.cin = dto.cin;
       }
     }
 

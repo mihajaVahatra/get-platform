@@ -10,7 +10,10 @@ import {
   UseGuards,
   StreamableFile,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -39,7 +42,8 @@ export class PaymentController {
   ) {}
 
   @Post('initiate')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Initiate a payment' })
   @ApiBody({ type: InitiatePaymentDto })
@@ -56,9 +60,9 @@ export class PaymentController {
 
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('MINISTRY', 'ADMIN_GET')
+  @Roles('ADMIN_GET')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Payment statistics (Admin/Ministry only)' })
+  @ApiOperation({ summary: 'Payment statistics (Admin only)' })
   @ApiQuery({ name: 'from', required: false })
   @ApiQuery({ name: 'to', required: false })
   async getStats(@Query('from') from?: string, @Query('to') to?: string) {
@@ -73,7 +77,9 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'List all payments across the platform (Admin only)' })
+  @ApiOperation({
+    summary: 'List all payments across the platform (Admin only)',
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   @ApiQuery({ name: 'status', required: false })
@@ -95,7 +101,8 @@ export class PaymentController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get payment status' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -114,7 +121,8 @@ export class PaymentController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get payment history' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -141,14 +149,20 @@ export class PaymentController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Webhook processed' })
   async handleWebhook(
     @Body() dto: PaymentWebhookDto,
+    @Req() req: RawBodyRequest<Request>,
     @Headers('x-webhook-signature') signature?: string,
   ) {
-    const result = await this.paymentService.handleWebhook(dto, signature);
+    const result = await this.paymentService.handleWebhook(
+      dto,
+      req.rawBody,
+      signature,
+    );
     return { success: true, data: result };
   }
 
   @Get(':id/receipt')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT', 'ADMIN_GET')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Download payment receipt' })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -166,7 +180,8 @@ export class PaymentController {
   }
 
   @Post('bank-account')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('STUDENT')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Open a bank account for student' })
   @ApiBody({

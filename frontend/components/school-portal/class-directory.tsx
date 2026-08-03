@@ -30,6 +30,7 @@ function axiosMessage(error: unknown): string | undefined {
 }
 
 type AcademicYear = { id: string; label: string };
+type Program = { id: string; name: string };
 type Subject = { id: string; name: string };
 type TeacherOption = {
   teacherId: string;
@@ -55,12 +56,15 @@ type SchoolClass = {
   level: number | null;
   studentCount: number | null;
   academicYear: { id: string; label: string };
+  programId: string | null;
+  program: { id: string; name: string } | null;
   requirements: Requirement[];
 };
 
 export function ClassDirectory() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [years, setYears] = useState<AcademicYear[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,14 +74,16 @@ export function ClassDirectory() {
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [classesRes, yearsRes, subjectsRes, teachersRes] = await Promise.all([
+      const [classesRes, yearsRes, programsRes, subjectsRes, teachersRes] = await Promise.all([
         apiClient.get('/schools/me/classes'),
         apiClient.get('/academic-years'),
+        apiClient.get('/schools/me/programs'),
         apiClient.get('/schools/me/subjects'),
         apiClient.get('/schools/me/teachers'),
       ]);
       setClasses(classesRes.data.data || []);
       setYears(yearsRes.data.data || []);
+      setPrograms((programsRes.data.data || []).filter((program: { isActive: boolean }) => program.isActive));
       setSubjects(subjectsRes.data.data || []);
       setTeachers(teachersRes.data.data || []);
     } catch (error) {
@@ -130,6 +136,7 @@ export function ClassDirectory() {
               schoolClass={schoolClass}
               subjects={subjects}
               teachers={teachers}
+              programs={programs}
               expanded={expanded === schoolClass.id}
               onToggle={() =>
                 setExpanded((current) => (current === schoolClass.id ? null : schoolClass.id))
@@ -142,6 +149,7 @@ export function ClassDirectory() {
       {createOpen && (
         <CreateClassDialog
           years={years}
+          programs={programs}
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
             setCreateOpen(false);
@@ -155,15 +163,18 @@ export function ClassDirectory() {
 
 function CreateClassDialog({
   years,
+  programs,
   onClose,
   onCreated,
 }: {
   years: AcademicYear[];
+  programs: Program[];
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [name, setName] = useState('');
   const [academicYearId, setAcademicYearId] = useState(years[0]?.id || '');
+  const [programId, setProgramId] = useState('');
   const [level, setLevel] = useState('');
   const [studentCount, setStudentCount] = useState('');
   const [saving, setSaving] = useState(false);
@@ -176,6 +187,7 @@ function CreateClassDialog({
         await apiClient.post('/schools/me/classes', {
           name,
           academicYearId,
+          programId: programId || undefined,
           level: level ? Number(level) : undefined,
           studentCount: studentCount ? Number(studentCount) : undefined,
         });
@@ -221,6 +233,22 @@ function CreateClassDialog({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="class-program">Filière (facultatif)</Label>
+              <select
+                id="class-program"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                value={programId}
+                onChange={(event) => setProgramId(event.target.value)}
+              >
+                <option value="">Aucune filière</option>
+                {programs.map((program) => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="class-level">Niveau (facultatif)</Label>
@@ -250,6 +278,7 @@ function ClassCard({
   schoolClass,
   subjects,
   teachers,
+  programs,
   expanded,
   onToggle,
   onChanged,
@@ -257,6 +286,7 @@ function ClassCard({
   schoolClass: SchoolClass;
   subjects: Subject[];
   teachers: TeacherOption[];
+  programs: Program[];
   expanded: boolean;
   onToggle: () => void;
   onChanged: () => void;
@@ -264,6 +294,18 @@ function ClassCard({
   const [subjectId, setSubjectId] = useState('');
   const [hoursPerWeek, setHoursPerWeek] = useState('4');
   const [adding, setAdding] = useState(false);
+
+  const updateProgram = async (programId: string) => {
+    try {
+      await apiClient.patch(`/schools/me/classes/${schoolClass.id}`, {
+        programId: programId || null,
+      });
+      toast.success('Filière mise à jour');
+      onChanged();
+    } catch (error) {
+      toast.error(axiosMessage(error) || 'Impossible de mettre à jour la filière');
+    }
+  };
 
   const availableSubjects = useMemo(
     () => subjects.filter((subject) => !schoolClass.requirements.some((req) => req.subject.id === subject.id)),
@@ -340,12 +382,31 @@ function ClassCard({
               {schoolClass.studentCount ? ` · ${schoolClass.studentCount} élèves` : ''}
               {' · '}
               {schoolClass.requirements.length} matière(s)
+              {' · '}
+              {schoolClass.program ? schoolClass.program.name : (
+                <span className="text-amber-600">sans filière associée</span>
+              )}
             </p>
           </div>
           {expanded ? <ChevronUp className="size-4 text-slate-400" /> : <ChevronDown className="size-4 text-slate-400" />}
         </button>
         {expanded && (
           <div className="space-y-3 border-t border-slate-100 p-4">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-slate-700">Filière</span>
+              <select
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                value={schoolClass.programId || ''}
+                onChange={(event) => void updateProgram(event.target.value)}
+              >
+                <option value="">Aucune filière</option>
+                {programs.map((program) => (
+                  <option key={program.id} value={program.id}>
+                    {program.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             {schoolClass.requirements.length === 0 ? (
               <p className="text-sm text-slate-500">Aucune matière définie pour cette classe.</p>
             ) : (

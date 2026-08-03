@@ -1,6 +1,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { BadRequestException } from '@nestjs/common';
 import { NotificationService } from '../notification/notification.service';
+import { AnnouncementService } from '../announcement/announcement.service';
 import { TeacherAvailabilityService } from '../teacher-availability/teacher-availability.service';
 import { SchoolService } from './school.service';
 
@@ -43,6 +44,7 @@ describe('SchoolService', () => {
     service = new SchoolService(
       prisma as unknown as PrismaService,
       {} as NotificationService,
+      {} as AnnouncementService,
       {} as TeacherAvailabilityService,
     );
   });
@@ -117,7 +119,10 @@ describe('SchoolService', () => {
     expect(prisma.courseEnrollment.count).toHaveBeenCalledWith({
       where: {
         courseId: 'course-1',
-        student: { enrollmentStatus: 'ACTIVE', deletedAt: null },
+        student: {
+          deletedAt: null,
+          schoolEnrollments: { some: { schoolId: 'school-1', status: 'ACTIVE' } },
+        },
       },
     });
     expect(prisma.course.update).not.toHaveBeenCalled();

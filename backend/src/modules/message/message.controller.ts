@@ -23,7 +23,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageService } from './message.service';
 
@@ -41,7 +43,8 @@ const MESSAGE_ATTACHMENT_MIMES = [
 
 @ApiTags('messages')
 @Controller('messages')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('STUDENT', 'SCHOOL_ADMIN', 'TEACHER', 'ADMIN_GET')
 @ApiBearerAuth('access-token')
 export class MessageController {
   constructor(private readonly messageService: MessageService) {}

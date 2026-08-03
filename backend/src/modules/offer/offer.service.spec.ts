@@ -8,7 +8,13 @@ describe('OfferService', () => {
     school: { findFirst: jest.Mock };
     schoolProgram: { findFirst: jest.Mock };
     schoolRequirement: { count: jest.Mock };
-    offer: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
+    offer: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+    };
     user: { findUnique: jest.Mock };
   };
 
@@ -17,7 +23,13 @@ describe('OfferService', () => {
       school: { findFirst: jest.fn() },
       schoolProgram: { findFirst: jest.fn() },
       schoolRequirement: { count: jest.fn() },
-      offer: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+      offer: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
       user: { findUnique: jest.fn() },
     };
     service = new OfferService(prisma as unknown as PrismaService);
@@ -136,6 +148,36 @@ describe('OfferService', () => {
     expect(prisma.offer.update).toHaveBeenCalledWith({
       where: { id: 'offer-1' },
       data: { isOpen: false },
+    });
+  });
+
+  describe('findAll', () => {
+    it('filtre par ville au niveau de la base, pas en mémoire après pagination', async () => {
+      prisma.offer.findMany.mockResolvedValue([
+        { id: 'offer-1', school: { city: 'Antananarivo' } },
+      ]);
+      prisma.offer.count.mockResolvedValue(37);
+
+      const result = await service.findAll(2, 10, { city: 'Antananarivo' });
+
+      expect(prisma.offer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ school: { city: 'Antananarivo' } }),
+          skip: 10,
+          take: 10,
+        }),
+      );
+      expect(prisma.offer.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({ school: { city: 'Antananarivo' } }),
+      });
+      // total/totalPages doivent venir du COUNT filtré en base, pas de
+      // items.length après un skip/take déjà appliqué (bug corrigé).
+      expect(result.meta).toEqual({
+        page: 2,
+        limit: 10,
+        total: 37,
+        totalPages: 4,
+      });
     });
   });
 });

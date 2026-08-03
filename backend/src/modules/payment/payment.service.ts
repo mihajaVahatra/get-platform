@@ -37,6 +37,11 @@ export class PaymentService {
     if (application.studentId !== studentId) {
       throw new ForbiddenException('Cette candidature ne vous appartient pas');
     }
+    if (application.status !== 'ACCEPTED') {
+      throw new BadRequestException(
+        "Cette candidature n'est pas encore acceptée : le paiement n'est possible qu'après une réponse favorable de l'établissement",
+      );
+    }
 
     // Le tarif ne vient jamais du client : l'offre est la source de vérité.
     const amount = application.offer.tuitionFees;
@@ -100,8 +105,12 @@ export class PaymentService {
     };
   }
 
-  async handleWebhook(dto: PaymentWebhookDto, signature?: string) {
-    this.assertValidWebhookSignature(dto, signature);
+  async handleWebhook(
+    dto: PaymentWebhookDto,
+    rawBody?: Buffer,
+    signature?: string,
+  ) {
+    this.assertValidWebhookSignature(dto, rawBody, signature);
     const payment = await this.prisma.payment.findFirst({
       where: { providerRef: dto.providerReference },
     });
@@ -121,83 +130,124 @@ export class PaymentService {
 
     const status = confirmation.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
 
-    const updatedPayment = await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status,
-        paidAt: status === 'COMPLETED' ? new Date() : undefined,
-        providerRef: dto.providerReference,
-      },
-    });
+    // Paiement + candidature + inscription + relevé doivent être atomiques :
+    // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
+    // sans inscription, ou l'inverse (cf. audit sécurité).
+    return this.prisma.$transaction(async (tx) => {
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status,
+          paidAt: status === 'COMPLETED' ? new Date() : undefined,
+          providerRef: dto.providerReference,
+        },
+      });
 
-    if (status === 'COMPLETED' && payment.applicationId) {
-      await this.prisma.application.update({
-        where: { id: payment.applicationId },
-        data: { status: 'ENROLLED' },
-      });
-      const application = await this.prisma.application.findUnique({
-        where: { id: payment.applicationId },
-        include: { offer: true },
-      });
-      if (application?.offer.programId) {
-        const [program, academicYear] = await Promise.all([
-          this.prisma.schoolProgram.findFirst({
-            where: {
-              id: application.offer.programId,
-              schoolId: application.offer.schoolId,
-              isActive: true,
-            },
-          }),
-          this.prisma.schoolAcademicYear.findFirst({
-            where: { schoolId: application.offer.schoolId, isCurrent: true },
-          }),
-        ]);
-        if (program && academicYear) {
+      if (status === 'COMPLETED' && payment.applicationId) {
+        await tx.application.update({
+          where: { id: payment.applicationId },
+          data: { status: 'ENROLLED' },
+        });
+        const application = await tx.application.findUnique({
+          where: { id: payment.applicationId },
+          include: { offer: true },
+        });
+
+        let program: { id: string; name: string } | null = null;
+        let academicYear: { id: string; label: string } | null = null;
+        if (application?.offer.programId) {
+          [program, academicYear] = await Promise.all([
+            tx.schoolProgram.findFirst({
+              where: {
+                id: application.offer.programId,
+                schoolId: application.offer.schoolId,
+                isActive: true,
+              },
+            }),
+            tx.schoolAcademicYear.findFirst({
+              where: { schoolId: application.offer.schoolId, isCurrent: true },
+            }),
+          ]);
+        }
+
+        if (application && program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          const student = await this.prisma.student.update({
-            where: { id: application.studentId },
-            data: {
-              enrolledSchoolId: application.offer.schoolId,
+          await tx.studentEnrollment.upsert({
+            where: {
+              studentId_schoolId: {
+                studentId: application.studentId,
+                schoolId: application.offer.schoolId,
+              },
+            },
+            create: {
+              studentId: application.studentId,
+              schoolId: application.offer.schoolId,
               programId: program.id,
               programLevel: 1,
               academicYearId: academicYear.id,
               enrolledYear,
-              enrollmentStatus: 'ACTIVE',
+              status: 'ACTIVE',
+            },
+            update: {
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              status: 'ACTIVE',
             },
           });
           await this.schoolService.syncCourseEnrollments(
-            student.id,
+            application.studentId,
             application.offer.schoolId,
             program.id,
             1,
+            tx,
           );
-          await this.prisma.applicationTimeline.create({
+          await tx.applicationTimeline.create({
             data: {
               applicationId: application.id,
               status: 'ENROLLED',
               note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
             },
           });
+        } else if (application) {
+          // Le paiement est bien confirmé, mais l'inscription automatique
+          // n'a pas pu aboutir (offre sans programme lié, ou programme/année
+          // académique introuvable). Ne JAMAIS laisser passer ça en silence
+          // — un paiement réel sans inscription réelle est le pire des cas.
+          const reason = !application.offer.programId
+            ? "l'offre n'est liée à aucun programme"
+            : "aucun programme actif ou année académique en cours pour cette école";
+          console.error(
+            `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: 'ENROLLED',
+              note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+            },
+          });
         }
       }
-    }
 
-    if (status === 'COMPLETED') {
-      await this.prisma.transaction.create({
-        data: {
-          paymentId: payment.id,
-          type: 'PAYMENT',
-          amount: payment.amount,
-          provider: payment.method,
-          providerTransactionId: confirmation.providerTransactionId,
-          status: 'SUCCESS',
-          rawResponse: confirmation.rawData,
-          completedAt: new Date(),
-        },
-      });
-    }
+      if (status === 'COMPLETED') {
+        await tx.transaction.create({
+          data: {
+            paymentId: payment.id,
+            type: 'PAYMENT',
+            amount: payment.amount,
+            provider: payment.method,
+            providerTransactionId: confirmation.providerTransactionId,
+            status: 'SUCCESS',
+            rawResponse: confirmation.rawData,
+            completedAt: new Date(),
+          },
+        });
+      }
 
-    return updatedPayment;
+      return updatedPayment;
+    });
   }
 
   async getPayment(paymentId: string, userId: string, role: string) {
@@ -205,8 +255,12 @@ export class PaymentService {
       where: { id: paymentId },
       include: {
         student: {
-          include: {
-            user: true,
+          select: {
+            id: true,
+            userId: true,
+            firstName: true,
+            lastName: true,
+            user: { select: { id: true, email: true } },
           },
         },
         transaction: true,
@@ -224,11 +278,7 @@ export class PaymentService {
     });
     if (!payment) throw new NotFoundException('Payment not found');
 
-    if (
-      payment.student.userId !== userId &&
-      role !== 'ADMIN_GET' &&
-      role !== 'MINISTRY'
-    ) {
+    if (payment.student.userId !== userId && role !== 'ADMIN_GET') {
       throw new ForbiddenException(
         'Vous n’êtes pas autorisé à consulter ce paiement',
       );
@@ -288,7 +338,7 @@ export class PaymentService {
 
   async openBankAccount(studentId: string, bankId: string) {
     return {
-      accountNumber: `MG-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      accountNumber: `MG-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`,
       bankName: 'Banque Partenaire',
       status: 'ACTIVE',
     };
@@ -313,9 +363,19 @@ export class PaymentService {
         take: currentLimit,
         orderBy: { createdAt: 'desc' },
         include: {
-          student: { select: { firstName: true, lastName: true, user: { select: { email: true } } } },
+          student: {
+            select: {
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
           application: {
-            select: { offer: { select: { title: true, school: { select: { name: true } } } } },
+            select: {
+              offer: {
+                select: { title: true, school: { select: { name: true } } },
+              },
+            },
           },
         },
       }),
@@ -332,8 +392,9 @@ export class PaymentService {
         status: payment.status,
         createdAt: payment.createdAt,
         studentName:
-          [payment.student.firstName, payment.student.lastName].filter(Boolean).join(' ') ||
-          payment.student.user.email,
+          [payment.student.firstName, payment.student.lastName]
+            .filter(Boolean)
+            .join(' ') || payment.student.user.email,
         school: payment.application?.offer.school.name || null,
       })),
       meta: {
@@ -376,14 +437,19 @@ export class PaymentService {
 
   private assertValidWebhookSignature(
     dto: PaymentWebhookDto,
+    rawBody?: Buffer,
     signature?: string,
   ) {
     const secret = this.config.get<string>('PAYMENT_WEBHOOK_SECRET');
     if (!secret || !signature)
       throw new ForbiddenException('Signature webhook manquante');
+    // On signe les octets bruts reçus, pas le DTO re-sérialisé après
+    // transformation par class-validator (ordre des clés, coercions de
+    // type... peuvent différer de ce que l'expéditeur a réellement signé).
+    const payload = rawBody ?? Buffer.from(JSON.stringify(dto));
     const expected = crypto
       .createHmac('sha256', secret)
-      .update(JSON.stringify(dto))
+      .update(payload)
       .digest('hex');
     const received = Buffer.from(signature, 'hex');
     const expectedBuffer = Buffer.from(expected, 'hex');

@@ -25,6 +25,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    // Les jetons à usage unique (reset de mot de passe, challenge MFA) portent
+    // un champ `type` et ne doivent jamais être acceptés comme jeton d'accès,
+    // même s'ils sont signés avec le même secret et encore valides.
+    if (payload?.type) {
+      throw new UnauthorizedException('Jeton invalide pour cet usage');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {

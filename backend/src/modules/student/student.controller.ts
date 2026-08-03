@@ -35,6 +35,8 @@ import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 
 type CurrentStudentUser = {
@@ -63,7 +65,8 @@ class UpdateThemeDto {
 
 @ApiTags('students')
 @Controller('students')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('STUDENT')
 @ApiBearerAuth('access-token')
 export class StudentController {
   constructor(

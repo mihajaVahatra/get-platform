@@ -18,7 +18,12 @@ const profileSchema = z.object({
   firstName: z.string().min(2, 'Prénom trop court (min 2 caractères)'),
   lastName: z.string().min(2, 'Nom trop court (min 2 caractères)'),
   phone: z.string().optional(),
+  birthDate: z.string().optional(),
+  cin: z.string().optional(),
+  bacYear: z.union([z.string(), z.number()]).optional(),
+  bacType: z.string().optional(),
   city: z.string().optional(),
+  address: z.string().optional(),
   region: z.string().optional(),
   bio: z.string().optional(),
 });
@@ -48,8 +53,12 @@ export default function StudentProfilePage() {
   const fetchProfile = async () => {
     try {
       const response = await apiClient.get('/students/me');
-      setProfile(response.data.data);
-      reset(response.data.data);
+      const data = response.data.data;
+      setProfile(data);
+      reset({
+        ...data,
+        birthDate: data.birthDate ? String(data.birthDate).slice(0, 10) : '',
+      });
     } catch (error) {
       console.error('Erreur chargement profil:', error);
       toast.error('Erreur lors du chargement du profil');
@@ -68,7 +77,14 @@ export default function StudentProfilePage() {
   const onSubmit = async (data: ProfileForm) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.put('/students/me', data);
+      const payload = {
+        ...data,
+        bacYear:
+          data.bacYear === '' || data.bacYear === undefined
+            ? undefined
+            : Number(data.bacYear),
+      };
+      const response = await apiClient.put('/students/me', payload);
       setProfile(response.data.data);
       toast.success('Profil mis à jour avec succès !');
     } catch (error: any) {
@@ -106,7 +122,6 @@ export default function StudentProfilePage() {
       <Tabs defaultValue="informations" className="space-y-4">
         <TabsList>
           <TabsTrigger value="informations">Informations</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="stats">Statistiques</TabsTrigger>
         </TabsList>
 
@@ -155,6 +170,41 @@ export default function StudentProfilePage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
+                    <Label htmlFor="birthDate">Date de naissance</Label>
+                    <Input id="birthDate" type="date" {...register('birthDate')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cin">CIN</Label>
+                    <Input
+                      id="cin"
+                      placeholder="101234567"
+                      {...register('cin')}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="bacYear">Année du bac</Label>
+                    <Input
+                      id="bacYear"
+                      type="number"
+                      placeholder="2023"
+                      {...register('bacYear')}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bacType">Série du bac</Label>
+                    <Input
+                      id="bacType"
+                      placeholder="S, A, C, D…"
+                      {...register('bacType')}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
                     <Label htmlFor="city">Ville</Label>
                     <Input
                       id="city"
@@ -173,6 +223,15 @@ export default function StudentProfilePage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="address">Adresse</Label>
+                  <Input
+                    id="address"
+                    placeholder="Lot II M 12 Bis Analakely"
+                    {...register('address')}
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
                   <Input
                     id="bio"
@@ -181,7 +240,13 @@ export default function StudentProfilePage() {
                   />
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex items-center justify-between">
+                <a
+                  href="/dashboard/student/documents"
+                  className="text-sm font-medium text-violet-600 hover:underline"
+                >
+                  Gérer mes documents (CV, CIN, diplôme…) →
+                </a>
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? 'Sauvegarde...' : 'Sauvegarder'}
                 </Button>
@@ -190,41 +255,11 @@ export default function StudentProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* === ONGLET DOCUMENTS === */}
-        <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Mes documents</CardTitle>
-              <CardDescription>
-                Gérez vos documents (CV, lettre de motivation, etc.)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                <p className="text-gray-500">Glissez-déposez vos fichiers ici</p>
-                <p className="text-sm text-gray-400">ou cliquez pour sélectionner</p>
-                <Button className="mt-4" variant="outline">
-                  Uploader un document
-                </Button>
-              </div>
-              <div className="mt-6 space-y-2">
-                <p className="font-medium">Documents existants</p>
-                {profile.documents?.length === 0 ? (
-                  <p className="text-sm text-gray-500">Aucun document uploadé</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {profile.documents?.map((doc: any) => (
-                      <li key={doc.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span>{doc.name}</span>
-                        <Button variant="ghost" size="sm">Télécharger</Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Ancien onglet Documents retiré : il dupliquait
+            /dashboard/student/documents avec un bouton d'upload non
+            fonctionnel et une liste basée sur un champ absent de la réponse
+            API. Le vrai gestionnaire de documents reste accessible depuis le
+            lien ci-dessus et depuis le menu. */}
 
         {/* === ONGLET STATISTIQUES === */}
         <TabsContent value="stats">

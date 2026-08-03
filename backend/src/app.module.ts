@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { StudentModule } from './modules/student/student.module';
@@ -60,6 +63,18 @@ import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.
     SystemSettingsModule,
     AdminDashboardModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Garde-fou global : toute route doit désormais être explicitement
+    // marquée @Public() pour rester accessible sans JWT. Avant ce correctif,
+    // seule la présence d'un @UseGuards(JwtAuthGuard) protégeait une route ;
+    // un contrôleur oubliant de l'ajouter devenait silencieusement public
+    // (cf. audit sécurité). Les @UseGuards(JwtAuthGuard, ...) existants
+    // restent en place (redondants mais inoffensifs) pour la vérification
+    // des rôles via RolesGuard.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}

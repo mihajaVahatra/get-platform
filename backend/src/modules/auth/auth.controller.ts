@@ -26,6 +26,7 @@ import { GetUser } from '../../common/decorators/get-user.decorator';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MfaLoginVerifyDto } from './dto/mfa-login-verify.dto';
 import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('auth')
@@ -90,8 +91,30 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
+    const result = await this.authService.login(dto);
+    if (result.mfaRequired) {
+      // Aucun cookie de session tant que le code MFA n'est pas vérifié.
+      return { mfaRequired: true, challengeToken: result.challengeToken };
+    }
+    this.setSessionCookies(response, result.accessToken, result.refreshToken);
+    return { user: result.user };
+  }
+
+  // ========== LOGIN — étape 2 (vérification MFA) ==========
+  @Public()
+  @Post('mfa/login-verify')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify MFA code to complete login' })
+  @ApiBody({ type: MfaLoginVerifyDto })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired challenge' })
+  async loginMfaVerify(
+    @Body() dto: MfaLoginVerifyDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const { accessToken, refreshToken, user } =
-      await this.authService.login(dto);
+      await this.authService.completeMfaLogin(dto.challengeToken, dto.code);
     this.setSessionCookies(response, accessToken, refreshToken);
     return { user };
   }
@@ -108,10 +131,12 @@ export class AuthController {
         gender: user.gender,
         firstName: user.student?.firstName || user.email.split('@')[0],
         lastName: user.student?.lastName || '',
+        mfaEnabled: user.mfaEnabled,
       },
     };
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Res({ passthrough: true }) response: Response) {
@@ -164,6 +189,7 @@ export class AuthController {
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Verify and enable MFA' })
   @ApiBody({
@@ -176,6 +202,7 @@ export class AuthController {
   @Post('mfa/disable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Disable MFA' })
   @ApiBody({

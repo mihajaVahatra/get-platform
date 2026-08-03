@@ -29,26 +29,42 @@ describe('PaymentService', () => {
   let config: { get: jest.Mock };
   let prisma: {
     student: { findUnique: jest.Mock; update: jest.Mock };
+    studentEnrollment: { upsert: jest.Mock };
     application: {
       findUnique: jest.Mock;
       update: jest.Mock;
     };
-    payment: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
+    payment: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     schoolProgram: { findFirst: jest.Mock };
     schoolAcademicYear: { findFirst: jest.Mock };
     applicationTimeline: { create: jest.Mock };
     transaction: { create: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
       student: { findUnique: jest.fn(), update: jest.fn() },
+      studentEnrollment: { upsert: jest.fn() },
       application: { findUnique: jest.fn(), update: jest.fn() },
-      payment: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+      payment: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
       schoolProgram: { findFirst: jest.fn() },
       schoolAcademicYear: { findFirst: jest.fn() },
       applicationTimeline: { create: jest.fn() },
       transaction: { create: jest.fn() },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback(prisma),
+      ),
     };
     paymentProvider = { initiatePayment: jest.fn(), confirmPayment: jest.fn() };
     schoolService = { syncCourseEnrollments: jest.fn() };
@@ -77,6 +93,7 @@ describe('PaymentService', () => {
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'another-student',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
 
@@ -85,11 +102,27 @@ describe('PaymentService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('refuse un paiement pour une candidature pas encore acceptée', async () => {
+      prisma.student.findUnique.mockResolvedValue({ id: 'student-1' });
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: 'PENDING',
+        offer: { tuitionFees: 5000 },
+      });
+
+      await expect(
+        service.initiatePayment('student-1', dto),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
+
     it('refuse un second paiement si un paiement est déjà en cours ou complété', async () => {
       prisma.student.findUnique.mockResolvedValue({ id: 'student-1' });
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'student-1',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
       prisma.payment.findFirst.mockResolvedValue({
@@ -108,6 +141,7 @@ describe('PaymentService', () => {
       prisma.application.findUnique.mockResolvedValue({
         id: 'application-1',
         studentId: 'student-1',
+        status: 'ACCEPTED',
         offer: { tuitionFees: 5000 },
       });
       prisma.payment.findFirst.mockResolvedValue(null);
@@ -139,14 +173,14 @@ describe('PaymentService', () => {
     const dto = { providerReference: 'provider-ref-1' } as any;
 
     it('refuse un webhook sans signature', async () => {
-      await expect(service.handleWebhook(dto, undefined)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.handleWebhook(dto, undefined, undefined),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('refuse un webhook avec une signature invalide', async () => {
       await expect(
-        service.handleWebhook(dto, 'signature-invalide'),
+        service.handleWebhook(dto, undefined, 'signature-invalide'),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
@@ -154,7 +188,7 @@ describe('PaymentService', () => {
       prisma.payment.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.handleWebhook(dto, signWebhook(dto)),
+        service.handleWebhook(dto, undefined, signWebhook(dto)),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -188,21 +222,96 @@ describe('PaymentService', () => {
         id: 'year-1',
         label: '2026-2027',
       });
-      prisma.student.update.mockResolvedValue({ id: 'student-1' });
+      prisma.studentEnrollment.upsert.mockResolvedValue({ id: 'enrollment-1' });
 
-      await service.handleWebhook(dto, signWebhook(dto));
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
 
       expect(prisma.application.update).toHaveBeenCalledWith({
         where: { id: 'application-1' },
         data: { status: 'ENROLLED' },
+      });
+      expect(prisma.studentEnrollment.upsert).toHaveBeenCalledWith({
+        where: {
+          studentId_schoolId: { studentId: 'student-1', schoolId: 'school-1' },
+        },
+        create: expect.objectContaining({
+          studentId: 'student-1',
+          schoolId: 'school-1',
+          programId: 'program-1',
+        }),
+        update: expect.objectContaining({ programId: 'program-1' }),
       });
       expect(schoolService.syncCourseEnrollments).toHaveBeenCalledWith(
         'student-1',
         'school-1',
         'program-1',
         1,
+        prisma,
       );
       expect(prisma.transaction.create).toHaveBeenCalled();
+    });
+
+    it('ne reste jamais silencieux si le paiement est confirmé mais l’inscription automatique est impossible', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      prisma.payment.findFirst.mockResolvedValue({
+        id: 'payment-1',
+        status: 'PROCESSING',
+        amount: 5000,
+        method: 'MVOLA',
+        applicationId: 'application-1',
+      });
+      paymentProvider.confirmPayment.mockResolvedValue({
+        status: 'COMPLETED',
+        providerTransactionId: 'txn-1',
+        rawData: {},
+      });
+      prisma.payment.update.mockResolvedValue({
+        id: 'payment-1',
+        status: 'COMPLETED',
+      });
+      // Offre non liée à un programme (le bug corrigé le 2026-08-03).
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        offer: { programId: null, schoolId: 'school-1' },
+      });
+
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
+
+      expect(prisma.studentEnrollment.upsert).not.toHaveBeenCalled();
+      expect(schoolService.syncCourseEnrollments).not.toHaveBeenCalled();
+      expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            applicationId: 'application-1',
+            note: expect.stringContaining('inscription automatique impossible'),
+          }),
+        }),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ALERTE INSCRIPTION]'),
+      );
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('getPayment', () => {
+    it('refuse au rôle Ministry le détail nominatif d’un paiement', async () => {
+      prisma.payment.findUnique.mockResolvedValue({
+        id: 'payment-1',
+        student: {
+          userId: 'student-user',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          user: { email: 'ada@example.test' },
+        },
+      });
+
+      await expect(
+        service.getPayment('payment-1', 'ministry-user', 'MINISTRY'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

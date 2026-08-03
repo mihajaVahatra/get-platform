@@ -6,13 +6,13 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationService } from '../notification/notification.service';
+import { AnnouncementService } from '../announcement/announcement.service';
 import { StorageService } from '../../common/services/storage.service';
 @Injectable()
 export class TeachingService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationService: NotificationService,
+    private readonly announcementService: AnnouncementService,
     private readonly storageService: StorageService,
   ) {}
   private async teacher(userId: string) {
@@ -461,33 +461,17 @@ export class TeachingService {
       where: { courseId },
       select: { student: { select: { userId: true } } },
     });
-    const announcement = await this.prisma.announcement.create({
-      data: {
+    return this.announcementService.createAndNotify(
+      {
         schoolId: course.schoolId,
         authorId: userId,
         courseId,
         targetType: 'COURSE_STUDENTS',
-        targetClasses: [],
-        title: dto.title.trim(),
-        body: dto.body.trim(),
+        title: dto.title,
+        body: dto.body,
       },
-    });
-    const recipients = await this.notificationService.sendInAppBatch(
       enrollments.map((enrollment) => enrollment.student.userId),
-      { title: announcement.title, body: announcement.body },
     );
-    if (recipients.length) {
-      await this.prisma.announcementRecipient.createMany({
-        data: recipients.map((recipient) => ({
-          announcementId: announcement.id,
-          ...recipient,
-        })),
-      });
-    }
-    return {
-      announcementId: announcement.id,
-      recipientCount: recipients.length,
-    };
   }
   async announcements(userId: string, courseId: string) {
     await this.course(userId, courseId);

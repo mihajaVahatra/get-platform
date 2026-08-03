@@ -3,6 +3,7 @@ import {
   Get,
   Query,
   Param,
+  ParseEnumPipe,
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
@@ -16,7 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuditQueryDto } from './dto/audit-query.dto';
-import { AuditLogDto } from './dto/audit-log.dto';
+import { AuditLogDto, AuditResource } from './dto/audit-log.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -26,7 +27,7 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 @ApiTags('audit')
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN_GET', 'MINISTRY')
+@Roles('ADMIN_GET')
 @ApiBearerAuth('access-token')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -37,7 +38,7 @@ export class AuditController {
 
   @Get()
   @ApiOperation({
-    summary: 'Get audit logs with filters (Admin/Ministry only)',
+    summary: 'Get audit logs with filters (Admin only)',
   })
   @ApiPaginatedResponse(AuditLogDto)
   @ApiResponse({ status: HttpStatus.OK, description: 'Audit logs retrieved' })
@@ -67,11 +68,11 @@ export class AuditController {
     description: 'Resource audit logs retrieved',
   })
   async getLogsForResource(
-    @Param('resource') resource: string,
+    @Param('resource', new ParseEnumPipe(AuditResource)) resource: AuditResource,
     @Param('id') resourceId: string,
   ) {
     const logs = await this.auditService.getLogsForResource(
-      resource as any,
+      resource,
       resourceId,
     );
     return {

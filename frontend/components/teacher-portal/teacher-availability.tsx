@@ -282,6 +282,15 @@ function TravelBufferSection({
   const [minutesBuffer, setMinutesBuffer] = useState('30');
   const [saving, setSaving] = useState(false);
 
+  const selectSchoolA = (value: string) => {
+    setSchoolAId(value);
+    if (value && value === schoolBId) setSchoolBId('');
+  };
+  const selectSchoolB = (value: string) => {
+    setSchoolBId(value);
+    if (value && value === schoolAId) setSchoolAId('');
+  };
+
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -335,32 +344,36 @@ function TravelBufferSection({
           École A
           <select
             value={schoolAId}
-            onChange={(event) => setSchoolAId(event.target.value)}
+            onChange={(event) => selectSchoolA(event.target.value)}
             required
             className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
           >
             <option value="">Choisir...</option>
-            {schools.map(({ school }) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
+            {schools
+              .filter(({ school }) => school.id !== schoolBId)
+              .map(({ school }) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
           </select>
         </label>
         <label className="text-xs font-bold text-slate-700">
           École B
           <select
             value={schoolBId}
-            onChange={(event) => setSchoolBId(event.target.value)}
+            onChange={(event) => selectSchoolB(event.target.value)}
             required
             className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
           >
             <option value="">Choisir...</option>
-            {schools.map(({ school }) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
+            {schools
+              .filter(({ school }) => school.id !== schoolAId)
+              .map(({ school }) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
           </select>
         </label>
         <label className="text-xs font-bold text-slate-700">

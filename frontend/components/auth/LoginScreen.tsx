@@ -42,6 +42,7 @@ export function LoginScreen() {
   const [accountType, setAccountType] = useState<AccountType>('student');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const isInstitution = accountType === 'school';
   const {
     register,
@@ -52,42 +53,46 @@ export function LoginScreen() {
     defaultValues: { remember: true },
   });
 
+  const completeLogin = async (user: {
+    role: string;
+    firstName?: string;
+  }) => {
+    const institutionRoles = ['SCHOOL_ADMIN', 'TEACHER', 'MINISTRY', 'ADMIN_GET'];
+    const isInstitutionUser = institutionRoles.includes(user.role);
+
+    if (isInstitution && !isInstitutionUser) {
+      await apiClient.post('/auth/logout');
+      toast.error('Ce compte étudiant doit se connecter depuis l’onglet Étudiant.');
+      return;
+    }
+    if (!isInstitution && isInstitutionUser) {
+      await apiClient.post('/auth/logout');
+      toast.error(
+        'Ce compte institutionnel doit se connecter depuis l’onglet École / Institution.',
+      );
+      return;
+    }
+
+    const destinations: Record<string, string> = {
+      SCHOOL_ADMIN: '/dashboard/school',
+      TEACHER: '/dashboard/teacher',
+      MINISTRY: '/dashboard/ministry',
+      ADMIN_GET: '/dashboard/admin',
+    };
+    toast.success(`Bienvenue ${user.firstName || ''} !`);
+    router.replace(destinations[user.role] || '/dashboard/student');
+  };
+
   const onSubmit = async ({ email, password }: LoginForm) => {
     setIsLoading(true);
     try {
       const response = await apiClient.post('/auth/login', { email, password });
-      const { user } = response.data.data;
-      const institutionRoles = [
-        'SCHOOL_ADMIN',
-        'TEACHER',
-        'MINISTRY',
-        'ADMIN_GET',
-      ];
-      const isInstitutionUser = institutionRoles.includes(user.role);
-
-      if (isInstitution && !isInstitutionUser) {
-        await apiClient.post('/auth/logout');
-        toast.error(
-          'Ce compte étudiant doit se connecter depuis l’onglet Étudiant.',
-        );
+      const { mfaRequired, challengeToken: token, user } = response.data.data;
+      if (mfaRequired) {
+        setChallengeToken(token);
         return;
       }
-      if (!isInstitution && isInstitutionUser) {
-        await apiClient.post('/auth/logout');
-        toast.error(
-          'Ce compte institutionnel doit se connecter depuis l’onglet École / Institution.',
-        );
-        return;
-      }
-
-      const destinations: Record<string, string> = {
-        SCHOOL_ADMIN: '/dashboard/school',
-        TEACHER: '/dashboard/teacher',
-        MINISTRY: '/dashboard/ministry',
-        ADMIN_GET: '/dashboard/admin',
-      };
-      toast.success(`Bienvenue ${user.firstName || ''} !`);
-      router.replace(destinations[user.role] || '/dashboard/student');
+      await completeLogin(user);
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
@@ -98,6 +103,16 @@ export function LoginScreen() {
       setIsLoading(false);
     }
   };
+
+  if (challengeToken) {
+    return (
+      <MfaChallengeScreen
+        challengeToken={challengeToken}
+        onBack={() => setChallengeToken(null)}
+        onVerified={completeLogin}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#faf9ff] p-3 sm:p-6 lg:p-8">
@@ -331,6 +346,81 @@ export function LoginScreen() {
             )}
           </div>
         </section>
+      </div>
+    </main>
+  );
+}
+
+function MfaChallengeScreen({
+  challengeToken,
+  onBack,
+  onVerified,
+}: {
+  challengeToken: string;
+  onBack: () => void;
+  onVerified: (user: { role: string; firstName?: string }) => Promise<void>;
+}) {
+  const [code, setCode] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const submit = async () => {
+    if (code.length !== 6) {
+      toast.error('Saisissez le code à 6 chiffres de votre application');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await apiClient.post('/auth/mfa/login-verify', {
+        challengeToken,
+        code,
+      });
+      await onVerified(response.data.data.user);
+    } catch (error: unknown) {
+      toast.error(
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || 'Code invalide ou expiré'
+          : 'Code invalide ou expiré',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#faf9ff] p-6">
+      <div className="w-full max-w-md rounded-[26px] bg-white p-8 text-center shadow-[0_20px_60px_rgba(60,45,140,0.12)]">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
+          <ShieldCheck className="size-7" />
+        </span>
+        <h2 className="mt-5 text-2xl font-extrabold text-[#101643]">
+          Vérification en deux étapes
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Saisissez le code à 6 chiffres généré par votre application
+          d’authentification.
+        </p>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          inputMode="numeric"
+          autoFocus
+          placeholder="123456"
+          className="mx-auto mt-6 block h-14 w-48 rounded-xl border border-slate-200 text-center text-2xl font-bold tracking-[0.3em] outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+          onKeyDown={(e) => e.key === 'Enter' && void submit()}
+        />
+        <button
+          onClick={() => void submit()}
+          disabled={isLoading}
+          className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 text-base font-extrabold text-white shadow-lg shadow-violet-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? 'Vérification…' : 'Vérifier'}
+        </button>
+        <button
+          onClick={onBack}
+          className="mt-4 text-sm font-bold text-violet-600 hover:text-violet-700"
+        >
+          ← Retour à la connexion
+        </button>
       </div>
     </main>
   );

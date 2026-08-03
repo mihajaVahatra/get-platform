@@ -13,12 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const DIPLOMAS = {
-  LICENCE: { label: 'Licence', duration: 36, tuitionFees: 3500000 },
-  MASTER_1: { label: 'Master 1', duration: 12, tuitionFees: 4000000 },
-  MASTER_2: { label: 'Master 2', duration: 12, tuitionFees: 4500000 },
-  DOCTORAT: { label: 'Doctorat', duration: 36, tuitionFees: 5000000 },
-} as const;
+// Pré-remplissage best-effort de durée/frais par mot-clé plutôt que par
+// correspondance exacte : le diplôme d'une filière est un texte libre saisi
+// dans Paramètres (ex. "Master" sans "1"/"2"), donc un matching insensible
+// à la casse reste utile même quand le libellé ne suit pas une convention fixe.
+function diplomaDefaults(diploma: string): { duration: number; tuitionFees: number } | null {
+  const normalized = diploma.toLowerCase();
+  if (normalized.includes('doctorat')) return { duration: 36, tuitionFees: 5000000 };
+  if (normalized.includes('master')) return { duration: 12, tuitionFees: 4000000 };
+  if (normalized.includes('licence')) return { duration: 36, tuitionFees: 3500000 };
+  return null;
+}
 
 const schema = z.object({
   title: z.string().min(3, 'Titre trop court'),
@@ -40,7 +45,7 @@ export default function NewSchoolOfferPage() {
   const [requirements, setRequirements] = useState<{ id: string; name: string; isRequired: boolean }[]>([]);
   const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [programs, setPrograms] = useState<{ id: string; name: string; isActive: boolean }[]>([]);
+  const [programs, setPrograms] = useState<{ id: string; name: string; diploma: string; isActive: boolean }[]>([]);
   const currentYear = new Date().getFullYear();
   const academicYears = Array.from({ length: 4 }, (_, index) => {
     const year = currentYear + index;
@@ -50,6 +55,12 @@ export default function NewSchoolOfferPage() {
     resolver: zodResolver(schema),
     defaultValues: { academicYear: academicYears[0] },
   });
+  const [selectedDiploma, setSelectedDiploma] = useState('');
+  const [selectedProgramId, setSelectedProgramId] = useState('');
+  const diplomaOptions = Array.from(new Set(programs.map((program) => program.diploma).filter(Boolean)));
+  const filteredPrograms = selectedDiploma
+    ? programs.filter((program) => program.diploma === selectedDiploma)
+    : programs;
 
   useEffect(() => {
     apiClient.get('/schools/me')
@@ -99,21 +110,51 @@ export default function NewSchoolOfferPage() {
             <Field label="Description"><Input {...register('description')} placeholder="Présentez brièvement la formation" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Diplôme" required error={errors.diploma?.message}>
-                <Select items={Object.entries(DIPLOMAS).map(([value, option]) => ({ value, label: option.label }))} onValueChange={(value) => {
-                  const option = DIPLOMAS[value as keyof typeof DIPLOMAS];
-                  if (!option) return;
-                  setValue('diploma', option.label, { shouldValidate: true });
-                  setValue('duration', option.duration, { shouldValidate: true });
-                  setValue('tuitionFees', option.tuitionFees, { shouldValidate: true });
-                }}>
+                <Select
+                  value={selectedDiploma}
+                  items={diplomaOptions.map((diploma) => ({ value: diploma, label: diploma }))}
+                  onValueChange={(value) => {
+                    const diploma = value ?? '';
+                    setSelectedDiploma(diploma);
+                    setValue('diploma', diploma, { shouldValidate: true });
+                    const defaults = diplomaDefaults(diploma);
+                    if (defaults) {
+                      setValue('duration', defaults.duration, { shouldValidate: true });
+                      setValue('tuitionFees', defaults.tuitionFees, { shouldValidate: true });
+                    }
+                    const currentProgram = programs.find((program) => program.id === selectedProgramId);
+                    if (currentProgram && currentProgram.diploma !== diploma) {
+                      setSelectedProgramId('');
+                      setValue('programId', '', { shouldValidate: true });
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Sélectionner un diplôme" /></SelectTrigger>
-                  <SelectContent>{Object.entries(DIPLOMAS).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>{diplomaOptions.map((diploma) => <SelectItem key={diploma} value={diploma}>{diploma}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Filière associée" required error={errors.programId?.message}>
-                <Select items={programs.map((program) => ({ value: program.id, label: program.name }))} onValueChange={(value) => setValue('programId', String(value ?? ''), { shouldValidate: true })}>
+                <Select
+                  value={selectedProgramId}
+                  items={filteredPrograms.map((program) => ({ value: program.id, label: program.name }))}
+                  onValueChange={(value) => {
+                    const programId = String(value ?? '');
+                    setSelectedProgramId(programId);
+                    setValue('programId', programId, { shouldValidate: true });
+                    const program = programs.find((p) => p.id === programId);
+                    if (program) {
+                      setSelectedDiploma(program.diploma);
+                      setValue('diploma', program.diploma, { shouldValidate: true });
+                      const defaults = diplomaDefaults(program.diploma);
+                      if (defaults) {
+                        setValue('duration', defaults.duration, { shouldValidate: true });
+                        setValue('tuitionFees', defaults.tuitionFees, { shouldValidate: true });
+                      }
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Sélectionnez la filière correspondante" /></SelectTrigger>
-                  <SelectContent>{programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{filteredPrograms.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
               <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>

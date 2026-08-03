@@ -150,6 +150,37 @@ async function main() {
   // [3] = Université de Fianarantsoa, [4] = ISCAM
   console.log('✅ 5 établissements supplémentaires créés');
 
+  // Un étudiant ne peut être inscrit (StudentEnrollment) que dans une
+  // filière/année académique réelles. Ces deux helpers créent celles-ci à
+  // la demande (idempotent, par nom/label) — les valeurs utilisées ici sont
+  // reprises telles quelles par la section "FILIÈRES"/"ANNÉES ACADÉMIQUES"
+  // plus bas dans ce script, qui ne fait donc que les confirmer.
+  async function ensureProgram(
+    schoolId: string,
+    name: string,
+    diploma: string,
+    durationYears: number,
+  ) {
+    return prisma.schoolProgram.upsert({
+      where: { schoolId_name: { schoolId, name } },
+      update: {},
+      create: { schoolId, name, diploma, durationYears },
+    });
+  }
+  async function ensureCurrentAcademicYear(schoolId: string) {
+    return prisma.schoolAcademicYear.upsert({
+      where: { schoolId_label: { schoolId, label: '2026-2027' } },
+      update: { isCurrent: true },
+      create: {
+        schoolId,
+        label: '2026-2027',
+        enrollmentOpensAt: new Date('2026-03-01T00:00:00.000Z'),
+        enrollmentClosesAt: new Date('2026-09-30T23:59:59.000Z'),
+        isCurrent: true,
+      },
+    });
+  }
+
   await prisma.schoolAdmin.upsert({
     where: { userId: schoolAdmin.id },
     update: {
@@ -451,8 +482,6 @@ async function main() {
       lastName: 'Ranaivo',
       city: 'Antananarivo',
       region: 'Analamanga',
-      enrolledSchoolId: null,
-      enrolledYear: null,
     },
     create: {
       userId: candidate.id,
@@ -493,10 +522,36 @@ async function main() {
           skills: ['JavaScript', 'Python', 'SQL'],
           aspirations: ['Devenir ingénieur en IA'],
           profileCompleted: true,
-          enrolledSchoolId: school.id,
-          enrolledYear: '2ᵉ année Informatique',
         },
       },
+    },
+  });
+  const enrolledStudentProfile = await prisma.student.findUniqueOrThrow({
+    where: { userId: enrolledStudent.id },
+  });
+  const espaInfoProgram = await ensureProgram(
+    school.id,
+    'Licence Informatique',
+    'Licence',
+    3,
+  );
+  const espaCurrentYear = await ensureCurrentAcademicYear(school.id);
+  await prisma.studentEnrollment.upsert({
+    where: {
+      studentId_schoolId: {
+        studentId: enrolledStudentProfile.id,
+        schoolId: school.id,
+      },
+    },
+    update: {},
+    create: {
+      studentId: enrolledStudentProfile.id,
+      schoolId: school.id,
+      programId: espaInfoProgram.id,
+      programLevel: 2,
+      academicYearId: espaCurrentYear.id,
+      enrolledYear: 'Année 2 · Licence Informatique · 2026-2027',
+      status: 'ACTIVE',
     },
   });
   console.log('✅ Étudiant inscrit créé: enrolled@test.com / Enrolled123!');
@@ -507,7 +562,10 @@ async function main() {
       firstName: 'Lina',
       lastName: 'Razanakoto',
       school: seededSchools[0],
-      year: '1ʳᵉ année Informatique',
+      programName: 'DUT Informatique',
+      diploma: 'DUT',
+      durationYears: 2,
+      level: 1,
       gender: 'FEMALE',
     },
     {
@@ -515,7 +573,10 @@ async function main() {
       firstName: 'Hery',
       lastName: 'Andrianina',
       school: seededSchools[0],
-      year: '2ᵉ année Génie Civil',
+      programName: 'DUT Génie Civil',
+      diploma: 'DUT',
+      durationYears: 2,
+      level: 2,
       gender: 'MALE',
     },
     {
@@ -523,7 +584,10 @@ async function main() {
       firstName: 'Mamy',
       lastName: 'Rakotondrabe',
       school: seededSchools[1],
-      year: '1ʳᵉ année Management',
+      programName: 'Licence Management',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 1,
       gender: 'MALE',
     },
     {
@@ -531,7 +595,10 @@ async function main() {
       firstName: 'Saholy',
       lastName: 'Rasoanaivo',
       school: seededSchools[1],
-      year: '2ᵉ année Finance',
+      programName: 'Licence Finance',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 2,
       gender: 'FEMALE',
     },
     {
@@ -539,7 +606,10 @@ async function main() {
       firstName: 'Fanja',
       lastName: 'Ravelomanana',
       school: seededSchools[2],
-      year: '1ʳᵉ année Sciences de la santé',
+      programName: 'Licence Sciences de la Santé',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 1,
       gender: 'FEMALE',
     },
     {
@@ -547,7 +617,10 @@ async function main() {
       firstName: 'Toky',
       lastName: 'Randriamihaja',
       school: seededSchools[2],
-      year: '2ᵉ année Économie',
+      programName: 'Licence Économie',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 2,
       gender: 'MALE',
     },
     {
@@ -555,7 +628,10 @@ async function main() {
       firstName: 'Fara',
       lastName: 'Rakotoniaina',
       school,
-      year: '3ᵉ année Informatique',
+      programName: 'Licence Informatique',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 3,
       gender: 'FEMALE',
     },
     {
@@ -563,7 +639,10 @@ async function main() {
       firstName: 'Njaka',
       lastName: 'Andriamampianina',
       school,
-      year: '3ᵉ année Informatique',
+      programName: 'Licence Informatique',
+      diploma: 'Licence',
+      durationYears: 3,
+      level: 3,
       gender: 'MALE',
     },
     {
@@ -571,7 +650,10 @@ async function main() {
       firstName: 'Fy',
       lastName: 'Rasolonirina',
       school: seededSchools[0],
-      year: '2ᵉ année Informatique',
+      programName: 'DUT Informatique',
+      diploma: 'DUT',
+      durationYears: 2,
+      level: 2,
       gender: 'MALE',
     },
   ] as const;
@@ -594,15 +676,13 @@ async function main() {
         gender: entry.gender,
       },
     });
-    await prisma.student.upsert({
+    const studentProfile = await prisma.student.upsert({
       where: { userId: user.id },
       update: {
         firstName: entry.firstName,
         lastName: entry.lastName,
         city: entry.school.city,
         region: entry.school.region,
-        enrolledSchoolId: entry.school.id,
-        enrolledYear: entry.year,
       },
       create: {
         userId: user.id,
@@ -610,8 +690,38 @@ async function main() {
         lastName: entry.lastName,
         city: entry.school.city,
         region: entry.school.region,
-        enrolledSchoolId: entry.school.id,
-        enrolledYear: entry.year,
+      },
+    });
+    const program = await ensureProgram(
+      entry.school.id,
+      entry.programName,
+      entry.diploma,
+      entry.durationYears,
+    );
+    const academicYear = await ensureCurrentAcademicYear(entry.school.id);
+    const enrolledYear = `Année ${entry.level} · ${entry.programName} · ${academicYear.label}`;
+    await prisma.studentEnrollment.upsert({
+      where: {
+        studentId_schoolId: {
+          studentId: studentProfile.id,
+          schoolId: entry.school.id,
+        },
+      },
+      update: {
+        programId: program.id,
+        programLevel: entry.level,
+        academicYearId: academicYear.id,
+        enrolledYear,
+        status: 'ACTIVE',
+      },
+      create: {
+        studentId: studentProfile.id,
+        schoolId: entry.school.id,
+        programId: program.id,
+        programLevel: entry.level,
+        academicYearId: academicYear.id,
+        enrolledYear,
+        status: 'ACTIVE',
       },
     });
   }
@@ -1564,6 +1674,35 @@ async function main() {
   const bulkEnrollments: { courseId: string; studentId: string }[] = [];
   const bulkGradeTargets: { courseCode: string; studentId: string; seed: number }[] = [];
 
+  // Dérive filière/niveau/diplôme d'un (cursus, tag de niveau) — cohérent
+  // en interne (le niveau ne dépasse jamais la durée du diplôme retenu),
+  // indépendamment des filières "officielles" créées plus bas dans ce
+  // script (ces étudiants de masse servent une autre section de la démo).
+  function trackLevelInfo(cursus: string, level: { tag: string }) {
+    if (level.tag.startsWith('m')) {
+      return {
+        programName: `Master ${cursus}`,
+        diploma: 'Master',
+        durationYears: 2,
+        level: Number(level.tag.slice(1)),
+      };
+    }
+    if (level.tag === 'lp') {
+      return {
+        programName: `Licence Professionnelle ${cursus}`,
+        diploma: 'Licence Professionnelle',
+        durationYears: 1,
+        level: 1,
+      };
+    }
+    return {
+      programName: `Licence ${cursus}`,
+      diploma: 'Licence',
+      durationYears: 3,
+      level: Number(level.tag.slice(1)),
+    };
+  }
+
   for (const track of tracks) {
     for (const level of track.levels) {
       for (let i = 1; i <= level.count; i++) {
@@ -1585,22 +1724,42 @@ async function main() {
         });
         const student = await prisma.student.upsert({
           where: { userId: user.id },
-          update: {
-            firstName,
-            lastName,
-            ...profile,
-            profileCompleted: true,
-            enrolledSchoolId: track.schoolId,
-            enrolledYear: `${level.label} ${track.cursus}`,
-          },
+          update: { firstName, lastName, ...profile, profileCompleted: true },
           create: {
             userId: user.id,
             firstName,
             lastName,
             ...profile,
             profileCompleted: true,
-            enrolledSchoolId: track.schoolId,
+          },
+        });
+        const levelInfo = trackLevelInfo(track.cursus, level);
+        const trackProgram = await ensureProgram(
+          track.schoolId,
+          levelInfo.programName,
+          levelInfo.diploma,
+          levelInfo.durationYears,
+        );
+        const trackAcademicYear = await ensureCurrentAcademicYear(track.schoolId);
+        await prisma.studentEnrollment.upsert({
+          where: {
+            studentId_schoolId: { studentId: student.id, schoolId: track.schoolId },
+          },
+          update: {
+            programId: trackProgram.id,
+            programLevel: levelInfo.level,
+            academicYearId: trackAcademicYear.id,
             enrolledYear: `${level.label} ${track.cursus}`,
+            status: 'ACTIVE',
+          },
+          create: {
+            studentId: student.id,
+            schoolId: track.schoolId,
+            programId: trackProgram.id,
+            programLevel: levelInfo.level,
+            academicYearId: trackAcademicYear.id,
+            enrolledYear: `${level.label} ${track.cursus}`,
+            status: 'ACTIVE',
           },
         });
         generatedStudentCount++;
@@ -1736,7 +1895,7 @@ async function main() {
     });
     const student = await prisma.student.upsert({
       where: { userId: user.id },
-      update: { firstName, lastName, ...profile, profileCompleted: true, enrolledSchoolId: null, enrolledYear: null },
+      update: { firstName, lastName, ...profile, profileCompleted: true },
       create: { userId: user.id, firstName, lastName, ...profile, profileCompleted: true },
     });
     generatedCandidateCount++;
@@ -2014,7 +2173,12 @@ async function main() {
     });
     if (existingAnnouncement) continue;
     const students = await prisma.student.findMany({
-      where: { enrolledSchoolId: schoolId, enrolledYear: def.enrolledYear },
+      where: {
+        deletedAt: null,
+        schoolEnrollments: {
+          some: { schoolId, enrolledYear: def.enrolledYear, status: 'ACTIVE' },
+        },
+      },
       select: { userId: true },
     });
     const announcement = await prisma.announcement.create({
@@ -2053,7 +2217,12 @@ async function main() {
   //  DOCUMENTS ÉTUDIANTS — couverture large (tous étudiants inscrits et candidats)
   // ────────────────────────────────────────────
   const allStudentsForDocs = await prisma.student.findMany({
-    select: { id: true, firstName: true, lastName: true, enrolledSchoolId: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      schoolEnrollments: { where: { status: 'ACTIVE' }, select: { id: true }, take: 1 },
+    },
   });
   const existingDocs = await prisma.document.findMany({ select: { studentId: true, name: true } });
   const existingDocKeys = new Set(existingDocs.map((d) => `${d.studentId}::${d.name}`));
@@ -2074,13 +2243,14 @@ async function main() {
   }[] = [];
   let docSeed = 3000;
   for (const student of allStudentsForDocs) {
-    const defs = student.enrolledSchoolId ? DOC_TYPES_ENROLLED : DOC_TYPES_CANDIDATE;
+    const isEnrolled = student.schoolEnrollments.length > 0;
+    const defs = isEnrolled ? DOC_TYPES_ENROLLED : DOC_TYPES_CANDIDATE;
     for (const def of defs) {
       docSeed += 5;
       const name = `${def.suffix}_${student.firstName}${student.lastName}.pdf`;
       const key = `${student.id}::${name}`;
       if (existingDocKeys.has(key)) continue;
-      const isVerified = student.enrolledSchoolId ? docSeed % 4 !== 0 : docSeed % 3 === 0;
+      const isVerified = isEnrolled ? docSeed % 4 !== 0 : docSeed % 3 === 0;
       documentsToCreate.push({
         id: randomUUID(),
         studentId: student.id,
@@ -2146,8 +2316,12 @@ async function main() {
     prisma.school.count(),
     prisma.teacher.count(),
     prisma.course.count(),
-    prisma.student.count({ where: { enrolledSchoolId: { not: null } } }),
-    prisma.student.count({ where: { enrolledSchoolId: null } }),
+    prisma.student.count({
+      where: { schoolEnrollments: { some: { status: 'ACTIVE' } } },
+    }),
+    prisma.student.count({
+      where: { schoolEnrollments: { none: {} } },
+    }),
     prisma.offer.count(),
     prisma.courseEnrollment.count(),
     prisma.grade.count(),

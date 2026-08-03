@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { MfaSettingsCard } from '@/components/auth/MfaSettingsCard';
 import {
   Building,
   CalendarDays,
@@ -1308,6 +1309,9 @@ function SettingsView() {
           icon={Settings}
         />
       </section>
+      <div className="mt-4">
+        <MfaSettingsCard />
+      </div>
     </div>
   );
 }
