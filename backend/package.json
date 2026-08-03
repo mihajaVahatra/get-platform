@@ -21,6 +21,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:national": "ts-node prisma/seed/national.ts",
     "remediate:purge-exposed-secrets": "ts-node prisma/remediation/2026-08-02-purge-exposed-secrets.ts"
   },
   "prisma": {
