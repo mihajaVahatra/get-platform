@@ -33,9 +33,13 @@ import { MessageIconLink } from '@/components/messages/message-icon-link';
 type Student = {
   firstName: string;
   lastName?: string;
-  enrolledSchoolId?: string | null;
-  enrolledYear?: string | null;
-  enrolledSchool?: { name: string } | null;
+  // Un étudiant peut être inscrit activement dans plusieurs écoles à la
+  // fois (double diplôme, cursus parallèle) : liste, jamais un objet unique.
+  schoolEnrollments?: Array<{
+    schoolId: string;
+    enrolledYear?: string | null;
+    school?: { name: string } | null;
+  }>;
   profileCompleted?: boolean;
 };
 
@@ -179,12 +183,19 @@ export default function StudentDashboardPage() {
     );
   }
 
-  if (student && !student.enrolledSchoolId) {
+  const enrollments = student?.schoolEnrollments ?? [];
+  if (student && enrollments.length === 0) {
     return <CandidateDashboard student={student} />;
   }
 
-  const school = student?.enrolledSchool?.name ?? 'ESPA';
-  const year = student?.enrolledYear ?? '2ᵉ année Informatique';
+  // Un seul établissement : phrase habituelle. Plusieurs (double cursus) :
+  // on les énumère plutôt que de n'en montrer qu'un seul arbitrairement.
+  const school =
+    enrollments.length > 1
+      ? enrollments.map((enrollment) => enrollment.school?.name).filter(Boolean).join(' et ')
+      : (enrollments[0]?.school?.name ?? 'ESPA');
+  const year =
+    enrollments.length > 1 ? '' : (enrollments[0]?.enrolledYear ?? '2ᵉ année Informatique');
 
   return (
     <div className="mx-auto max-w-[1450px] space-y-4 text-[#111a4b]">
@@ -195,7 +206,8 @@ export default function StudentDashboardPage() {
             <span aria-hidden="true">👋</span>
           </h1>
           <p className="mt-1 text-sm font-medium text-slate-500">
-            Bienvenue à {school} – {year}
+            Bienvenue à {school}
+            {year ? ` – ${year}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">

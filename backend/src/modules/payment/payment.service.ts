@@ -172,19 +172,32 @@ export class PaymentService {
 
         if (application && program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          const student = await tx.student.update({
-            where: { id: application.studentId },
-            data: {
-              enrolledSchoolId: application.offer.schoolId,
+          await tx.studentEnrollment.upsert({
+            where: {
+              studentId_schoolId: {
+                studentId: application.studentId,
+                schoolId: application.offer.schoolId,
+              },
+            },
+            create: {
+              studentId: application.studentId,
+              schoolId: application.offer.schoolId,
               programId: program.id,
               programLevel: 1,
               academicYearId: academicYear.id,
               enrolledYear,
-              enrollmentStatus: 'ACTIVE',
+              status: 'ACTIVE',
+            },
+            update: {
+              programId: program.id,
+              programLevel: 1,
+              academicYearId: academicYear.id,
+              enrolledYear,
+              status: 'ACTIVE',
             },
           });
           await this.schoolService.syncCourseEnrollments(
-            student.id,
+            application.studentId,
             application.offer.schoolId,
             program.id,
             1,

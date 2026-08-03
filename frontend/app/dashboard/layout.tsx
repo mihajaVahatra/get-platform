@@ -47,13 +47,19 @@ import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
+type StudentSchoolEnrollment = {
+  schoolId: string;
+  enrolledYear?: string;
+  school?: { name?: string };
+};
 type DashboardUser = {
   firstName?: string;
   lastName?: string;
   gender?: string;
   avatarUrl?: string;
-  enrolledYear?: string;
-  enrolledSchoolId?: string | null;
+  // Un étudiant peut être inscrit activement dans plusieurs écoles à la
+  // fois (double diplôme, cursus parallèle) : liste, jamais un objet unique.
+  schoolEnrollments?: StudentSchoolEnrollment[];
 };
 
 export default function DashboardLayout({
@@ -153,6 +159,17 @@ export default function DashboardLayout({
     `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName =
     `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Étudiant';
+  const isEnrolled = Boolean(user?.schoolEnrollments?.length);
+  // Un seul établissement : on garde l'affichage habituel (année · filière).
+  // Plusieurs : on liste les écoles plutôt que de tronquer un texte trop
+  // long (double cursus) dans ce sous-titre compact.
+  const enrollmentSummary =
+    user?.schoolEnrollments && user.schoolEnrollments.length > 1
+      ? user.schoolEnrollments
+          .map((enrollment) => enrollment.school?.name)
+          .filter(Boolean)
+          .join(' + ')
+      : user?.schoolEnrollments?.[0]?.enrolledYear;
 
   if (!userRole) {
     return (
@@ -173,9 +190,9 @@ export default function DashboardLayout({
           avatarUrl={user?.avatarUrl}
           displayName={displayName}
           initials={initials}
-          year={user?.enrolledYear}
+          year={enrollmentSummary}
           gender={user?.gender}
-          isEnrolled={Boolean(user?.enrolledSchoolId)}
+          isEnrolled={isEnrolled}
           onAvatarUpload={(avatarUrl) =>
             setUser((current) => ({ ...current, avatarUrl }))
           }
@@ -191,7 +208,7 @@ export default function DashboardLayout({
         <Suspense fallback={null}>
           <MobileBottomNav
             items={
-              user?.enrolledSchoolId
+              isEnrolled
                 ? [
                     { icon: Home, label: 'Accueil', href: '/dashboard/student' },
                     {

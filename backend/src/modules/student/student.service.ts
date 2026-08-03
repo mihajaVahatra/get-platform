@@ -141,7 +141,13 @@ export class StudentService {
             orderBy: { submittedAt: 'desc' },
             take: 10,
           },
-          enrolledSchool: true,
+          // Un étudiant peut être inscrit activement dans plusieurs écoles
+          // à la fois (double diplôme, cursus parallèle) : liste, pas un
+          // objet unique.
+          schoolEnrollments: {
+            where: { status: 'ACTIVE' },
+            include: { school: true, program: true, academicYear: true },
+          },
         },
       });
 

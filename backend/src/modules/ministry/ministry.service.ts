@@ -98,7 +98,14 @@ export interface ApplicationAnalyticsResult {
 }
 
 export interface EnrollmentAnalyticsResult {
+  // Nombre de lignes d'inscription (un étudiant inscrit dans 2 écoles
+  // compte pour 2, une pour chaque établissement — cohérent avec les
+  // effectifs par école ci-dessous).
   total: number;
+  // Nombre d'étudiants distincts ayant au moins une inscription active,
+  // pour ne pas surestimer la population étudiante réelle en cas de
+  // double cursus.
+  totalDistinctStudents: number;
   bySchoolProgramme: EnrollmentBySchoolProgramme[];
 }
 
@@ -180,6 +187,7 @@ export class MinistryService {
       totalApplications: applications.total,
       totalStudents,
       totalEnrolledStudents: enrollments.total,
+      totalDistinctEnrolledStudents: enrollments.totalDistinctStudents,
       totalSchools,
       totalOffers,
       acceptanceRate,
@@ -620,25 +628,27 @@ export class MinistryService {
   private async collectEnrollmentAnalytics(
     filters: ResolvedAnalyticsFilters,
   ): Promise<EnrollmentAnalyticsResult> {
-    const students = await this.prisma.student.findMany({
+    const enrollments = await this.prisma.studentEnrollment.findMany({
       where: this.buildEnrollmentWhere(filters),
       // La jointure est volontairement limitée à l'établissement et au
       // programme. Aucun identifiant étudiant, nom, prénom, e-mail ou dossier
       // n'est chargé, même temporairement, pour cette statistique.
       select: {
-        enrolledSchool: { select: { name: true, region: true, city: true } },
+        studentId: true,
+        school: { select: { name: true, region: true, city: true } },
         program: { select: { name: true, diploma: true } },
       },
     });
     const bySchoolProgramme = new Map<string, EnrollmentBySchoolProgramme>();
+    const distinctStudentIds = new Set<string>();
 
-    for (const student of students) {
-      if (!student.enrolledSchool) continue;
-      const school = student.enrolledSchool.name;
-      const region = student.enrolledSchool.region || UNKNOWN_REGION;
-      const city = student.enrolledSchool.city || UNKNOWN_CITY;
-      const filiere = student.program?.name || 'Programme non renseigné';
-      const programme = student.program?.diploma || 'Programme non renseigné';
+    for (const enrollment of enrollments) {
+      distinctStudentIds.add(enrollment.studentId);
+      const school = enrollment.school.name;
+      const region = enrollment.school.region || UNKNOWN_REGION;
+      const city = enrollment.school.city || UNKNOWN_CITY;
+      const filiere = enrollment.program.name;
+      const programme = enrollment.program.diploma;
       const key = JSON.stringify([school, region, city, filiere, programme]);
       const current = bySchoolProgramme.get(key) || {
         school,
@@ -653,7 +663,11 @@ export class MinistryService {
     }
 
     return {
-      total: students.filter((student) => student.enrolledSchool).length,
+      // Un étudiant inscrit dans 2 écoles compte pour 2 ici (cohérent avec
+      // les effectifs par école) ; totalDistinctStudents ci-dessous donne
+      // le nombre réel d'étudiants derrière ces inscriptions.
+      total: enrollments.length,
+      totalDistinctStudents: distinctStudentIds.size,
       bySchoolProgramme: this.sortByCount(
         [...bySchoolProgramme.values()],
         'enrolledCount',
@@ -713,11 +727,15 @@ export class MinistryService {
 
   private buildEnrollmentWhere(
     filters: Pick<ResolvedAnalyticsFilters, 'from' | 'to'>,
-  ): Prisma.StudentWhereInput {
+  ): Prisma.StudentEnrollmentWhereInput {
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (filters.from) createdAt.gte = filters.from;
+    if (filters.to) createdAt.lte = filters.to;
     return {
-      ...this.buildStudentPopulationWhere(filters),
-      enrolledSchoolId: { not: null },
-      enrolledSchool: { is: { deletedAt: null } },
+      status: 'ACTIVE',
+      school: { is: { deletedAt: null } },
+      student: { is: { deletedAt: null } },
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
     };
   }
 

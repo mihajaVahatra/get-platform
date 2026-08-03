@@ -77,17 +77,10 @@ model Student {
   // ════════════════════════════════════════════
   //  RELATION AVEC L'ÉCOLE (INSCRIPTION)
   // ════════════════════════════════════════════
-  enrolledSchoolId String?
-  enrolledSchool   School?             @relation("EnrolledStudents", fields: [enrolledSchoolId], references: [id])
-  // Libellé calculé automatiquement depuis program/programLevel/academicYear.
-  // Conservé pour les listes et filtres existants, il ne doit pas être saisi librement.
-  enrolledYear     String?
-  enrollmentStatus String              @default("ACTIVE")
-  programId        String?
-  program          SchoolProgram?      @relation(fields: [programId], references: [id])
-  programLevel     Int?
-  academicYearId   String?
-  academicYear     SchoolAcademicYear? @relation(fields: [academicYearId], references: [id])
+  // Un étudiant peut être inscrit activement dans plusieurs établissements
+  // à la fois (double diplôme, cursus parallèle) : voir StudentEnrollment,
+  // une ligne par (étudiant, école), plutôt qu'un pointeur unique.
+  schoolEnrollments StudentEnrollment[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -100,8 +93,35 @@ model Student {
   submissions  AssignmentSubmission[]
   grades       Grade[]
 
-  @@index([enrolledSchoolId])
   @@map("students")
+}
+
+/// Inscription d'un étudiant dans un établissement. Un étudiant peut être
+/// inscrit activement dans plusieurs établissements simultanément (double
+/// diplôme, cursus parallèle) : une ligne par (étudiant, école), sur le
+/// même principe que TeacherSchool pour les professeurs.
+model StudentEnrollment {
+  id             String             @id @default(uuid())
+  studentId      String
+  student        Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schoolId       String
+  school         School             @relation("EnrolledStudents", fields: [schoolId], references: [id], onDelete: Cascade)
+  programId      String
+  program        SchoolProgram      @relation(fields: [programId], references: [id])
+  programLevel   Int
+  academicYearId String
+  academicYear   SchoolAcademicYear @relation(fields: [academicYearId], references: [id])
+  // Libellé calculé automatiquement depuis program/programLevel/academicYear.
+  // Conservé pour les listes et filtres existants, il ne doit pas être saisi librement.
+  enrolledYear   String
+  status         String             @default("ACTIVE") // ACTIVE | WITHDRAWN | GRADUATED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, schoolId])
+  @@index([schoolId, status])
+  @@map("student_enrollments")
 }
 
 model School {
@@ -126,7 +146,7 @@ model School {
   // ════════════════════════════════════════════
   //  ÉTUDIANTS INSCRITS
   // ════════════════════════════════════════════
-  enrolledStudents Student[] @relation("EnrolledStudents")
+  enrolledStudents StudentEnrollment[] @relation("EnrolledStudents")
 
   admins             SchoolAdmin[]
   offers             Offer[]
@@ -156,15 +176,15 @@ model School {
 }
 
 model SchoolProgram {
-  id            String        @id @default(uuid())
+  id            String              @id @default(uuid())
   schoolId      String
-  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school        School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name          String
   diploma       String
   durationYears Int
-  isActive      Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  students      Student[]
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  enrollments   StudentEnrollment[]
   offers        Offer[]
   Course        Course[]
   competitions  Competition[]
@@ -176,15 +196,15 @@ model SchoolProgram {
 }
 
 model SchoolAcademicYear {
-  id                 String    @id @default(uuid())
+  id                 String              @id @default(uuid())
   schoolId           String
-  school             School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school             School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   label              String
   enrollmentOpensAt  DateTime
   enrollmentClosesAt DateTime
-  isCurrent          Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  students           Student[]
+  isCurrent          Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  enrollments        StudentEnrollment[]
 
   @@unique([schoolId, label])
   @@index([schoolId, isCurrent])
@@ -481,42 +501,42 @@ model TeacherTravelBuffer {
 }
 
 model Course {
-  id                 String             @id @default(uuid())
-  schoolId           String
-  school             School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  teacherId          String
-  teacher            Teacher            @relation(fields: [teacherId], references: [id], onDelete: Restrict)
-  code               String
-  title              String
-  description        String?
-  level              String
-  subjectId          String?
-  subject            SchoolSubject?     @relation(fields: [subjectId], references: [id])
-  programId          String?
-  program            SchoolProgram?     @relation(fields: [programId], references: [id])
-  programLevel       Int?
-  group              String?
-  credits            Int                @default(0)
-  room               String?
-  schedule           String?
-  isPublished        Boolean            @default(true)
-  welcomeMessage     String?
-  allowGroupMessages Boolean            @default(true)
-  notifyOnPublish    Boolean            @default(true)
+  id                   String              @id @default(uuid())
+  schoolId             String
+  school               School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  teacherId            String
+  teacher              Teacher             @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+  code                 String
+  title                String
+  description          String?
+  level                String
+  subjectId            String?
+  subject              SchoolSubject?      @relation(fields: [subjectId], references: [id])
+  programId            String?
+  program              SchoolProgram?      @relation(fields: [programId], references: [id])
+  programLevel         Int?
+  group                String?
+  credits              Int                 @default(0)
+  room                 String?
+  schedule             String?
+  isPublished          Boolean             @default(true)
+  welcomeMessage       String?
+  allowGroupMessages   Boolean             @default(true)
+  notifyOnPublish      Boolean             @default(true)
   // Renseigné uniquement pour les cours créés par le moteur de génération
   // automatique (Phase 3) — permet de retrouver/compléter le cours d'un
   // besoin donné sans dupliquer, et de vérifier qu'une classe n'a pas deux
   // cours en même temps (via subjectRequirement.classId).
   subjectRequirementId String?             @unique
   subjectRequirement   SubjectRequirement? @relation(fields: [subjectRequirementId], references: [id])
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  chapters           CourseChapter[]
-  enrollments        CourseEnrollment[]
-  evaluations        Evaluation[]
-  assignments        Assignment[]
-  slots              CourseSlot[]
-  announcements      Announcement[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  chapters             CourseChapter[]
+  enrollments          CourseEnrollment[]
+  evaluations          Evaluation[]
+  assignments          Assignment[]
+  slots                CourseSlot[]
+  announcements        Announcement[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])

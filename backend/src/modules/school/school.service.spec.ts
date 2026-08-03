@@ -119,7 +119,10 @@ describe('SchoolService', () => {
     expect(prisma.courseEnrollment.count).toHaveBeenCalledWith({
       where: {
         courseId: 'course-1',
-        student: { enrollmentStatus: 'ACTIVE', deletedAt: null },
+        student: {
+          deletedAt: null,
+          schoolEnrollments: { some: { schoolId: 'school-1', status: 'ACTIVE' } },
+        },
       },
     });
     expect(prisma.course.update).not.toHaveBeenCalled();

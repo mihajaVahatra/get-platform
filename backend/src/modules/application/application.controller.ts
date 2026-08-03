@@ -26,6 +26,7 @@ import {
 import {
   UpdateApplicationStatusDto,
   ScheduleInterviewDto,
+  ScheduleTestDto,
   ApplicationStatus,
 } from './dto/update-application-status.dto';
 import { ApplicationResponseDto } from './dto/application-response.dto';
@@ -303,26 +304,16 @@ export class ApplicationController {
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
   @ApiOperation({ summary: 'Schedule a test for a candidate' })
   @ApiParam({ name: 'id', description: 'Application ID' })
-  @ApiBody({
-    schema: {
-      properties: {
-        date: { type: 'string', example: '2024-02-10T10:00:00Z' },
-        type: { type: 'string', example: 'QCM' },
-        details: { type: 'string', example: 'Logic test' },
-      },
-    },
-  })
+  @ApiBody({ type: ScheduleTestDto })
   @ApiResponse({ status: HttpStatus.OK, description: 'Test scheduled' })
   async scheduleTest(
     @Param('id') id: string,
-    @Body('date') date: string,
-    @Body('type') type: string,
-    @Body('details') details: string,
+    @Body() dto: ScheduleTestDto,
     @GetUser('id') userId: string,
   ) {
     const application = await this.applicationService.scheduleTest(
       id,
-      { date: new Date(date), type, details },
+      dto,
       userId,
     );
     return {

@@ -23,6 +23,9 @@ describe('MinistryService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    studentEnrollment: {
+      findMany: jest.fn(),
+    },
     school: {
       count: jest.fn(),
       findMany: jest.fn(),
@@ -106,30 +109,24 @@ describe('MinistryService', () => {
   it('retourne les inscriptions uniquement sous forme de compteurs établissement-programme', async () => {
     const prisma = buildPrisma();
     prisma.application.findMany.mockResolvedValue([]);
-    prisma.student.findMany.mockResolvedValue([
+    // s1 est inscrit à la fois à ENI (Informatique) et à Poly (Génie Civil) —
+    // double cursus légitime : total (lignes d'inscription) doit valoir 3
+    // mais totalDistinctStudents (étudiants réels) ne doit valoir que 2.
+    prisma.studentEnrollment.findMany.mockResolvedValue([
       {
-        enrolledSchool: {
-          name: 'ENI',
-          region: 'Haute Matsiatra',
-          city: 'Fianarantsoa',
-        },
+        studentId: 's1',
+        school: { name: 'ENI', region: 'Haute Matsiatra', city: 'Fianarantsoa' },
         program: { name: 'Informatique', diploma: 'Licence' },
       },
       {
-        enrolledSchool: {
-          name: 'ENI',
-          region: 'Haute Matsiatra',
-          city: 'Fianarantsoa',
-        },
-        program: { name: 'Informatique', diploma: 'Licence' },
+        studentId: 's1',
+        school: { name: 'Poly', region: 'Analamanga', city: 'Antananarivo' },
+        program: { name: 'Génie Civil', diploma: 'Licence' },
       },
       {
-        enrolledSchool: {
-          name: 'ENI',
-          region: 'Haute Matsiatra',
-          city: 'Fianarantsoa',
-        },
-        program: null,
+        studentId: 's2',
+        school: { name: 'ENI', region: 'Haute Matsiatra', city: 'Fianarantsoa' },
+        program: { name: 'Informatique', diploma: 'Licence' },
       },
     ]);
     prisma.student.count.mockResolvedValue(3);
@@ -140,6 +137,7 @@ describe('MinistryService', () => {
     const dashboard = await service.getDashboard();
 
     expect(dashboard.totalEnrolledStudents).toBe(3);
+    expect(dashboard.totalDistinctEnrolledStudents).toBe(2);
     expect(dashboard.enrollmentsBySchoolProgramme).toEqual([
       {
         school: 'ENI',
@@ -150,16 +148,17 @@ describe('MinistryService', () => {
         enrolledCount: 2,
       },
       {
-        school: 'ENI',
-        region: 'Haute Matsiatra',
-        city: 'Fianarantsoa',
-        filiere: 'Programme non renseigné',
-        programme: 'Programme non renseigné',
+        school: 'Poly',
+        region: 'Analamanga',
+        city: 'Antananarivo',
+        filiere: 'Génie Civil',
+        programme: 'Licence',
         enrolledCount: 1,
       },
     ]);
-    const query = firstMockArgument(prisma.student.findMany) as SelectQuery;
-    expect(query.select).not.toHaveProperty('id');
+    const query = firstMockArgument(
+      prisma.studentEnrollment.findMany,
+    ) as SelectQuery;
     expect(query.select).not.toHaveProperty('firstName');
     expect(query.select).not.toHaveProperty('lastName');
     expect(query.select).not.toHaveProperty('user');

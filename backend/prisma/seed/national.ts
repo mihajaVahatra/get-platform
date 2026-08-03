@@ -1185,9 +1185,21 @@ async function main(): Promise<void> {
         skills: ['Communication', 'Travail en équipe'],
         aspirations: ['Insertion professionnelle'],
         profileCompleted: true,
-        enrolledSchoolId: student.school.id,
+      })),
+      skipDuplicates: true,
+    }),
+  );
+  // Un étudiant peut être inscrit dans plusieurs écoles à la fois (double
+  // cursus) : une ligne StudentEnrollment par (étudiant, école) plutôt que
+  // des champs uniques sur Student.
+  await createInBatches(enrolledPlans, (batch) =>
+    prisma.studentEnrollment.createMany({
+      data: batch.map((student) => ({
+        id: stableId('student-enrollment', student.id),
+        studentId: student.id,
+        schoolId: student.school.id,
         enrolledYear: student.className,
-        enrollmentStatus: 'ACTIVE',
+        status: 'ACTIVE',
         programId: student.program.id,
         programLevel: student.level,
         academicYearId: schoolAcademicYearId(student.school.id),
@@ -1215,7 +1227,6 @@ async function main(): Promise<void> {
         skills: [],
         aspirations: ['Choisir une formation adaptée'],
         profileCompleted: index % 3 !== 0,
-        enrollmentStatus: 'APPLICANT',
       })),
       skipDuplicates: true,
     }),
@@ -1415,13 +1426,13 @@ async function main(): Promise<void> {
     prisma.student.count({
       where: {
         user: { email: { startsWith: 'etu.national.' } },
-        enrolledSchoolId: { not: null },
+        schoolEnrollments: { some: { status: 'ACTIVE' } },
       },
     }),
     prisma.student.count({
       where: {
         user: { email: { startsWith: 'candidat.national.' } },
-        enrolledSchoolId: null,
+        schoolEnrollments: { none: {} },
       },
     }),
     prisma.application.count({

@@ -46,7 +46,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       });
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { student: true, teacher: true, role: true },
+        include: { student: true, teacher: true, role: true, schoolAdmin: true },
       });
       if (!user || !user.isActive) {
         res.status(401).json({ message: 'Utilisateur invalide' });
@@ -84,7 +84,25 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
 
     const { studentId, fileName } = req.params;
     const isOwner = user.student?.id === studentId;
-    if (!isOwner && !REVIEWER_ROLES.has(user.role)) {
+    // Un ADMIN_GET (plateforme) peut tout consulter ; un SCHOOL_ADMIN ne
+    // peut consulter les documents d'un candidat que si celui-ci a
+    // effectivement postulé dans SON école — sans cette vérification,
+    // n'importe quel SCHOOL_ADMIN pouvait télécharger les documents de
+    // n'importe quel candidat d'une autre école (faille IDOR corrigée).
+    let isAuthorizedReviewer = false;
+    if (user.role === 'ADMIN_GET') {
+      isAuthorizedReviewer = true;
+    } else if (user.role === 'SCHOOL_ADMIN' && user.schoolAdmin) {
+      const hasApplicationAtThisSchool = await prisma.application.findFirst({
+        where: {
+          studentId,
+          offer: { schoolId: user.schoolAdmin.schoolId },
+        },
+        select: { id: true },
+      });
+      isAuthorizedReviewer = !!hasApplicationAtThisSchool;
+    }
+    if (!isOwner && !isAuthorizedReviewer) {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }

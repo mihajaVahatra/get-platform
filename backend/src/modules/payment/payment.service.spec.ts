@@ -29,6 +29,7 @@ describe('PaymentService', () => {
   let config: { get: jest.Mock };
   let prisma: {
     student: { findUnique: jest.Mock; update: jest.Mock };
+    studentEnrollment: { upsert: jest.Mock };
     application: {
       findUnique: jest.Mock;
       update: jest.Mock;
@@ -49,6 +50,7 @@ describe('PaymentService', () => {
   beforeEach(() => {
     prisma = {
       student: { findUnique: jest.fn(), update: jest.fn() },
+      studentEnrollment: { upsert: jest.fn() },
       application: { findUnique: jest.fn(), update: jest.fn() },
       payment: {
         findFirst: jest.fn(),
@@ -220,13 +222,24 @@ describe('PaymentService', () => {
         id: 'year-1',
         label: '2026-2027',
       });
-      prisma.student.update.mockResolvedValue({ id: 'student-1' });
+      prisma.studentEnrollment.upsert.mockResolvedValue({ id: 'enrollment-1' });
 
       await service.handleWebhook(dto, undefined, signWebhook(dto));
 
       expect(prisma.application.update).toHaveBeenCalledWith({
         where: { id: 'application-1' },
         data: { status: 'ENROLLED' },
+      });
+      expect(prisma.studentEnrollment.upsert).toHaveBeenCalledWith({
+        where: {
+          studentId_schoolId: { studentId: 'student-1', schoolId: 'school-1' },
+        },
+        create: expect.objectContaining({
+          studentId: 'student-1',
+          schoolId: 'school-1',
+          programId: 'program-1',
+        }),
+        update: expect.objectContaining({ programId: 'program-1' }),
       });
       expect(schoolService.syncCourseEnrollments).toHaveBeenCalledWith(
         'student-1',
@@ -267,7 +280,7 @@ describe('PaymentService', () => {
 
       await service.handleWebhook(dto, undefined, signWebhook(dto));
 
-      expect(prisma.student.update).not.toHaveBeenCalled();
+      expect(prisma.studentEnrollment.upsert).not.toHaveBeenCalled();
       expect(schoolService.syncCourseEnrollments).not.toHaveBeenCalled();
       expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
         expect.objectContaining({

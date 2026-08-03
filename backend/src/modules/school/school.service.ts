@@ -3,7 +3,6 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-  ConflictException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -179,37 +178,44 @@ export class SchoolService {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
     const searchTerms = search?.trim().split(/\s+/).filter(Boolean) || [];
+    const studentSearch = searchTerms.length
+      ? {
+          AND: searchTerms.map((term) => ({
+            OR: [
+              { firstName: { contains: term, mode: 'insensitive' as const } },
+              { lastName: { contains: term, mode: 'insensitive' as const } },
+              { user: { email: { contains: term, mode: 'insensitive' as const } } },
+            ],
+          })),
+        }
+      : {};
     const where = {
-      enrolledSchoolId: schoolId ?? { not: null },
-      enrollmentStatus: 'ACTIVE',
-      deletedAt: null,
-      ...(searchTerms.length
-        ? {
-            AND: searchTerms.map((term) => ({
-              OR: [
-                { firstName: { contains: term, mode: 'insensitive' as const } },
-                { lastName: { contains: term, mode: 'insensitive' as const } },
-                { user: { email: { contains: term, mode: 'insensitive' as const } } },
-              ],
-            })),
-          }
-        : {}),
+      status: 'ACTIVE',
+      ...(schoolId ? { schoolId } : {}),
+      student: { deletedAt: null, ...studentSearch },
     };
     const [items, total] = await Promise.all([
-      this.prisma.student.findMany({
+      this.prisma.studentEnrollment.findMany({
         where,
         skip: (currentPage - 1) * currentLimit,
         take: currentLimit,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy: [
+          { student: { lastName: 'asc' } },
+          { student: { firstName: 'asc' } },
+        ],
         include: {
-          user: { select: { email: true } },
-          enrolledSchool: { select: { id: true, name: true } },
+          student: { include: { user: { select: { email: true } } } },
+          school: { select: { id: true, name: true } },
         },
       }),
-      this.prisma.student.count({ where }),
+      this.prisma.studentEnrollment.count({ where }),
     ]);
     return {
-      items,
+      items: items.map((enrollment) => ({
+        ...enrollment.student,
+        enrolledYear: enrollment.enrolledYear,
+        enrolledSchool: enrollment.school,
+      })),
       meta: {
         page: currentPage,
         limit: currentLimit,
@@ -228,56 +234,60 @@ export class SchoolService {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
     const searchTerms = search?.trim().split(/\s+/).filter(Boolean) || [];
+    const studentSearch = searchTerms.length
+      ? {
+          AND: searchTerms.map((term) => ({
+            OR: [
+              {
+                firstName: {
+                  contains: term,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                lastName: {
+                  contains: term,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                user: {
+                  email: {
+                    contains: term,
+                    mode: 'insensitive' as const,
+                  },
+                },
+              },
+            ],
+          })),
+        }
+      : {};
     const where = {
-      enrolledSchoolId: schoolId,
-      enrollmentStatus: 'ACTIVE',
-      deletedAt: null,
-      ...(searchTerms.length
-        ? {
-            AND: searchTerms.map((term) => ({
-              OR: [
-                {
-                  firstName: {
-                    contains: term,
-                    mode: 'insensitive' as const,
-                  },
-                },
-                {
-                  lastName: {
-                    contains: term,
-                    mode: 'insensitive' as const,
-                  },
-                },
-                {
-                  user: {
-                    email: {
-                      contains: term,
-                      mode: 'insensitive' as const,
-                    },
-                  },
-                },
-              ],
-            })),
-          }
-        : {}),
+      schoolId,
+      status: 'ACTIVE',
+      student: { deletedAt: null, ...studentSearch },
     };
     const [items, total] = await Promise.all([
-      this.prisma.student.findMany({
+      this.prisma.studentEnrollment.findMany({
         where,
         skip: (currentPage - 1) * currentLimit,
         take: currentLimit,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        orderBy: [
+          { student: { lastName: 'asc' } },
+          { student: { firstName: 'asc' } },
+        ],
         include: {
-          user: {
-            select: { email: true },
-          },
+          student: { include: { user: { select: { email: true } } } },
         },
       }),
-      this.prisma.student.count({ where }),
+      this.prisma.studentEnrollment.count({ where }),
     ]);
 
     return {
-      items,
+      items: items.map((enrollment) => ({
+        ...enrollment.student,
+        enrolledYear: enrollment.enrolledYear,
+      })),
       meta: {
         page: currentPage,
         limit: currentLimit,
@@ -288,30 +298,34 @@ export class SchoolService {
   }
 
   async getStudentDetail(schoolId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, enrolledSchoolId: schoolId, deletedAt: null },
+    const enrollment = await this.prisma.studentEnrollment.findUnique({
+      where: { studentId_schoolId: { studentId, schoolId } },
       include: {
-        user: { select: { email: true } },
+        student: { include: { user: { select: { email: true } } } },
         program: true,
         academicYear: true,
       },
     });
-    if (!student) throw new NotFoundException('Étudiant inscrit introuvable');
-    return student;
+    if (!enrollment || enrollment.student.deletedAt)
+      throw new NotFoundException('Étudiant inscrit introuvable');
+    return {
+      ...enrollment.student,
+      program: enrollment.program,
+      academicYear: enrollment.academicYear,
+      programLevel: enrollment.programLevel,
+      enrolledYear: enrollment.enrolledYear,
+      enrollmentStatus: enrollment.status,
+    };
   }
 
   async getStudentClasses(schoolId: string) {
-    const rows = await this.prisma.student.findMany({
-      where: {
-        enrolledSchoolId: schoolId,
-        deletedAt: null,
-        enrolledYear: { not: null },
-      },
+    const rows = await this.prisma.studentEnrollment.findMany({
+      where: { schoolId, status: 'ACTIVE' },
       select: { enrolledYear: true },
       distinct: ['enrolledYear'],
       orderBy: { enrolledYear: 'asc' },
     });
-    return rows.flatMap((row) => (row.enrolledYear ? [row.enrolledYear] : []));
+    return rows.map((row) => row.enrolledYear);
   }
 
   async getPrograms(schoolId: string) {
@@ -367,14 +381,15 @@ export class SchoolService {
     });
     if (!program) throw new NotFoundException('Filière introuvable');
     if (dto.durationYears && dto.durationYears < program.durationYears) {
-      const higherLevelStudent = await this.prisma.student.findFirst({
+      const higherLevelEnrollment = await this.prisma.studentEnrollment.findFirst({
         where: {
           programId: id,
           programLevel: { gt: dto.durationYears },
-          deletedAt: null,
+          status: 'ACTIVE',
+          student: { deletedAt: null },
         },
       });
-      if (higherLevelStudent)
+      if (higherLevelEnrollment)
         throw new BadRequestException(
           'La durée ne peut pas être inférieure au niveau d’un étudiant inscrit',
         );
@@ -473,8 +488,8 @@ export class SchoolService {
     programId: string,
     programName: string,
   ) {
-    const students = await this.prisma.student.findMany({
-      where: { programId, deletedAt: null },
+    const enrollments = await this.prisma.studentEnrollment.findMany({
+      where: { programId, student: { deletedAt: null } },
       select: {
         id: true,
         programLevel: true,
@@ -482,14 +497,14 @@ export class SchoolService {
       },
     });
     await this.prisma.$transaction(
-      students.map((student) =>
-        this.prisma.student.update({
-          where: { id: student.id },
+      enrollments.map((enrollment) =>
+        this.prisma.studentEnrollment.update({
+          where: { id: enrollment.id },
           data: {
             enrolledYear: this.enrollmentLabel(
               programName,
-              student.programLevel,
-              student.academicYear?.label,
+              enrollment.programLevel,
+              enrollment.academicYear.label,
             ),
           },
         }),
@@ -501,8 +516,8 @@ export class SchoolService {
     academicYearId: string,
     academicYearLabel: string,
   ) {
-    const students = await this.prisma.student.findMany({
-      where: { academicYearId, deletedAt: null },
+    const enrollments = await this.prisma.studentEnrollment.findMany({
+      where: { academicYearId, student: { deletedAt: null } },
       select: {
         id: true,
         programLevel: true,
@@ -510,13 +525,13 @@ export class SchoolService {
       },
     });
     await this.prisma.$transaction(
-      students.map((student) =>
-        this.prisma.student.update({
-          where: { id: student.id },
+      enrollments.map((enrollment) =>
+        this.prisma.studentEnrollment.update({
+          where: { id: enrollment.id },
           data: {
             enrolledYear: this.enrollmentLabel(
-              student.program?.name,
-              student.programLevel,
+              enrollment.program.name,
+              enrollment.programLevel,
               academicYearLabel,
             ),
           },
@@ -526,13 +541,11 @@ export class SchoolService {
   }
 
   private enrollmentLabel(
-    programName?: string | null,
-    level?: number | null,
-    academicYearLabel?: string | null,
+    programName: string,
+    level: number,
+    academicYearLabel: string,
   ) {
-    return programName && level && academicYearLabel
-      ? `Année ${level} · ${programName} · ${academicYearLabel}`
-      : null;
+    return `Année ${level} · ${programName} · ${academicYearLabel}`;
   }
 
   async getStudentDocuments(
@@ -554,9 +567,14 @@ export class SchoolService {
       deletedAt: null,
       ...(type ? { type } : {}),
       student: {
-        enrolledSchoolId: schoolId,
         deletedAt: null,
-        ...(enrolledYear ? { enrolledYear } : {}),
+        schoolEnrollments: {
+          some: {
+            schoolId,
+            status: 'ACTIVE',
+            ...(enrolledYear ? { enrolledYear } : {}),
+          },
+        },
         ...(terms.length
           ? {
               AND: terms.map((term) => ({
@@ -573,7 +591,7 @@ export class SchoolService {
           : {}),
       },
     };
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       this.prisma.document.findMany({
         where,
         include: {
@@ -581,7 +599,11 @@ export class SchoolService {
             select: {
               firstName: true,
               lastName: true,
-              enrolledYear: true,
+              schoolEnrollments: {
+                where: { schoolId },
+                select: { enrolledYear: true },
+                take: 1,
+              },
             },
           },
         },
@@ -591,6 +613,14 @@ export class SchoolService {
       }),
       this.prisma.document.count({ where }),
     ]);
+    const items = rawItems.map((document) => ({
+      ...document,
+      student: {
+        firstName: document.student.firstName,
+        lastName: document.student.lastName,
+        enrolledYear: document.student.schoolEnrollments[0]?.enrolledYear ?? null,
+      },
+    }));
     return {
       items,
       meta: {
@@ -616,14 +646,9 @@ export class SchoolService {
         'Aucun compte étudiant trouvé pour cet e-mail',
       );
     }
-    if (
-      user.student.enrolledSchoolId &&
-      user.student.enrolledSchoolId !== schoolId
-    ) {
-      throw new ConflictException(
-        'Cet étudiant est déjà inscrit dans un autre établissement. Un transfert doit être traité explicitement.',
-      );
-    }
+    // Un étudiant peut être inscrit activement dans plusieurs écoles à la
+    // fois (double diplôme, cursus parallèle) : pas de blocage ici, une
+    // ligne StudentEnrollment par école.
 
     const academicYear = await this.prisma.schoolAcademicYear.findFirst({
       where: { id: dto.academicYearId, schoolId },
@@ -652,24 +677,37 @@ export class SchoolService {
       dto.level,
       academicYear.label,
     );
-    const student = await this.prisma.student.update({
-      where: { id: user.student.id },
-      data: {
-        enrolledSchoolId: schoolId,
+    await this.prisma.studentEnrollment.upsert({
+      where: {
+        studentId_schoolId: { studentId: user.student.id, schoolId },
+      },
+      create: {
+        studentId: user.student.id,
+        schoolId,
         programId: dto.programId,
         programLevel: dto.level,
         academicYearId: dto.academicYearId,
         enrolledYear,
+        status: 'ACTIVE',
       },
-      include: { user: { select: { email: true } } },
+      update: {
+        programId: dto.programId,
+        programLevel: dto.level,
+        academicYearId: dto.academicYearId,
+        enrolledYear,
+        status: 'ACTIVE',
+      },
     });
     await this.syncCourseEnrollments(
-      student.id,
+      user.student.id,
       schoolId,
       program.id,
       dto.level,
     );
-    return student;
+    return this.prisma.student.findUnique({
+      where: { id: user.student.id },
+      include: { user: { select: { email: true } } },
+    });
   }
 
   async updateEnrollment(
@@ -682,18 +720,20 @@ export class SchoolService {
       status: 'ACTIVE' | 'WITHDRAWN' | 'GRADUATED';
     },
   ) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, enrolledSchoolId: schoolId, deletedAt: null },
+    const enrollment = await this.prisma.studentEnrollment.findUnique({
+      where: { studentId_schoolId: { studentId, schoolId } },
+      include: { student: true },
     });
-    if (!student) throw new NotFoundException('Étudiant inscrit introuvable');
+    if (!enrollment || enrollment.student.deletedAt)
+      throw new NotFoundException('Étudiant inscrit introuvable');
     if (data.status !== 'ACTIVE')
-      return this.prisma.student.update({
-        where: { id: studentId },
-        data: { enrollmentStatus: data.status },
+      return this.prisma.studentEnrollment.update({
+        where: { id: enrollment.id },
+        data: { status: data.status },
       });
-    const programId = data.programId ?? student.programId;
-    const academicYearId = data.academicYearId ?? student.academicYearId;
-    const level = data.level ?? student.programLevel;
+    const programId = data.programId ?? enrollment.programId;
+    const academicYearId = data.academicYearId ?? enrollment.academicYearId;
+    const level = data.level ?? enrollment.programLevel;
     const [program, academicYear] = await Promise.all([
       this.prisma.schoolProgram.findFirst({
         where: { id: programId || '', schoolId },
@@ -706,23 +746,18 @@ export class SchoolService {
       throw new BadRequestException(
         'Filière, niveau ou année académique invalide',
       );
-    const updatedStudent = await this.prisma.student.update({
-      where: { id: studentId },
+    const updatedEnrollment = await this.prisma.studentEnrollment.update({
+      where: { id: enrollment.id },
       data: {
         programId: program.id,
         programLevel: level,
         academicYearId: academicYear.id,
         enrolledYear: `Année ${level} · ${program.name} · ${academicYear.label}`,
-        enrollmentStatus: 'ACTIVE',
+        status: 'ACTIVE',
       },
     });
-    await this.syncCourseEnrollments(
-      updatedStudent.id,
-      schoolId,
-      program.id,
-      level,
-    );
-    return updatedStudent;
+    await this.syncCourseEnrollments(studentId, schoolId, program.id, level);
+    return updatedEnrollment;
   }
 
   async bulkEnrollStudents(
@@ -818,7 +853,10 @@ export class SchoolService {
           select: { teacher: { select: { userId: true } } },
         }),
         this.prisma.student.findMany({
-          where: { enrolledSchoolId: schoolId, deletedAt: null },
+          where: {
+            deletedAt: null,
+            schoolEnrollments: { some: { schoolId, status: 'ACTIVE' } },
+          },
           select: { userId: true },
         }),
       ]);
@@ -829,11 +867,16 @@ export class SchoolService {
     } else {
       const students = await this.prisma.student.findMany({
         where: {
-          enrolledSchoolId: schoolId,
           deletedAt: null,
-          ...(dto.targetType === 'CLASSES'
-            ? { enrolledYear: { in: classes } }
-            : {}),
+          schoolEnrollments: {
+            some: {
+              schoolId,
+              status: 'ACTIVE',
+              ...(dto.targetType === 'CLASSES'
+                ? { enrolledYear: { in: classes } }
+                : {}),
+            },
+          },
           ...(dto.targetType === 'STUDENTS' ? { id: { in: studentIds } } : {}),
         },
         select: { userId: true },
@@ -866,7 +909,10 @@ export class SchoolService {
     let recipientCount = 0;
     for (const school of schools) {
       const students = await this.prisma.student.findMany({
-        where: { enrolledSchoolId: school.id, deletedAt: null },
+        where: {
+          deletedAt: null,
+          schoolEnrollments: { some: { schoolId: school.id, status: 'ACTIVE' } },
+        },
         select: { userId: true },
       });
       const result = await this.announcementService.createAndNotify(
@@ -1063,13 +1109,9 @@ export class SchoolService {
   }
 
   async getReportByClass(schoolId: string) {
-    const grouped = await this.prisma.student.groupBy({
+    const grouped = await this.prisma.studentEnrollment.groupBy({
       by: ['enrolledYear'],
-      where: {
-        enrolledSchoolId: schoolId,
-        deletedAt: null,
-        enrolledYear: { not: null },
-      },
+      where: { schoolId, status: 'ACTIVE' },
       _count: true,
       orderBy: { enrolledYear: 'asc' },
     });
@@ -1106,10 +1148,13 @@ export class SchoolService {
 
   async exportCsv(schoolId: string, type: 'applications' | 'students') {
     if (type === 'students') {
-      const students = await this.prisma.student.findMany({
-        where: { enrolledSchoolId: schoolId, deletedAt: null },
-        include: { user: { select: { email: true } } },
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      const enrollments = await this.prisma.studentEnrollment.findMany({
+        where: { schoolId, status: 'ACTIVE', student: { deletedAt: null } },
+        include: { student: { include: { user: { select: { email: true } } } } },
+        orderBy: [
+          { student: { lastName: 'asc' } },
+          { student: { firstName: 'asc' } },
+        ],
       });
       return this.toCsv(
         [
@@ -1120,13 +1165,13 @@ export class SchoolService {
           'Ville',
           'Année d’inscription',
         ],
-        students.map((student) => [
-          student.firstName,
-          student.lastName,
-          student.user.email,
-          student.phone,
-          student.city,
-          student.enrolledYear,
+        enrollments.map((enrollment) => [
+          enrollment.student.firstName,
+          enrollment.student.lastName,
+          enrollment.student.user.email,
+          enrollment.student.phone,
+          enrollment.student.city,
+          enrollment.enrolledYear,
         ]),
       );
     }
@@ -1574,7 +1619,10 @@ export class SchoolService {
       const activeEnrollmentCount = await this.prisma.courseEnrollment.count({
         where: {
           courseId,
-          student: { enrollmentStatus: 'ACTIVE', deletedAt: null },
+          student: {
+            deletedAt: null,
+            schoolEnrollments: { some: { schoolId, status: 'ACTIVE' } },
+          },
         },
       });
       if (activeEnrollmentCount > 0) {
