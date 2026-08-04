@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Req,
   Res,
 } from '@nestjs/common';
 import {
@@ -23,8 +24,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { GetUser } from '../../common/decorators/get-user.decorator';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MfaLoginVerifyDto } from './dto/mfa-login-verify.dto';
 import { Throttle } from '@nestjs/throttler';
@@ -35,6 +37,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly jwt: JwtService,
   ) {}
 
   private setSessionCookies(
@@ -139,7 +142,31 @@ export class AuthController {
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Res({ passthrough: true }) response: Response) {
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    // Reste @Public() (pas de JwtAuthGuard) pour que la déconnexion
+    // fonctionne même avec un access token déjà expiré — sinon les cookies
+    // ne seraient jamais nettoyés dans ce cas. Le décodage ci-dessous est
+    // donc en best-effort (`ignoreExpiration`), jamais bloquant.
+    const cookieToken = request.headers.cookie
+      ?.split('; ')
+      .find((cookie) => cookie.startsWith('access_token='))
+      ?.split('=')[1];
+    if (cookieToken) {
+      try {
+        const payload = this.jwt.verify(cookieToken, {
+          secret: this.config.get('JWT_SECRET'),
+          ignoreExpiration: true,
+        });
+        if (payload?.sub && !payload?.type) {
+          await this.authService.revokeSession(payload.sub);
+        }
+      } catch {
+        // Jeton illisible/signature invalide : rien à révoquer, on continue.
+      }
+    }
     response.clearCookie('access_token', { path: '/' });
     response.clearCookie('refresh_token', { path: '/' });
   }

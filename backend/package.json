@@ -5,7 +5,11 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -30,6 +34,8 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",

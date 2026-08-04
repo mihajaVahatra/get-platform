@@ -368,7 +368,7 @@ export class TeachingService {
     });
     if (!chapter) throw new NotFoundException('Chapitre introuvable');
     const url = file
-      ? this.storageService.uploadCourseMaterial(file, courseId).url
+      ? (await this.storageService.uploadCourseMaterial(file, courseId)).url
       : dto.url;
     if (!url) throw new BadRequestException('Ajoutez un lien ou un fichier');
     return this.prisma.courseResource.create({

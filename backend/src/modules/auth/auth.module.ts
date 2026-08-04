@@ -8,11 +8,13 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { MfaService } from './mfa/mfa.service';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     PassportModule,
     PrismaModule,
+    NotificationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (config: ConfigService) => ({

@@ -2,11 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Router, Request, Response } from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../../modules/prisma/prisma.service';
-
-const REVIEWER_ROLES = new Set(['ADMIN_GET', 'SCHOOL_ADMIN']);
+import { StorageService } from '../services/storage.service';
 
 function extractToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
@@ -24,15 +21,20 @@ function extractToken(req: Request): string | null {
  * Sert les fichiers sensibles (documents étudiants, supports de cours,
  * pièces jointes de messages) qui ne doivent jamais être exposés en statique
  * public : ils exigent un JWT valide et un contrôle de propriété/rôle.
- * Les images publiques (avatars, logos, bannières) continuent d'être
- * servies par `useStaticAssets`, monté après ce routeur.
+ * Les images publiques (avatars, logos, bannières) sont uploadées en
+ * accès public sur le bucket S3 et ne transitent jamais par ce routeur.
+ *
+ * Le fichier lui-même vit sur le stockage S3-compatible (voir
+ * StorageService) : une fois l'autorisation vérifiée, ce routeur ne
+ * streame plus rien lui-même, il redirige (302) vers une URL présignée à
+ * courte durée de vie.
  */
 export function createProtectedUploadsRouter(app: INestApplication): Router {
   const router = Router();
   const jwt = app.get(JwtService);
   const config = app.get(ConfigService);
   const prisma = app.get(PrismaService);
-  const uploadDir = path.resolve(config.get('UPLOAD_DIR') || './uploads');
+  const storage = app.get(StorageService);
 
   async function requireUser(req: Request, res: Response) {
     const token = extractToken(req);
@@ -46,10 +48,27 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       });
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
-        include: { student: true, teacher: true, role: true, schoolAdmin: true },
+        // select explicite : ne jamais charger `password`/`mfaSecret` ici,
+        // même chiffrés/hashés, ce routeur n'en a aucun besoin.
+        select: {
+          id: true,
+          isActive: true,
+          sessionVersion: true,
+          role: { select: { name: true } },
+          student: { select: { id: true } },
+          teacher: { select: { id: true } },
+          schoolAdmin: { select: { schoolId: true } },
+        },
       });
       if (!user || !user.isActive) {
         res.status(401).json({ message: 'Utilisateur invalide' });
+        return null;
+      }
+      // Même révocation de session que JwtStrategy.validate() — ce routeur
+      // vérifie le JWT indépendamment (en dehors du pipeline Passport) et
+      // doit donc répéter le contrôle.
+      if (payload.sessionVersion !== user.sessionVersion) {
+        res.status(401).json({ message: 'Session révoquée' });
         return null;
       }
       return { ...user, role: user.role?.name || 'STUDENT' };
@@ -59,19 +78,13 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     }
   }
 
-  function sendUploadFile(res: Response, relativeSegments: string[]) {
-    const resolved = path.resolve(uploadDir, ...relativeSegments);
-    const relative = path.relative(uploadDir, resolved);
-    if (
-      relative.startsWith(`..${path.sep}`) ||
-      relative === '..' ||
-      path.isAbsolute(relative) ||
-      !fs.existsSync(resolved)
-    ) {
+  async function redirectToFile(res: Response, segments: string[]) {
+    const url = await storage.createPresignedDownloadUrl(...segments);
+    if (!url) {
       res.status(404).json({ message: 'Fichier introuvable' });
       return;
     }
-    res.sendFile(resolved);
+    res.redirect(302, url);
   }
 
   router.get('/documents/:studentId/:fileName', async (req, res) => {
@@ -106,7 +119,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['documents', studentId, fileName]);
+    await redirectToFile(res, ['documents', studentId, fileName]);
   });
 
   router.get('/course-materials/:courseId/:fileName', async (req, res) => {
@@ -121,7 +134,7 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     const { courseId, fileName } = req.params;
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      select: { teacherId: true },
+      select: { teacherId: true, schoolId: true },
     });
     const isTeacher = course && user.teacher?.id === course.teacherId;
     const isEnrolledStudent =
@@ -132,11 +145,21 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
         },
         select: { id: true },
       }));
-    if (!isTeacher && !isEnrolledStudent && !REVIEWER_ROLES.has(user.role)) {
+    // Même règle que /documents : un ADMIN_GET (plateforme) peut tout
+    // consulter, mais un SCHOOL_ADMIN ne peut consulter que les supports
+    // des cours de SA propre école — sans ce contrôle, n'importe quel
+    // SCHOOL_ADMIN pouvait télécharger les supports d'une autre école
+    // (faille IDOR).
+    const isAuthorizedReviewer =
+      user.role === 'ADMIN_GET' ||
+      (user.role === 'SCHOOL_ADMIN' &&
+        !!user.schoolAdmin &&
+        course?.schoolId === user.schoolAdmin.schoolId);
+    if (!isTeacher && !isEnrolledStudent && !isAuthorizedReviewer) {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['course-materials', courseId, fileName]);
+    await redirectToFile(res, ['course-materials', courseId, fileName]);
   });
 
   router.get('/messages/:messageId/:fileName', async (req, res) => {
@@ -155,11 +178,17 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     const isParticipant =
       message &&
       (message.senderId === user.id || message.recipientId === user.id);
-    if (!isParticipant && !REVIEWER_ROLES.has(user.role)) {
+    // Une messagerie privée n'a pas de notion d'« école propriétaire » : un
+    // SCHOOL_ADMIN n'a donc aucune raison de voir les pièces jointes d'une
+    // conversation à laquelle il ne participe pas (contrairement à
+    // /documents ou /course-materials, où l'appartenance à une école
+    // justifie un accès de relecture). Seul ADMIN_GET (supervision
+    // plateforme) conserve un accès de secours hors participation.
+    if (!isParticipant && user.role !== 'ADMIN_GET') {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
-    sendUploadFile(res, ['messages', messageId, fileName]);
+    await redirectToFile(res, ['messages', messageId, fileName]);
   });
 
   return router;

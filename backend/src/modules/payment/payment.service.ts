@@ -217,7 +217,7 @@ export class PaymentService {
           // — un paiement réel sans inscription réelle est le pire des cas.
           const reason = !application.offer.programId
             ? "l'offre n'est liée à aucun programme"
-            : "aucun programme actif ou année académique en cours pour cette école";
+            : 'aucun programme actif ou année académique en cours pour cette école';
           console.error(
             `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
           );
@@ -323,17 +323,22 @@ export class PaymentService {
     role: string,
   ): Promise<Buffer> {
     const payment = await this.getPayment(paymentId, userId, role);
-    // Pour le moment, on retourne un simple texte
-    // Plus tard, on générera un vrai PDF avec PDFKit
-    return Buffer.from(`
-      RECEIPT
-      =======
-      Payment ID: ${payment.id}
-      Reference: ${payment.reference}
-      Amount: ${payment.amount} ${payment.currency}
-      Status: ${payment.status}
-      Date: ${payment.paidAt || payment.createdAt}
-    `);
+    const formattedDate = new Intl.DateTimeFormat('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(payment.paidAt || payment.createdAt);
+
+    return buildReceiptPdf([
+      'REÇU DE PAIEMENT',
+      '',
+      `Référence : ${payment.reference}`,
+      `Montant : ${payment.amount} ${payment.currency}`,
+      `Statut : ${payment.status}`,
+      `Date : ${formattedDate}`,
+    ]);
   }
 
   async openBankAccount(studentId: string, bankId: string) {
@@ -460,4 +465,56 @@ export class PaymentService {
       throw new ForbiddenException('Signature webhook invalide');
     }
   }
+}
+
+// Génère un PDF minimal mais réel (structure %PDF-1.4 valide, sans
+// dépendance externe) — même technique que
+// `ministry/report-exporter.ts:createPdf`. Corrige SEC-08/HIGH-02 : le
+// contrôleur déclarait déjà `Content-Type: application/pdf`, mais le
+// contenu envoyé jusqu'ici était du texte brut.
+function escapeReceiptPdfText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replaceAll('\\', '\\\\')
+    .replaceAll('(', '\\(')
+    .replaceAll(')', '\\)');
+}
+
+function buildReceiptPdf(lines: string[]): Buffer {
+  const commands = [
+    'BT',
+    '/F1 12 Tf',
+    '50 780 Td',
+    ...lines.flatMap((line, index) => [
+      `(${escapeReceiptPdfText(line)}) Tj`,
+      ...(index < lines.length - 1 ? ['0 -20 Td'] : []),
+    ]),
+    'ET',
+  ].join('\n');
+
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(commands, 'latin1')} >>\nstream\n${commands}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  let output = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+  const offsets: number[] = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(output, 'latin1'));
+    output += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(output, 'latin1');
+  output += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  output += offsets
+    .slice(1)
+    .map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`)
+    .join('');
+  output += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(output, 'latin1');
 }

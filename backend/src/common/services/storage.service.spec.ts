@@ -4,13 +4,13 @@ import { PrismaService } from '../../modules/prisma/prisma.service';
 import { StorageService } from './storage.service';
 
 describe('StorageService — ressources de cours', () => {
-  it('rejette un faux PDF avant de l’écrire sur le disque', () => {
+  it('rejette un faux PDF avant de l’envoyer au stockage S3', async () => {
     const storage = new StorageService(
       {} as PrismaService,
       { get: jest.fn().mockReturnValue('/tmp') } as unknown as ConfigService,
     );
 
-    expect(() =>
+    await expect(
       storage.uploadCourseMaterial(
         {
           originalname: 'programme.pdf',
@@ -19,6 +19,6 @@ describe('StorageService — ressources de cours', () => {
         } as Express.Multer.File,
         '123e4567-e89b-42d3-a456-426614174000',
       ),
-    ).toThrow(BadRequestException);
+    ).rejects.toThrow(BadRequestException);
   });
 });

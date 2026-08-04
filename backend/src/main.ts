@@ -9,7 +9,6 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 import { createProtectedUploadsRouter } from './common/middleware/protected-uploads.middleware';
-import { resolve } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -49,16 +48,11 @@ async function bootstrap() {
   });
 
   // Documents/pièces jointes sensibles : servis via un routeur authentifié
-  // (contrôle de propriété/rôle), jamais en statique public. Doit être monté
-  // avant useStaticAssets pour intercepter ces chemins en priorité.
+  // (contrôle de propriété/rôle) qui redirige vers une URL S3 présignée à
+  // courte durée de vie (voir StorageService/protected-uploads.middleware).
+  // Les fichiers publics (avatars, logos, bannières) sont uploadés en accès
+  // public directement sur le bucket S3 : ce backend ne les sert plus.
   app.use('/uploads', createProtectedUploadsRouter(app));
-
-  // Fichiers statiques publics (avatars, logos, bannières, illustrations) —
-  // même résolution que StorageService (relative à process.cwd(), pas à
-  // __dirname qui pointe vers dist/ une fois compilé).
-  app.useStaticAssets(resolve(configService.get('UPLOAD_DIR') || './uploads'), {
-    prefix: '/uploads/',
-  });
 
   // Validation globale
   app.useGlobalPipes(
