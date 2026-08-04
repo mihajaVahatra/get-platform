@@ -512,9 +512,13 @@ function assertSafeExecutionTarget(): void {
     throw new Error('DATABASE_URL est requis pour le seed national.');
   const database = new URL(databaseUrl);
   const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
-  if (!localHosts.has(database.hostname)) {
+  if (
+    !localHosts.has(database.hostname) &&
+    process.env.SEED_ALLOW_REMOTE !== 'true'
+  ) {
     throw new Error(
-      `Le seed national refuse la base distante « ${database.hostname} ».`,
+      `Le seed national refuse la base distante « ${database.hostname} ». ` +
+        'Si voulu (ex. environnement QA), relancez avec SEED_ALLOW_REMOTE=true.',
     );
   }
 }

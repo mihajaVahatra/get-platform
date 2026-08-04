@@ -46,17 +46,25 @@ export class AuthController {
     refreshToken: string,
   ) {
     const secure = this.config.get('NODE_ENV') === 'production';
+    // 'lax' est le réglage sûr par défaut (protection CSRF) et suffit quand
+    // frontend/backend partagent le même domaine. Certains déploiements
+    // (ex. QA avec frontend sur Vercel et backend sur Render, deux domaines
+    // distincts) ont besoin de 'none' pour que le navigateur renvoie le
+    // cookie sur les appels cross-site — d'où cet opt-in explicite plutôt
+    // que d'affaiblir la protection par défaut pour tout le monde.
+    const crossSite = this.config.get('CROSS_SITE_COOKIES') === 'true';
+    const sameSite = crossSite ? 'none' : 'lax';
     response.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure,
-      sameSite: 'lax',
+      secure: secure || crossSite,
+      sameSite,
       maxAge: 15 * 60 * 1000,
       path: '/',
     });
     response.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure,
-      sameSite: 'lax',
+      secure: secure || crossSite,
+      sameSite,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/',
     });
