@@ -4,7 +4,11 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build
+    # `--include=dev` est nécessaire malgré NODE_ENV=production ci-dessous :
+    # npm saute les devDependencies par défaut quand NODE_ENV=production est
+    # déjà présent au moment du build, or `nest build` vient de @nestjs/cli
+    # qui est une devDependency (le runtime, lui, n'en a pas besoin).
+    buildCommand: npm install --include=dev && npm run build
     # `prisma migrate deploy` est idempotent (n'applique que les migrations
     # en attente) — l'exécuter à chaque démarrage est sûr et évite de
     # dépendre d'une fonctionnalité "pre-deploy" qui n'existe pas forcément
