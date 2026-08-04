@@ -34,7 +34,26 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: {
+      // select explicite plutôt que `include` : exclut délibérément
+      // `password` (hash bcrypt) et `mfaSecret`/`refreshToken` de l'objet
+      // qui devient `request.user` dans tous les contrôleurs — un futur
+      // `return user` accidentel ne peut plus les exposer.
+      select: {
+        id: true,
+        email: true,
+        roleId: true,
+        isActive: true,
+        isVerified: true,
+        lastLogin: true,
+        mfaEnabled: true,
+        failedLoginAttempts: true,
+        lastFailedLoginAt: true,
+        gender: true,
+        theme: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        sessionVersion: true,
         student: true,
         schoolAdmin: true, //Ajouté pour les admins école
         role: true,
@@ -43,6 +62,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Utilisateur non trouvé ou inactif');
+    }
+
+    // Révocation de session : un jeton signé avant la dernière déconnexion
+    // porte une `sessionVersion` obsolète et doit être rejeté même s'il est
+    // encore cryptographiquement valide et non expiré.
+    if (payload.sessionVersion !== user.sessionVersion) {
+      throw new UnauthorizedException(
+        'Session révoquée, veuillez vous reconnecter',
+      );
     }
 
     //Retourne l'utilisateur complet (avec les relations)

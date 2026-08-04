@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
   images: {
     qualities: [70, 75],
   },
+  // /login et /register étaient des doublons orphelins (aucun lien interne
+  // ne pointait vers eux, atteignables seulement en tapant l'URL) des
+  // vraies pages /auth/login et /auth/register — supprimés, remplacés par
+  // une redirection pour ne pas casser un éventuel favori/lien externe.
+  redirects() {
+    return [
+      { source: '/login', destination: '/auth/login', permanent: true },
+      { source: '/register', destination: '/auth/register', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -47,6 +47,20 @@ import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
+
+// Racine de section propre à chaque rôle. En dehors de `/dashboard` lui-même
+// (page de redirection générique), un rôle ne doit jamais rendre une page
+// commençant par la racine d'un autre rôle — sans ce garde-fou côté client,
+// la sidebar affichée dépend du rôle mais la page réellement demandée était
+// rendue quel que soit le rôle (défense en profondeur absente, le seul
+// rempart restant étant le 403 du RolesGuard backend).
+const ROLE_HOME: Record<Exclude<UserRole, null>, string> = {
+  STUDENT: '/dashboard/student',
+  SCHOOL_ADMIN: '/dashboard/school',
+  TEACHER: '/dashboard/teacher',
+  ADMIN_GET: '/dashboard/admin',
+  MINISTRY: '/dashboard/ministry',
+};
 type StudentSchoolEnrollment = {
   schoolId: string;
   enrolledYear?: string;
@@ -147,6 +161,14 @@ export default function DashboardLayout({
       window.removeEventListener('messages:updated', refreshUnreadMessages);
   }, [userRole, pathname]);
 
+  useEffect(() => {
+    if (!userRole) return;
+    const allowedPrefix = ROLE_HOME[userRole];
+    if (pathname !== '/dashboard' && !pathname.startsWith(allowedPrefix)) {
+      router.replace(allowedPrefix);
+    }
+  }, [userRole, pathname, router]);
+
   const logout = async () => {
     try {
       await apiClient.post('/auth/logout');
@@ -175,6 +197,20 @@ export default function DashboardLayout({
     return (
       <div className="grid min-h-screen place-items-center bg-[#fbfbff] text-sm text-slate-500">
         Chargement de votre session…
+      </div>
+    );
+  }
+
+  const allowedPrefix = ROLE_HOME[userRole];
+  const isOnOwnSection =
+    pathname === '/dashboard' || pathname.startsWith(allowedPrefix);
+  if (!isOnOwnSection) {
+    // L'effet ci-dessus déclenche déjà la redirection ; ce garde de rendu
+    // évite en plus d'afficher, même brièvement, le contenu d'une section
+    // qui n'appartient pas au rôle courant pendant que la navigation a lieu.
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#fbfbff] text-sm text-slate-500">
+        Redirection…
       </div>
     );
   }

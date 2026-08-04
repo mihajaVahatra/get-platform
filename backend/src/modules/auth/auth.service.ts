@@ -11,6 +11,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
+import { NotificationService } from '../notification/notification.service';
+import {
+  NotificationPriority,
+  NotificationType,
+} from '../notification/dto/send-notification.dto';
 
 const MFA_CHALLENGE_EXPIRATION = '5m';
 
@@ -24,6 +29,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private mfaService: MfaService,
+    private notificationService: NotificationService,
   ) {}
 
   // ========== REGISTER ==========
@@ -65,7 +71,12 @@ export class AuthService {
       },
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role!.name);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role!.name,
+      user.sessionVersion,
+    );
     const userInfo = this.extractUserInfo(user);
 
     return {
@@ -105,7 +116,10 @@ export class AuthService {
       // aucun jeton d'accès tant que le code TOTP n'est pas vérifié.
       const challengeToken = this.jwt.sign(
         { sub: user.id, type: 'mfa_challenge' },
-        { expiresIn: MFA_CHALLENGE_EXPIRATION, secret: this.config.get('JWT_SECRET') },
+        {
+          expiresIn: MFA_CHALLENGE_EXPIRATION,
+          secret: this.config.get('JWT_SECRET'),
+        },
       );
       return { mfaRequired: true as const, challengeToken };
     }
@@ -115,7 +129,12 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role!.name);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role!.name,
+      user.sessionVersion,
+    );
     const userInfo = this.extractUserInfo(user);
 
     return {
@@ -160,13 +179,27 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role!.name);
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role!.name,
+      user.sessionVersion,
+    );
     const userInfo = this.extractUserInfo(user);
 
     return {
       ...tokens,
       user: userInfo,
     };
+  }
+
+  // ========== LOGOUT ==========
+
+  async revokeSession(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { sessionVersion: { increment: 1 } },
+    });
   }
 
   // ========== FORGOT PASSWORD ==========
@@ -188,8 +221,32 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    // Le token doit être envoyé par un fournisseur d'e-mail. Ne jamais le logger.
-    void resetToken;
+    // FRONTEND_URL peut contenir plusieurs origines séparées par des
+    // virgules (voir main.ts, même convention pour la liste CORS) — la
+    // première est l'origine canonique à utiliser dans un lien envoyé par
+    // email.
+    const frontendUrl = (
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000'
+    ).split(',')[0];
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
+
+    // Envoi via le canal email de NotificationService (simulé en dev/QA,
+    // voir HIGH-03 — même mécanisme que les autres emails transactionnels
+    // de la plateforme). Ne jamais propager une erreur d'envoi au client :
+    // le message reste générique pour ne pas révéler si le compte existe.
+    try {
+      await this.notificationService.send({
+        userId: user.id,
+        type: NotificationType.EMAIL,
+        title: 'Réinitialisation de votre mot de passe GET',
+        body: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur ce lien (valable 1h) pour choisir un nouveau mot de passe : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+        priority: NotificationPriority.HIGH,
+        data: { resetUrl },
+      });
+    } catch {
+      // Échec d'envoi non bloquant pour la réponse HTTP — évite de révéler
+      // l'existence du compte via un comportement différent en cas d'erreur.
+    }
 
     return {
       message:
@@ -263,8 +320,17 @@ export class AuthService {
     };
   }
 
-  private generateTokens(userId: string, email: string, role: string) {
-    const payload = { sub: userId, email, role };
+  private generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+    sessionVersion: number,
+  ) {
+    // `sessionVersion` est vérifié à chaque requête par JwtStrategy : un
+    // jeton signé avec une valeur qui ne correspond plus à celle en base
+    // (incrémentée à la déconnexion) est rejeté. C'est le mécanisme de
+    // révocation de session côté serveur pour des JWT autrement stateless.
+    const payload = { sub: userId, email, role, sessionVersion };
 
     const accessToken = this.jwt.sign(payload, {
       expiresIn: this.config.get('JWT_EXPIRATION', '15m'),
@@ -320,5 +386,4 @@ export class AuthService {
       data: { failedLoginAttempts: 0, lastFailedLoginAt: null },
     });
   }
-
 }

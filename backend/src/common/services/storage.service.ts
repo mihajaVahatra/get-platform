@@ -199,10 +199,22 @@ export class StorageService {
     const key = this.keyFromPublicUrl(image.url);
     if (key) {
       await this.client
-        .send(
-          new DeleteObjectCommand({ Bucket: this.publicBucket, Key: key }),
-        )
-        .catch(() => undefined);
+        .send(new DeleteObjectCommand({ Bucket: this.publicBucket, Key: key }))
+        .catch((error) =>
+          // Échec non bloquant pour ne pas empêcher la suppression de
+          // l'enregistrement (l'utilisateur ne doit pas rester coincé avec
+          // une image qu'il ne peut pas remplacer), mais journalisé : un
+          // objet S3 orphelin reste accessible publiquement à son URL tant
+          // qu'il n'est pas nettoyé manuellement.
+          console.warn(
+            `StorageService.deleteImage: échec de suppression S3 pour la clé "${key}" (image ${imageId})`,
+            error,
+          ),
+        );
+    } else {
+      console.warn(
+        `StorageService.deleteImage: impossible de dériver la clé S3 depuis l'URL stockée pour l'image ${imageId} — objet non supprimé du bucket (${image.url})`,
+      );
     }
     await this.prisma.image.delete({ where: { id: imageId } });
   }
@@ -268,9 +280,26 @@ export class StorageService {
     return `${endpoint.replace(/\/$/, '')}/${this.publicBucket}/${key}`;
   }
 
+  // Symétrique de `publicObjectUrl` : reconnaît les DEUX formes d'URL que
+  // cette méthode peut produire (avec ou sans `S3_PUBLIC_URL` configuré),
+  // pas seulement celle qui correspond à la configuration *actuelle*. Sans
+  // ça, une image uploadée avant qu'une des deux variables ne change de
+  // valeur devenait indérivable : la clé S3 originale n'était plus jamais
+  // retrouvée, l'objet restait orphelin (accessible publiquement) même
+  // après suppression de l'enregistrement en base.
   private keyFromPublicUrl(url: string): string | null {
-    if (this.publicUrl && url.startsWith(this.publicUrl)) {
-      return url.slice(this.publicUrl.replace(/\/$/, '').length + 1);
+    if (this.publicUrl) {
+      const prefix = `${this.publicUrl.replace(/\/$/, '')}/`;
+      if (url.startsWith(prefix)) {
+        return url.slice(prefix.length);
+      }
+    }
+    const endpoint = this.config.get<string>('S3_ENDPOINT') || '';
+    if (endpoint) {
+      const endpointPrefix = `${endpoint.replace(/\/$/, '')}/${this.publicBucket}/`;
+      if (url.startsWith(endpointPrefix)) {
+        return url.slice(endpointPrefix.length);
+      }
     }
     return null;
   }
