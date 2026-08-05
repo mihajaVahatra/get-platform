@@ -1,0 +1,33 @@
+version: '3.8'
+
+# Stack n8n isolée du docker-compose.yml principal, pour tester en local
+# sans toucher à l'infra existante (postgres/redis/minio du backend GET).
+# Démarrage : docker compose -f docker-compose.n8n.yml --env-file .env.n8n up -d
+# Arrêt      : docker compose -f docker-compose.n8n.yml --env-file .env.n8n down
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: get-n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      # NB: n8n v2.x a retiré N8N_BASIC_AUTH_* pour l'éditeur (remplacé par
+      # un compte "owner" créé au premier lancement, cf. .env.n8n). Ces deux
+      # variables restent sans effet sur l'UI mais sont conservées pour
+      # référence si un downgrade de version est envisagé.
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:?N8N_USER must be set}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:?N8N_PASSWORD must be set}
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: Indian/Antananarivo
+      N8N_SECURE_COOKIE: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro,Z
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
