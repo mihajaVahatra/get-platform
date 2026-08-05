@@ -22,6 +22,19 @@ const nextConfig: NextConfig = {
       { source: '/register', destination: '/auth/register', permanent: true },
     ];
   },
+  // Proxy /api/* vers le backend quand il est sur un domaine distinct
+  // (ex. Vercel + Render). Sans ça, le cookie de session est un cookie
+  // "tiers" du point de vue du navigateur : Safari (desktop et iOS) le
+  // bloque par défaut (ITP), quel que soit le réglage sameSite côté
+  // serveur — la connexion semble réussir mais le dashboard reste
+  // inaccessible. En passant par ce proxy, le navigateur ne parle qu'au
+  // domaine du frontend, le cookie redevient "premier parti" partout.
+  // N'a aucun effet en dev tant que API_ORIGIN n'est pas défini.
+  async rewrites() {
+    const apiOrigin = process.env.API_ORIGIN;
+    if (!apiOrigin) return [];
+    return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
+  },
 };
 
 export default nextConfig;
