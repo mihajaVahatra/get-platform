@@ -1,0 +1,63 @@
+{
+  "id": "c3f4d5e6-0003-4c3c-9c3c-000000000000",
+  "name": "GET-WEEKLY-REPORT",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [1],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "c3f4d5e6-0003-4c3c-9c3c-000000000001",
+      "name": "Chaque lundi à 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {},
+      "id": "c3f4d5e6-0003-4c3c-9c3c-000000000003",
+      "name": "Exécution manuelle (test)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 460]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/reports/weekly",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3f4d5e6-0003-4c3c-9c3c-000000000002",
+      "name": "Récupérer les indicateurs de la semaine",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 380]
+    }
+  ],
+  "connections": {
+    "Chaque lundi à 8h": {
+      "main": [[{ "node": "Récupérer les indicateurs de la semaine", "type": "main", "index": 0 }]]
+    },
+    "Exécution manuelle (test)": {
+      "main": [[{ "node": "Récupérer les indicateurs de la semaine", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

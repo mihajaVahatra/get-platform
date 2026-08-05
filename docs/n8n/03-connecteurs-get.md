@@ -1,6 +1,7 @@
-# Phase 4 — Connecteurs GET (premier workflow réel)
+# Phase 4 — Connecteurs GET (workflows réels)
 
-- **Statut :** premier connecteur fonctionnel en local, idempotence non résolue
+- **Statut :** deux workflows fonctionnels en local (relance + rapport hebdomadaire),
+  idempotence de la relance non résolue, destinataires du rapport non décidés
 - **Date :** 2026-08-05
 - **Fait suite à :** [02-preparation-infrastructure.md](02-preparation-infrastructure.md)
 
@@ -57,17 +58,46 @@ Recommandation : option 1, mais seulement si ce workflow particulier est
 retenu après la période d'essai — pas de migration de schéma pour un
 workflow qui reste désactivé.
 
+## Deuxième workflow : `GET-WEEKLY-REPORT`
+
+`n8n/workflows/get-weekly-report.json` appelle
+`GET /api/integration/reports/weekly`
+(`IntegrationService.getWeeklyReport`, `integration.service.ts`), qui
+**réutilise `MinistryService.getDashboard({ from, to })`** — déjà purgé de
+toute identité étudiante par construction — pour les candidatures,
+inscriptions, écoles, taux d'acceptation et répartition par établissement.
+Deux indicateurs ont dû être écrits car ils n'existaient nulle part :
+nouveaux comptes sur 7 jours (`User.count`) et délai moyen entre
+`submittedAt` et `decisionDate` sur les décisions de la semaine.
+
+Testé de bout en bout par exécution manuelle (`POST /rest/workflows/:id/run`)
+— appel `GET` reçu côté backend depuis l'IP du conteneur n8n, réponse avec
+les vrais indicateurs seed (`totalApplications: 57`, `acceptanceRate: 16`,
+etc.). Deux chiffres sont à ignorer sur les données de seed actuelles :
+`newAccounts` (~19 500) et `averageProcessingDays` (~0) reflètent un import
+en masse récent et des décisions injectées avec `decisionDate` ≈
+`submittedAt` — pas un bug de la requête, juste un artefact du jeu de données
+de test.
+
+**Volontairement laissé incomplet : pas de destinataire.** Le workflow
+s'arrête après avoir récupéré les indicateurs — il n'envoie rien à personne.
+Le plan initial suppose un envoi automatique "aux utilisateurs autorisés",
+mais cette liste (qui, par quel canal — email, Slack ?) est une décision
+produit que je n'ai pas prise à votre place. Ajouter un nœud d'envoi une fois
+la liste connue est trivial ; inventer des destinataires ne l'est pas.
+
 ## Écart de sécurité assumé, à corriger avant tout usage réel
 
 `docs/security-audit-backlog.md` a été vérifié : le correctif d'isolation
 école n'a pas été touché par ce chantier (les endpoints `/notifications/*`
-concernés n'ont pas été modifiés). L'endpoint `/integration/.../reminder`
-neuf ajouté ici est volontairement **transverse à toutes les écoles** — c'est
-cohérent avec un job d'automatisation quotidien, mais ça veut dire que la clé
-API `INTEGRATION_API_KEY` donne accès à l'ensemble des candidatures, sans
-notion de scope par école. Tant que cette clé reste uniquement utilisée par
-n8n en local (`127.0.0.1`), le risque est contenu ; il redevient pertinent le
-jour où l'hébergement persistant (Phase 2) est décidé.
+concernés n'ont pas été modifiés). Les trois routes `/integration/*`
+ajoutées ici sont volontairement **transverses à toutes les écoles** — c'est
+cohérent avec des jobs d'automatisation globaux (relance quotidienne, rapport
+plateforme), mais ça veut dire que la clé API `INTEGRATION_API_KEY` donne
+accès à l'ensemble des candidatures et des indicateurs, sans notion de scope
+par école. Tant que cette clé reste uniquement utilisée par n8n en local
+(`127.0.0.1`), le risque est contenu ; il redevient pertinent le jour où
+l'hébergement persistant (Phase 2) est décidé.
 
 ## Détail technique notable
 
@@ -81,6 +111,8 @@ expression `$env` visible dans l'export JSON du workflow.
 
 ## Critère de sortie
 
-Cette phase est close pour le MVP quand la question de l'idempotence est
-tranchée (option 1 ou 2 ci-dessus) — c'est la seule chose qui empêche
-aujourd'hui d'activer le déclencheur planifié sans risque de spam.
+Cette phase est close pour le MVP quand : la question de l'idempotence de la
+relance est tranchée (option 1 ou 2 ci-dessus), et la liste de destinataires
+du rapport hebdomadaire est définie — ce sont les deux seules choses qui
+empêchent aujourd'hui d'activer les déclencheurs planifiés des deux
+workflows.

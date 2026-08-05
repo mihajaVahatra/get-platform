@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { MinistryService } from '../ministry/ministry.service';
 import { ApplicationStatus } from '../application/dto/update-application-status.dto';
 
 /**
@@ -20,6 +21,7 @@ export class IntegrationService {
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
+    private ministryService: MinistryService,
   ) {}
 
   async listApplicationsPendingReminder(staleDays: number) {
@@ -74,5 +76,48 @@ export class IntegrationService {
       application.offerId,
       application.offer.applicationDeadline ?? new Date(),
     );
+  }
+
+  /**
+   * Réutilise MinistryService.getDashboard (agrégats déjà purgés de toute
+   * identité — voir son commentaire) pour les candidatures/inscriptions/
+   * établissements, et ajoute les deux seuls indicateurs qui n'existaient
+   * nulle part : nouveaux comptes et délai moyen de décision sur la
+   * période.
+   */
+  async getWeeklyReport() {
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [dashboard, newAccounts, decidedApplications] = await Promise.all([
+      this.ministryService.getDashboard({ from, to }),
+      this.prisma.user.count({
+        where: { createdAt: { gte: from, lte: to } },
+      }),
+      this.prisma.application.findMany({
+        where: {
+          decisionDate: { gte: from, lte: to },
+          deletedAt: null,
+        },
+        select: { submittedAt: true, decisionDate: true },
+      }),
+    ]);
+
+    const averageProcessingDays = decidedApplications.length
+      ? decidedApplications.reduce((sum, application) => {
+          const days =
+            (application.decisionDate!.getTime() -
+              application.submittedAt.getTime()) /
+            (24 * 60 * 60 * 1000);
+          return sum + days;
+        }, 0) / decidedApplications.length
+      : null;
+
+    return {
+      newAccounts,
+      decisionsThisWeek: decidedApplications.length,
+      averageProcessingDays,
+      ...dashboard,
+    };
   }
 }

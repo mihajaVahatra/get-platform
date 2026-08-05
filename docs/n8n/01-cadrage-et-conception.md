@@ -134,7 +134,10 @@ GET-WEEKLY-REPORT
    [03-connecteurs-get.md](03-connecteurs-get.md).
 5. Implémenter `GET-STUDENT-WELCOME-EMAIL` (câbler l'événement `student.created`
    côté backend — aujourd'hui aucun événement n'est émis à la création d'un compte).
-6. Implémenter `GET-WEEKLY-REPORT`.
+6. ✅ Implémenter `GET-WEEKLY-REPORT` — testé de bout en bout en local, **laissé
+   désactivé** : le workflow s'arrête après avoir récupéré les indicateurs, il
+   n'y a pas de liste de destinataires définie (décision produit, pas prise ici),
+   voir [03-connecteurs-get.md](03-connecteurs-get.md).
 7. Décider, sur la base de l'usage réel de ces 3 workflows, si les 5 workflows
    restants du plan initial (notification établissement, tâches admin, gestion
    d'erreurs centralisée, etc.) apportent une valeur suffisante pour être construits.

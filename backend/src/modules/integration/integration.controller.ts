@@ -40,4 +40,13 @@ export class IntegrationController {
   async sendReminder(@Param('id') id: string) {
     return this.integrationService.sendReminder(id);
   }
+
+  @Get('reports/weekly')
+  @ApiOperation({
+    summary:
+      'Indicateurs agrégés des 7 derniers jours (candidatures, admissions, nouveaux comptes, délai moyen de décision)',
+  })
+  async getWeeklyReport() {
+    return this.integrationService.getWeeklyReport();
+  }
 }
