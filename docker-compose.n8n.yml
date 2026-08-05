@@ -1,9 +1,14 @@
 version: '3.8'
 
-# Stack n8n isolée du docker-compose.yml principal, pour tester en local
-# sans toucher à l'infra existante (postgres/redis/minio du backend GET).
-# Démarrage : docker compose -f docker-compose.n8n.yml --env-file .env.n8n up -d
-# Arrêt      : docker compose -f docker-compose.n8n.yml --env-file .env.n8n down
+# Stack n8n locale, alignée sur l'architecture cible (n8n + PostgreSQL,
+# cf. docs/n8n/02-preparation-infrastructure.md). Elle rejoint le réseau
+# docker déjà créé par le docker-compose.yml principal pour réutiliser le
+# conteneur get-db (base "n8n" dédiée, créée séparément — voir le doc) sans
+# dupliquer d'infra. Le stack principal (postgres/redis/minio) doit donc
+# déjà tourner : docker compose up -d avant de démarrer n8n.
+#
+# Démarrage : docker compose -f docker-compose.n8n.yml --env-file .env --env-file .env.n8n up -d
+# Arrêt      : docker compose -f docker-compose.n8n.yml --env-file .env --env-file .env.n8n down
 services:
   n8n:
     image: n8nio/n8n:latest
@@ -24,10 +29,29 @@ services:
       WEBHOOK_URL: http://localhost:5678/
       GENERIC_TIMEZONE: Indian/Antananarivo
       N8N_SECURE_COOKIE: "false"
+      # Base dédiée "n8n" dans le conteneur get-db existant (pas de nouvel
+      # engin à opérer), avec un rôle Postgres propre à n8n (n8n_service) —
+      # volontairement distinct de get_user pour ne pas dépendre de son mot
+      # de passe (voir docs/n8n/02-preparation-infrastructure.md, une
+      # incohérence a été repérée entre les .env et get_user en base réelle).
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n_service
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?N8N_DB_PASSWORD must be set}
     volumes:
-      - n8n_data:/home/node/.n8n
+      # Ne conserve plus que la config n8n (clé de chiffrement des
+      # credentials, etc.) — les workflows/exécutions vivent désormais dans
+      # postgres_data (volume du docker-compose.yml principal).
+      - n8n_config:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro,Z
     restart: unless-stopped
 
+networks:
+  default:
+    name: get-poc_default
+    external: true
+
 volumes:
-  n8n_data:
+  n8n_config:
