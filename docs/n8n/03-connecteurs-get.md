@@ -1,7 +1,8 @@
 # Phase 4 — Connecteurs GET (workflows réels)
 
-- **Statut :** deux workflows fonctionnels en local (relance + rapport hebdomadaire),
-  idempotence de la relance non résolue, destinataires du rapport non décidés
+- **Statut :** les 3 workflows du MVP (Phase 1) sont fonctionnels en local ;
+  relance et rapport laissés désactivés (idempotence / destinataires non
+  tranchés), bienvenue activée et déclenchée par un vrai événement d'inscription
 - **Date :** 2026-08-05
 - **Fait suite à :** [02-preparation-infrastructure.md](02-preparation-infrastructure.md)
 
@@ -86,18 +87,67 @@ mais cette liste (qui, par quel canal — email, Slack ?) est une décision
 produit que je n'ai pas prise à votre place. Ajouter un nœud d'envoi une fois
 la liste connue est trivial ; inventer des destinataires ne l'est pas.
 
+## Troisième workflow : `GET-STUDENT-WELCOME-EMAIL` (premier événement poussé, pas interrogé)
+
+Contrairement aux deux workflows précédents (n8n interroge le backend à
+intervalle régulier), celui-ci inverse le sens : le backend pousse un
+événement vers n8n au moment de l'inscription. C'est le seul des trois
+workflows du MVP qui a nécessité de toucher un flux métier existant
+(`AuthService.register`, `backend/src/modules/auth/auth.service.ts`).
+
+- `AuthService.notifyN8n()` (nouvelle méthode privée) envoie un `POST` vers
+  `${N8N_WEBHOOK_BASE_URL}/webhook/student-created` juste après la création
+  du compte, avec `{ eventId, eventType: "student.created", occurredAt,
+  entityId: user.id, source: "get-backend" }` — le format d'événement défini
+  en Phase 1. **Jamais attendu (`await`)** : un timeout de 3s
+  (`AbortSignal.timeout`) et un `.catch()` qui se contente de logger
+  garantissent qu'un n8n indisponible ne peut pas faire échouer une
+  inscription. `N8N_WEBHOOK_BASE_URL` non défini = no-op silencieux (safe par
+  défaut en prod tant que l'hébergement n'est pas décidé).
+- Le workflow `GET-STUDENT-WELCOME-EMAIL`
+  (`n8n/workflows/get-student-welcome-email.json`) reçoit cet événement sur
+  un nœud Webhook (`responseMode: onReceived` — accuse réception
+  immédiatement, n'oblige pas le backend à attendre la suite), puis appelle
+  `POST /api/integration/students/:userId/welcome-email`
+  (`IntegrationService.sendWelcomeEmail` → délègue à
+  `NotificationService.sendWelcomeEmail`, déjà existant et jusqu'ici jamais
+  appelé automatiquement).
+
+**Testé avec une vraie inscription**, pas juste un déclenchement manuel :
+`POST /api/auth/register` avec un compte de test → exécution n8n `success`
+horodatée à la même seconde → `POST /api/integration/students/<le vrai
+userId>/welcome-email` reçu côté backend depuis l'IP du conteneur n8n. Deux
+comptes de test (`n8n-e2e-test...@get-poc.local`) restent dans la base de
+dev locale suite à ces essais — à purger si besoin, aucun impact au-delà du
+local.
+
+**Contrairement à la relance planifiée, ce workflow est laissé actif** :
+un déclencheur webhook ne tourne qu'à la réception d'un vrai événement, il
+n'y a pas de risque de répétition non maîtrisée comme avec un cron.
+L'idempotence reste théoriquement absente ici aussi (`sendWelcomeEmail`
+n'a pas de garde-fou anti-doublon), mais le seul déclencheur possible est une
+inscription — qui ne se produit qu'une fois par compte dans le flux normal.
+
+**Webhook entrant non authentifié.** Le nœud Webhook de n8n n'a aucune
+vérification d'origine — n'importe qui capable d'atteindre
+`127.0.0.1:5678/webhook/student-created` peut déclencher un envoi de mail de
+bienvenue pour un `entityId` de son choix. Sans risque tant que l'instance
+reste locale ; **à corriger avant Phase 2** (header partagé vérifié par un
+nœud IF, ou authentification native du nœud Webhook).
+
 ## Écart de sécurité assumé, à corriger avant tout usage réel
 
 `docs/security-audit-backlog.md` a été vérifié : le correctif d'isolation
 école n'a pas été touché par ce chantier (les endpoints `/notifications/*`
-concernés n'ont pas été modifiés). Les trois routes `/integration/*`
+concernés n'ont pas été modifiés). Les quatre routes `/integration/*`
 ajoutées ici sont volontairement **transverses à toutes les écoles** — c'est
 cohérent avec des jobs d'automatisation globaux (relance quotidienne, rapport
-plateforme), mais ça veut dire que la clé API `INTEGRATION_API_KEY` donne
-accès à l'ensemble des candidatures et des indicateurs, sans notion de scope
-par école. Tant que cette clé reste uniquement utilisée par n8n en local
-(`127.0.0.1`), le risque est contenu ; il redevient pertinent le jour où
-l'hébergement persistant (Phase 2) est décidé.
+plateforme, bienvenue à l'inscription), mais ça veut dire que la clé API
+`INTEGRATION_API_KEY` donne accès à l'ensemble des candidatures et des
+indicateurs, sans notion de scope par école. Tant que cette clé reste
+uniquement utilisée par n8n en local (`127.0.0.1`), le risque est contenu ;
+il redevient pertinent le jour où l'hébergement persistant (Phase 2) est
+décidé.
 
 ## Détail technique notable
 
@@ -111,8 +161,14 @@ expression `$env` visible dans l'export JSON du workflow.
 
 ## Critère de sortie
 
-Cette phase est close pour le MVP quand : la question de l'idempotence de la
-relance est tranchée (option 1 ou 2 ci-dessus), et la liste de destinataires
-du rapport hebdomadaire est définie — ce sont les deux seules choses qui
-empêchent aujourd'hui d'activer les déclencheurs planifiés des deux
-workflows.
+Les 3 workflows du MVP défini en Phase 1 sont construits et testés de bout
+en bout en local. Reste, avant toute activation en production ou décision
+d'hébergement persistant (Phase 2) :
+1. Idempotence de la relance (option 1 ou 2, section dédiée ci-dessus).
+2. Liste de destinataires du rapport hebdomadaire (décision produit).
+3. Authentification du webhook entrant `student-created`.
+4. Le correctif d'isolation école du security-audit-backlog, toujours ouvert.
+
+Conformément au backlog de la Phase 1 (item 7) : décider, sur la base de
+l'usage réel de ces 3 workflows, si les 5 workflows restants du plan initial
+apportent une valeur suffisante pour être construits — pas avant.

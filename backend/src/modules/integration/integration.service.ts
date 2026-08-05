@@ -120,4 +120,8 @@ export class IntegrationService {
       ...dashboard,
     };
   }
+
+  async sendWelcomeEmail(userId: string) {
+    return this.notificationService.sendWelcomeEmail(userId);
+  }
 }

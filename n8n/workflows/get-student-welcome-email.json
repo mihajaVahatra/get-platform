@@ -1,0 +1,47 @@
+{
+  "id": "d4e5f6a7-0004-4d4d-9d4d-000000000000",
+  "name": "GET-STUDENT-WELCOME-EMAIL",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "student-created",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-4d4d-9d4d-000000000001",
+      "name": "Webhook: compte créé",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "d4e5f6a7-0004-4d4d-9d4d-000000000099"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/students/{{ $json.body.entityId }}/welcome-email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-4d4d-9d4d-000000000002",
+      "name": "Envoyer le mail de bienvenue (endpoint existant)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: compte créé": {
+      "main": [[{ "node": "Envoyer le mail de bienvenue (endpoint existant)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

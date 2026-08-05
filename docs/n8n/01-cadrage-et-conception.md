@@ -132,8 +132,11 @@ GET-WEEKLY-REPORT
    bout en local, **laissé désactivé** : l'idempotence (pas de trace de
    dernier rappel envoyé) bloque l'activation du déclencheur planifié, voir
    [03-connecteurs-get.md](03-connecteurs-get.md).
-5. Implémenter `GET-STUDENT-WELCOME-EMAIL` (câbler l'événement `student.created`
-   côté backend — aujourd'hui aucun événement n'est émis à la création d'un compte).
+5. ✅ Implémenter `GET-STUDENT-WELCOME-EMAIL` — fait, y compris le câblage de
+   l'événement `student.created` dans `AuthService.register` (webhook
+   fire-and-forget, jamais bloquant). Testé avec une vraie inscription, pas
+   seulement un déclenchement manuel. **Laissé actif** (contrairement à la
+   relance) : voir [03-connecteurs-get.md](03-connecteurs-get.md).
 6. ✅ Implémenter `GET-WEEKLY-REPORT` — testé de bout en bout en local, **laissé
    désactivé** : le workflow s'arrête après avoir récupéré les indicateurs, il
    n'y a pas de liste de destinataires définie (décision produit, pas prise ici),

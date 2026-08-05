@@ -49,4 +49,14 @@ export class IntegrationController {
   async getWeeklyReport() {
     return this.integrationService.getWeeklyReport();
   }
+
+  @Post('students/:userId/welcome-email')
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiOperation({
+    summary:
+      "Déclenche l'envoi du mail de bienvenue existant (NotificationService.sendWelcomeEmail) pour un compte",
+  })
+  async sendWelcomeEmail(@Param('userId') userId: string) {
+    return this.integrationService.sendWelcomeEmail(userId);
+  }
 }
