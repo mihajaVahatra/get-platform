@@ -100,18 +100,18 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#faf9ff] p-2 sm:p-3">
-      <div className="mx-auto grid min-h-[calc(100vh-1rem)] max-w-[1540px] overflow-hidden rounded-[18px] bg-white shadow-[0_20px_60px_rgba(60,45,140,0.12)] lg:grid-cols-[0.95fr_1.05fr]">
-        <section className="relative hidden overflow-hidden bg-[#ebeaff] lg:block">
+    <main className="min-h-screen bg-muted p-2 sm:p-3">
+      <div className="mx-auto grid min-h-[calc(100vh-1rem)] max-w-[1540px] overflow-hidden rounded-[18px] bg-card shadow-[0_20px_60px_rgba(60,45,140,0.12)] lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="relative hidden overflow-hidden bg-primary/10 lg:block">
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: "url('/register-campus-students.png')" }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#eeedff]/95 via-[#eeedff]/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/40 to-transparent" />
           <div className="relative z-10 flex h-full flex-col p-10 xl:p-11">
             <Brand light />
             <div className="mt-12 max-w-[540px]">
-              <span className="inline-flex items-center gap-2 rounded-lg bg-violet-100/90 px-4 py-2 text-sm font-bold text-violet-600">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 text-sm font-bold text-primary">
                 <Sparkles className="size-4" />
                 Rejoins GET et construis ton avenir
               </span>
@@ -235,7 +235,7 @@ export default function RegisterPage() {
                     register={register('confirmPassword')}
                   />
                 </div>
-                <div className="rounded-xl border border-violet-100 bg-violet-50/80 p-4">
+                <div className="rounded-xl border border-border bg-primary/5 p-4">
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 size-6 shrink-0 text-violet-600" />
                     <div>
@@ -305,7 +305,7 @@ export default function RegisterPage() {
           </div>
         </section>
       </div>
-      <div className="mx-auto mt-5 flex max-w-[1540px] flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white/70 px-7 py-4 text-sm text-[#65708e]">
+      <div className="mx-auto mt-5 flex max-w-[1540px] flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-7 py-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-3">
           <span className="grid size-10 place-items-center rounded-full bg-violet-100 text-violet-600">
             <ShieldCheck className="size-5" />
@@ -390,7 +390,7 @@ function Input({
     <span className="relative mt-2 block">
       <Icon className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-[#7c86a1]" />
       <input
-        className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+        className="h-11 w-full rounded-lg border border-border bg-background pl-11 pr-3 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
         {...props}
       />
     </span>
@@ -422,7 +422,7 @@ function PasswordField({
         <input
           type={shown ? 'text' : 'password'}
           placeholder={placeholder}
-          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-11 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+          className="h-11 w-full rounded-lg border border-border bg-background pl-11 pr-11 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
           {...register}
         />
         <button

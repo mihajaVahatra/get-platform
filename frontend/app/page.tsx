@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  ArrowRight, BadgeCheck, BookOpen, Building2, ClipboardCheck, GraduationCap, Landmark,
+  ArrowRight, ArrowUpRight, BadgeCheck, BookOpen, Building2, ClipboardCheck, GraduationCap, Landmark,
   Mail, MapPin, Phone, Search, ShieldCheck, Sparkles, UserRound, WalletCards,
 } from 'lucide-react';
 
@@ -12,8 +12,7 @@ const navLinks = [
 
 const STAT_ICONS: Record<string, typeof Building2> = { ShieldCheck, BadgeCheck, Sparkles, Building2, UserRound, ClipboardCheck };
 const ACTOR_ICONS: Record<string, typeof GraduationCap> = { GraduationCap, Building2, Landmark, ShieldCheck };
-const ACTOR_TONES = ['violet', 'green', 'orange', 'blue'] as const;
-const NEWS_GRADIENTS = ['from-slate-700 via-slate-500 to-emerald-300', 'from-violet-800 via-indigo-500 to-amber-200', 'from-amber-700 via-orange-300 to-violet-300'];
+const ACTOR_TONES = ['chart1', 'chart2', 'chart4', 'chart3'] as const;
 
 type Hero = { title: string; subtitle: string };
 type StatItem = { icon: string; value: string; label: string };
@@ -72,58 +71,240 @@ export default async function Home() {
   const hasPartners = partners.schools.length > 0 || partners.financialPartners.length > 0;
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#fdfcff] text-[#101849]">
-      <header className="sticky top-0 z-30 border-b border-white/70 bg-white/80 backdrop-blur-xl">
+    <main className="min-h-screen overflow-x-hidden bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
           <Brand />
-          <nav className="hidden items-center gap-7 lg:flex">{navLinks.map(([label, href], index) => <a key={href} href={href} className={`relative py-7 text-[13px] font-bold transition hover:text-violet-600 ${index === 0 ? 'text-violet-600 after:absolute after:bottom-5 after:left-0 after:h-0.5 after:w-full after:bg-violet-600' : 'text-[#182153]'}`}>{label}</a>)}</nav>
-          <div className="flex items-center gap-2 sm:gap-3"><Link href="/auth/login" className="rounded-lg border border-violet-200 px-3 py-2 text-xs font-bold text-[#192153] transition hover:border-violet-500 hover:text-violet-600 sm:px-5 sm:text-sm">Se connecter</Link><Link href="/auth/register" className="rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-3 py-2 text-xs font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5 hover:shadow-violet-300 sm:px-5 sm:text-sm">S&apos;inscrire</Link></div>
+          <nav className="hidden items-center gap-7 lg:flex">
+            {navLinks.map(([label, href], index) => (
+              <a key={href} href={href} className={`relative py-7 text-[13px] font-semibold transition hover:text-primary ${index === 0 ? 'text-primary after:absolute after:bottom-5 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary' : 'text-foreground/80'}`}>{label}</a>
+            ))}
+          </nav>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/auth/login" className="rounded-full border border-border px-3 py-2 text-xs font-bold text-foreground transition hover:border-primary hover:text-primary sm:px-5 sm:text-sm">Se connecter</Link>
+            <Link href="/auth/register" className="rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-lg shadow-primary/25 transition hover:-translate-y-0.5 hover:shadow-primary/40 sm:px-5 sm:text-sm">S&apos;inscrire</Link>
+          </div>
         </div>
       </header>
 
-      <section id="accueil" className="relative"><div className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-14 pt-14 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:pb-20 lg:pt-16">
-        <div className="max-w-[530px]"><h1 className="whitespace-pre-line text-5xl font-black leading-[1.1] tracking-tight text-[#111949] sm:text-6xl">{config.hero.title}</h1><p className="mt-6 max-w-[460px] text-lg leading-8 text-[#56618a]">{config.hero.subtitle}</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/auth/register" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:-translate-y-0.5"><UserRound className="size-5" />Je suis étudiant<ArrowRight className="size-4" /></Link><Link href="/auth/register" className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-white px-5 py-3.5 text-sm font-bold text-violet-600 transition hover:bg-violet-50"><Building2 className="size-5" />Je suis une école / institution</Link></div><div className="mt-10 grid grid-cols-1 gap-3 border-t border-violet-100 pt-6 sm:grid-cols-2 xl:grid-cols-3"><MiniBenefit icon={ShieldCheck} title="100% en ligne" text="Accessible partout" /><MiniBenefit icon={BadgeCheck} title="Sécurisé et fiable" text="Données protégées" /><MiniBenefit icon={Sparkles} title="Simple et rapide" text="Gain de temps assuré" /></div></div>
-        <div className="relative mx-auto w-full max-w-[620px]"><div className="absolute -inset-8 rounded-[56px] bg-gradient-to-br from-violet-100 via-transparent to-indigo-100 blur-2xl" /><div className="relative h-[485px] overflow-hidden rounded-[46px] border border-white bg-[#e9eaff] shadow-[0_25px_55px_rgba(69,49,170,0.18)] sm:h-[570px]"><Image src="/landing-students-campus.png" alt="Deux étudiants sur un campus universitaire" fill priority quality={70} className="object-cover object-center" sizes="(max-width: 639px) 90vw, 620px" /><div className="absolute inset-0 bg-gradient-to-t from-[#21185d]/25 via-transparent to-white/10" /></div><div className="absolute -bottom-2 left-5 right-5 rounded-2xl border border-white/80 bg-white/90 p-4 shadow-xl backdrop-blur-md sm:-bottom-7 sm:left-8 sm:right-8 sm:p-5"><div className="flex items-center gap-4"><span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600"><GraduationCap className="size-6" /></span><div><p className="font-extrabold text-[#161d4c]">Rejoins les grandes écoles</p><p className="mt-0.5 text-sm text-[#67718f]">et construis ton avenir dès aujourd&apos;hui.</p></div></div><div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-3 text-xs font-semibold text-[#717b99]"><span className="flex -space-x-2"><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-violet-100 text-[10px] text-violet-600">E</span><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-emerald-100 text-[10px] text-emerald-600">I</span><span className="grid size-7 place-items-center rounded-full border-2 border-white bg-orange-100 text-[10px] text-orange-600">U</span></span>Écoles partenaires</div></div></div>
-      </div></section>
+      <section id="accueil" className="relative">
+        <div className="pointer-events-none absolute -top-24 right-0 h-[420px] w-[420px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="mx-auto grid max-w-[1240px] gap-12 px-5 pb-16 pt-16 sm:px-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:pb-24 lg:pt-20">
+          <div className="max-w-[560px]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+              <Sparkles className="size-3.5" /> Plateforme officielle post-bac
+            </span>
+            <h1 className="mt-6 whitespace-pre-line text-6xl font-bold leading-[0.98] text-foreground sm:text-7xl">{config.hero.title}</h1>
+            <p className="mt-6 max-w-[470px] text-lg leading-8 text-muted-foreground">{config.hero.subtitle}</p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link href="/auth/register" className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-4 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/25 transition hover:-translate-y-0.5 hover:shadow-primary/40"><UserRound className="size-5" />Je suis étudiant<ArrowRight className="size-4" /></Link>
+              <Link href="/auth/register" className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-4 text-sm font-bold text-foreground transition hover:border-primary hover:text-primary"><Building2 className="size-5" />Je suis une école / institution</Link>
+            </div>
+            <div className="mt-11 grid grid-cols-1 gap-4 border-t border-border pt-7 sm:grid-cols-3">
+              <MiniBenefit icon={ShieldCheck} title="100% en ligne" text="Accessible partout" />
+              <MiniBenefit icon={BadgeCheck} title="Sécurisé et fiable" text="Données protégées" />
+              <MiniBenefit icon={Sparkles} title="Simple et rapide" text="Gain de temps assuré" />
+            </div>
+          </div>
+          <div className="relative mx-auto w-full max-w-[620px]">
+            <div className="relative h-[485px] overflow-hidden rounded-[40px] border-4 border-card bg-muted shadow-[0_30px_70px_-20px_rgba(88,28,235,0.4)] sm:h-[580px]">
+              <Image src="/landing-students-campus.png" alt="Deux étudiants sur un campus universitaire" fill priority quality={70} className="object-cover object-center" sizes="(max-width: 639px) 90vw, 620px" />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary/30 via-transparent to-transparent" />
+            </div>
+            <div className="absolute -bottom-6 left-5 right-5 rounded-3xl border border-border bg-card/95 p-5 shadow-xl backdrop-blur-md sm:left-8 sm:right-8">
+              <div className="flex items-center gap-4">
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><GraduationCap className="size-6" /></span>
+                <div><p className="font-bold text-foreground">Rejoins les grandes écoles</p><p className="mt-0.5 text-sm text-muted-foreground">et construis ton avenir dès aujourd&apos;hui.</p></div>
+              </div>
+              <div className="mt-4 flex items-center gap-3 border-t border-border pt-3 text-xs font-semibold text-muted-foreground">
+                <span className="flex -space-x-2">
+                  <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-primary/15 text-[10px] text-primary">E</span>
+                  <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-primary/15 text-[10px] text-primary">I</span>
+                  <span className="grid size-7 place-items-center rounded-full border-2 border-card bg-primary/15 text-[10px] text-primary">U</span>
+                </span>Écoles partenaires
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <section id="apropos" className="mx-auto max-w-[1120px] px-5 py-16 text-center sm:px-8"><SectionEyebrow>Pourquoi choisir GET ?</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Une plateforme pensée pour <span className="text-violet-600">tous les acteurs</span></h2><p className="mx-auto mt-3 max-w-2xl text-[#68738f]">GET connecte étudiants, établissements et partenaires dans un écosystème numérique simple, transparent et efficace.</p><div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">{config.actorCards.map((card, index) => <ActorCard key={card.title} icon={ACTOR_ICONS[card.icon] || GraduationCap} tone={ACTOR_TONES[index] || 'violet'} title={card.title} text={card.text} />)}</div></section>
+      <section id="apropos" className="mx-auto max-w-[1120px] px-5 py-16 text-center sm:px-8">
+        <SectionEyebrow>Pourquoi choisir GET ?</SectionEyebrow>
+        <h2 className="mt-3 text-4xl font-bold sm:text-5xl">Une plateforme pensée pour <span className="text-primary">tous les acteurs</span></h2>
+        <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">GET connecte étudiants, établissements et partenaires dans un écosystème numérique simple, transparent et efficace.</p>
+        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">{config.actorCards.map((card, index) => <ActorCard key={card.title} icon={ACTOR_ICONS[card.icon] || GraduationCap} tone={ACTOR_TONES[index] || 'chart1'} title={card.title} text={card.text} />)}</div>
+      </section>
 
-      <section id="fonctionnalites" className="mx-auto max-w-[1120px] px-5 py-12 sm:px-8"><div className="text-center"><SectionEyebrow>Comment ça marche ?</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Un parcours simple en <span className="text-violet-600">4 étapes</span></h2></div><div className="relative mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4"><div className="absolute left-[12%] right-[12%] top-8 hidden border-t-2 border-dotted border-violet-200 lg:block" />{config.steps.map((step, index) => <Step key={step.title} number={String(index + 1)} icon={[ClipboardCheck, Search, BookOpen, WalletCards][index] || ClipboardCheck} title={step.title} text={step.text} />)}</div><div className="mt-14 grid gap-5 rounded-2xl bg-gradient-to-r from-violet-700 via-indigo-600 to-violet-600 px-6 py-6 text-white shadow-xl shadow-violet-200 sm:grid-cols-2 lg:grid-cols-4">{config.stats.map((stat) => <Stat key={stat.label} icon={STAT_ICONS[stat.icon] || Building2} value={stat.value} label={stat.label} />)}</div></section>
+      <section id="fonctionnalites" className="mx-auto max-w-[1120px] px-5 py-12 sm:px-8">
+        <div className="text-center"><SectionEyebrow>Comment ça marche ?</SectionEyebrow><h2 className="mt-3 text-4xl font-bold sm:text-5xl">Un parcours simple en <span className="text-primary">4 étapes</span></h2></div>
+        <div className="relative mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="absolute left-[12%] right-[12%] top-8 hidden border-t-2 border-dashed border-primary/20 lg:block" />
+          {config.steps.map((step, index) => <Step key={step.title} number={String(index + 1)} icon={[ClipboardCheck, Search, BookOpen, WalletCards][index] || ClipboardCheck} title={step.title} text={step.text} />)}
+        </div>
+        <div className="mt-16 grid gap-6 rounded-[32px] bg-primary px-8 py-9 text-primary-foreground shadow-2xl shadow-primary/25 sm:grid-cols-2 lg:grid-cols-4">{config.stats.map((stat) => <Stat key={stat.label} icon={STAT_ICONS[stat.icon] || Building2} value={stat.value} label={stat.label} />)}</div>
+      </section>
 
-      <section id="actualites" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-8"><div className="flex flex-wrap items-end justify-between gap-3"><div><SectionEyebrow>Actualités</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Reste <span className="text-violet-600">informé</span></h2></div>{news.length > 0 && <a href="#actualites" className="inline-flex items-center gap-2 text-sm font-bold text-violet-600">Voir toutes les actualités <ArrowRight className="size-4" /></a>}</div>{news.length === 0 ? <p className="mt-8 text-sm text-[#68738f]">Aucune actualité publiée pour le moment.</p> : <div className="mt-8 grid gap-5 md:grid-cols-3">{news.map((item, index) => <NewsCard key={item.id} type={item.type} date={new Date(item.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} title={item.title} text={item.body} image={item.imageUrl} gradient={NEWS_GRADIENTS[index % NEWS_GRADIENTS.length]} />)}</div>}</section>
+      <section id="actualites" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><SectionEyebrow>Actualités</SectionEyebrow><h2 className="mt-3 text-4xl font-bold sm:text-5xl">Reste <span className="text-primary">informé</span></h2></div>
+          {news.length > 0 && <a href="#actualites" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:gap-3 transition-all">Voir toutes les actualités <ArrowRight className="size-4" /></a>}
+        </div>
+        {news.length === 0 ? <p className="mt-8 text-sm text-muted-foreground">Aucune actualité publiée pour le moment.</p> : <div className="mt-10 grid gap-5 md:grid-cols-3">{news.map((item) => <NewsCard key={item.id} type={item.type} date={new Date(item.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} title={item.title} text={item.body} image={item.imageUrl} />)}</div>}
+      </section>
 
-      <section id="etablissements" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-8"><SectionEyebrow>Nos partenaires</SectionEyebrow><h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Ils nous font <span className="text-violet-600">confiance</span></h2>{!hasPartners ? <p className="mt-6 text-sm text-[#68738f]">Nos partenaires seront bientôt affichés ici.</p> : <div className="mt-8 space-y-8">{partners.schools.length > 0 && <PartnerRow title="Établissements partenaires" items={partners.schools} />}{partners.financialPartners.length > 0 && <PartnerRow title="Partenaires financiers" items={partners.financialPartners} />}</div>}</section>
+      <section id="etablissements" className="mx-auto max-w-[1120px] px-5 py-16 sm:px-8">
+        <SectionEyebrow>Nos partenaires</SectionEyebrow>
+        <h2 className="mt-3 text-4xl font-bold sm:text-5xl">Ils nous font <span className="text-primary">confiance</span></h2>
+        {!hasPartners ? <p className="mt-6 text-sm text-muted-foreground">Nos partenaires seront bientôt affichés ici.</p> : <div className="mt-10 space-y-8">{partners.schools.length > 0 && <PartnerRow title="Établissements partenaires" items={partners.schools} />}{partners.financialPartners.length > 0 && <PartnerRow title="Partenaires financiers" items={partners.financialPartners} />}</div>}
+      </section>
 
-      <section id="rejoindre" className="mx-auto max-w-[1120px] px-5 pb-16 sm:px-8"><div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 via-white to-indigo-50 px-7 py-8 sm:px-10"><GraduationCap className="absolute -bottom-7 right-8 size-36 rotate-[-20deg] text-violet-100" /><div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center"><div><h2 className="text-3xl font-black tracking-tight">Prêt à construire ton avenir ?</h2><p className="mt-2 max-w-lg text-[#66718e]">Rejoins des milliers d’étudiants et accède aux meilleures opportunités d’études à Madagascar.</p></div><Link href="/auth/register" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-violet-200"><UserRound className="size-5" />Créer mon compte gratuitement</Link></div><p className="relative mt-4 text-center text-sm font-medium text-[#78819a] md:text-right">C’est rapide, gratuit et sécurisé !</p></div></section>
+      <section id="rejoindre" className="mx-auto max-w-[1120px] px-5 pb-20 sm:px-8">
+        <div className="relative overflow-hidden rounded-[36px] bg-primary px-8 py-12 text-primary-foreground sm:px-12">
+          <GraduationCap className="absolute -bottom-8 right-8 size-44 rotate-[-20deg] text-primary-foreground/10" />
+          <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div><h2 className="text-4xl font-bold sm:text-5xl">Prêt à construire ton avenir ?</h2><p className="mt-3 max-w-lg text-primary-foreground/80">Rejoins des milliers d&apos;étudiants et accède aux meilleures opportunités d&apos;études à Madagascar.</p></div>
+            <Link href="/auth/register" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-card px-7 py-4 text-sm font-bold text-primary shadow-lg transition hover:-translate-y-0.5"><UserRound className="size-5" />Créer mon compte gratuitement</Link>
+          </div>
+          <p className="relative mt-5 text-sm font-medium text-primary-foreground/70 md:text-right">C&apos;est rapide, gratuit et sécurisé !</p>
+        </div>
+      </section>
 
-      <footer id="contact" className="border-t border-slate-100 bg-white"><div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-12 sm:px-8 md:grid-cols-[1.5fr_repeat(3,1fr)]"><div><Brand /><p className="mt-5 max-w-[230px] text-sm leading-6 text-[#68738f]">La plateforme qui ouvre la voie vers ton bac et ton futur.</p><div className="mt-5 flex gap-3 text-[#475174]"><Social label="Facebook" /><Social label="Instagram" /><Social label="LinkedIn" /><Social label="YouTube" /></div></div><FooterLinks title="Plateforme" links={['Fonctionnalités', 'Établissements', 'Tarifs', 'FAQ']} /><FooterLinks title="Ressources" links={['Guides étudiants', 'Conseils orientation', 'Actualités', 'Centre d’aide']} /><div><h3 className="font-extrabold">Contact</h3><ul className="mt-4 space-y-3 text-sm text-[#68738f]"><li className="flex gap-2"><Phone className="size-4 shrink-0 text-violet-600" />+261 34 12 345 67</li><li className="flex gap-2"><Mail className="size-4 shrink-0 text-violet-600" />contact@get.mg</li><li className="flex gap-2"><MapPin className="size-4 shrink-0 text-violet-600" />Antananarivo, Madagascar</li></ul></div></div><div className="mx-auto flex max-w-[1120px] flex-wrap justify-between gap-3 border-t border-slate-100 px-5 py-5 text-xs text-[#7b849e] sm:px-8"><span>© 2025 GET - Tous droits réservés.</span><span className="flex gap-5"><a href="#">Conditions d’utilisation</a><a href="#">Politique de confidentialité</a></span></div></footer>
+      <footer id="contact" className="border-t border-border bg-card">
+        <div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-14 sm:px-8 md:grid-cols-[1.5fr_repeat(3,1fr)]">
+          <div>
+            <Brand />
+            <p className="mt-5 max-w-[230px] text-sm leading-6 text-muted-foreground">La plateforme qui ouvre la voie vers ton bac et ton futur.</p>
+            <div className="mt-5 flex gap-3"><Social label="Facebook" /><Social label="Instagram" /><Social label="LinkedIn" /><Social label="YouTube" /></div>
+          </div>
+          <FooterLinks title="Plateforme" links={['Fonctionnalités', 'Établissements', 'Tarifs', 'FAQ']} />
+          <FooterLinks title="Ressources" links={['Guides étudiants', 'Conseils orientation', 'Actualités', "Centre d'aide"]} />
+          <div>
+            <h3 className="font-bold">Contact</h3>
+            <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <li className="flex gap-2"><Phone className="size-4 shrink-0 text-primary" />+261 34 12 345 67</li>
+              <li className="flex gap-2"><Mail className="size-4 shrink-0 text-primary" />contact@get.mg</li>
+              <li className="flex gap-2"><MapPin className="size-4 shrink-0 text-primary" />Antananarivo, Madagascar</li>
+            </ul>
+          </div>
+        </div>
+        <div className="mx-auto flex max-w-[1120px] flex-wrap justify-between gap-3 border-t border-border px-5 py-5 text-xs text-muted-foreground sm:px-8">
+          <span>© 2025 GET - Tous droits réservés.</span>
+          <span className="flex gap-5"><a className="hover:text-primary" href="#">Conditions d&apos;utilisation</a><a className="hover:text-primary" href="#">Politique de confidentialité</a></span>
+        </div>
+      </footer>
     </main>
   );
 }
 
-function Brand() { return <Link href="/" className="flex items-center gap-3"><span className="relative text-4xl font-black tracking-[-0.1em] text-violet-600">GET<GraduationCap className="absolute -right-3 -top-2 size-5 rotate-[-18deg] text-indigo-700" /></span><span className="text-[10px] font-semibold leading-3 text-[#596486]">Grandes Écoles de<br />Tananarive et de Madagascar</span></Link>; }
-function MiniBenefit({ icon: Icon, title, text }: { icon: typeof ShieldCheck; title: string; text: string }) { return <div><Icon className="size-5 text-violet-600" /><p className="mt-2 text-xs font-extrabold text-[#202858]">{title}</p><p className="mt-0.5 text-[10px] text-[#737d9a]">{text}</p></div>; }
-function SectionEyebrow({ children }: { children: React.ReactNode }) { return <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-600">{children}</p>; }
-function ActorCard({ icon: Icon, tone, title, text }: { icon: typeof GraduationCap; tone: 'violet' | 'green' | 'orange' | 'blue'; title: string; text: string }) { const tones = { violet: 'bg-violet-50 text-violet-600 border-violet-100', green: 'bg-emerald-50 text-emerald-600 border-emerald-100', orange: 'bg-orange-50 text-orange-500 border-orange-100', blue: 'bg-blue-50 text-blue-600 border-blue-100' }; return <article className={`rounded-xl border p-5 text-left ${tones[tone]}`}><span className="grid size-11 place-items-center rounded-full bg-white/70 shadow-sm"><Icon className="size-6" /></span><h3 className="mt-4 font-extrabold text-[#17204e]">{title}</h3><p className="mt-2 text-xs leading-5 text-[#5d6889]">{text}</p></article>; }
-function Step({ number, icon: Icon, title, text }: { number: string; icon: typeof Search; title: string; text: string }) { return <article className="relative z-10 text-center"><span className="mx-auto grid size-16 place-items-center rounded-full border border-violet-100 bg-white text-violet-600 shadow-lg shadow-violet-100"><Icon className="size-7" /></span><p className="mt-5 text-sm font-extrabold"><span className="text-violet-600">{number}.</span> {title}</p><p className="mx-auto mt-2 max-w-[190px] text-xs leading-5 text-[#68738f]">{text}</p></article>; }
-function Stat({ icon: Icon, value, label }: { icon: typeof Building2; value: string; label: string }) { return <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-white/15"><Icon className="size-6" /></span><div><p className="text-2xl font-black">{value}</p><p className="text-xs text-violet-100">{label}</p></div></div>; }
-function NewsCard({ type, date, title, text, image, gradient }: { type: string; date: string; title: string; text: string; image: string | null; gradient: string }) { return <article className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">{image ? (
-  // eslint-disable-next-line @next/next/no-img-element
-  <img src={image} alt="" className="h-36 w-full object-cover" />
-) : <div className={`h-36 bg-gradient-to-br ${gradient} p-3`}><span className="rounded bg-violet-600 px-2 py-1 text-[9px] font-black text-white">{type}</span></div>}<div className="p-4"><div className="flex justify-between gap-2 text-[10px] text-[#78819a]"><span>{type}</span><span>{date}</span></div><h3 className="mt-2 font-extrabold text-[#17204e]">{title}</h3><p className="mt-2 text-sm leading-6 text-[#68738f]">{text}</p></div></article>; }
-function FooterLinks({ title, links }: { title: string; links: string[] }) { return <div><h3 className="font-extrabold">{title}</h3><ul className="mt-4 space-y-3 text-sm text-[#68738f]">{links.map((link) => <li key={link}><a className="hover:text-violet-600" href="#">{link}</a></li>)}</ul></div>; }
-function Social({ label }: { label: string }) { return <a aria-label={label} href="#" className="grid size-8 place-items-center rounded-full border border-slate-200 text-xs font-black transition hover:border-violet-300 hover:text-violet-600">{label.slice(0, 1)}</a>; }
-function PartnerRow({ title, items }: { title: string; items: PartnerItem[] }) {
-  return <div><h3 className="text-xs font-black uppercase tracking-wide text-[#68738f]">{title}</h3><div className="mt-4 flex flex-wrap gap-4">{items.map((item) => <PartnerLogo key={item.id} item={item} />)}</div></div>;
+function Brand() {
+  return (
+    <Link href="/" className="flex items-center gap-3">
+      <span className="relative font-heading text-4xl font-bold tracking-[-0.08em] text-primary">GET<GraduationCap className="absolute -right-3 -top-2 size-5 rotate-[-18deg] text-primary/70" /></span>
+      <span className="text-[10px] font-semibold leading-3 text-muted-foreground">Grandes Écoles de<br />Tananarive et de Madagascar</span>
+    </Link>
+  );
 }
+
+function MiniBenefit({ icon: Icon, title, text }: { icon: typeof ShieldCheck; title: string; text: string }) {
+  return (
+    <div>
+      <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="size-5" /></span>
+      <p className="mt-3 text-sm font-bold text-foreground">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">{children}</p>;
+}
+
+function ActorCard({ icon: Icon, tone, title, text }: { icon: typeof GraduationCap; tone: 'chart1' | 'chart2' | 'chart3' | 'chart4'; title: string; text: string }) {
+  const tones = {
+    chart1: 'text-[var(--chart-1)]', chart2: 'text-[var(--chart-2)]',
+    chart3: 'text-[var(--chart-3)]', chart4: 'text-[var(--chart-4)]',
+  };
+  return (
+    <article className="group rounded-3xl border border-border bg-card p-6 text-left transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10">
+      <span className={`grid size-12 place-items-center rounded-2xl bg-muted ${tones[tone]}`}><Icon className="size-6" /></span>
+      <h3 className="mt-5 text-lg font-bold text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{text}</p>
+    </article>
+  );
+}
+
+function Step({ number, icon: Icon, title, text }: { number: string; icon: typeof Search; title: string; text: string }) {
+  return (
+    <article className="relative z-10 text-center">
+      <span className="relative mx-auto grid size-16 place-items-center rounded-2xl border border-border bg-card text-primary shadow-lg shadow-primary/10">
+        <Icon className="size-7" />
+        <span className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{number}</span>
+      </span>
+      <p className="mt-5 text-base font-bold text-foreground">{title}</p>
+      <p className="mx-auto mt-2 max-w-[190px] text-xs leading-5 text-muted-foreground">{text}</p>
+    </article>
+  );
+}
+
+function Stat({ icon: Icon, value, label }: { icon: typeof Building2; value: string; label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid size-12 place-items-center rounded-2xl bg-primary-foreground/15"><Icon className="size-6" /></span>
+      <div><p className="font-heading text-3xl font-bold">{value}</p><p className="text-xs text-primary-foreground/75">{label}</p></div>
+    </div>
+  );
+}
+
+function NewsCard({ type, date, title, text, image }: { type: string; date: string; title: string; text: string; image: string | null }) {
+  return (
+    <article className="group overflow-hidden rounded-3xl border border-border bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10">
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" className="h-40 w-full object-cover" />
+      ) : (
+        <div className="flex h-40 items-center justify-center bg-primary/10"><span className="rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-primary-foreground">{type}</span></div>
+      )}
+      <div className="p-5">
+        <div className="flex justify-between gap-2 text-[11px] font-semibold text-muted-foreground"><span className="text-primary">{type}</span><span>{date}</span></div>
+        <h3 className="mt-2 text-lg font-bold text-foreground">{title}</h3>
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">{text}</p>
+      </div>
+    </article>
+  );
+}
+
+function FooterLinks({ title, links }: { title: string; links: string[] }) {
+  return (
+    <div>
+      <h3 className="font-bold">{title}</h3>
+      <ul className="mt-4 space-y-3 text-sm text-muted-foreground">{links.map((link) => <li key={link}><a className="transition hover:text-primary" href="#">{link}</a></li>)}</ul>
+    </div>
+  );
+}
+
+function Social({ label }: { label: string }) {
+  return <a aria-label={label} href="#" className="grid size-9 place-items-center rounded-full border border-border text-xs font-bold text-muted-foreground transition hover:border-primary hover:bg-primary hover:text-primary-foreground">{label.slice(0, 1)}</a>;
+}
+
+function PartnerRow({ title, items }: { title: string; items: PartnerItem[] }) {
+  return (
+    <div>
+      <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{title}</h3>
+      <div className="mt-4 flex flex-wrap gap-4">{items.map((item) => <PartnerLogo key={item.id} item={item} />)}</div>
+    </div>
+  );
+}
+
 function PartnerLogo({ item }: { item: PartnerItem }) {
-  return <div className="flex w-[140px] flex-col items-center gap-2 rounded-xl border border-slate-100 bg-white p-4 text-center shadow-sm">
-    {item.logoUrl ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={item.logoUrl} alt={item.name} className="h-12 w-full object-contain" />
-    ) : (
-      <span className="grid size-12 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-600">{item.name.slice(0, 1).toUpperCase()}</span>
-    )}
-    <p className="line-clamp-2 text-[11px] font-bold text-[#28315e]">{item.name}</p>
-  </div>;
+  return (
+    <div className="flex w-[140px] flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 text-center shadow-sm transition hover:border-primary/40">
+      {item.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.logoUrl} alt={item.name} className="h-12 w-full object-contain" />
+      ) : (
+        <span className="grid size-12 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">{item.name.slice(0, 1).toUpperCase()}</span>
+      )}
+      <p className="line-clamp-2 text-[11px] font-bold text-foreground">{item.name}</p>
+    </div>
+  );
 }
