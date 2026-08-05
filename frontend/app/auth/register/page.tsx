@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -53,21 +53,53 @@ const registerSchema = z
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
+// QA uniquement — génère un email jetable (prénom.nom + chiffre @get.mg) pour
+// éviter d'avoir à en inventer un à chaque test d'inscription. À retirer en
+// désactivant simplement NEXT_PUBLIC_ALLOW_AUTO_EMAIL sur Vercel (pas de
+// changement de code nécessaire) une fois la phase de test terminée.
+const AUTO_EMAIL_ENABLED = process.env.NEXT_PUBLIC_ALLOW_AUTO_EMAIL === 'true';
+
+function generateQaEmail(firstName: string, lastName: string): string {
+  const slugPart = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
+  const local = [slugPart(firstName), slugPart(lastName)]
+    .filter(Boolean)
+    .join('.');
+  const suffix = Math.floor(1000 + Math.random() * 90000);
+  return `${local || 'candidat'}${suffix}@get.mg`;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [emailAutoFilled, setEmailAutoFilled] = useState(AUTO_EMAIL_ENABLED);
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: { phone: '', terms: false },
   });
   const password = watch('password', '');
+  const firstName = watch('firstName', '');
+  const lastName = watch('lastName', '');
+
+  useEffect(() => {
+    if (!AUTO_EMAIL_ENABLED || !emailAutoFilled) return;
+    if (!firstName && !lastName) return;
+    setValue('email', generateQaEmail(firstName, lastName), {
+      shouldValidate: true,
+    });
+  }, [AUTO_EMAIL_ENABLED, emailAutoFilled, firstName, lastName, setValue]);
   const rules: Array<[string, boolean]> = [
     ['Au moins 8 caractères', password.length >= 8],
     ['Une lettre majuscule', /[A-Z]/.test(password)],
@@ -201,8 +233,15 @@ export default function RegisterPage() {
                     icon={Mail}
                     type="email"
                     placeholder="exemple@email.com"
-                    {...register('email')}
+                    {...register('email', {
+                      onChange: () => setEmailAutoFilled(false),
+                    })}
                   />
+                  {AUTO_EMAIL_ENABLED && emailAutoFilled && (
+                    <p className="mt-1 text-xs text-violet-600">
+                      Généré automatiquement pour le QA — modifiable.
+                    </p>
+                  )}
                 </Field>
                 <Field
                   label="Numéro de téléphone"
