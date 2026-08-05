@@ -27,10 +27,14 @@ import {
 import { apiClient } from '@/lib/api-client';
 
 const loginSchema = z.object({
-  email: z.string().email('Saisissez une adresse e-mail valide'),
+  email: z
+    .string()
+    .max(100, 'Adresse trop longue (100 caractères maximum)')
+    .email('Saisissez une adresse e-mail valide'),
   password: z
     .string()
-    .min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+    .min(6, 'Le mot de passe doit contenir au moins 6 caractères')
+    .max(100, 'Mot de passe trop long (100 caractères maximum)'),
   remember: z.boolean(),
 });
 
@@ -141,14 +145,19 @@ export function LoginScreen() {
         </section>
 
         <section className="relative flex items-center justify-center bg-white px-5 py-9 sm:px-10 lg:px-14 xl:px-16">
-          <div className="absolute right-7 top-7 flex items-center gap-2 text-sm font-semibold text-[#151b48]">
+          <div className="absolute right-7 top-7 hidden items-center gap-2 text-sm font-semibold text-[#151b48] lg:flex">
             <Globe2 className="size-5" />
             Français
             <ChevronDown className="size-4" />
           </div>
           <div className="w-full max-w-[580px]">
-            <div className="mb-10 lg:hidden">
+            <div className="mb-10 flex flex-wrap items-start justify-between gap-3 lg:hidden">
               <Brand />
+              <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#151b48]">
+                <Globe2 className="size-5" />
+                Français
+                <ChevronDown className="size-4" />
+              </div>
             </div>
             <div
               key={`heading-${accountType}`}
@@ -208,6 +217,7 @@ export function LoginScreen() {
                   <input
                     type="email"
                     autoComplete="email"
+                    maxLength={100}
                     placeholder={
                       isInstitution
                         ? 'exemple@ecole.mg'
@@ -230,6 +240,7 @@ export function LoginScreen() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    maxLength={100}
                     placeholder={
                       isInstitution
                         ? 'Entrez votre mot de passe'

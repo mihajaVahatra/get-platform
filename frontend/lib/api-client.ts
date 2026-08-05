@@ -22,11 +22,20 @@ export const apiClient = axios.create({
   },
 });
 
-// Intercepteur pour gérer les erreurs 401
+// Intercepteur pour gérer les erreurs 401 — un 401 sur /auth/login (mauvais
+// identifiants) est une réponse attendue que l'écran de connexion doit
+// afficher lui-même (toast), pas un signal de session expirée : la rediriger
+// vers /auth/login rechargeait la page avant que le composant ait eu la
+// moindre chance d'afficher l'erreur.
+const AUTH_ENDPOINTS_WITHOUT_REDIRECT = ['/auth/login', '/auth/register'];
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = AUTH_ENDPOINTS_WITHOUT_REDIRECT.some((path) =>
+      error.config?.url?.includes(path),
+    );
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       if (typeof window !== 'undefined') {
         window.location.href = '/auth/login';
       }
