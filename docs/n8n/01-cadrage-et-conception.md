@@ -118,12 +118,20 @@ GET-WEEKLY-REPORT
 
 ## Backlog d'implémentation (ordre proposé)
 
-1. Corriger l'isolation école sur les endpoints de notification (prérequis sécurité,
-   déjà tracké dans `docs/security-audit-backlog.md`).
-2. Construire l'endpoint de lecture "dossiers incomplets" côté backend (n'existe pas
-   aujourd'hui — nécessaire pour que n8n sache qui relancer).
-3. Créer la clé API de service pour n8n (scope minimal, rotation, journalisation).
-4. Implémenter `GET-APPLICATION-INCOMPLETE-REMINDER`.
+1. ⬜ Corriger l'isolation école sur les endpoints de notification (prérequis sécurité,
+   déjà tracké dans `docs/security-audit-backlog.md`) — **toujours ouvert**, non
+   traité par ce chantier (voir [03-connecteurs-get.md](03-connecteurs-get.md)).
+2. ✅ Construire l'endpoint de lecture "dossiers incomplets" côté backend — fait :
+   `GET /api/integration/applications/pending-reminder`
+   (`backend/src/modules/integration/`), avec un proxy "candidature stale"
+   documenté plutôt qu'une vraie notion métier de dossier incomplet.
+3. ✅ Créer la clé API de service pour n8n — fait : `ServiceApiKeyGuard` +
+   `INTEGRATION_API_KEY`. Rotation et scope par école restent à faire (voir
+   Phase 4).
+4. ✅ Implémenter `GET-APPLICATION-INCOMPLETE-REMINDER` — testé de bout en
+   bout en local, **laissé désactivé** : l'idempotence (pas de trace de
+   dernier rappel envoyé) bloque l'activation du déclencheur planifié, voir
+   [03-connecteurs-get.md](03-connecteurs-get.md).
 5. Implémenter `GET-STUDENT-WELCOME-EMAIL` (câbler l'événement `student.created`
    côté backend — aujourd'hui aucun événement n'est émis à la création d'un compte).
 6. Implémenter `GET-WEEKLY-REPORT`.

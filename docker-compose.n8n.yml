@@ -29,6 +29,12 @@ services:
       WEBHOOK_URL: http://localhost:5678/
       GENERIC_TIMEZONE: Indian/Antananarivo
       N8N_SECURE_COOKIE: "false"
+      # n8n bloque $env dans les expressions de nœud par défaut. Acceptable
+      # ici (instance 127.0.0.1 uniquement) ; une vraie instance partagée
+      # devrait plutôt stocker INTEGRATION_API_KEY comme Credential n8n
+      # (httpHeaderAuth) au lieu d'une expression $env dans le JSON du
+      # workflow — voir docs/n8n/03-connecteurs-get.md.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       # Base dédiée "n8n" dans le conteneur get-db existant (pas de nouvel
       # engin à opérer), avec un rôle Postgres propre à n8n (n8n_service) —
       # volontairement distinct de get_user pour ne pas dépendre de son mot
@@ -40,12 +46,21 @@ services:
       DB_POSTGRESDB_DATABASE: n8n
       DB_POSTGRESDB_USER: n8n_service
       DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?N8N_DB_PASSWORD must be set}
+      # Consommés par les workflows via $env.* dans les nœuds HTTP Request
+      # (voir n8n/workflows/get-application-incomplete-reminder.json).
+      INTEGRATION_API_KEY: ${N8N_INTEGRATION_API_KEY:?N8N_INTEGRATION_API_KEY must be set}
+      GET_BACKEND_URL: ${GET_BACKEND_URL:?GET_BACKEND_URL must be set}
     volumes:
       # Ne conserve plus que la config n8n (clé de chiffrement des
       # credentials, etc.) — les workflows/exécutions vivent désormais dans
       # postgres_data (volume du docker-compose.yml principal).
       - n8n_config:/home/node/.n8n
       - ./n8n/workflows:/workflows:ro,Z
+    # Le backend NestJS tourne sur l'hôte (npm run start:dev), pas dans
+    # docker. host.docker.internal ne se résout pas nativement sur Docker
+    # Engine Linux (contrairement à Docker Desktop) sans cet ajout explicite.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 networks:

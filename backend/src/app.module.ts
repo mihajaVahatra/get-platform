@@ -26,6 +26,7 @@ import { TeacherAvailabilityModule } from './modules/teacher-availability/teache
 import { UserModule } from './modules/user/user.module';
 import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
 import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.module';
+import { IntegrationModule } from './modules/integration/integration.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.
     UserModule,
     SystemSettingsModule,
     AdminDashboardModule,
+    IntegrationModule,
   ],
   controllers: [AppController],
   providers: [
