@@ -137,6 +137,13 @@ export class OfferService {
     const offer = await this.findOne(id);
     await this.ensureCanManageSchool(userId, offer.schoolId);
 
+    if (dto.programId) {
+      const program = await this.prisma.schoolProgram.findFirst({
+        where: { id: dto.programId, schoolId: offer.schoolId, isActive: true },
+      });
+      if (!program) throw new ForbiddenException('Sélectionnez la filière correspondante');
+    }
+
     const slug = dto.title
       ? slugify(dto.title, { lower: true, strict: true })
       : undefined;

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 
 const offerSchema = z.object({
@@ -22,6 +23,7 @@ const offerSchema = z.object({
   applicationDeadline: z.string().optional(),
   academicYear: z.string().min(4, 'Année académique requise'),
   prerequisites: z.string().optional(),
+  programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 
 type OfferForm = z.infer<typeof offerSchema>;
@@ -32,11 +34,14 @@ export default function EditOfferPage() {
   const id = params.id as string;
   const [isLoading, setIsLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [programs, setPrograms] = useState<{ id: string; name: string; diploma: string; isActive: boolean }[]>([]);
+  const [selectedProgramId, setSelectedProgramId] = useState('');
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<OfferForm>({
     resolver: zodResolver(offerSchema),
@@ -52,6 +57,13 @@ export default function EditOfferPage() {
     try {
       const response = await apiClient.get(`/offers/${id}`);
       const offer = response.data.data;
+      apiClient
+        .get('/schools/me/programs')
+        .then((programsResponse) =>
+          setPrograms((programsResponse.data.data || []).filter((program: { isActive: boolean }) => program.isActive)),
+        )
+        .catch(() => toast.error('Impossible de charger les filières'));
+      setSelectedProgramId(offer.programId || '');
       reset({
         title: offer.title,
         description: offer.description || '',
@@ -62,6 +74,7 @@ export default function EditOfferPage() {
         applicationDeadline: offer.applicationDeadline ? offer.applicationDeadline.split('T')[0] : '',
         academicYear: offer.academicYear,
         prerequisites: offer.prerequisites?.join(', ') || '',
+        programId: offer.programId || '',
       });
     } catch (error) {
       toast.error('Erreur lors du chargement de l\'offre');
@@ -149,6 +162,25 @@ export default function EditOfferPage() {
                 <Label htmlFor="capacity">Capacité</Label>
                 <Input id="capacity" type="number" {...register('capacity', { valueAsNumber: true })} />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="programId">Filière associée *</Label>
+              <Select
+                value={selectedProgramId}
+                items={programs.map((program) => ({ value: program.id, label: `${program.name} (${program.diploma})` }))}
+                onValueChange={(value) => {
+                  const programId = String(value ?? '');
+                  setSelectedProgramId(programId);
+                  setValue('programId', programId, { shouldValidate: true });
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Sélectionnez la filière correspondante" /></SelectTrigger>
+                <SelectContent>{programs.map((program) => <SelectItem key={program.id} value={program.id}>{program.name} ({program.diploma})</SelectItem>)}</SelectContent>
+              </Select>
+              {errors.programId && (
+                <p className="text-sm text-red-500">{errors.programId.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -250,23 +250,26 @@ async function main() {
   ];
 
   await Promise.all(
-    demoOffers.map((offer) =>
-      prisma.offer.upsert({
+    demoOffers.map(async (offer) => {
+      const program = await ensureProgram(offer.schoolId, offer.title, offer.diploma, offer.duration / 12);
+      return prisma.offer.upsert({
         where: { slug: offer.slug },
         update: {
           ...offer,
+          programId: program.id,
           isOpen: true,
           applicationDeadline: new Date('2026-12-31T23:59:59.000Z'),
           deletedAt: null,
         },
         create: {
           ...offer,
+          programId: program.id,
           currency: 'MGA',
           isOpen: true,
           applicationDeadline: new Date('2026-12-31T23:59:59.000Z'),
         },
-      }),
-    ),
+      });
+    }),
   );
   console.log('✅ 4 offres de démonstration créées');
 
@@ -1857,13 +1860,14 @@ async function main() {
     { schoolId: seededSchools[4].id, slug: 'licence-relations-publiques-iscam-2026', title: 'Licence Relations Publiques', description: 'Relations presse, événementiel et image de marque.', diploma: 'Licence', duration: 36, tuitionFees: 3700000, prerequisites: ['Baccalauréat'], capacity: 55, academicYear: '2026-2027', isFeatured: false },
   ];
   await Promise.all(
-    moreOffers.map((offer) =>
-      prisma.offer.upsert({
+    moreOffers.map(async (offer) => {
+      const program = await ensureProgram(offer.schoolId, offer.title, offer.diploma, offer.duration / 12);
+      return prisma.offer.upsert({
         where: { slug: offer.slug },
-        update: { ...offer, isOpen: true, applicationDeadline: new Date('2026-12-31T23:59:59.000Z'), deletedAt: null },
-        create: { ...offer, currency: 'MGA', isOpen: true, applicationDeadline: new Date('2026-12-31T23:59:59.000Z') },
-      }),
-    ),
+        update: { ...offer, programId: program.id, isOpen: true, applicationDeadline: new Date('2026-12-31T23:59:59.000Z'), deletedAt: null },
+        create: { ...offer, programId: program.id, currency: 'MGA', isOpen: true, applicationDeadline: new Date('2026-12-31T23:59:59.000Z') },
+      });
+    }),
   );
   const allOffers = await prisma.offer.findMany({ select: { id: true } });
   console.log(`✅ ${moreOffers.length} offres supplémentaires créées (total ${allOffers.length} offres)`);
