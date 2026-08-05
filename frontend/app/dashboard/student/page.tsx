@@ -756,7 +756,7 @@ function CandidateDashboard({ student }: { student: Student }) {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
           <h2 className="text-sm font-extrabold">Dernières formations publiées</h2>
           <div className="mt-4 space-y-3">
