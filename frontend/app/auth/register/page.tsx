@@ -239,7 +239,7 @@ export default function RegisterPage() {
                     })}
                   />
                   {AUTO_EMAIL_ENABLED && emailAutoFilled && (
-                    <p className="mt-1 text-xs text-violet-600">
+                    <p className="mt-1 text-xs text-indigo-600">
                       Généré automatiquement pour le QA — modifiable.
                     </p>
                   )}
