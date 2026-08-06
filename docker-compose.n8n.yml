@@ -50,6 +50,10 @@ services:
       # (voir n8n/workflows/get-application-incomplete-reminder.json).
       INTEGRATION_API_KEY: ${N8N_INTEGRATION_API_KEY:?N8N_INTEGRATION_API_KEY must be set}
       GET_BACKEND_URL: ${GET_BACKEND_URL:?GET_BACKEND_URL must be set}
+      # Vérifié par le nœud IF du workflow GET-STUDENT-WELCOME-EMAIL avant
+      # d'appeler le backend — rejette les appels au webhook entrant qui ne
+      # viennent pas de AuthService.notifyN8n (voir .env.n8n).
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?N8N_WEBHOOK_SECRET must be set}
     volumes:
       # Ne conserve plus que la config n8n (clé de chiffrement des
       # credentials, etc.) — les workflows/exécutions vivent désormais dans

@@ -128,12 +128,18 @@ L'idempotence reste théoriquement absente ici aussi (`sendWelcomeEmail`
 n'a pas de garde-fou anti-doublon), mais le seul déclencheur possible est une
 inscription — qui ne se produit qu'une fois par compte dans le flux normal.
 
-**Webhook entrant non authentifié.** Le nœud Webhook de n8n n'a aucune
-vérification d'origine — n'importe qui capable d'atteindre
-`127.0.0.1:5678/webhook/student-created` peut déclencher un envoi de mail de
-bienvenue pour un `entityId` de son choix. Sans risque tant que l'instance
-reste locale ; **à corriger avant Phase 2** (header partagé vérifié par un
-nœud IF, ou authentification native du nœud Webhook).
+**Webhook entrant authentifié (corrigé).** `AuthService.notifyN8n` envoie
+désormais un en-tête `x-webhook-secret` (nouveau `N8N_WEBHOOK_SECRET`,
+distinct de `INTEGRATION_API_KEY` — sens inverse, backend → n8n) et le
+workflow vérifie cet en-tête via un nœud IF ("Secret webhook valide ?") avant
+d'appeler le backend. Choix délibéré face à l'authentification native du
+nœud Webhook (`authentication: headerAuth`) : celle-ci exige une Credential
+n8n chiffrée à créer via `import:credentials`, plus de surface pour se
+tromper sans pouvoir déboguer visuellement ; le nœud IF est entièrement en
+JSON versionné, testable par API, et donne le même résultat pour du local.
+Vérifié dans les deux sens : un appel forgé sans le secret s'arrête au nœud
+IF (`lastNodeExecuted: "Secret webhook valide ?"`, l'appel vers le backend
+n'a jamais lieu) ; une vraie inscription passe et déclenche bien l'email.
 
 ## Écart de sécurité assumé, à corriger avant tout usage réel
 
@@ -166,7 +172,7 @@ en bout en local. Reste, avant toute activation en production ou décision
 d'hébergement persistant (Phase 2) :
 1. Idempotence de la relance (option 1 ou 2, section dédiée ci-dessus).
 2. Liste de destinataires du rapport hebdomadaire (décision produit).
-3. Authentification du webhook entrant `student-created`.
+3. ✅ Authentification du webhook entrant `student-created` — corrigée.
 4. Le correctif d'isolation école du security-audit-backlog, toujours ouvert.
 
 Conformément au backlog de la Phase 1 (item 7) : décider, sur la base de

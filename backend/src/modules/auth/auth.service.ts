@@ -315,9 +315,14 @@ export class AuthService {
       source: 'get-backend',
     };
 
+    const secret = this.config.get<string>('N8N_WEBHOOK_SECRET');
+
     fetch(`${baseUrl}/webhook/${webhookPath}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(secret ? { 'x-webhook-secret': secret } : {}),
+      },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(3000),
     }).catch((err) => {
