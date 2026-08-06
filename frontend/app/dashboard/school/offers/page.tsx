@@ -110,7 +110,7 @@ export default function SchoolOffersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold">Mes offres</h1>
-          <p className="text-sm text-violet-600">{offers.length} offre(s)</p>
+          <p className="text-sm text-indigo-600">{offers.length} offre(s)</p>
         </div>
         <Link href="/dashboard/school/offers/new">
           <Button><PlusIcon /> Nouvelle offre</Button>

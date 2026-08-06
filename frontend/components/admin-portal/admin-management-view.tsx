@@ -139,7 +139,7 @@ function SchoolsDirectory() {
               setSearch(event.target.value);
               setPage(1);
             }}
-            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
             placeholder="Rechercher un établissement..."
           />
         </label>
@@ -158,7 +158,7 @@ function SchoolsDirectory() {
                 key={row.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <Building className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -178,7 +178,7 @@ function SchoolsDirectory() {
                     <Status value={row.isActive ? 'Actif' : 'Inactif'} />
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2 text-violet-600">
+                <div className="flex shrink-0 gap-2 text-indigo-600">
                   <button
                     aria-label={`Modifier ${row.name}`}
                     onClick={() => {
@@ -367,7 +367,7 @@ function EnrollmentsDirectory() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
               placeholder="Rechercher un étudiant..."
             />
           </label>
@@ -377,7 +377,7 @@ function EnrollmentsDirectory() {
               setStatus(event.target.value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Tous les statuts</option>
             {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
@@ -402,7 +402,7 @@ function EnrollmentsDirectory() {
                 key={application.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <FileText className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -523,7 +523,7 @@ function TransactionsDirectory() {
               setStatus(event.target.value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Tous les statuts</option>
             <option value="COMPLETED">Réussie</option>
@@ -547,7 +547,7 @@ function TransactionsDirectory() {
                 key={row.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <FileText className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -670,7 +670,7 @@ function UsersDirectory() {
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
               placeholder="Rechercher un email..."
             />
           </label>
@@ -680,7 +680,7 @@ function UsersDirectory() {
               setRoleName(event.target.value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Tous les rôles</option>
             <option value="ADMIN_GET">Admin GET</option>
@@ -705,7 +705,7 @@ function UsersDirectory() {
                 key={user.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <UserRound className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -787,17 +787,17 @@ function PageHead({
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           {title}
         </h1>
-        <p className="mt-1 text-sm text-violet-600">{subtitle}</p>
+        <p className="mt-1 text-sm text-indigo-600">{subtitle}</p>
       </div>
       <div className="flex gap-3">
         <button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]">
-          <CalendarDays className="size-4 text-violet-600" />
+          <CalendarDays className="size-4 text-indigo-600" />
           01 mai – 31 mai 2025
         </button>
         {action && (
           <button
             onClick={onAction}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-200"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200"
           >
             <Plus className="size-4" />
             {action}
@@ -819,11 +819,11 @@ function Modal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto border-l border-violet-100 bg-[#fbfcff] shadow-[-18px_0_50px_rgba(29,24,88,0.14)] md:w-[calc(100%-15rem)]">
+    <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto border-l border-indigo-100 bg-[#fbfcff] shadow-[-18px_0_50px_rgba(29,24,88,0.14)] md:w-[calc(100%-15rem)]">
       <section className="mx-auto min-h-full max-w-[980px] p-6 sm:p-8">
         <header className="flex justify-between gap-4">
           <div>
-            <p className="text-xs font-bold text-violet-600">
+            <p className="text-xs font-bold text-indigo-600">
               {title.includes('utilisateur')
                 ? 'Utilisateurs › Ajouter un utilisateur'
                 : 'Établissements › Ajouter un établissement'}
@@ -836,7 +836,7 @@ function Modal({
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="grid size-9 place-items-center rounded-lg text-violet-700 transition hover:bg-violet-50"
+            className="grid size-9 place-items-center rounded-lg text-indigo-700 transition hover:bg-indigo-50"
           >
             <X className="size-5" />
           </button>
@@ -989,7 +989,7 @@ function FormBox({
   return (
     <section className="rounded-xl border border-slate-100 bg-white p-4">
       <h3 className="flex items-center gap-2 font-extrabold text-[#17204e]">
-        <Icon className="size-5 text-violet-600" />
+        <Icon className="size-5 text-indigo-600" />
         {title}
       </h3>
       <div className="mt-4">{children}</div>
@@ -1022,14 +1022,14 @@ function Input({
           onChange={(event) => onChange?.(event.target.value)}
           placeholder={placeholder}
           rows={3}
-          className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-violet-500"
+          className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-indigo-500"
         />
       ) : (
         <input
           value={value}
           onChange={(event) => onChange?.(event.target.value)}
           placeholder={placeholder}
-          className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+          className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
         />
       )}
     </label>
@@ -1085,7 +1085,7 @@ function Footer({
       </button>
       <button
         onClick={onSave}
-        className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-5 py-2.5 text-xs font-bold text-white"
+        className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-5 py-2.5 text-xs font-bold text-white"
       >
         <Icon className="size-4" />
         {label}
@@ -1324,7 +1324,7 @@ function Bars({ items }: { items: Array<[string, number]> }) {
           <span className="w-28 text-xs text-slate-600">{label}</span>
           <div className="h-2 flex-1 rounded bg-slate-100">
             <div
-              className="h-2 rounded bg-violet-600"
+              className="h-2 rounded bg-indigo-600"
               style={{ width: `${(value / largest) * 100}%` }}
             />
           </div>
@@ -1347,7 +1347,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-      <Icon className="size-6 text-violet-600" />
+      <Icon className="size-6 text-indigo-600" />
       <p className="mt-4 text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-extrabold text-[#17204e]">{value}</p>
     </div>

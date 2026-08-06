@@ -41,7 +41,7 @@ const STATUS_STYLES: Record<string, string> = {
   PLANNED: 'bg-slate-100 text-slate-600',
   OPEN: 'bg-emerald-50 text-emerald-600',
   IN_PROGRESS: 'bg-orange-50 text-orange-500',
-  COMPLETED: 'bg-violet-50 text-violet-600',
+  COMPLETED: 'bg-indigo-50 text-indigo-600',
   CANCELLED: 'bg-rose-50 text-rose-600',
 };
 
@@ -134,7 +134,7 @@ export function CompetitionsManager() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Concours
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Gérez les concours d’entrée organisés par les établissements.
           </p>
         </div>
@@ -143,7 +143,7 @@ export function CompetitionsManager() {
             setSelected(null);
             setModal('create');
           }}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-200"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200"
         >
           <Plus className="size-4" />
           Ajouter un concours
@@ -158,7 +158,7 @@ export function CompetitionsManager() {
               setSearch(event.target.value);
               setPage(1);
             }}
-            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
             placeholder="Rechercher un concours..."
           />
         </label>
@@ -177,7 +177,7 @@ export function CompetitionsManager() {
                 key={row.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <Award className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export function CompetitionsManager() {
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2 text-violet-600">
+                <div className="flex shrink-0 gap-2 text-indigo-600">
                   <button
                     aria-label={`Modifier ${row.name}`}
                     onClick={() => {
@@ -365,7 +365,7 @@ function CompetitionForm({
               maxLength={200}
               required
               placeholder="Ex. Concours ENI 2026"
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <label className="block text-xs font-bold text-[#34406b]">
@@ -374,7 +374,7 @@ function CompetitionForm({
               value={schoolId}
               onChange={(event) => setSchoolId(event.target.value)}
               required
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             >
               <option value="" disabled>
                 Sélectionner un établissement
@@ -394,7 +394,7 @@ function CompetitionForm({
               maxLength={2000}
               rows={3}
               placeholder="Détails du concours..."
-              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -404,7 +404,7 @@ function CompetitionForm({
                 type="date"
                 value={examDate}
                 onChange={(event) => setExamDate(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -413,7 +413,7 @@ function CompetitionForm({
                 type="date"
                 value={registrationDeadline}
                 onChange={(event) => setRegistrationDeadline(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>
@@ -426,7 +426,7 @@ function CompetitionForm({
                 value={capacity}
                 onChange={(event) => setCapacity(event.target.value)}
                 placeholder="Ex. 200"
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -434,7 +434,7 @@ function CompetitionForm({
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               >
                 {Object.entries(STATUS_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -456,7 +456,7 @@ function CompetitionForm({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>

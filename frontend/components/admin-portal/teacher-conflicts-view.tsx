@@ -75,7 +75,7 @@ export function TeacherConflictsView() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Conflits professeurs
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Repérez les temps de trajet insuffisants entre écoles pour un professeur partagé, sans exposer le détail des cours entre établissements.
         </p>
       </header>
@@ -87,7 +87,7 @@ export function TeacherConflictsView() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher un professeur..."
-              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-indigo-500"
             />
           </label>
           <div className="mt-3 max-h-[420px] space-y-1 overflow-y-auto">
@@ -95,9 +95,9 @@ export function TeacherConflictsView() {
               <button
                 key={teacher.id}
                 onClick={() => void openReport(teacher)}
-                className={`flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs hover:bg-violet-50 ${selected?.id === teacher.id ? 'bg-violet-50' : ''}`}
+                className={`flex w-full items-center gap-2 rounded-lg p-2 text-left text-xs hover:bg-indigo-50 ${selected?.id === teacher.id ? 'bg-indigo-50' : ''}`}
               >
-                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-600">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-indigo-100 text-indigo-600">
                   <UsersRound className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">

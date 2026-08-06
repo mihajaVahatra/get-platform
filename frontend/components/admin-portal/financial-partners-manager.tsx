@@ -98,7 +98,7 @@ export function FinancialPartnersManager() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Partenaires financiers
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Gérez les banques, opérateurs et organismes partenaires de la
             plateforme.
           </p>
@@ -108,7 +108,7 @@ export function FinancialPartnersManager() {
             setSelected(null);
             setModal('create');
           }}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-200"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200"
         >
           <Plus className="size-4" />
           Ajouter un partenaire
@@ -123,7 +123,7 @@ export function FinancialPartnersManager() {
               setSearch(event.target.value);
               setPage(1);
             }}
-            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
             placeholder="Rechercher un partenaire..."
           />
         </label>
@@ -150,7 +150,7 @@ export function FinancialPartnersManager() {
                     className="size-9 shrink-0 rounded-lg object-cover"
                   />
                 ) : (
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                     <HandCoins className="size-4" />
                   </span>
                 )}
@@ -162,12 +162,12 @@ export function FinancialPartnersManager() {
                     {row.contactEmail || row.contactPhone || row.website || 'Contact non renseigné'}
                   </p>
                   <div className="mt-1.5">
-                    <span className="rounded bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-600">
+                    <span className="rounded bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-600">
                       {TYPE_LABELS[row.type] || row.type}
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2 text-violet-600">
+                <div className="flex shrink-0 gap-2 text-indigo-600">
                   <button
                     aria-label={`Modifier ${row.name}`}
                     onClick={() => {
@@ -343,7 +343,7 @@ function PartnerForm({
                   className="size-12 shrink-0 rounded-lg border border-slate-200 object-cover"
                 />
               ) : (
-                <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <HandCoins className="size-5" />
                 </span>
               )}
@@ -357,7 +357,7 @@ function PartnerForm({
                     const file = event.target.files?.[0];
                     if (file) void uploadLogo(file);
                   }}
-                  className="mt-1.5 block text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-violet-700 hover:file:bg-violet-100"
+                  className="mt-1.5 block text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100"
                 />
               </label>
             </div>
@@ -370,7 +370,7 @@ function PartnerForm({
               maxLength={200}
               required
               placeholder="Ex. BNI Madagascar"
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <label className="block text-xs font-bold text-[#34406b]">
@@ -378,7 +378,7 @@ function PartnerForm({
             <select
               value={type}
               onChange={(event) => setType(event.target.value)}
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             >
               {Object.entries(TYPE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -395,7 +395,7 @@ function PartnerForm({
               maxLength={2000}
               rows={3}
               placeholder="Détails du partenariat..."
-              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -406,7 +406,7 @@ function PartnerForm({
                 value={contactEmail}
                 onChange={(event) => setContactEmail(event.target.value)}
                 placeholder="contact@partenaire.mg"
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -415,7 +415,7 @@ function PartnerForm({
                 value={contactPhone}
                 onChange={(event) => setContactPhone(event.target.value)}
                 placeholder="+261 20 22 123 45"
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>
@@ -426,7 +426,7 @@ function PartnerForm({
               value={website}
               onChange={(event) => setWebsite(event.target.value)}
               placeholder="https://www.partenaire.mg"
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <div className="mt-5 flex justify-end gap-2">
@@ -441,7 +441,7 @@ function PartnerForm({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>

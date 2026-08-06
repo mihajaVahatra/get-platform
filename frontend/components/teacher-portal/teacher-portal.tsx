@@ -305,7 +305,7 @@ function Courses() {
             Établissement
           </span>
           <select
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
             value={selectedSchoolId}
             onChange={(event) => setSelectedSchoolId(event.target.value)}
           >
@@ -324,19 +324,19 @@ function Courses() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Rechercher un cours..."
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-violet-500"
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-indigo-500"
         />
       </label>
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setTab('active')}
-          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'active' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'active' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
         >
           Actifs ({activeCourses.length})
         </button>
         <button
           onClick={() => setTab('archived')}
-          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'archived' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${tab === 'archived' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
         >
           Archives ({archivedCourses.length})
         </button>
@@ -355,9 +355,9 @@ function Courses() {
             <Link
               key={course.id}
               href={`/dashboard/teacher?view=course-detail&courseId=${course.id}&tab=content`}
-              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-violet-200 hover:shadow-md"
+              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm transition hover:border-indigo-200 hover:shadow-md"
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
                 <BookOpen className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -497,7 +497,7 @@ function CourseTabs({
         <Link
           key={key}
           href={`/dashboard/teacher?view=course-detail&courseId=${courseId}&tab=${key}`}
-          className={`whitespace-nowrap border-b-2 px-1 py-3 ${active === key ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${active === key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
         >
           {label}
         </Link>
@@ -558,7 +558,7 @@ function CourseOverview({ course }: { course: CourseDetailData }) {
           )}
           <Link
             href="/dashboard/teacher?view=resources"
-            className="mt-4 block text-xs font-bold text-violet-600"
+            className="mt-4 block text-xs font-bold text-indigo-600"
           >
             Voir toutes les ressources →
           </Link>
@@ -866,7 +866,7 @@ function CourseContent({
       <Card title="Contenu pédagogique">
         <div className="mb-4 flex justify-end">
           <button
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"
             onClick={() => setChapterDialogOpen(true)}
           >
             <Plus className="size-4" /> Ajouter un chapitre
@@ -884,7 +884,7 @@ function CourseContent({
                 key={chapter.id}
               >
                 <div className="flex items-start gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-violet-50 text-xs font-bold text-violet-600">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-xs font-bold text-indigo-600">
                     {chapter.position}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -905,7 +905,7 @@ function CourseContent({
                   <div className="flex items-center gap-1">
                     {!chapter.isPublished && (
                       <button
-                        className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
+                        className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
                         disabled={publishingChapterId === chapter.id}
                         onClick={() => publishChapter(chapter.id)}
                       >
@@ -916,7 +916,7 @@ function CourseContent({
                     )}
                     <button
                       aria-label={`Modifier ${chapter.title}`}
-                      className="min-h-11 min-w-11 rounded p-2 text-slate-500 hover:bg-violet-50 hover:text-violet-600"
+                      className="min-h-11 min-w-11 rounded p-2 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"
                       onClick={() => openEditChapter(chapter)}
                     >
                       <Pencil className="size-3.5" />
@@ -943,7 +943,7 @@ function CourseContent({
                           className="flex items-center justify-between gap-2 text-[10px]"
                         >
                           <a
-                            className="truncate font-semibold text-violet-600 hover:underline"
+                            className="truncate font-semibold text-indigo-600 hover:underline"
                             href={resource.url}
                             target="_blank"
                             rel="noreferrer"
@@ -956,7 +956,7 @@ function CourseContent({
                             </span>
                             <button
                               aria-label={`Modifier ${resource.title}`}
-                              className="min-h-11 min-w-11 rounded p-1 text-slate-400 hover:bg-violet-50 hover:text-violet-600"
+                              className="min-h-11 min-w-11 rounded p-1 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
                               onClick={() => openEditResource(chapter.id, resource)}
                             >
                               <Pencil className="size-3" />
@@ -979,7 +979,7 @@ function CourseContent({
                     </ul>
                   )}
                   <button
-                    className="mt-3 text-[10px] font-bold text-violet-600"
+                    className="mt-3 text-[10px] font-bold text-indigo-600"
                     onClick={() => setResourceChapter(chapter)}
                   >
                     Ajouter une ressource
@@ -1018,7 +1018,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={chapterTitle}
                   onChange={(event) => setChapterTitle(event.target.value)}
                   maxLength={160}
@@ -1028,7 +1028,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Description (facultative)
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-indigo-500"
                   value={chapterDescription}
                   onChange={(event) =>
                     setChapterDescription(event.target.value)
@@ -1040,7 +1040,7 @@ function CourseContent({
             <DialogFooter>
               <button
                 type="submit"
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
               >
                 {saving ? 'Ajout…' : 'Ajouter'}
@@ -1067,7 +1067,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={resourceTitle}
                   onChange={(event) => setResourceTitle(event.target.value)}
                   maxLength={160}
@@ -1078,7 +1078,7 @@ function CourseContent({
                 Lien externe
                 <input
                   type="url"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   placeholder="https://…"
                   value={resourceUrl}
                   onChange={(event) => setResourceUrl(event.target.value)}
@@ -1099,7 +1099,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Type
                 <select
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-indigo-500"
                   value={resourceType}
                   onChange={(event) => setResourceType(event.target.value)}
                 >
@@ -1113,7 +1113,7 @@ function CourseContent({
             <DialogFooter>
               <button
                 type="submit"
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
               >
                 {saving ? 'Ajout…' : 'Ajouter'}
@@ -1138,7 +1138,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   maxLength={160}
                   onChange={(event) => setEditingChapterTitle(event.target.value)}
                   required
@@ -1148,7 +1148,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Description (facultative)
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-indigo-500"
                   maxLength={5000}
                   onChange={(event) =>
                     setEditingChapterDescription(event.target.value)
@@ -1159,7 +1159,7 @@ function CourseContent({
             </div>
             <DialogFooter>
               <button
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
                 type="submit"
               >
@@ -1185,7 +1185,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   maxLength={160}
                   onChange={(event) => setEditingResourceTitle(event.target.value)}
                   required
@@ -1195,7 +1195,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Lien
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   onChange={(event) => setEditingResourceUrl(event.target.value)}
                   required
                   type="url"
@@ -1205,7 +1205,7 @@ function CourseContent({
               <label className="text-xs font-bold text-[#34406b]">
                 Type
                 <select
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-indigo-500"
                   onChange={(event) => setEditingResourceType(event.target.value)}
                   value={editingResourceType}
                 >
@@ -1218,7 +1218,7 @@ function CourseContent({
             </div>
             <DialogFooter>
               <button
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
                 type="submit"
               >
@@ -1424,7 +1424,7 @@ function CourseStudentList({ courseId }: { courseId: string }) {
               key={id}
               className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
             >
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
                 {`${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase()}
               </span>
               <div className="min-w-0">
@@ -1518,7 +1518,7 @@ function CourseSettings({
               onChange={(event) => setWelcomeMessage(event.target.value)}
               maxLength={2000}
               placeholder="Bienvenue dans l’espace du cours…"
-              className="min-h-24 w-full rounded-lg border border-slate-200 p-3 text-xs outline-none focus:border-violet-500"
+              className="min-h-24 w-full rounded-lg border border-slate-200 p-3 text-xs outline-none focus:border-indigo-500"
             />
           </label>
           <label className="flex items-center justify-between rounded-lg bg-slate-50 p-3 text-xs font-semibold text-[#34406b]">
@@ -1540,7 +1540,7 @@ function CourseSettings({
             />
           </label>
           <button
-            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
             disabled={saving}
             onClick={() => void saveSettings()}
           >
@@ -1624,7 +1624,7 @@ function Students() {
                 Cours
               </span>
               <select
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
                 value={selectedCourseId}
                 onChange={(event) => setSelectedCourseId(event.target.value)}
               >
@@ -1638,7 +1638,7 @@ function Students() {
             {selectedCourseId && (
               <Link
                 href={`/dashboard/teacher?view=course-detail&courseId=${selectedCourseId}&tab=students`}
-                className="h-10 rounded-lg border border-violet-200 px-3 py-2 text-xs font-bold text-violet-600 transition hover:bg-violet-50"
+                className="h-10 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-50"
               >
                 Ouvrir la fiche du cours
               </Link>
@@ -1716,7 +1716,7 @@ function CourseSelect({
     <label className="block max-w-xl">
       <span className="mb-1 block text-xs font-bold text-[#34406b]">Cours</span>
       <select
-        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -1787,7 +1787,7 @@ function AsyncState({
         return (
           <button
             type="button"
-            className="text-xs font-bold text-violet-600"
+            className="text-xs font-bold text-indigo-600"
             onClick={onRetry}
           >
             {retryLabel}
@@ -1799,7 +1799,7 @@ function AsyncState({
           {onRetry && (
             <button
               type="button"
-              className="mt-3 text-xs font-bold text-violet-600"
+              className="mt-3 text-xs font-bold text-indigo-600"
               onClick={onRetry}
             >
               {retryLabel}
@@ -1824,7 +1824,7 @@ function AsyncState({
         {onRetry && (
           <button
             type="button"
-            className="mt-3 text-xs font-bold text-violet-600"
+            className="mt-3 text-xs font-bold text-indigo-600"
             onClick={onRetry}
           >
             {retryLabel}
@@ -1985,7 +1985,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
       <Card title="Évaluations">
         <div className="mb-4 flex justify-end">
           <button
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="size-4" /> Nouvelle évaluation
@@ -2007,7 +2007,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
                 key={evaluation.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <ClipboardList className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -2044,7 +2044,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={160}
@@ -2054,7 +2054,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Type
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={type}
                   onChange={(event) => setType(event.target.value)}
                   maxLength={50}
@@ -2065,7 +2065,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
                 Date (facultative)
                 <input
                   type="date"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={scheduledAt}
                   onChange={(event) => setScheduledAt(event.target.value)}
                 />
@@ -2076,7 +2076,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={coefficient}
                   onChange={(event) => setCoefficient(event.target.value)}
                   required
@@ -2086,7 +2086,7 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
             <DialogFooter>
               <button
                 type="submit"
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
               >
                 {saving ? 'Création…' : 'Créer'}
@@ -2260,7 +2260,7 @@ function GradeBook({ courseId }: { courseId: string }) {
           Évaluation
         </span>
         <select
-          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           value={selectedEvaluationId}
           onChange={(event) => setSelectedEvaluationId(event.target.value)}
         >
@@ -2354,7 +2354,7 @@ function GradeInput({
       <input
         type="number"
         step="0.01"
-        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+        className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={saveOnBlur}
@@ -2434,7 +2434,7 @@ function Resources() {
       title="Ressources pédagogiques"
       subtitle="Retrouvez les ressources de vos cours."
     >
-      <p className="mb-4 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-xs text-violet-800">
+      <p className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-xs text-indigo-800">
         Ajoutez une ressource depuis la{' '}
         <Link
           href="/dashboard/teacher?view=courses"
@@ -2459,9 +2459,9 @@ function Resources() {
               href={resource.url}
               rel="noreferrer"
               target="_blank"
-              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-violet-200"
+              className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-indigo-200"
             >
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
                 <FileText className="size-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -2586,14 +2586,14 @@ function Announcements() {
     >
       <nav className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
         <button
-          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'course' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'course' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
           onClick={() => setActiveTab('course')}
           type="button"
         >
           Mes annonces de cours
         </button>
         <button
-          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'school' ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+          className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === 'school' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
           onClick={() => setActiveTab('school')}
           type="button"
         >
@@ -2613,7 +2613,7 @@ function Announcements() {
               <label className="block text-xs font-bold text-slate-700">
                 Cours destinataire
                 <select
-                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
                   onChange={(event) => setCourseId(event.target.value)}
                   value={courseId}
                 >
@@ -2627,7 +2627,7 @@ function Announcements() {
               <label className="block text-xs font-bold text-slate-700">
                 Titre
                 <input
-                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+                  className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
                   onChange={(event) => setTitle(event.target.value)}
                   required
                   value={title}
@@ -2636,7 +2636,7 @@ function Announcements() {
               <label className="block text-xs font-bold text-slate-700">
                 Message
                 <textarea
-                  className="mt-1.5 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-violet-500"
+                  className="mt-1.5 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500"
                   onChange={(event) => setBody(event.target.value)}
                   required
                   value={body}
@@ -2644,7 +2644,7 @@ function Announcements() {
               </label>
               <div className="flex justify-end">
                 <button
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={sending || !courseId}
                   type="submit"
                 >
@@ -2677,7 +2677,7 @@ function Announcements() {
                         {announcement.body}
                       </p>
                     </div>
-                    <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+                    <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">
                       {announcement.readCount}/{announcement.recipientCount} lus
                     </span>
                   </div>
@@ -2714,7 +2714,7 @@ function SettingsView() {
       <nav className="mb-4 flex gap-5 overflow-x-auto border-b border-slate-100 px-2 text-[10px] font-bold">
         {tabs.map(([id, label]) => (
           <button
-            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
             key={id}
             onClick={() => setActiveTab(id)}
             type="button"
@@ -2828,15 +2828,15 @@ function TeacherProfileSettings() {
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-xs font-bold text-slate-700">
             Prénom
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setFirstName(event.target.value)} value={firstName} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setFirstName(event.target.value)} value={firstName} />
           </label>
           <label className="text-xs font-bold text-slate-700">
             Nom
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setLastName(event.target.value)} value={lastName} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setLastName(event.target.value)} value={lastName} />
           </label>
           <label className="text-xs font-bold text-slate-700">
             Téléphone
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500" onChange={(event) => setPhone(event.target.value)} value={phone} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setPhone(event.target.value)} value={phone} />
           </label>
           <div className="text-xs font-bold text-slate-700">
             E-mail
@@ -2844,7 +2844,7 @@ function TeacherProfileSettings() {
           </div>
         </div>
         <div className="mt-5 flex justify-end">
-          <button className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50" disabled={saving} type="submit">
+          <button className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50" disabled={saving} type="submit">
             {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
           </button>
         </div>
@@ -2898,7 +2898,7 @@ function TeacherSecuritySettings() {
           Mot de passe actuel
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
@@ -2909,7 +2909,7 @@ function TeacherSecuritySettings() {
           Nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
@@ -2921,7 +2921,7 @@ function TeacherSecuritySettings() {
           Confirmer le nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
@@ -2934,7 +2934,7 @@ function TeacherSecuritySettings() {
           et un caractère spécial (@$!%*?&amp;).
         </p>
         <button
-          className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           disabled={saving}
           type="submit"
         >
@@ -3026,8 +3026,8 @@ function TeacherPreferencesSettings() {
             disabled={saving}
             className={`rounded-lg border px-4 py-2 text-xs font-bold transition disabled:opacity-60 ${
               theme === option.value
-                ? 'border-violet-600 bg-violet-600 text-white'
-                : 'border-slate-200 text-slate-600 hover:border-violet-200'
+                ? 'border-indigo-600 bg-indigo-600 text-white'
+                : 'border-slate-200 text-slate-600 hover:border-indigo-200'
             }`}
             onClick={() => selectTheme(option.value)}
           >
@@ -3059,7 +3059,7 @@ function Page({
           {back && (
             <Link
               href={back}
-              className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-violet-600"
+              className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-indigo-600"
             >
               <ChevronLeft className="size-4" /> Retour
             </Link>
@@ -3067,16 +3067,16 @@ function Page({
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             {title}
           </h1>
-          <p className="mt-1 text-xs text-violet-600">{subtitle}</p>
+          <p className="mt-1 text-xs text-indigo-600">{subtitle}</p>
         </div>
         <div className="flex items-center gap-3">
           <button className="hidden h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 sm:flex">
-            <CalendarDays className="size-4 text-violet-600" />
+            <CalendarDays className="size-4 text-indigo-600" />
             Année académique 2024 · 2025
           </button>
           <NotificationBell />
           {action && (
-            <button className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white">
+            <button className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">
               <Plus className="size-4" />
               {action}
             </button>
@@ -3101,7 +3101,7 @@ function Card({
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-[#17204e]">{title}</h2>
         {action && (
-          <button className="text-[10px] font-bold text-violet-600">
+          <button className="text-[10px] font-bold text-indigo-600">
             {action}
           </button>
         )}
@@ -3115,7 +3115,7 @@ function List({ items, icon: Icon }: { items: string[]; icon: LucideIcon }) {
     <div className="divide-y divide-slate-100">
       {items.map((item) => (
         <div className="flex gap-3 py-3" key={item}>
-          <span className="grid size-7 place-items-center rounded-lg bg-violet-50 text-violet-600">
+          <span className="grid size-7 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
             <Icon className="size-3.5" />
           </span>
           <p className="flex-1 text-xs font-semibold text-[#34406b]">{item}</p>
@@ -3141,8 +3141,8 @@ function Info({ rows }: { rows: string[][] }) {
 }
 function MiniStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-lg bg-violet-50 p-3">
-      <b className="text-lg text-violet-700">{value}</b>
+    <div className="rounded-lg bg-indigo-50 p-3">
+      <b className="text-lg text-indigo-700">{value}</b>
       <span className="mt-1 block text-[9px] text-slate-500">{label}</span>
     </div>
   );
@@ -3150,7 +3150,7 @@ function MiniStat({ value, label }: { value: string; label: string }) {
 function StudentName({ name }: { name: string }) {
   return (
     <span className="flex items-center gap-2 font-bold text-[#26305e]">
-      <i className="grid size-7 place-items-center rounded-full bg-violet-100 text-[9px] not-italic text-violet-600">
+      <i className="grid size-7 place-items-center rounded-full bg-indigo-100 text-[9px] not-italic text-indigo-600">
         {name
           .split(' ')
           .map((part) => part[0])
@@ -3166,7 +3166,7 @@ function Status({ value }: { value: string }) {
     value === 'Corrigé' || value === 'En cours' || value === 'En cours';
   return (
     <span
-      className={`whitespace-nowrap rounded px-2 py-1 text-[9px] font-bold ${done ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}
+      className={`whitespace-nowrap rounded px-2 py-1 text-[9px] font-bold ${done ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}
     >
       {value}
     </span>

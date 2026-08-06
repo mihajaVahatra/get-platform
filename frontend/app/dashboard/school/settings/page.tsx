@@ -381,7 +381,7 @@ export default function SchoolSettingsPage() {
           <CardTitle>Profil de l’établissement</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 flex items-center gap-4 rounded-lg bg-violet-50 p-4">
+          <div className="mb-6 flex items-center gap-4 rounded-lg bg-indigo-50 p-4">
             <AvatarUpload
               currentUrl={school.logo || undefined}
               endpoint={`/schools/${school.id}/logo`}
@@ -859,7 +859,7 @@ function RoomsManager() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold tracking-tight text-[#111949]">Salles</h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Gérez les salles disponibles pour vos cours.
           </p>
         </div>

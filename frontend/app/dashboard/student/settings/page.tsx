@@ -54,7 +54,7 @@ export default function StudentSettingsPage() {
           <button
             key={id}
             type="button"
-            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
             onClick={() => setActiveTab(id)}
           >
             {label}
@@ -110,7 +110,7 @@ function ProfileTab() {
         <p className="text-xs text-slate-500">{profile.user.email}</p>
         <Link
           href="/dashboard/student/profile"
-          className="mt-4 text-xs font-bold text-violet-600 hover:underline"
+          className="mt-4 text-xs font-bold text-indigo-600 hover:underline"
         >
           Modifier mes informations personnelles
         </Link>
@@ -165,7 +165,7 @@ function SecurityTab() {
           Mot de passe actuel
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
@@ -176,7 +176,7 @@ function SecurityTab() {
           Nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
@@ -188,7 +188,7 @@ function SecurityTab() {
           Confirmer le nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
@@ -201,7 +201,7 @@ function SecurityTab() {
           et un caractère spécial (@$!%*?&amp;).
         </p>
         <button
-          className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           disabled={saving}
           type="submit"
         >
@@ -274,8 +274,8 @@ function PreferencesTab() {
             disabled={saving}
             className={`rounded-lg border px-4 py-2 text-xs font-bold transition disabled:opacity-60 ${
               theme === option.value
-                ? 'border-violet-600 bg-violet-600 text-white'
-                : 'border-slate-200 text-slate-600 hover:border-violet-200'
+                ? 'border-indigo-600 bg-indigo-600 text-white'
+                : 'border-slate-200 text-slate-600 hover:border-indigo-200'
             }`}
             onClick={() => selectTheme(option.value)}
           >

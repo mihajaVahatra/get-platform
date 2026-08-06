@@ -110,7 +110,7 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
               {items.some((item) => !item.isRead) && (
                 <button
                   onClick={() => void markAllAsRead()}
-                  className="flex items-center gap-1 text-[11px] font-bold text-violet-600 hover:text-violet-700"
+                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700"
                 >
                   <CheckCheck className="size-3.5" /> Tout marquer comme lu
                 </button>
@@ -132,12 +132,12 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
                     onClick={() => !item.isRead && void markAsRead(item.id)}
                     className={cn(
                       'block w-full border-b border-slate-50 px-4 py-3 text-left last:border-0 hover:bg-slate-50',
-                      !item.isRead && 'bg-violet-50/60',
+                      !item.isRead && 'bg-indigo-50/60',
                     )}
                   >
                     <div className="flex items-start gap-2">
                       {!item.isRead && (
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-violet-600" />
+                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-indigo-600" />
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-[#111949]">

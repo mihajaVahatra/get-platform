@@ -243,7 +243,7 @@ export default function StudentProfilePage() {
               <CardFooter className="flex items-center justify-between">
                 <a
                   href="/dashboard/student/documents"
-                  className="text-sm font-medium text-violet-600 hover:underline"
+                  className="text-sm font-medium text-indigo-600 hover:underline"
                 >
                   Gérer mes documents (CV, CIN, diplôme…) →
                 </a>

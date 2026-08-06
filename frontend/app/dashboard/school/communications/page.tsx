@@ -212,14 +212,14 @@ export default function SchoolCommunicationsPage() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Communications
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Diffusez une annonce et suivez sa lecture dans les notifications des
           destinataires.
         </p>
       </header>
       <Card>
         <CardContent className="p-6">
-          <div className="mb-6 flex gap-3 rounded-xl bg-violet-50 p-4 text-sm text-violet-800">
+          <div className="mb-6 flex gap-3 rounded-xl bg-indigo-50 p-4 text-sm text-indigo-800">
             <MegaphoneIcon className="mt-0.5 size-5 shrink-0" />
             <p>
               Les destinataires sont toujours résolus à partir de votre école.
@@ -313,7 +313,7 @@ export default function SchoolCommunicationsPage() {
                 onChange={(event) =>
                   setPhoto(event.target.files?.[0] ?? null)
                 }
-                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-violet-700 hover:file:bg-violet-100"
+                className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100"
               />
             </div>
             <div className="space-y-2">
@@ -325,7 +325,7 @@ export default function SchoolCommunicationsPage() {
                 maxLength={5000}
                 required
                 rows={7}
-                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-violet-500"
+                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-indigo-500"
                 placeholder="Rédigez votre annonce…"
               />
             </div>
@@ -381,7 +381,7 @@ export default function SchoolCommunicationsPage() {
                       )}
                     </p>
                   </div>
-                  <p className="mt-3 text-xs font-medium text-violet-700">
+                  <p className="mt-3 text-xs font-medium text-indigo-700">
                     {targetSummary(announcement)} · {announcement.readCount}/
                     {announcement.recipientCount} lu(s)
                   </p>

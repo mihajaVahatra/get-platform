@@ -247,7 +247,7 @@ export function CourseDirectory() {
       <header className="flex justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-[#111949]">Cours</h1>
-          <p className="text-sm text-violet-600">
+          <p className="text-sm text-indigo-600">
             Cours structurés par professeur, matière et filière.
           </p>
         </div>
@@ -273,7 +273,7 @@ export function CourseDirectory() {
                     setSearch(event.target.value);
                     setPage(1);
                   }}
-                  className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+                  className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
                   placeholder="Rechercher par code, titre ou professeur..."
                 />
               </label>
@@ -288,7 +288,7 @@ export function CourseDirectory() {
                       key={course.id}
                       className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
                     >
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
                         <BookOpenIcon className="size-5" />
                       </span>
                       <div className="min-w-0 flex-1">

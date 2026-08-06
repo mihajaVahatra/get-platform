@@ -158,14 +158,14 @@ function UnavailabilitySection({
           <button
             type="button"
             onClick={() => setMode('recurring')}
-            className={`rounded-lg px-3 py-2 ${mode === 'recurring' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+            className={`rounded-lg px-3 py-2 ${mode === 'recurring' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
           >
             Récurrent
           </button>
           <button
             type="button"
             onClick={() => setMode('exception')}
-            className={`rounded-lg px-3 py-2 ${mode === 'exception' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+            className={`rounded-lg px-3 py-2 ${mode === 'exception' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
           >
             Date précise
           </button>
@@ -176,7 +176,7 @@ function UnavailabilitySection({
             <select
               value={dayOfWeek}
               onChange={(event) => setDayOfWeek(event.target.value)}
-              className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+              className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
             >
               {DAYS.map((day) => (
                 <option key={day.value} value={day.value}>
@@ -193,7 +193,7 @@ function UnavailabilitySection({
               value={date}
               onChange={(event) => setDate(event.target.value)}
               required
-              className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+              className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
             />
           </label>
         )}
@@ -203,7 +203,7 @@ function UnavailabilitySection({
             type="time"
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <label className="text-xs font-bold text-slate-700">
@@ -212,7 +212,7 @@ function UnavailabilitySection({
             type="time"
             value={endTime}
             onChange={(event) => setEndTime(event.target.value)}
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <label className="min-w-[160px] flex-1 text-xs font-bold text-slate-700">
@@ -221,13 +221,13 @@ function UnavailabilitySection({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Ex. Rendez-vous médical"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <button
           type="submit"
           disabled={saving}
-          className="flex h-9 items-center gap-1 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white disabled:opacity-60"
+          className="flex h-9 items-center gap-1 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white disabled:opacity-60"
         >
           <Plus className="size-4" /> Ajouter
         </button>
@@ -346,7 +346,7 @@ function TravelBufferSection({
             value={schoolAId}
             onChange={(event) => selectSchoolA(event.target.value)}
             required
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Choisir...</option>
             {schools
@@ -364,7 +364,7 @@ function TravelBufferSection({
             value={schoolBId}
             onChange={(event) => selectSchoolB(event.target.value)}
             required
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Choisir...</option>
             {schools
@@ -384,13 +384,13 @@ function TravelBufferSection({
             max={480}
             value={minutesBuffer}
             onChange={(event) => setMinutesBuffer(event.target.value)}
-            className="mt-1.5 h-9 w-24 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-violet-500"
+            className="mt-1.5 h-9 w-24 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <button
           type="submit"
           disabled={saving || !schoolAId || !schoolBId}
-          className="flex h-9 items-center gap-1 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white disabled:opacity-60"
+          className="flex h-9 items-center gap-1 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white disabled:opacity-60"
         >
           <Plus className="size-4" /> Enregistrer
         </button>

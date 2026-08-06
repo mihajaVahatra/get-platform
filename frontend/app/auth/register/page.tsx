@@ -21,6 +21,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { Logo } from '@/components/Logo';
 
 const registerSchema = z
   .object({
@@ -111,14 +112,14 @@ export default function RegisterPage() {
           <div className="relative z-10 flex h-full flex-col p-10 xl:p-11">
             <Brand light />
             <div className="mt-12 max-w-[540px]">
-              <span className="inline-flex items-center gap-2 rounded-lg bg-violet-100/90 px-4 py-2 text-sm font-bold text-violet-600">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-indigo-100/90 px-4 py-2 text-sm font-bold text-indigo-600">
                 <Sparkles className="size-4" />
                 Rejoins GET et construis ton avenir
               </span>
               <h1 className="mt-6 text-[43px] font-extrabold leading-[1.15] tracking-tight text-[#111949]">
                 Ton avenir commence
                 <br />
-                par une <span className="text-violet-600">inscription.</span>
+                par une <span className="text-indigo-600">inscription.</span>
               </h1>
               <p className="mt-4 text-lg leading-7 text-[#414b76]">
                 Crée ton compte GET pour accéder à toutes les opportunités
@@ -128,7 +129,7 @@ export default function RegisterPage() {
             <div className="mt-8 space-y-5">
               <Benefit
                 icon={UserRound}
-                tone="violet"
+                tone="indigo"
                 title="Un parcours simplifié"
                 text="Postule, suis tes candidatures et inscris-toi facilement."
               />
@@ -158,7 +159,7 @@ export default function RegisterPage() {
             Déjà un compte ?{' '}
             <Link
               href="/auth/login"
-              className="ml-1 font-bold text-violet-600 hover:text-violet-700"
+              className="ml-1 font-bold text-indigo-600 hover:text-indigo-700"
             >
               Se connecter
             </Link>
@@ -168,7 +169,7 @@ export default function RegisterPage() {
               <Brand />
             </div>
             <div className="text-center">
-              <span className="mx-auto grid size-14 place-items-center rounded-full bg-violet-50 text-violet-600">
+              <span className="mx-auto grid size-14 place-items-center rounded-full bg-indigo-50 text-indigo-600">
                 <UserPlus className="size-7" />
               </span>
               <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-[#101643]">
@@ -235,9 +236,9 @@ export default function RegisterPage() {
                     register={register('confirmPassword')}
                   />
                 </div>
-                <div className="rounded-xl border border-violet-100 bg-violet-50/80 p-4">
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/80 p-4">
                   <div className="flex items-start gap-3">
-                    <ShieldCheck className="mt-0.5 size-6 shrink-0 text-violet-600" />
+                    <ShieldCheck className="mt-0.5 size-6 shrink-0 text-indigo-600" />
                     <div>
                       <p className="text-xs font-extrabold text-[#202856]">
                         Ton mot de passe doit contenir :
@@ -263,16 +264,16 @@ export default function RegisterPage() {
               <label className="flex items-start gap-3 text-sm text-[#26305b]">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-4 rounded border-slate-300 accent-violet-600"
+                  className="mt-0.5 size-4 rounded border-slate-300 accent-indigo-600"
                   {...register('terms')}
                 />
                 <span>
                   J’accepte les{' '}
-                  <a href="#" className="font-medium text-violet-600">
+                  <a href="#" className="font-medium text-indigo-600">
                     Conditions d’utilisation
                   </a>{' '}
                   et la{' '}
-                  <a href="#" className="font-medium text-violet-600">
+                  <a href="#" className="font-medium text-indigo-600">
                     Politique de confidentialité
                   </a>
                 </span>
@@ -284,7 +285,7 @@ export default function RegisterPage() {
               )}
               <button
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 font-extrabold text-white shadow-lg shadow-violet-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <UserPlus className="size-5" />
                 {isLoading ? 'Création du compte…' : 'Créer mon compte'}
@@ -305,9 +306,9 @@ export default function RegisterPage() {
           </div>
         </section>
       </div>
-      <div className="mx-auto mt-5 flex max-w-[1540px] flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-100 bg-white/70 px-7 py-4 text-sm text-[#65708e]">
+      <div className="mx-auto mt-5 flex max-w-[1540px] flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-white/70 px-7 py-4 text-sm text-[#65708e]">
         <span className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-full bg-violet-100 text-violet-600">
+          <span className="grid size-10 place-items-center rounded-full bg-indigo-100 text-indigo-600">
             <ShieldCheck className="size-5" />
           </span>
           <span>
@@ -319,7 +320,7 @@ export default function RegisterPage() {
         </span>
         <span>
           Besoin d’aide ?{' '}
-          <a href="mailto:contact@get.mg" className="font-bold text-violet-600">
+          <a href="mailto:contact@get.mg" className="font-bold text-indigo-600">
             Contacte l’administrateur GET
           </a>
         </span>
@@ -333,19 +334,9 @@ function Brand({ light = false }: { light?: boolean }) {
     <Link
       href="/"
       aria-label="Retour à l’accueil GET"
-      className="flex w-fit items-center gap-4 transition-transform hover:scale-[1.02]"
+      className="flex w-fit items-center transition-transform hover:scale-[1.02]"
     >
-      <div className="flex items-start text-5xl font-black tracking-[-0.08em] text-violet-600">
-        GET<span className="text-blue-500">.</span>
-        <GraduationCap className="-ml-1 -mt-1 size-6 rotate-[-18deg] text-indigo-600" />
-      </div>
-      <p
-        className={`text-sm font-medium leading-5 ${light ? 'text-[#3c4778]' : 'text-slate-600'}`}
-      >
-        Grandes Écoles de
-        <br />
-        Tananarive et de Madagascar
-      </p>
+      <Logo size={52} tone={light ? 'light' : 'color'} />
     </Link>
   );
 }
@@ -358,7 +349,7 @@ function FormSection({
 }) {
   return (
     <fieldset className="space-y-4">
-      <legend className="mb-3 text-sm font-extrabold text-violet-600">
+      <legend className="mb-3 text-sm font-extrabold text-indigo-600">
         {title}
       </legend>
       {children}
@@ -390,7 +381,7 @@ function Input({
     <span className="relative mt-2 block">
       <Icon className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-[#7c86a1]" />
       <input
-        className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+        className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-3 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
         {...props}
       />
     </span>
@@ -422,7 +413,7 @@ function PasswordField({
         <input
           type={shown ? 'text' : 'password'}
           placeholder={placeholder}
-          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-11 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+          className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-11 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
           {...register}
         />
         <button
@@ -431,7 +422,7 @@ function PasswordField({
             shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
           }
           onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7c86a1] hover:text-violet-600"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7c86a1] hover:text-indigo-600"
         >
           {shown ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
         </button>
@@ -446,12 +437,12 @@ function Benefit({
   text,
 }: {
   icon: typeof UserRound;
-  tone: 'violet' | 'green' | 'orange' | 'blue';
+  tone: 'indigo' | 'green' | 'orange' | 'blue';
   title: string;
   text: string;
 }) {
   const tones = {
-    violet: 'bg-violet-100 text-violet-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
     green: 'bg-emerald-100 text-emerald-600',
     orange: 'bg-orange-100 text-orange-500',
     blue: 'bg-blue-100 text-blue-600',

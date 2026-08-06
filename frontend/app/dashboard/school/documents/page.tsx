@@ -159,7 +159,7 @@ function SchoolDocumentsContent() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Documents des étudiants inscrits
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Recherchez un document par classe, type ou nom d’étudiant.
         </p>
       </header>
@@ -172,7 +172,7 @@ function SchoolDocumentsContent() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Rechercher un étudiant..."
-                className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm outline-none focus:border-violet-500"
+                className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm outline-none focus:border-indigo-500"
               />
             </label>
             <Select
@@ -238,7 +238,7 @@ function SchoolDocumentsContent() {
                   key={document.id}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
                 >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
                     <FileTextIcon className="size-5" />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -258,7 +258,7 @@ function SchoolDocumentsContent() {
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Télécharger ${document.name}`}
-                    className="grid size-10 shrink-0 place-items-center rounded-lg text-violet-600 hover:bg-violet-50"
+                    className="grid size-10 shrink-0 place-items-center rounded-lg text-indigo-600 hover:bg-indigo-50"
                   >
                     <DownloadIcon className="size-4" />
                   </a>

@@ -73,11 +73,11 @@ export function LandingContentManager() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Contenu de la landing page
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Modifiez le hero, les chiffres clés, les étapes et les cartes
           acteurs de la page d&apos;accueil publique.
         </p>
-        <p className="mt-2 rounded-lg bg-violet-50 p-3 text-xs text-violet-800">
+        <p className="mt-2 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-800">
           Les logos des établissements se gèrent depuis « Établissements » ;
           les logos des partenaires financiers depuis « Partenaires
           financiers ».
@@ -112,7 +112,7 @@ function SaveButton({ saving }: { saving: boolean }) {
       <button
         type="submit"
         disabled={saving}
-        className="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+        className="rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
       >
         {saving ? 'Enregistrement...' : 'Enregistrer'}
       </button>
@@ -149,7 +149,7 @@ function HeroSection({ hero }: { hero: Hero }) {
             maxLength={200}
             rows={2}
             required
-            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
           />
         </label>
         <label className="block text-xs font-bold text-[#34406b]">
@@ -160,7 +160,7 @@ function HeroSection({ hero }: { hero: Hero }) {
             maxLength={500}
             rows={3}
             required
-            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
           />
         </label>
         <SaveButton saving={saving} />
@@ -201,7 +201,7 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
               <select
                 value={item.icon}
                 onChange={(event) => update(index, { icon: event.target.value })}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               >
                 {STAT_ICONS.map((icon) => (
                   <option key={icon} value={icon}>
@@ -217,7 +217,7 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
                 onChange={(event) => update(index, { value: event.target.value })}
                 maxLength={20}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -227,7 +227,7 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
                 onChange={(event) => update(index, { label: event.target.value })}
                 maxLength={80}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>
@@ -272,7 +272,7 @@ function StepsSection({ steps }: { steps: StepItem[] }) {
                 onChange={(event) => update(index, { title: event.target.value })}
                 maxLength={80}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -282,7 +282,7 @@ function StepsSection({ steps }: { steps: StepItem[] }) {
                 onChange={(event) => update(index, { text: event.target.value })}
                 maxLength={200}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>
@@ -325,7 +325,7 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
               <select
                 value={item.icon}
                 onChange={(event) => update(index, { icon: event.target.value })}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               >
                 {ACTOR_ICONS.map((icon) => (
                   <option key={icon} value={icon}>
@@ -341,7 +341,7 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
                 onChange={(event) => update(index, { title: event.target.value })}
                 maxLength={80}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -351,7 +351,7 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
                 onChange={(event) => update(index, { text: event.target.value })}
                 maxLength={300}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>

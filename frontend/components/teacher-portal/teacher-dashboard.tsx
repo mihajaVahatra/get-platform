@@ -36,7 +36,7 @@ const METRICS = [
     icon: BookOpen,
     label: 'Cours enseignés',
     detail: (stats: DashboardStats) => `${stats.courses} ce mois`,
-    tone: 'violet',
+    tone: 'indigo',
   },
   {
     key: 'students',
@@ -65,7 +65,7 @@ const METRICS = [
 ] as const;
 
 const TONES = {
-  violet: 'bg-violet-100 text-violet-600',
+  indigo: 'bg-indigo-100 text-indigo-600',
   blue: 'bg-blue-100 text-blue-600',
   orange: 'bg-orange-100 text-orange-600',
   green: 'bg-emerald-100 text-emerald-600',
@@ -146,7 +146,7 @@ export function TeacherDashboard() {
       <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
         <p>Votre activité n’a pas pu être chargée.</p>
         <button
-          className="mt-3 text-xs font-bold text-violet-600"
+          className="mt-3 text-xs font-bold text-indigo-600"
           onClick={() => void loadDashboard()}
         >
           Réessayer
@@ -180,9 +180,9 @@ export function TeacherDashboard() {
 
       <Link
         href="/dashboard/teacher?view=messages"
-        className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-violet-200"
+        className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:border-indigo-200"
       >
-        <span className="grid size-10 place-items-center rounded-xl bg-violet-100 text-violet-600">
+        <span className="grid size-10 place-items-center rounded-xl bg-indigo-100 text-indigo-600">
           <Mail className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -203,7 +203,7 @@ export function TeacherDashboard() {
           </h2>
           <Link
             href="/dashboard/teacher?view=schedule"
-            className="text-xs font-bold text-violet-600"
+            className="text-xs font-bold text-indigo-600"
           >
             Voir tout
           </Link>
@@ -221,7 +221,7 @@ export function TeacherDashboard() {
                   key={slot.id}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                     <BookOpen className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">

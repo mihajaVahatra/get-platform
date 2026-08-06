@@ -144,7 +144,7 @@ export default function SchoolDashboardPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Tableau de bord
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Pilotage de vos offres et candidatures en temps réel.
           </p>
         </div>
@@ -157,7 +157,7 @@ export default function SchoolDashboardPage() {
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <Kpi
           icon={Layers3Icon}
-          tone="violet"
+          tone="indigo"
           label="Offres publiées"
           value={stats.totalOffers}
           detail={`${stats.openOffers} actuellement ouverte(s)`}
@@ -192,7 +192,7 @@ export default function SchoolDashboardPage() {
         />
         <Kpi
           icon={CreditCardIcon}
-          tone="violet"
+          tone="indigo"
           label="Paiements reçus"
           value={payments.summary.completedPayments}
           detail={`${formatCurrency(payments.summary.completedAmount)} encaissés`}
@@ -205,9 +205,9 @@ export default function SchoolDashboardPage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Link
               href="/dashboard/school/offers"
-              className="rounded-lg border border-violet-100 bg-violet-50 p-4 transition hover:bg-violet-100"
+              className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 transition hover:bg-indigo-100"
             >
-              <Layers3Icon className="size-5 text-violet-600" />
+              <Layers3Icon className="size-5 text-indigo-600" />
               <p className="mt-3 font-semibold text-[#28315e]">
                 Gérer les offres
               </p>
@@ -217,9 +217,9 @@ export default function SchoolDashboardPage() {
             </Link>
             <Link
               href="/dashboard/school/applications"
-              className="rounded-lg border border-violet-100 bg-violet-50 p-4 transition hover:bg-violet-100"
+              className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 transition hover:bg-indigo-100"
             >
-              <ClipboardListIcon className="size-5 text-violet-600" />
+              <ClipboardListIcon className="size-5 text-indigo-600" />
               <p className="mt-3 font-semibold text-[#28315e]">
                 Traiter les candidatures
               </p>
@@ -241,7 +241,7 @@ export default function SchoolDashboardPage() {
                 {payments.summary.failedPayments} échoué(s)
               </p>
             </div>
-            <CreditCardIcon className="size-6 text-violet-600" />
+            <CreditCardIcon className="size-6 text-indigo-600" />
           </div>
           <div className="mt-4 space-y-3">
             {payments.payments.length === 0 ? (
@@ -289,7 +289,7 @@ export default function SchoolDashboardPage() {
           />
           <Kpi
             icon={Layers3Icon}
-            tone="violet"
+            tone="indigo"
             label="Cours"
             value={operationalStats.totalCourses}
             detail="Cours configuré(s)"
@@ -352,13 +352,13 @@ function Kpi({
   detail,
 }: {
   icon: LucideIcon;
-  tone: 'violet' | 'green' | 'blue' | 'orange' | 'rose';
+  tone: 'indigo' | 'green' | 'blue' | 'orange' | 'rose';
   label: string;
   value: number | string;
   detail: string;
 }) {
   const tones = {
-    violet: 'bg-violet-100 text-violet-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
     green: 'bg-emerald-100 text-emerald-600',
     blue: 'bg-blue-100 text-blue-500',
     orange: 'bg-orange-100 text-orange-500',

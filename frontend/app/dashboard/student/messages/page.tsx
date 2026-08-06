@@ -253,7 +253,7 @@ function MessagesPageContent() {
         </div>
         <button
           onClick={() => setShowCompose(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
         >
           <PenLine className="size-4" />
           Nouveau message
@@ -300,7 +300,7 @@ function MessagesPageContent() {
                 >
                   <ArrowLeft className="size-5" />
                 </button>
-                <span className="flex size-10 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-600">
+                <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
                   {nameOf(selected.participant)[0]?.toUpperCase()}
                 </span>
                 <div className="min-w-0">
@@ -337,7 +337,7 @@ function MessagesPageContent() {
                     setReplyFiles((files) => files.filter((_, i) => i !== index))
                   }
                 />
-                <div className="flex items-end gap-1 rounded-xl border border-slate-200 bg-slate-50 p-2 focus-within:border-violet-400">
+                <div className="flex items-end gap-1 rounded-xl border border-slate-200 bg-slate-50 p-2 focus-within:border-indigo-400">
                   <AttachmentPickerButton
                     files={replyFiles}
                     onChange={setReplyFiles}
@@ -361,7 +361,7 @@ function MessagesPageContent() {
                       !replyText.trim() ||
                       !selected.participant?.email
                     }
-                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
                     title="Envoyer la réponse"
                   >
                     <Send className="size-4" />
@@ -375,7 +375,7 @@ function MessagesPageContent() {
             </>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <MailOpen className="size-10 text-violet-200" />
+              <MailOpen className="size-10 text-indigo-200" />
               <p className="mt-3 text-sm font-bold text-slate-700">
                 Aucune discussion sélectionnée
               </p>
@@ -409,10 +409,10 @@ function ConversationRow({
   return (
     <button
       onClick={onClick}
-      className={`w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-violet-50/60 ${active ? 'bg-violet-50' : ''}`}
+      className={`w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-indigo-50/60 ${active ? 'bg-indigo-50' : ''}`}
     >
       <div className="flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+        <span className="flex size-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
           {nameOf(conversation.participant)[0]?.toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
@@ -426,13 +426,13 @@ function ConversationRow({
           </span>
           <span className="mt-1 flex items-center gap-2">
             {conversation.lastMessage?.hasAttachments && (
-              <Paperclip className="size-3 shrink-0 text-violet-400" />
+              <Paperclip className="size-3 shrink-0 text-indigo-400" />
             )}
             <span className="truncate text-[10px] text-slate-500">
               {conversation.lastMessage?.body || 'Nouvelle discussion'}
             </span>
             {conversation.unreadCount > 0 && (
-              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-violet-600 text-[9px] font-bold text-white">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">
                 {conversation.unreadCount}
               </span>
             )}
@@ -452,11 +452,11 @@ function MessageBubble({
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[82%] rounded-2xl px-4 py-3 ${mine ? 'rounded-br-sm bg-violet-600 text-white' : 'rounded-bl-sm bg-white text-slate-700 shadow-sm ring-1 ring-slate-100'}`}
+        className={`max-w-[82%] rounded-2xl px-4 py-3 ${mine ? 'rounded-br-sm bg-indigo-600 text-white' : 'rounded-bl-sm bg-white text-slate-700 shadow-sm ring-1 ring-slate-100'}`}
       >
         {message.subject && (
           <p
-            className={`mb-1 text-[10px] font-bold ${mine ? 'text-violet-200' : 'text-violet-500'}`}
+            className={`mb-1 text-[10px] font-bold ${mine ? 'text-indigo-200' : 'text-indigo-500'}`}
           >
             {message.subject}
           </p>
@@ -464,7 +464,7 @@ function MessageBubble({
         <p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p>
         <AttachmentGrid attachments={message.attachments || []} mine={mine} />
         <p
-          className={`mt-2 text-right text-[10px] ${mine ? 'text-violet-200' : 'text-slate-400'}`}
+          className={`mt-2 text-right text-[10px] ${mine ? 'text-indigo-200' : 'text-slate-400'}`}
         >
           {dateOf(message.createdAt)}
         </p>
@@ -475,11 +475,11 @@ function MessageBubble({
 function EmptyConversation({ onCompose }: { onCompose: () => void }) {
   return (
     <div className="p-6 text-center">
-      <MessageCircle className="mx-auto size-7 text-violet-200" />
+      <MessageCircle className="mx-auto size-7 text-indigo-200" />
       <p className="mt-2 text-xs font-bold text-slate-700">Aucune discussion</p>
       <button
         onClick={onCompose}
-        className="mt-3 text-xs font-bold text-violet-600"
+        className="mt-3 text-xs font-bold text-indigo-600"
       >
         Écrire un message
       </button>
@@ -541,7 +541,7 @@ function ComposeDialog({
               onChange={(event) => setRecipientEmail(event.target.value)}
               placeholder="enrolled@test.com"
               required
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400"
+              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
           <label className="block text-xs font-bold text-slate-700">
@@ -551,7 +551,7 @@ function ComposeDialog({
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
               placeholder="Ex. Question sur le cours"
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-400"
+              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
           <label className="block text-xs font-bold text-slate-700">
@@ -562,7 +562,7 @@ function ComposeDialog({
               required
               minLength={1}
               maxLength={20000}
-              className="mt-1.5 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-violet-400"
+              className="mt-1.5 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-400"
               placeholder="Écrivez votre message…"
             />
           </label>
@@ -589,7 +589,7 @@ function ComposeDialog({
           </button>
           <button
             disabled={sending}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
           >
             <Send className="size-4" />
             {sending ? 'Envoi…' : 'Envoyer'}

@@ -319,12 +319,12 @@ export function StudentImportDirectory() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Étudiants inscrits
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Liste des étudiants inscrits dans votre établissement.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700">
+          <div className="flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700">
             <UsersRound className="size-4" /> {totalItems} étudiant(s)
           </div>
           <Button onClick={() => setEnrollOpen(true)}>
@@ -361,7 +361,7 @@ export function StudentImportDirectory() {
             <input
               value={search}
               onChange={(event) => updateSearch(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
               placeholder="Rechercher par nom ou e-mail..."
             />
           </label>
@@ -388,7 +388,7 @@ export function StudentImportDirectory() {
                   className="rounded-xl border border-slate-100 p-3 text-[11px] text-slate-600"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-violet-100 text-[10px] text-violet-600">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-indigo-100 text-[10px] text-indigo-600">
                       {initials}
                     </span>
                     <div className="min-w-0 flex-1">

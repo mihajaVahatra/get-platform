@@ -109,7 +109,7 @@ export function ClassDirectory() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">Classes</h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Créez vos classes, définissez leurs besoins horaires par matière et affectez un professeur qualifié.
           </p>
         </div>
@@ -237,7 +237,7 @@ function CreateClassDialog({
               <Label htmlFor="class-program">Filière (facultatif)</Label>
               <select
                 id="class-program"
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                 value={programId}
                 onChange={(event) => setProgramId(event.target.value)}
               >
@@ -395,7 +395,7 @@ function ClassCard({
             <div className="flex items-center gap-2 text-xs">
               <span className="font-bold text-slate-700">Filière</span>
               <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                 value={schoolClass.programId || ''}
                 onChange={(event) => void updateProgram(event.target.value)}
               >
@@ -427,7 +427,7 @@ function ClassCard({
                       <div className="flex items-center gap-2">
                         <UsersRound className="size-4 text-slate-400" />
                         <select
-                          className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                          className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                           value={requirement.assignment?.teacher.id || ''}
                           onChange={(event) =>
                             event.target.value

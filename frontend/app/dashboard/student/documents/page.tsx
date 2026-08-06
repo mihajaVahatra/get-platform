@@ -129,7 +129,7 @@ export default function StudentDocumentsPage() {
           </p>
         </div>
         <button
-          className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-700"
+          className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700"
           onClick={(event) => {
             event.preventDefault();
             setUploadOpen(true);
@@ -162,7 +162,7 @@ export default function StudentDocumentsPage() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Télécharger ${doc.name}`}
-                className="min-h-11 min-w-11 rounded p-2 text-violet-600 hover:bg-violet-50"
+                className="min-h-11 min-w-11 rounded p-2 text-indigo-600 hover:bg-indigo-50"
               >
                 <Download className="size-4" />
               </a>
@@ -191,7 +191,7 @@ export default function StudentDocumentsPage() {
               <label className="text-xs font-bold text-[#34406b]">
                 Type de document
                 <select
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-indigo-500"
                   value={uploadType}
                   onChange={(event) =>
                     setUploadType(event.target.value as DocumentType)
@@ -207,7 +207,7 @@ export default function StudentDocumentsPage() {
               <label className="text-xs font-bold text-[#34406b]">
                 Nom (facultatif)
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={uploadName}
                   onChange={(event) => setUploadName(event.target.value)}
                   maxLength={160}
@@ -230,7 +230,7 @@ export default function StudentDocumentsPage() {
             <DialogFooter>
               <button
                 type="submit"
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={uploading}
               >
                 {uploading ? 'Ajout…' : 'Ajouter'}
