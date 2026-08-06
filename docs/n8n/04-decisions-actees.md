@@ -87,3 +87,39 @@ quand la décision sera reprise.
 Les crons tournent tant que le conteneur `get-n8n` local reste allumé sur
 cette machine — ils ne s'exécutent pas "dans le cloud" pour l'instant,
 conformément à la décision du point 4.
+
+## Validation en live contre le backend QA (Render)
+
+Le 2026-08-06, les 3 workflows ont été testés contre le vrai backend QA
+déployé (`https://get-poc-backend.onrender.com`, base Neon), pas seulement
+en local :
+
+- **`GET-APPLICATION-INCOMPLETE-REMINDER` et `GET-WEEKLY-REPORT`** :
+  fonctionnent tels quels — c'est n8n qui appelle le backend, aucune
+  exposition n'est nécessaire. Testés avec succès en pointant temporairement
+  `GET_BACKEND_URL`/`INTEGRATION_API_KEY` de n8n vers le QA, puis reconfiguré
+  en local juste après (pas laissé pointé sur le QA sans surveillance).
+- **`GET-STUDENT-WELCOME-EMAIL`** : sens inverse (le backend appelle n8n),
+  donc n8n devait être temporairement joignable depuis Render. Un tunnel
+  ngrok (`ngrok http --url=<domaine fixe gratuit> 5678`) lancé sur la
+  machine locale a permis de valider la chaîne complète : inscription réelle
+  sur le QA → webhook via le tunnel → n8n local → vérification du secret →
+  rappel vers le QA → email envoyé. Deux tunnels gratuits testés avant ngrok
+  (`cloudflared`, `localhost.run`) se sont révélés indisponibles/instables
+  pour ce genre de trafic serveur-à-serveur.
+
+Effet de bord découvert et corrigé au passage (commit `983ee48`) : le
+premier déploiement manuel sur Render a échoué — `app.controller.ts` ne
+répondait qu'au `GET /`, pas au `HEAD /`, et la sonde de démarrage de Render
+fait un `HEAD /`. Correctif à deux niveaux (`AppController` + middleware
+Express dans `main.ts` pour la racine hors du préfixe `/api`), pré-existant
+à ce chantier, juste jamais remarqué faute de déploiement manuel antérieur.
+
+Ce test a nécessité d'ajouter `INTEGRATION_API_KEY`, `N8N_WEBHOOK_BASE_URL`
+et `N8N_WEBHOOK_SECRET` aux variables d'environnement Render (documentées
+dans `backend/render.yaml`, valeurs saisies manuellement dans le dashboard).
+Le tunnel ngrok a été fermé après le test ; `N8N_WEBHOOK_BASE_URL` sur
+Render pointe donc de nouveau vers une URL qui ne répond plus — sans risque
+(l'appel reste best-effort, échoue silencieusement en logs, ne bloque
+jamais une inscription), mais à garder en tête si une vraie décision
+d'hébergement (point 4) doit remplacer cette valeur.

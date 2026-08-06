@@ -316,29 +316,18 @@ export class AuthService {
     };
 
     const secret = this.config.get<string>('N8N_WEBHOOK_SECRET');
-    const url = `${baseUrl}/webhook/${webhookPath}`;
 
-    // TEMP: logs verbeux des deux issues (succès inclus) pour déboguer un
-    // appel qui échouait silencieusement contre un tunnel de test — à
-    // retirer une fois l'hébergement n8n définitif décidé (garder le
-    // no-op silencieux normal jusque-là serait contre-productif pour du
-    // débogage manuel).
-    console.log(`[n8n webhook] tentative ${eventType} -> ${url}`);
-    fetch(url, {
+    fetch(`${baseUrl}/webhook/${webhookPath}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(secret ? { 'x-webhook-secret': secret } : {}),
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(8000),
-    })
-      .then((res) => {
-        console.log(`[n8n webhook] ${eventType} -> HTTP ${res.status}`);
-      })
-      .catch((err) => {
-        console.error(`[n8n webhook] ${eventType} non délivré :`, err.message);
-      });
+      signal: AbortSignal.timeout(3000),
+    }).catch((err) => {
+      console.error(`[n8n webhook] ${eventType} non délivré :`, err.message);
+    });
   }
 
   private extractUserInfo(user: any) {
