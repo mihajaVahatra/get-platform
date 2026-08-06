@@ -3,6 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { MinistryService } from '../ministry/ministry.service';
 import { ApplicationStatus } from '../application/dto/update-application-status.dto';
+import {
+  NotificationType,
+  NotificationPriority,
+} from '../notification/dto/send-notification.dto';
 
 /**
  * Point d'entrée pour les automatisations n8n. Ne réimplémente aucune
@@ -34,12 +38,20 @@ export class IntegrationService {
         },
         updatedAt: { lt: staleBefore },
         offer: { applicationDeadline: { gt: new Date() } },
+        // Idempotence : ne pas re-proposer une candidature déjà relancée
+        // récemment. Même fenêtre que staleDays — un rappel par période de
+        // "silence" observée, pas un par exécution du cron.
+        OR: [
+          { lastReminderSentAt: null },
+          { lastReminderSentAt: { lt: staleBefore } },
+        ],
       },
       select: {
         id: true,
         status: true,
         updatedAt: true,
         offerId: true,
+        lastReminderSentAt: true,
         offer: { select: { applicationDeadline: true, schoolId: true } },
         student: { select: { userId: true } },
       },
@@ -50,6 +62,7 @@ export class IntegrationService {
       applicationId: application.id,
       status: application.status,
       lastUpdatedAt: application.updatedAt,
+      lastReminderSentAt: application.lastReminderSentAt,
       offerId: application.offerId,
       schoolId: application.offer.schoolId,
       deadline: application.offer.applicationDeadline,
@@ -71,11 +84,18 @@ export class IntegrationService {
       throw new NotFoundException('Candidature introuvable');
     }
 
-    return this.notificationService.sendDeadlineReminder(
+    const result = await this.notificationService.sendDeadlineReminder(
       application.student.userId,
       application.offerId,
       application.offer.applicationDeadline ?? new Date(),
     );
+
+    await this.prisma.application.update({
+      where: { id: applicationId },
+      data: { lastReminderSentAt: new Date() },
+    });
+
+    return result;
   }
 
   /**
@@ -123,5 +143,44 @@ export class IntegrationService {
 
   async sendWelcomeEmail(userId: string) {
     return this.notificationService.sendWelcomeEmail(userId);
+  }
+
+  /**
+   * Calcule le rapport hebdomadaire et l'envoie à tous les comptes
+   * ADMIN_GET, via NotificationService.send (canal EMAIL existant) — pas de
+   * liste d'emails à maintenir à part, la source de vérité reste les rôles
+   * applicatifs.
+   */
+  async sendWeeklyReport() {
+    const report = await this.getWeeklyReport();
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: { name: 'ADMIN_GET' }, isActive: true },
+      select: { id: true },
+    });
+
+    const body = [
+      `Nouveaux comptes (7 jours) : ${report.newAccounts}`,
+      `Candidatures totales : ${report.totalApplications}`,
+      `Décisions cette semaine : ${report.decisionsThisWeek}`,
+      `Taux d'acceptation : ${report.acceptanceRate}%`,
+      `Candidatures en attente depuis +48h : ${report.alerts.pendingApplicationsOver48h}`,
+      `Écoles actives : ${report.totalSchools}`,
+    ].join('\n');
+
+    const results = await Promise.all(
+      admins.map((admin) =>
+        this.notificationService.send({
+          userId: admin.id,
+          type: NotificationType.EMAIL,
+          title: `Rapport hebdomadaire GET — ${new Date().toLocaleDateString('fr-FR')}`,
+          body,
+          priority: NotificationPriority.LOW,
+          data: report,
+        }),
+      ),
+    );
+
+    return { recipientCount: admins.length, results };
   }
 }

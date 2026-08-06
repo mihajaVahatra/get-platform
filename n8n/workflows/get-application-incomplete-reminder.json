@@ -96,7 +96,7 @@
       "main": [[{ "node": "Envoyer le rappel (endpoint existant)", "type": "main", "index": 0 }]]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   }

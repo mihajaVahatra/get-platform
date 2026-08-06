@@ -31,8 +31,8 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/reports/weekly",
+        "method": "POST",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/reports/weekly/send",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -42,7 +42,7 @@
         "options": {}
       },
       "id": "c3f4d5e6-0003-4c3c-9c3c-000000000002",
-      "name": "Récupérer les indicateurs de la semaine",
+      "name": "Calculer et envoyer le rapport aux admins GET",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [450, 380]
@@ -50,13 +50,13 @@
   ],
   "connections": {
     "Chaque lundi à 8h": {
-      "main": [[{ "node": "Récupérer les indicateurs de la semaine", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Calculer et envoyer le rapport aux admins GET", "type": "main", "index": 0 }]]
     },
     "Exécution manuelle (test)": {
-      "main": [[{ "node": "Récupérer les indicateurs de la semaine", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Calculer et envoyer le rapport aux admins GET", "type": "main", "index": 0 }]]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   }

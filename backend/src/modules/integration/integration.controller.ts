@@ -50,6 +50,15 @@ export class IntegrationController {
     return this.integrationService.getWeeklyReport();
   }
 
+  @Post('reports/weekly/send')
+  @ApiOperation({
+    summary:
+      "Calcule le rapport hebdomadaire et l'envoie par email à tous les comptes ADMIN_GET actifs",
+  })
+  async sendWeeklyReport() {
+    return this.integrationService.sendWeeklyReport();
+  }
+
   @Post('students/:userId/welcome-email')
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiOperation({

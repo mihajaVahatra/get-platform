@@ -1,9 +1,10 @@
 # Phase 4 — Connecteurs GET (workflows réels)
 
-- **Statut :** les 3 workflows du MVP (Phase 1) sont fonctionnels en local ;
-  relance et rapport laissés désactivés (idempotence / destinataires non
-  tranchés), bienvenue activée et déclenchée par un vrai événement d'inscription
-- **Date :** 2026-08-05
+- **Statut :** les 3 workflows du MVP (Phase 1) sont fonctionnels **et actifs**
+  en local — voir [04-decisions-actees.md](04-decisions-actees.md) pour la
+  résolution des points laissés ouverts ci-dessous (idempotence, destinataires,
+  isolation école)
+- **Date :** 2026-08-05 (mis à jour le 2026-08-06)
 - **Fait suite à :** [02-preparation-infrastructure.md](02-preparation-infrastructure.md)
 
 ## Ce qui a été construit
@@ -167,13 +168,16 @@ expression `$env` visible dans l'export JSON du workflow.
 
 ## Critère de sortie
 
-Les 3 workflows du MVP défini en Phase 1 sont construits et testés de bout
-en bout en local. Reste, avant toute activation en production ou décision
-d'hébergement persistant (Phase 2) :
-1. Idempotence de la relance (option 1 ou 2, section dédiée ci-dessus).
-2. Liste de destinataires du rapport hebdomadaire (décision produit).
-3. ✅ Authentification du webhook entrant `student-created` — corrigée.
-4. Le correctif d'isolation école du security-audit-backlog, toujours ouvert.
+Les 3 workflows du MVP défini en Phase 1 sont construits, testés de bout en
+bout en local, et **actifs**. Les 4 points ci-dessous sont tous tranchés —
+détail dans [04-decisions-actees.md](04-decisions-actees.md) :
+1. ✅ Idempotence de la relance — migration `lastReminderSentAt`.
+2. ✅ Destinataires du rapport hebdomadaire — tous les comptes `ADMIN_GET`.
+3. ✅ Authentification du webhook entrant `student-created`.
+4. ✅ Isolation école — déjà corrigée par un commit antérieur, backlog mis à jour.
+
+Reste ouvert, non traité ici : la décision d'hébergement persistant
+(Phase 2), volontairement différée.
 
 Conformément au backlog de la Phase 1 (item 7) : décider, sur la base de
 l'usage réel de ces 3 workflows, si les 5 workflows restants du plan initial

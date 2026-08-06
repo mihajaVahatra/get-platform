@@ -768,6 +768,10 @@ model Application {
   submittedAt    DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
+  // Rempli par l'automatisation de relance (n8n) pour éviter de relancer
+  // la même candidature à chaque exécution planifiée — voir
+  // backend/src/modules/integration/integration.service.ts.
+  lastReminderSentAt DateTime?
 
   timeline ApplicationTimeline[]
   payments Payment[]
