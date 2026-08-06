@@ -20,6 +20,19 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   app.disable('x-powered-by');
+
+  // Sonde de démarrage de la plateforme d'hébergement (ex: Render fait un
+  // HEAD / avant de déclarer le service "Live") — en dehors du préfixe
+  // global /api, donc traité en middleware Express brut plutôt que via un
+  // contrôleur Nest.
+  app.use((request, response, next) => {
+    if (request.path === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
+      response.status(200).send('OK');
+      return;
+    }
+    next();
+  });
+
   app.use((_, response, next) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('X-Frame-Options', 'DENY');
