@@ -122,7 +122,7 @@ export function MfaSettingsCard() {
         <button
           onClick={() => void startEnroll()}
           disabled={submitting}
-          className="mt-5 flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-700 disabled:opacity-60"
+          className="mt-5 flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
         >
           <ShieldCheck className="size-4" />
           {submitting ? 'Préparation…' : 'Activer la double authentification'}
@@ -130,7 +130,7 @@ export function MfaSettingsCard() {
       )}
 
       {enroll && (
-        <div className="mt-5 grid gap-5 rounded-xl border border-violet-100 bg-violet-50/40 p-4 sm:grid-cols-[auto_1fr]">
+        <div className="mt-5 grid gap-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 sm:grid-cols-[auto_1fr]">
           <img
             src={enroll.qrCode}
             alt="QR code à scanner avec votre application d'authentification"
@@ -153,7 +153,7 @@ export function MfaSettingsCard() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   inputMode="numeric"
                   placeholder="123456"
-                  className="mt-1 block h-10 w-40 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-violet-500"
+                  className="mt-1 block h-10 w-40 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500"
                 />
               </label>
             </div>
@@ -161,7 +161,7 @@ export function MfaSettingsCard() {
               <button
                 onClick={() => void confirmEnroll()}
                 disabled={submitting}
-                className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
               >
                 {submitting ? 'Vérification…' : 'Confirmer et activer'}
               </button>

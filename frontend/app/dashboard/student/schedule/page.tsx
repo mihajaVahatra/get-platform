@@ -65,7 +65,7 @@ export default function StudentSchedulePage() {
                     .map((slot) => (
                       <article
                         key={slot.id}
-                        className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs text-violet-950"
+                        className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"
                       >
                         <p className="font-extrabold">
                           {slot.startTime} – {slot.endTime}
@@ -73,7 +73,7 @@ export default function StudentSchedulePage() {
                         <p className="mt-2 font-semibold">
                           {slot.course.code} · {slot.course.title}
                         </p>
-                        <p className="mt-1 text-violet-700">{slot.room}</p>
+                        <p className="mt-1 text-indigo-700">{slot.room}</p>
                       </article>
                     ))}
                 </div>

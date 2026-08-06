@@ -71,7 +71,7 @@ export function AcademicYearsManager() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Années scolaires
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Créez la période de référence que les écoles utiliseront pour
             préparer leurs classes et leurs emplois du temps.
           </p>
@@ -81,7 +81,7 @@ export function AcademicYearsManager() {
             setSelected(null);
             setModal('create');
           }}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-200"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200"
         >
           <Plus className="size-4" />
           Ajouter une année scolaire
@@ -103,7 +103,7 @@ export function AcademicYearsManager() {
                 key={year.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <CalendarRange className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -120,7 +120,7 @@ export function AcademicYearsManager() {
                     {new Date(year.endDate).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2 text-violet-600">
+                <div className="flex shrink-0 gap-2 text-indigo-600">
                   <button
                     aria-label={`Modifier ${year.label}`}
                     onClick={() => {
@@ -238,7 +238,7 @@ function AcademicYearForm({
               maxLength={40}
               required
               placeholder="Ex. 2026-2027"
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -249,7 +249,7 @@ function AcademicYearForm({
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -259,7 +259,7 @@ function AcademicYearForm({
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
           </div>
@@ -283,7 +283,7 @@ function AcademicYearForm({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>

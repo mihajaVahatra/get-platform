@@ -64,7 +64,7 @@ export function ProgramsDirectory() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Programmes & Filières
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Filières proposées, toutes écoles confondues.
         </p>
       </header>
@@ -76,7 +76,7 @@ export function ProgramsDirectory() {
               setSchoolId(event.target.value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Toutes les écoles</option>
             {schools.map((school) => (
@@ -101,7 +101,7 @@ export function ProgramsDirectory() {
                 key={program.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-50 p-3"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                   <BookOpen className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">

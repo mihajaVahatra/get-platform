@@ -17,7 +17,6 @@ import {
   EyeOff,
   FileText,
   Globe2,
-  GraduationCap,
   LockKeyhole,
   Mail,
   ShieldCheck,
@@ -25,6 +24,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { Logo } from '@/components/Logo';
 
 const loginSchema = z.object({
   email: z
@@ -167,8 +167,8 @@ export function LoginScreen() {
                 <>
                   <h2 className="text-3xl font-extrabold tracking-tight text-[#101643] sm:text-[34px]">
                     Connexion{' '}
-                    <span className="text-violet-600">institution</span>{' '}
-                    <Building2 className="ml-1 inline size-8 text-violet-600" />
+                    <span className="text-indigo-600">institution</span>{' '}
+                    <Building2 className="ml-1 inline size-8 text-indigo-600" />
                   </h2>
                   <p className="mx-auto mt-2 max-w-md text-lg text-slate-500">
                     Accédez à votre espace institutionnel GET pour gérer votre
@@ -178,7 +178,7 @@ export function LoginScreen() {
               ) : (
                 <>
                   <h2 className="text-3xl font-extrabold tracking-tight text-[#101643] sm:text-[34px]">
-                    Bienvenue sur <span className="text-violet-600">GET</span> !
+                    Bienvenue sur <span className="text-indigo-600">GET</span> !
                   </h2>
                   <p className="mt-2 text-lg text-slate-500">
                     Connecte-toi pour accéder à ton espace
@@ -223,7 +223,7 @@ export function LoginScreen() {
                         ? 'exemple@ecole.mg'
                         : 'exemple@email.com ou 034 12 345 67'
                     }
-                    className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-base outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+                    className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-base outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                     {...register('email')}
                   />
                 </div>
@@ -246,7 +246,7 @@ export function LoginScreen() {
                         ? 'Entrez votre mot de passe'
                         : '••••••••••••••'
                     }
-                    className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-12 text-base outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+                    className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-12 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                     {...register('password')}
                   />
                   <button
@@ -257,7 +257,7 @@ export function LoginScreen() {
                         : 'Afficher le mot de passe'
                     }
                     onClick={() => setShowPassword((value) => !value)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600"
                   >
                     {showPassword ? (
                       <EyeOff className="size-5" />
@@ -276,21 +276,21 @@ export function LoginScreen() {
                 <label className="flex items-center gap-2 text-sm font-medium text-[#151b48]">
                   <input
                     type="checkbox"
-                    className="size-4 rounded border-slate-300 accent-violet-600"
+                    className="size-4 rounded border-slate-300 accent-indigo-600"
                     {...register('remember')}
                   />
                   Se souvenir de moi
                 </label>
                 <Link
                   href="/auth/forgot-password"
-                  className="text-sm font-bold text-violet-600 hover:text-violet-700"
+                  className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
                 >
                   Mot de passe oublié ?
                 </Link>
               </div>
               <button
                 disabled={isLoading}
-                className="mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 text-base font-extrabold text-white shadow-lg shadow-violet-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 text-base font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isLoading ? 'Connexion…' : 'Se connecter'}
                 <span className="flex size-8 items-center justify-center rounded-full bg-white/15">
@@ -314,7 +314,7 @@ export function LoginScreen() {
                       'La connexion par certificat sera bientôt disponible.',
                     )
                   }
-                  className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 text-sm font-bold text-violet-600 transition hover:bg-violet-50"
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 text-sm font-bold text-indigo-600 transition hover:bg-indigo-50"
                 >
                   <ShieldCheck className="size-5" />
                   Connexion avec certificat institutionnel
@@ -323,7 +323,7 @@ export function LoginScreen() {
                   Besoin d’aide ?{' '}
                   <a
                     href="mailto:contact@get.mg"
-                    className="font-extrabold text-violet-600 hover:text-violet-700"
+                    className="font-extrabold text-indigo-600 hover:text-indigo-700"
                   >
                     Contactez l’administrateur GET
                   </a>
@@ -348,7 +348,7 @@ export function LoginScreen() {
                   Pas encore de compte ?{' '}
                   <Link
                     href="/auth/register"
-                    className="font-extrabold text-violet-600 hover:text-violet-700"
+                    className="font-extrabold text-indigo-600 hover:text-indigo-700"
                   >
                     Créer un compte
                   </Link>
@@ -400,7 +400,7 @@ function MfaChallengeScreen({
   return (
     <main className="grid min-h-screen place-items-center bg-[#faf9ff] p-6">
       <div className="w-full max-w-md rounded-[26px] bg-white p-8 text-center shadow-[0_20px_60px_rgba(60,45,140,0.12)]">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
           <ShieldCheck className="size-7" />
         </span>
         <h2 className="mt-5 text-2xl font-extrabold text-[#101643]">
@@ -416,19 +416,19 @@ function MfaChallengeScreen({
           inputMode="numeric"
           autoFocus
           placeholder="123456"
-          className="mx-auto mt-6 block h-14 w-48 rounded-xl border border-slate-200 text-center text-2xl font-bold tracking-[0.3em] outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+          className="mx-auto mt-6 block h-14 w-48 rounded-xl border border-slate-200 text-center text-2xl font-bold tracking-[0.3em] outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
           onKeyDown={(e) => e.key === 'Enter' && void submit()}
         />
         <button
           onClick={() => void submit()}
           disabled={isLoading}
-          className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 text-base font-extrabold text-white shadow-lg shadow-violet-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 text-base font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? 'Vérification…' : 'Vérifier'}
         </button>
         <button
           onClick={onBack}
-          className="mt-4 text-sm font-bold text-violet-600 hover:text-violet-700"
+          className="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-700"
         >
           ← Retour à la connexion
         </button>
@@ -444,7 +444,7 @@ function StudentHero() {
         <h1 className="text-[44px] font-extrabold leading-[1.12] tracking-tight text-[#121949]">
           Ton avenir
           <br />
-          commence <span className="text-violet-600">ici.</span>
+          commence <span className="text-indigo-600">ici.</span>
         </h1>
         <p className="mt-5 text-lg leading-7 text-[#28315e]">
           GET est la plateforme officielle qui simplifie ton parcours post-bac :
@@ -455,7 +455,7 @@ function StudentHero() {
       <div className="mt-8 space-y-5">
         <Benefit
           icon={FileText}
-          tone="violet"
+          tone="indigo"
           title="Simple et rapide"
           text="Un dossier unique pour toutes les écoles."
         />
@@ -479,7 +479,7 @@ function StudentHero() {
 function InstitutionHero() {
   return (
     <>
-      <div className="mt-12 inline-flex w-fit items-center gap-2 rounded-lg bg-violet-100/90 px-4 py-2 text-sm font-extrabold tracking-[0.12em] text-violet-600">
+      <div className="mt-12 inline-flex w-fit items-center gap-2 rounded-lg bg-indigo-100/90 px-4 py-2 text-sm font-extrabold tracking-[0.12em] text-indigo-600">
         <Building2 className="size-5" />
         INSTITUTION
       </div>
@@ -487,7 +487,7 @@ function InstitutionHero() {
         <h1 className="text-[42px] font-extrabold leading-[1.12] tracking-tight text-[#121949]">
           Gérez votre établissement
           <br />
-          avec <span className="text-violet-600">efficacité.</span>
+          avec <span className="text-indigo-600">efficacité.</span>
         </h1>
         <p className="mt-5 text-lg leading-7 text-[#28315e]">
           La plateforme officielle pour gérer vos étudiants, cours, professeurs
@@ -497,7 +497,7 @@ function InstitutionHero() {
       <div className="mt-7 space-y-4">
         <Benefit
           icon={UserRound}
-          tone="violet"
+          tone="indigo"
           title="Gestion des étudiants"
           text="Suivi des inscriptions et parcours académiques"
         />
@@ -563,7 +563,7 @@ function AccountTab({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold transition-all duration-300 ${active ? 'bg-violet-50 text-violet-600 shadow-sm' : 'text-[#151b48] hover:bg-slate-50'}`}
+      className={`flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold transition-all duration-300 ${active ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-[#151b48] hover:bg-slate-50'}`}
     >
       <Icon className="size-5" />
       {children}
@@ -575,19 +575,9 @@ function Brand({ light = false }: { light?: boolean }) {
     <Link
       href="/"
       aria-label="Retour à l’accueil GET"
-      className="flex w-fit items-center gap-4 transition-transform hover:scale-[1.02]"
+      className="flex w-fit items-center transition-transform hover:scale-[1.02]"
     >
-      <div className="flex items-start text-5xl font-black tracking-[-0.08em] text-violet-600">
-        GET<span className="text-blue-500">.</span>
-        <GraduationCap className="-ml-1 -mt-1 size-6 rotate-[-18deg] text-indigo-600" />
-      </div>
-      <p
-        className={`text-sm font-medium leading-5 ${light ? 'text-[#3c4778]' : 'text-slate-600'}`}
-      >
-        Grandes Écoles de
-        <br />
-        Tananarive et de Madagascar
-      </p>
+      <Logo size={52} tone={light ? 'light' : 'color'} />
     </Link>
   );
 }
@@ -598,12 +588,12 @@ function Benefit({
   text,
 }: {
   icon: typeof FileText;
-  tone: 'violet' | 'green' | 'orange' | 'blue';
+  tone: 'indigo' | 'green' | 'orange' | 'blue';
   title: string;
   text: string;
 }) {
   const tones = {
-    violet: 'bg-violet-200/80 text-violet-600',
+    indigo: 'bg-indigo-200/80 text-indigo-600',
     green: 'bg-emerald-100/90 text-emerald-600',
     orange: 'bg-orange-100/90 text-orange-500',
     blue: 'bg-blue-100/90 text-blue-600',
@@ -633,7 +623,7 @@ function Metric({
 }) {
   return (
     <div className="min-w-0">
-      <div className="flex items-center gap-2 text-violet-600">
+      <div className="flex items-center gap-2 text-indigo-600">
         <Icon className="size-5" />
         <p className="truncate text-xl font-extrabold">{value}</p>
       </div>

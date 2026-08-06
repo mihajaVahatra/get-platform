@@ -173,7 +173,7 @@ export function MinistryDashboard() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Paramètres
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Sécurité de votre compte
           </p>
         </div>
@@ -189,7 +189,7 @@ export function MinistryDashboard() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Pilotage national
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-violet-700">
+          <p className="mt-1 max-w-2xl text-sm text-indigo-700">
             Indicateurs agrégés et anonymisés des candidatures, établissements
             et programmes.
           </p>
@@ -240,7 +240,7 @@ export function MinistryDashboard() {
           <MessageIconLink href="/dashboard/ministry?section=messages" />
           <Link
             href="/dashboard/ministry/reports"
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 text-xs font-bold text-white shadow-md shadow-violet-200 transition hover:brightness-105"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 text-xs font-bold text-white shadow-md shadow-indigo-200 transition hover:brightness-105"
           >
             <FileText className="size-4" />
             Rapports
@@ -288,7 +288,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
           icon={ClipboardList}
-          tone="violet"
+          tone="indigo"
           label="Candidatures"
           value={numberFormatter.format(data.totalApplications)}
           note="Périmètre sélectionné"
@@ -366,7 +366,7 @@ function PeriodNote({
 
   return (
     <p className="flex items-center gap-2 text-xs text-slate-500">
-      <CalendarDays className="size-3.5 text-violet-600" />
+      <CalendarDays className="size-3.5 text-indigo-600" />
       {from || to
         ? `Période analysée : ${from || 'début'} — ${to || 'aujourd’hui'}`
         : 'Toutes les candidatures disponibles sont prises en compte.'}
@@ -409,13 +409,13 @@ function Kpi({
   note,
 }: {
   icon: LucideIcon;
-  tone: 'violet' | 'blue' | 'green' | 'orange';
+  tone: 'indigo' | 'blue' | 'green' | 'orange';
   label: string;
   value: string;
   note: string;
 }) {
   const toneClasses = {
-    violet: 'bg-violet-100 text-violet-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
     blue: 'bg-blue-100 text-blue-500',
     green: 'bg-emerald-100 text-emerald-600',
     orange: 'bg-orange-100 text-orange-500',
@@ -599,7 +599,7 @@ function RegionalDistribution({ regions }: { regions: CountByRegion[] }) {
               </div>
               <div className="mt-1 h-1.5 rounded bg-slate-100">
                 <div
-                  className="h-1.5 rounded bg-violet-500"
+                  className="h-1.5 rounded bg-indigo-500"
                   style={{ width: `${Math.round((item.count / max) * 100)}%` }}
                 />
               </div>

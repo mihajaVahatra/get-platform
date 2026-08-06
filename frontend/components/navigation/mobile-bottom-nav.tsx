@@ -38,7 +38,7 @@ export function MobileBottomNav({
     <nav
       className={cn(
         'fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t px-2 pb-[max(env(safe-area-inset-bottom),0.375rem)] pt-1.5 lg:hidden',
-        dark ? 'border-white/10 bg-[#0d1b4d]' : 'border-slate-100 bg-white',
+        dark ? 'border-white/10 bg-indigo-950' : 'border-slate-100 bg-white',
       )}
     >
       {composeHref ? (
@@ -54,7 +54,7 @@ export function MobileBottomNav({
           <Link
             href={composeHref}
             aria-label="Nouveau message"
-            className="relative -mt-7 grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-600/30 transition active:scale-95"
+            className="relative -mt-7 grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-teal-400 text-white shadow-lg shadow-indigo-600/30 transition active:scale-95"
           >
             <PenLine className="size-6" />
           </Link>
@@ -97,9 +97,9 @@ function NavButton({
       className={cn(
         'flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-semibold transition',
         active
-          ? 'text-violet-600'
+          ? 'text-indigo-600'
           : dark
-            ? 'text-blue-100/80'
+            ? 'text-indigo-100/80'
             : 'text-slate-400',
       )}
     >

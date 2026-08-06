@@ -214,7 +214,7 @@ export function TeacherDirectory() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Professeurs
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Affectations actives de votre établissement.
           </p>
         </div>
@@ -230,7 +230,7 @@ export function TeacherDirectory() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
               placeholder="Rechercher par e-mail, département ou spécialité..."
             />
           </label>
@@ -250,7 +250,7 @@ export function TeacherDirectory() {
                   key={assignment.id}
                   className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"
                 >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-600">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-indigo-100 text-indigo-600">
                     <UsersRoundIcon className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">

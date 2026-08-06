@@ -123,7 +123,7 @@ const courses = [
     title: 'Algorithmique Avancée',
     teacher: 'Pr. A. Andrianarison',
     grade: '15,5/20',
-    tone: 'bg-violet-50 text-violet-600',
+    tone: 'bg-indigo-50 text-indigo-600',
   },
   {
     title: 'Bases de Données',
@@ -217,7 +217,7 @@ export default function StudentDashboardPage() {
               placeholder="Rechercher..."
               className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm"
             />
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-violet-50 px-1.5 py-1 text-[10px] text-violet-500">
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 px-1.5 py-1 text-[10px] text-indigo-500">
               Ctrl K
             </kbd>
           </div>
@@ -233,7 +233,7 @@ export default function StudentDashboardPage() {
           value="15,2"
           suffix="/20"
           hint="↑ +1,3 vs semestre précédent"
-          tone="violet"
+          tone="indigo"
         />
         <StatWidget
           icon={BookOpenCheck}
@@ -279,9 +279,9 @@ export default function StudentDashboardPage() {
                 key={item.time}
                 className="grid grid-cols-[108px_1fr_auto] items-center gap-3 py-2.5 text-xs"
               >
-                <div className="relative border-r border-slate-200 pr-3 text-violet-700">
+                <div className="relative border-r border-slate-200 pr-3 text-indigo-700">
                   <span
-                    className={`absolute -right-[5px] top-1/2 size-2 rounded-full border-2 border-white ${item.active ? 'bg-violet-600' : 'bg-slate-300'}`}
+                    className={`absolute -right-[5px] top-1/2 size-2 rounded-full border-2 border-white ${item.active ? 'bg-indigo-600' : 'bg-slate-300'}`}
                   />
                   {item.time}
                 </div>
@@ -290,7 +290,7 @@ export default function StudentDashboardPage() {
                   <p className="mt-1 text-slate-400">{item.room}</p>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-violet-50 text-violet-600' : 'bg-indigo-50 text-indigo-500'}`}
+                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-indigo-50 text-indigo-600' : 'bg-indigo-50 text-indigo-500'}`}
                 >
                   {item.state}
                 </span>
@@ -330,13 +330,13 @@ export default function StudentDashboardPage() {
         <div className="space-y-4 xl:col-span-4">
           <Widget title="Actualités" action="Voir tout">
             <div className="mt-4 overflow-hidden rounded-xl bg-gradient-to-br from-[#27204d] via-[#5651a8] to-[#88a0bc] p-4 text-white shadow-inner">
-              <span className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold">
+              <span className="rounded bg-indigo-600 px-2 py-1 text-[10px] font-bold">
                 IMPORTANT
               </span>
               <h3 className="mt-5 text-base font-bold">
                 Réinscription 2025–2026
               </h3>
-              <p className="mt-2 text-xs leading-5 text-violet-50">
+              <p className="mt-2 text-xs leading-5 text-indigo-50">
                 La réinscription en ligne est ouverte jusqu&apos;au 30 juin
                 2025.
               </p>
@@ -348,7 +348,7 @@ export default function StudentDashboardPage() {
                 'Club Robotique',
               ].map((news, index) => (
                 <div key={news} className="flex items-center gap-3 py-2">
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
                     <Sparkles className="size-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -383,7 +383,7 @@ export default function StudentDashboardPage() {
                 icon={Download}
                 label="Télécharger"
                 detail="attestation"
-                tone="violet"
+                tone="indigo"
                 href="/dashboard/student/profile"
               />
               <QuickAction
@@ -418,7 +418,7 @@ export default function StudentDashboardPage() {
                 icon={LibraryBig}
                 label="Bibliothèque"
                 detail="en ligne"
-                tone="violet"
+                tone="indigo"
                 href="/dashboard/student"
               />
             </div>
@@ -444,7 +444,7 @@ export default function StudentDashboardPage() {
                         {course.teacher}
                       </p>
                     </div>
-                    <span className="text-sm font-extrabold text-violet-600">
+                    <span className="text-sm font-extrabold text-indigo-600">
                       {course.grade}
                     </span>
                   </div>
@@ -477,7 +477,7 @@ export default function StudentDashboardPage() {
                   </p>
                   <Link
                     href="/dashboard/student/payments"
-                    className="mt-4 flex items-center justify-center rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700"
+                    className="mt-4 flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
                   >
                     Payer maintenant
                   </Link>
@@ -495,7 +495,7 @@ export default function StudentDashboardPage() {
           <div className="mt-3 divide-y divide-slate-100">
             {events.map((event) => (
               <div key={event.title} className="flex items-center gap-3 py-3">
-                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                   <span className="text-[9px] font-bold">{event.month}</span>
                   <span className="text-lg font-extrabold leading-4">
                     {event.day}
@@ -517,14 +517,14 @@ export default function StudentDashboardPage() {
           </div>
           <Link
             href="/dashboard/student?section=events"
-            className="mt-3 flex items-center justify-center rounded-lg bg-violet-50 py-2 text-xs font-bold text-violet-600"
+            className="mt-3 flex items-center justify-center rounded-lg bg-indigo-50 py-2 text-xs font-bold text-indigo-600"
           >
             Voir tous les événements
           </Link>
         </Widget>
       </section>
 
-      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 px-4 py-3 text-xs text-violet-700">
+      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-indigo-50 to-teal-50 px-4 py-3 text-xs text-indigo-700">
         <Bell className="size-4 shrink-0" />
         <p>
           <span className="font-bold">Astuce GET :</span> Active les
@@ -617,7 +617,7 @@ function CandidateDashboard({ student }: { student: Student }) {
     <div className="mx-auto max-w-[1280px] space-y-5 text-[#111a4b]">
       <header className="flex flex-wrap items-center justify-between gap-4 pb-2">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
             Espace candidat
           </p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-[28px]">
@@ -630,14 +630,14 @@ function CandidateDashboard({ student }: { student: Student }) {
         </div>
         <Link
           href="/dashboard/student/offers"
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:brightness-105"
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105"
         >
           <Compass className="size-4" />
           Découvrir les établissements
         </Link>
       </header>
 
-      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#2d1a8b] via-violet-700 to-indigo-500 p-6 text-white shadow-[0_16px_35px_rgba(83,54,190,0.2)] sm:p-8">
+      <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#2d1a8b] via-indigo-700 to-indigo-500 p-6 text-white shadow-[0_16px_35px_rgba(83,54,190,0.2)] sm:p-8">
         <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">
@@ -647,13 +647,13 @@ function CandidateDashboard({ student }: { student: Student }) {
             <h2 className="mt-4 max-w-2xl text-2xl font-extrabold leading-tight sm:text-3xl">
               Explore les meilleures écoles et formations de Madagascar.
             </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-violet-100">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-indigo-100">
               Complète ton dossier, choisis tes programmes, puis envoie tes
               candidatures depuis un seul espace.
             </p>
             <Link
               href="/dashboard/student/offers"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50"
             >
               Rechercher une formation <ArrowRight className="size-4" />
             </Link>
@@ -667,7 +667,7 @@ function CandidateDashboard({ student }: { student: Student }) {
       <section className="grid gap-4 md:grid-cols-3">
         <CandidateCard
           icon={FileCheck2}
-          tone="violet"
+          tone="indigo"
           title="Mon dossier"
           value={dossierCard.value}
           text={dossierCard.text}
@@ -716,7 +716,7 @@ function CandidateDashboard({ student }: { student: Student }) {
               Avance à ton rythme : tout se fait en ligne.
             </p>
           </div>
-          <span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-600">
+          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600">
             {doneCount} / {steps.length} terminées
           </span>
         </div>
@@ -725,10 +725,10 @@ function CandidateDashboard({ student }: { student: Student }) {
             <Link
               key={step.title}
               href={step.href}
-              className={`group relative rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${step.done ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-slate-100 hover:border-violet-200'}`}
+              className={`group relative rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${step.done ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-slate-100 hover:border-indigo-200'}`}
             >
               <span
-                className={`grid size-10 place-items-center rounded-xl ${step.done ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}
+                className={`grid size-10 place-items-center rounded-xl ${step.done ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}
               >
                 {step.done ? (
                   <CircleCheck className="size-5" />
@@ -747,7 +747,7 @@ function CandidateDashboard({ student }: { student: Student }) {
               <p className="mt-2 text-xs leading-5 text-slate-500">
                 {step.text}
               </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-violet-600">
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-600">
                 {step.done ? 'Terminé — revoir' : 'Commencer'}{' '}
                 <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
               </span>
@@ -769,9 +769,9 @@ function CandidateDashboard({ student }: { student: Student }) {
                 <Link
                   href="/dashboard/student/offers"
                   key={offer.id}
-                  className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition hover:bg-violet-50"
+                  className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition hover:bg-indigo-50"
                 >
-                  <span className="grid size-10 place-items-center rounded-lg bg-white text-violet-600 shadow-sm">
+                  <span className="grid size-10 place-items-center rounded-lg bg-white text-indigo-600 shadow-sm">
                     <BookOpen className="size-4" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -782,7 +782,7 @@ function CandidateDashboard({ student }: { student: Student }) {
                       {offer.school.name} · {offer.school.city}
                     </small>
                   </span>
-                  <span className="text-[10px] font-bold text-violet-600">
+                  <span className="text-[10px] font-bold text-indigo-600">
                     {offer.diploma}
                   </span>
                 </Link>
@@ -796,8 +796,8 @@ function CandidateDashboard({ student }: { student: Student }) {
             Notre guide t’accompagne pour choisir une formation et préparer ton
             dossier.
           </p>
-          <div className="mt-5 rounded-xl bg-violet-50 p-4">
-            <MapPin className="size-5 text-violet-600" />
+          <div className="mt-5 rounded-xl bg-indigo-50 p-4">
+            <MapPin className="size-5 text-indigo-600" />
             <p className="mt-3 text-sm font-bold text-slate-800">
               Trouve une école près de chez toi
             </p>
@@ -806,7 +806,7 @@ function CandidateDashboard({ student }: { student: Student }) {
             </p>
             <Link
               href="/dashboard/student/offers"
-              className="mt-4 inline-flex text-xs font-bold text-violet-600"
+              className="mt-4 inline-flex text-xs font-bold text-indigo-600"
             >
               Voir la carte des établissements →
             </Link>
@@ -827,7 +827,7 @@ function CandidateCard({
   href,
 }: {
   icon: typeof BookOpen;
-  tone: 'violet' | 'blue' | 'green';
+  tone: 'indigo' | 'blue' | 'green';
   title: string;
   value: string;
   text: string;
@@ -835,7 +835,7 @@ function CandidateCard({
   href: string;
 }) {
   const tones = {
-    violet: 'bg-violet-50 text-violet-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
     blue: 'bg-blue-50 text-blue-500',
     green: 'bg-emerald-50 text-emerald-600',
   };
@@ -851,7 +851,7 @@ function CandidateCard({
       <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
       <Link
         href={href}
-        className="mt-4 inline-flex text-xs font-bold text-violet-600"
+        className="mt-4 inline-flex text-xs font-bold text-indigo-600"
       >
         {action} →
       </Link>
@@ -873,17 +873,17 @@ function StatWidget({
   value: string;
   suffix: string;
   hint: string;
-  tone: 'violet' | 'green' | 'orange' | 'blue';
+  tone: 'indigo' | 'green' | 'orange' | 'blue';
   progress?: string;
 }) {
   const styles = {
-    violet: 'bg-violet-50 text-violet-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
     green: 'bg-emerald-50 text-emerald-600',
     orange: 'bg-orange-50 text-orange-500',
     blue: 'bg-blue-50 text-blue-500',
   };
   const valueStyles = {
-    violet: 'text-violet-600',
+    indigo: 'text-indigo-600',
     green: 'text-emerald-600',
     orange: 'text-orange-500',
     blue: 'text-blue-500',
@@ -937,7 +937,7 @@ function Widget({
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-[#111a4b]">{title}</h2>
         {action && (
-          <button className="text-[11px] font-bold text-violet-600 hover:text-violet-700">
+          <button className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700">
             {action}
           </button>
         )}
@@ -957,11 +957,11 @@ function QuickAction({
   icon: typeof Download;
   label: string;
   detail: string;
-  tone: 'violet' | 'green' | 'orange' | 'rose' | 'blue';
+  tone: 'indigo' | 'green' | 'orange' | 'rose' | 'blue';
   href: string;
 }) {
   const styles = {
-    violet: 'bg-violet-50 text-violet-600',
+    indigo: 'bg-indigo-50 text-indigo-600',
     green: 'bg-emerald-50 text-emerald-600',
     orange: 'bg-orange-50 text-orange-500',
     rose: 'bg-rose-50 text-rose-500',

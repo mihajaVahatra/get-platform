@@ -89,7 +89,7 @@ export default function StudentGradesPage() {
                     </p>
                   </div>
                   {average !== null && (
-                    <span className="rounded-lg bg-violet-50 px-3 py-2 text-sm font-extrabold text-violet-700">
+                    <span className="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-extrabold text-indigo-700">
                       {average.toFixed(1)}/20
                     </span>
                   )}
@@ -114,7 +114,7 @@ export default function StudentGradesPage() {
                             {evaluation.type} · Coef. {evaluation.coefficient}
                           </p>
                         </div>
-                        <span className="shrink-0 font-bold text-violet-700">
+                        <span className="shrink-0 font-bold text-indigo-700">
                           {evaluation.value !== null
                             ? `${evaluation.value}/20`
                             : 'En attente'}
@@ -134,7 +134,7 @@ export default function StudentGradesPage() {
                             Devoir
                           </p>
                         </div>
-                        <span className="shrink-0 font-bold text-violet-700">
+                        <span className="shrink-0 font-bold text-indigo-700">
                           {assignment.grade !== null
                             ? `${assignment.grade}/20`
                             : 'En attente'}

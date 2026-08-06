@@ -44,6 +44,7 @@ import {
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { apiClient } from '@/lib/api-client';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
+import { Logo } from '@/components/Logo';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
@@ -474,10 +475,10 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto flex max-w-7xl gap-6 items-start">
-        <aside className="sticky top-6 w-72 shrink-0 rounded-3xl bg-gradient-to-b from-violet-700 via-violet-800 to-violet-900 p-5 text-white shadow-2xl shadow-violet-500/20">
+        <aside className="sticky top-6 w-72 shrink-0 rounded-3xl bg-gradient-to-b from-indigo-700 via-indigo-800 to-indigo-900 p-5 text-white shadow-2xl shadow-indigo-500/20">
           <div className="mb-5 text-center">
             <p className="text-lg font-bold">GET</p>
-            <p className="text-sm text-violet-200">
+            <p className="text-sm text-indigo-200">
               {String(userRole ?? 'INCONNU').replace('_', ' ')}
             </p>
           </div>
@@ -514,11 +515,9 @@ function MobileTopBar({
 }) {
   return (
     <header
-      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-[#0d1b4d] text-white' : 'border-slate-100 bg-white text-[#111949]'}`}
+      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-indigo-950 text-white' : 'border-slate-100 bg-white text-[#111949]'}`}
     >
-      <span className="text-xl font-black tracking-tight">
-        GET<span className="text-violet-400">.</span>
-      </span>
+      <Logo variant="mark" tone={dark ? 'light' : 'color'} size={32} />
       <button
         onClick={onOpenMenu}
         aria-label="Ouvrir le menu de navigation"
@@ -664,18 +663,11 @@ function TeacherSidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-gradient-to-b from-[#13235e] via-[#162867] to-[#0d1b4d] px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-950 px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/teacher" className="mb-4 shrink-0 px-3 lg:mb-7">
-        <div className="text-4xl font-black tracking-tight">
-          GET<span className="text-violet-300">.</span>
-        </div>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-blue-100">
-          Grandes Écoles de
-          <br />
-          Tananarive et de Madagascar
-        </p>
+        <Logo variant="lockup" tone="light" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 lg:hidden">
         <AvatarUpload
@@ -689,10 +681,10 @@ function TeacherSidebar({
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">{displayName}</p>
-          <p className="mt-0.5 text-[11px] text-blue-100">Professeur</p>
+          <p className="mt-0.5 text-[11px] text-indigo-100">Professeur</p>
         </div>
       </div>
-      <p className="mb-2 shrink-0 px-3 text-[9px] font-bold uppercase tracking-wide text-blue-200">
+      <p className="mb-2 shrink-0 px-3 text-[9px] font-bold uppercase tracking-wide text-indigo-200">
         Menu professeur
       </p>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -703,12 +695,12 @@ function TeacherSidebar({
             <Link
               key={item.label}
               href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition ${active ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30' : 'text-blue-100 hover:bg-white/10'}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'text-indigo-100 hover:bg-white/10'}`}
             >
               <Icon className="size-4" />
               <span className="flex-1">{item.label}</span>
               {item.badge && (
-                <span className="grid size-5 place-items-center rounded-full bg-violet-400 text-[9px] text-white">
+                <span className="grid size-5 place-items-center rounded-full bg-indigo-400 text-[9px] text-white">
                   {item.badge}
                 </span>
               )}
@@ -730,20 +722,20 @@ function TeacherSidebar({
             />
             <div className="min-w-0">
               <p className="truncate text-xs font-bold">{displayName}</p>
-              <p className="mt-1 text-[10px] text-blue-100">Professeur</p>
+              <p className="mt-1 text-[10px] text-indigo-100">Professeur</p>
             </div>
           </div>
         </div>
         <Link
           href="/dashboard/teacher?view=settings"
-          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs ${isNavigationActive(currentUrl, '/dashboard/teacher?view=settings') ? 'bg-white/15 text-white' : 'text-blue-100 hover:text-white'}`}
+          className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-xs ${isNavigationActive(currentUrl, '/dashboard/teacher?view=settings') ? 'bg-white/15 text-white' : 'text-indigo-100 hover:text-white'}`}
         >
           <Settings className="size-4" />
           Paramètres
         </Link>
         <button
           onClick={onLogout}
-          className="flex w-full items-center gap-2 px-2 text-xs text-blue-100 hover:text-rose-300"
+          className="flex w-full items-center gap-2 px-2 text-xs text-indigo-100 hover:text-rose-300"
         >
           <LogOut className="size-4" />
           Déconnexion
@@ -832,14 +824,7 @@ function SchoolSidebar({
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/school" className="mb-4 shrink-0 px-3 lg:mb-6">
-        <div className="text-4xl font-black tracking-tight text-violet-600">
-          GET<span className="text-blue-500">.</span>
-        </div>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500">
-          Grandes Écoles de
-          <br />
-          Tananarive et de Madagascar
-        </p>
+        <Logo variant="lockup" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
         <span className="grid size-10 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
@@ -877,7 +862,7 @@ function SchoolSidebar({
       <div className="mt-2 shrink-0 space-y-3 pt-2">
         <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
+            <span className="grid size-9 place-items-center rounded-full bg-indigo-100 text-sm font-black text-indigo-700">
               E
             </span>
             <div>
@@ -899,7 +884,7 @@ function SchoolSidebar({
             <p className="text-[10px] text-slate-500">Administrateur</p>
           </div>
         </div>
-        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
+        <div className="hidden rounded-xl bg-indigo-50 p-3 text-indigo-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <Headphones className="size-4" />
             Besoin d’aide ?
@@ -965,12 +950,12 @@ function SchoolNav({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
     >
       <Icon className="size-4" />
       <span className="flex-1">{label}</span>
       {badge && (
-        <span className="grid size-5 place-items-center rounded-full bg-violet-600 text-[10px] text-white">
+        <span className="grid size-5 place-items-center rounded-full bg-indigo-600 text-[10px] text-white">
           {badge}
         </span>
       )}
@@ -1079,17 +1064,10 @@ function AdminGetSidebar({
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/admin" className="mb-4 shrink-0 px-3 lg:mb-6">
-        <div className="text-4xl font-black tracking-tight text-violet-600">
-          GET<span className="text-blue-500">.</span>
-        </div>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500">
-          Grandes Écoles de
-          <br />
-          Tananarive et de Madagascar
-        </p>
+        <Logo variant="lockup" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
-        <span className="grid size-10 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
+        <span className="grid size-10 place-items-center rounded-full bg-indigo-100 text-sm font-black text-indigo-700">
           AG
         </span>
         <div>
@@ -1159,7 +1137,7 @@ function AdminGetSidebar({
       <div className="mt-2 shrink-0 space-y-3 pt-2">
         <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-full bg-violet-100 text-xs font-black text-violet-700">
+            <span className="grid size-9 place-items-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700">
               AG
             </span>
             <div>
@@ -1168,7 +1146,7 @@ function AdminGetSidebar({
             </div>
           </div>
         </div>
-        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
+        <div className="hidden rounded-xl bg-indigo-50 p-3 text-indigo-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <DatabaseBackup className="size-4" />
             Système sécurisé
@@ -1215,26 +1193,19 @@ function MinistrySidebar({
   ];
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 bg-gradient-to-b from-[#172c81] via-[#14266f] to-[#111d58] px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-950 px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
       <Link href="/dashboard/ministry" className="mb-4 shrink-0 px-3 lg:mb-8">
-        <div className="text-4xl font-black tracking-tight text-white">
-          GET<span className="text-violet-300">.</span>
-        </div>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-violet-100">
-          Grandes Écoles de
-          <br />
-          Tananarive et de Madagascar
-        </p>
+        <Logo variant="lockup" tone="light" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl bg-white/10 p-2.5 lg:hidden">
-        <span className="grid size-10 place-items-center rounded-full bg-white text-sm font-black text-violet-700">
+        <span className="grid size-10 place-items-center rounded-full bg-white text-sm font-black text-indigo-700">
           M
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">Ministère MESUPRES</p>
-          <p className="text-[11px] text-violet-200">Administrateur</p>
+          <p className="text-[11px] text-indigo-200">Administrateur</p>
         </div>
       </div>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -1244,7 +1215,7 @@ function MinistrySidebar({
           icon={Home}
           active={isNavigationActive(currentUrl, '/dashboard/ministry')}
         />
-        <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-violet-200/70">
+        <p className="px-3 pb-2 pt-4 text-[9px] font-bold uppercase tracking-wide text-indigo-200/70">
           Pilotage agrégé
         </p>
         {navigation.map((item) => (
@@ -1257,17 +1228,17 @@ function MinistrySidebar({
       </nav>
       <div className="mt-2 shrink-0 border-t border-white/10 pt-3">
         <div className="hidden items-center gap-3 rounded-xl bg-white/10 p-3 lg:flex">
-          <span className="grid size-9 place-items-center rounded-full bg-white text-xs font-black text-violet-700">
+          <span className="grid size-9 place-items-center rounded-full bg-white text-xs font-black text-indigo-700">
             M
           </span>
           <div className="min-w-0">
             <p className="truncate text-xs font-bold">Ministère MESUPRES</p>
-            <p className="text-[10px] text-violet-200">Administrateur</p>
+            <p className="text-[10px] text-indigo-200">Administrateur</p>
           </div>
         </div>
         <button
           onClick={onLogout}
-          className="mt-3 flex w-full items-center gap-2 px-3 text-xs font-semibold text-violet-100 transition hover:text-white"
+          className="mt-3 flex w-full items-center gap-2 px-3 text-xs font-semibold text-indigo-100 transition hover:text-white"
         >
           <LogOut className="size-4" />
           Déconnexion
@@ -1293,7 +1264,7 @@ function MinistryNav({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[12px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white shadow-lg shadow-black/20' : 'text-violet-50 hover:bg-white/10 hover:text-white'}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[12px] font-semibold transition ${active ? 'bg-indigo-500 text-white shadow-lg shadow-black/20' : 'text-indigo-50 hover:bg-white/10 hover:text-white'}`}
     >
       <Icon className="size-4" />
       <span className="flex-1">{label}</span>
@@ -1448,14 +1419,7 @@ function StudentSidebar({
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/student" className="mb-4 shrink-0 px-3 lg:mb-7">
-        <div className="text-4xl font-black tracking-tight text-violet-600">
-          GET<span className="text-blue-500">.</span>
-        </div>
-        <p className="mt-1 text-[10px] font-medium leading-4 text-slate-500">
-          Grandes Écoles de
-          <br />
-          Tananarive et de Madagascar
-        </p>
+        <Logo variant="lockup" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-2.5 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
         <AvatarUpload
@@ -1485,12 +1449,12 @@ function StudentSidebar({
             <Link
               key={label}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-200' : 'text-slate-600 hover:bg-violet-50 hover:text-violet-700'}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
             >
               <Icon className="size-4" />
               <span className="flex-1">{label}</span>
               {badge && (
-                <span className="flex size-5 items-center justify-center rounded-full bg-violet-600 text-[10px] text-white">
+                <span className="flex size-5 items-center justify-center rounded-full bg-indigo-600 text-[10px] text-white">
                   {badge}
                 </span>
               )}
@@ -1520,12 +1484,12 @@ function StudentSidebar({
           </div>
           <Link
             href="/dashboard/student/profile"
-            className="mt-3 flex items-center justify-between text-xs font-semibold text-violet-600"
+            className="mt-3 flex items-center justify-between text-xs font-semibold text-indigo-600"
           >
             Voir mon profil <ChevronRight className="size-4" />
           </Link>
         </div>
-        <div className="hidden rounded-xl bg-violet-50 p-3 text-violet-700 lg:block">
+        <div className="hidden rounded-xl bg-indigo-50 p-3 text-indigo-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <Headphones className="size-4" />
             Besoin d’aide ?

@@ -71,7 +71,7 @@ export function TeacherSchedule() {
           <div className="py-12 text-center text-sm text-rose-700">
             <p>Le planning n’a pas pu être chargé.</p>
             <button
-              className="mt-3 text-xs font-bold text-violet-600"
+              className="mt-3 text-xs font-bold text-indigo-600"
               onClick={() => void loadSchedule()}
             >
               Réessayer
@@ -96,7 +96,7 @@ export function TeacherSchedule() {
                       .map((slot) => (
                         <article
                           key={slot.id}
-                          className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs text-violet-950"
+                          className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"
                         >
                           <p className="font-extrabold">
                             {slot.startTime} – {slot.endTime}
@@ -104,8 +104,8 @@ export function TeacherSchedule() {
                           <p className="mt-2 font-semibold">
                             {slot.course.code} · {slot.course.title}
                           </p>
-                          <p className="mt-1 text-violet-700">{slot.room}</p>
-                          <p className="mt-2 rounded bg-white/70 px-2 py-1 text-[10px] font-bold text-violet-700">
+                          <p className="mt-1 text-indigo-700">{slot.room}</p>
+                          <p className="mt-2 rounded bg-white/70 px-2 py-1 text-[10px] font-bold text-indigo-700">
                             {slot.course.school.name}
                           </p>
                         </article>

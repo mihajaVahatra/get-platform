@@ -50,7 +50,7 @@ export function SchoolSchedulePortal() {
             key={id}
             type="button"
             onClick={() => setActiveTab(id)}
-            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-violet-600 text-violet-600' : 'border-transparent text-slate-400 hover:text-violet-600'}`}
+            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
           >
             {label}
           </button>
@@ -305,7 +305,7 @@ export function ScheduleBoard() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Emploi du temps
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Créneaux structurés des cours de votre établissement.
           </p>
         </div>
@@ -370,7 +370,7 @@ export function ScheduleBoard() {
                         .map((slot) => (
                           <article
                             key={slot.id}
-                            className="rounded-lg border border-violet-100 bg-violet-50 p-3 text-xs text-violet-950"
+                            className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <p className="font-extrabold">
@@ -380,7 +380,7 @@ export function ScheduleBoard() {
                                 type="button"
                                 aria-label={`Supprimer ${slot.course.title}`}
                                 onClick={() => void deleteSlot(slot)}
-                                className="text-violet-600 hover:text-rose-600"
+                                className="text-indigo-600 hover:text-rose-600"
                               >
                                 <Trash2Icon className="size-4" />
                               </button>
@@ -388,8 +388,8 @@ export function ScheduleBoard() {
                             <p className="mt-2 font-semibold">
                               {slot.course.code} · {slot.course.title}
                             </p>
-                            <p className="mt-1 text-violet-700">{slot.room}</p>
-                            <p className="mt-1 truncate text-violet-600">
+                            <p className="mt-1 text-indigo-700">{slot.room}</p>
+                            <p className="mt-1 truncate text-indigo-600">
                               {slot.course.teacher.user.email}
                             </p>
                           </article>
@@ -530,7 +530,7 @@ export function ScheduleBoard() {
                 <Label htmlFor="generate-class">Classe (facultatif — sinon toute l&apos;école)</Label>
                 <select
                   id="generate-class"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                   value={generateForm.classId}
                   onChange={(event) =>
                     setGenerateForm((current) => ({ ...current, classId: event.target.value }))
@@ -548,7 +548,7 @@ export function ScheduleBoard() {
                 <Label htmlFor="generate-subject">Matière (facultatif)</Label>
                 <select
                   id="generate-subject"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                   value={generateForm.subjectId}
                   onChange={(event) => selectSubject(event.target.value)}
                 >
@@ -564,7 +564,7 @@ export function ScheduleBoard() {
                 <Label htmlFor="generate-teacher">Professeur (facultatif)</Label>
                 <select
                   id="generate-teacher"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                   value={generateForm.teacherId}
                   onChange={(event) => selectTeacher(event.target.value)}
                 >
@@ -581,7 +581,7 @@ export function ScheduleBoard() {
                 <Label htmlFor="generate-room">Salle (facultatif)</Label>
                 <select
                   id="generate-room"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-violet-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
                   value={generateForm.roomId}
                   onChange={(event) =>
                     setGenerateForm((current) => ({ ...current, roomId: event.target.value }))
@@ -714,7 +714,7 @@ function TimeSlotsManager() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold tracking-tight text-[#111949]">Créneaux-type</h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Définissez la grille horaire propre à votre établissement.
           </p>
         </div>

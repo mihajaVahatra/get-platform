@@ -356,7 +356,7 @@ function SchoolApplicationDetailContent() {
             <h1 className="text-2xl font-extrabold">
               {application.student.firstName} {application.student.lastName}
             </h1>
-            <p className="text-sm text-violet-600">
+            <p className="text-sm text-indigo-600">
               Candidature pour {application.offer.title}
             </p>
           </div>
@@ -408,7 +408,7 @@ function SchoolApplicationDetailContent() {
                 </p>
                 {application.score !== null &&
                   application.score !== undefined && (
-                    <p className="mt-1 text-sm text-violet-700">
+                    <p className="mt-1 text-sm text-indigo-700">
                       Note : {application.score}/100
                     </p>
                   )}
@@ -429,7 +429,7 @@ function SchoolApplicationDetailContent() {
                 <ol className="space-y-4 border-l-2 border-slate-200 pl-4">
                   {timeline.map((event) => (
                     <li key={event.id} className="relative">
-                      <span className="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-violet-500" />
+                      <span className="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-500" />
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           className={`${STATUS_COLORS[event.status] || 'bg-slate-500'} text-white`}
@@ -496,7 +496,7 @@ function SchoolApplicationDetailContent() {
                       key={document.id}
                       className="flex items-center gap-3 rounded-lg border p-3"
                     >
-                      <FileTextIcon className="h-5 w-5 shrink-0 text-violet-600" />
+                      <FileTextIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {document.name}

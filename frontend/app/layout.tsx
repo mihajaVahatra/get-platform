@@ -1,6 +1,23 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Sora, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-app-sans",
+});
+
+const sora = Sora({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-app-heading",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-app-mono",
+});
 
 export const metadata: Metadata = {
   title: "GET - Grandes Écoles de Tananarive",
@@ -13,7 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
+    <html
+      lang="fr"
+      className={`${jakarta.variable} ${sora.variable} ${jetbrainsMono.variable}`}
+    >
       <body className="antialiased min-h-screen">
         {children}
         <Toaster 

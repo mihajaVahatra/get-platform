@@ -115,7 +115,7 @@ export default function AssignmentsPage() {
       </header>
 
       {message && (
-        <p className="mb-4 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800">
+        <p className="mb-4 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
           {message}
         </p>
       )}
@@ -131,7 +131,7 @@ export default function AssignmentsPage() {
             <select
               value={selectedCourseId}
               onChange={(event) => setSelectedCourseId(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
             >
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
@@ -181,7 +181,7 @@ export default function AssignmentsPage() {
                             Noté : {assignment.submission?.grade}/20
                           </span>
                         ) : (
-                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-700">
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">
                             {uploadingId === assignment.id ? (
                               <LoaderCircle className="size-4 animate-spin" />
                             ) : assignment.submission ? (

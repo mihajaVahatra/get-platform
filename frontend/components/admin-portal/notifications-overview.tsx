@@ -46,7 +46,7 @@ export function NotificationsOverview() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Notifications
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Suivi des notifications envoyées sur la plateforme. Pour envoyer une
           annonce, utilisez la page « Annonces ».
         </p>
@@ -62,7 +62,7 @@ export function NotificationsOverview() {
       ) : (
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Kpi icon={BellRing} tone="violet" label="Total envoyées" value={stats.total} />
+            <Kpi icon={BellRing} tone="indigo" label="Total envoyées" value={stats.total} />
             <Kpi icon={MailOpen} tone="orange" label="Non lues" value={stats.unread} />
             <Kpi icon={CheckCircle2} tone="green" label="Lues" value={stats.read} />
             <Kpi icon={TrendingUp} tone="blue" label="7 derniers jours" value={stats.sentLast7Days} />
@@ -83,7 +83,7 @@ export function NotificationsOverview() {
                     className="flex items-center justify-between rounded-lg border border-slate-100 p-3 text-xs"
                   >
                     <span className="font-bold text-slate-800">{item.title}</span>
-                    <span className="rounded-full bg-violet-50 px-2 py-1 font-bold text-violet-600">
+                    <span className="rounded-full bg-indigo-50 px-2 py-1 font-bold text-indigo-600">
                       {item.count}×
                     </span>
                   </div>
@@ -104,12 +104,12 @@ function Kpi({
   value,
 }: {
   icon: typeof BellRing;
-  tone: 'violet' | 'orange' | 'green' | 'blue';
+  tone: 'indigo' | 'orange' | 'green' | 'blue';
   label: string;
   value: number;
 }) {
   const tones = {
-    violet: 'bg-violet-100 text-violet-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
     orange: 'bg-orange-100 text-orange-500',
     green: 'bg-emerald-100 text-emerald-600',
     blue: 'bg-blue-100 text-blue-500',

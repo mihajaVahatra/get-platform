@@ -228,7 +228,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
       <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
         <p>Vos cours n’ont pas pu être chargés.</p>
         <button
-          className="mt-3 text-xs font-bold text-violet-600"
+          className="mt-3 text-xs font-bold text-indigo-600"
           onClick={() => void fetchCourses()}
         >
           Réessayer
@@ -251,7 +251,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
             Cours
           </span>
           <select
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-violet-500"
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
             value={selectedCourseId}
             onChange={(event) => setSelectedCourseId(event.target.value)}
           >
@@ -267,7 +267,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-sm font-extrabold text-[#17204e]">Devoirs</h2>
           <button
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"
             onClick={() => setCreationOpen(true)}
           >
             <Plus className="size-4" /> Nouveau devoir
@@ -277,7 +277,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
           <p className="text-xs text-slate-500">Chargement des devoirs…</p>
         ) : assignmentsFailed ? (
           <button
-            className="text-xs font-bold text-violet-600"
+            className="text-xs font-bold text-indigo-600"
             onClick={() => void fetchAssignments()}
           >
             Réessayer de charger les devoirs
@@ -331,7 +331,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
                         </button>
                       ) : (
                         <button
-                          className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
+                          className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
                           disabled={publishingId === assignment.id}
                           onClick={() => publishAssignment(assignment.id)}
                         >
@@ -361,7 +361,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={160}
@@ -371,7 +371,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Consignes (facultatives)
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-indigo-500"
                   value={instructions}
                   onChange={(event) => setInstructions(event.target.value)}
                   maxLength={5000}
@@ -381,7 +381,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
                 Date limite (facultative)
                 <input
                   type="date"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-violet-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={dueAt}
                   onChange={(event) => setDueAt(event.target.value)}
                 />
@@ -390,7 +390,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
             <DialogFooter>
               <button
                 type="submit"
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={saving}
               >
                 {saving ? 'Création…' : 'Créer'}
@@ -416,7 +416,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
             </p>
           ) : submissionsFailed ? (
             <button
-              className="text-xs font-bold text-violet-600"
+              className="text-xs font-bold text-indigo-600"
               onClick={() =>
                 selectedAssignment &&
                 void fetchSubmissions(selectedAssignment.id)
@@ -495,7 +495,7 @@ function SubmissionGradingForm({
           </p>
           {submission.contentUrl && (
             <a
-              className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-violet-600 hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:underline"
               href={submission.contentUrl}
               target="_blank"
               rel="noreferrer"
@@ -509,7 +509,7 @@ function SubmissionGradingForm({
           <input
             type="number"
             step="0.01"
-            className="mt-1 block h-8 w-24 rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-violet-500"
+            className="mt-1 block h-8 w-24 rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-indigo-500"
             value={grade}
             onChange={(event) => setGrade(event.target.value)}
             required
@@ -519,7 +519,7 @@ function SubmissionGradingForm({
       <label className="mt-3 block text-[10px] font-bold text-[#34406b]">
         Commentaire
         <textarea
-          className="mt-1 min-h-16 w-full rounded-lg border border-slate-200 p-2 text-xs font-normal outline-none focus:border-violet-500"
+          className="mt-1 min-h-16 w-full rounded-lg border border-slate-200 p-2 text-xs font-normal outline-none focus:border-indigo-500"
           value={feedback}
           onChange={(event) => setFeedback(event.target.value)}
           maxLength={2000}
@@ -528,7 +528,7 @@ function SubmissionGradingForm({
       <div className="mt-3 flex justify-end">
         <button
           type="submit"
-          className="rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
+          className="rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-60"
           disabled={saving}
         >
           {saving ? 'Enregistrement…' : 'Enregistrer'}

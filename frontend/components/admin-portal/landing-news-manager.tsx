@@ -81,7 +81,7 @@ export function LandingNewsManager() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Actualités du site
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Publiez les actualités affichées sur la page d&apos;accueil
             publique.
           </p>
@@ -91,7 +91,7 @@ export function LandingNewsManager() {
             setSelected(null);
             setModal('create');
           }}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-indigo-500 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-200"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200"
         >
           <Plus className="size-4" />
           Ajouter une actualité
@@ -121,7 +121,7 @@ export function LandingNewsManager() {
                     className="size-9 shrink-0 rounded-lg object-cover"
                   />
                 ) : (
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-violet-50 text-violet-600">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
                     <Newspaper className="size-4" />
                   </span>
                 )}
@@ -131,7 +131,7 @@ export function LandingNewsManager() {
                   </p>
                   <p className="mt-0.5 truncate text-slate-500">{row.body}</p>
                   <div className="mt-1.5 flex gap-2">
-                    <span className="rounded bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-600">
+                    <span className="rounded bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-600">
                       {row.type}
                     </span>
                     <span
@@ -141,7 +141,7 @@ export function LandingNewsManager() {
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2 text-violet-600">
+                <div className="flex shrink-0 gap-2 text-indigo-600">
                   <button
                     aria-label={`Modifier ${row.title}`}
                     onClick={() => {
@@ -293,7 +293,7 @@ function NewsForm({
               maxLength={40}
               required
               placeholder="Ex. INSCRIPTIONS, CONCOURS, ACTUALITÉ"
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <label className="block text-xs font-bold text-[#34406b]">
@@ -303,7 +303,7 @@ function NewsForm({
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
               required
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <label className="block text-xs font-bold text-[#34406b]">
@@ -314,7 +314,7 @@ function NewsForm({
               maxLength={2000}
               rows={4}
               required
-              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+              className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
           <label className="block text-xs font-bold text-[#34406b]">
@@ -323,7 +323,7 @@ function NewsForm({
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
-              className="mt-1.5 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-violet-700 hover:file:bg-violet-100"
+              className="mt-1.5 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </label>
           <label className="flex items-center gap-2 text-xs font-bold text-[#34406b]">
@@ -346,7 +346,7 @@ function NewsForm({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
+              className="rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Enregistrement...' : 'Enregistrer'}
             </button>

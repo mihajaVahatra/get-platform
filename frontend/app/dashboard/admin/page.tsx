@@ -109,7 +109,7 @@ function DashboardSummary() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Bonjour, Administrateur 👋
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Voici un aperçu global de la plateforme GET.
           </p>
         </div>
@@ -117,7 +117,7 @@ function DashboardSummary() {
           <label className="relative hidden w-[400px] xl:block">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-xs outline-none focus:border-violet-500"
+              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-xs outline-none focus:border-indigo-500"
               placeholder="Rechercher un étudiant, une école, un cours..."
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">
@@ -127,7 +127,7 @@ function DashboardSummary() {
           <NotificationBell />
           <MessageIconLink href="/dashboard/admin?section=messages" />
           <button className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#34406b]">
-            <CalendarDays className="size-4 text-violet-600" />
+            <CalendarDays className="size-4 text-indigo-600" />
             {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
           </button>
         </div>
@@ -136,19 +136,19 @@ function DashboardSummary() {
         <p className="py-12 text-center text-sm text-slate-500">Chargement...</p>
       ) : (
         <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
-          <Kpi icon={UsersRound} tone="violet" label="Étudiants inscrits" value={summary.enrolledStudents.toLocaleString('fr-FR')} />
+          <Kpi icon={UsersRound} tone="indigo" label="Étudiants inscrits" value={summary.enrolledStudents.toLocaleString('fr-FR')} />
           <Kpi icon={Building} tone="green" label="Établissements actifs" value={summary.activeSchools.toLocaleString('fr-FR')} />
           <Kpi icon={FileText} tone="blue" label="Candidatures totales" value={summary.totalApplications.toLocaleString('fr-FR')} />
           <Kpi icon={WalletCards} tone="orange" label="Revenus totaux" value={`${summary.totalRevenue.toLocaleString('fr-FR')} Ar`} />
-          <Kpi icon={ShieldCheck} tone="violet" label="Taux d’acceptation" value={`${summary.acceptanceRate}%`} />
+          <Kpi icon={ShieldCheck} tone="indigo" label="Taux d’acceptation" value={`${summary.acceptanceRate}%`} />
         </section>
       )}
     </div>
   );
 }
 
-function Kpi({ icon: Icon, tone, label, value }: { icon: LucideIcon; tone: 'violet' | 'green' | 'blue' | 'orange'; label: string; value: string }) {
-  const tones = { violet: 'bg-violet-100 text-violet-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' };
+function Kpi({ icon: Icon, tone, label, value }: { icon: LucideIcon; tone: 'indigo' | 'green' | 'blue' | 'orange'; label: string; value: string }) {
+  const tones = { indigo: 'bg-indigo-100 text-indigo-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' };
   return (
     <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="flex gap-3">

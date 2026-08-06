@@ -81,7 +81,7 @@ export function AnnouncementsBroadcast() {
         <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
           Annonces
         </h1>
-        <p className="mt-1 text-sm text-violet-600">
+        <p className="mt-1 text-sm text-indigo-600">
           Diffusez une annonce à tous les étudiants de tous les établissements
           actifs.
         </p>
@@ -89,7 +89,7 @@ export function AnnouncementsBroadcast() {
       <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
         <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
           <h2 className="flex items-center gap-2 font-extrabold text-[#17204e]">
-            <Megaphone className="size-5 text-violet-600" />
+            <Megaphone className="size-5 text-indigo-600" />
             Nouvelle annonce plateforme
           </h2>
           <form onSubmit={submit} className="mt-4 space-y-4">
@@ -101,7 +101,7 @@ export function AnnouncementsBroadcast() {
                 maxLength={200}
                 required
                 placeholder="Ex. Maintenance planifiée ce week-end"
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
             <label className="block text-xs font-bold text-[#34406b]">
@@ -113,17 +113,17 @@ export function AnnouncementsBroadcast() {
                 required
                 rows={5}
                 placeholder="Rédigez votre annonce..."
-                className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-violet-500"
+                className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
-            <p className="rounded-lg bg-violet-50 px-3 py-2 text-[11px] text-violet-700">
+            <p className="rounded-lg bg-indigo-50 px-3 py-2 text-[11px] text-indigo-700">
               Cette annonce sera envoyée aux étudiants inscrits dans tous les
               établissements actifs de la plateforme.
             </p>
             <button
               type="submit"
               disabled={sending || !title.trim() || !body.trim()}
-              className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send className="size-4" />
               {sending ? 'Envoi en cours...' : 'Diffuser à toutes les écoles'}
@@ -149,7 +149,7 @@ export function AnnouncementsBroadcast() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-bold text-[#28315e]">{item.title}</p>
-                    <span className="shrink-0 rounded bg-violet-50 px-2 py-1 font-bold text-violet-600">
+                    <span className="shrink-0 rounded bg-indigo-50 px-2 py-1 font-bold text-indigo-600">
                       {item.schoolsReached} école
                       {item.schoolsReached > 1 ? 's' : ''}
                     </span>

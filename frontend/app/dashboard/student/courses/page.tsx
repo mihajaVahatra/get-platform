@@ -59,9 +59,9 @@ export default function StudentCoursesPage() {
                     {course.code} · {course.level}
                   </p>
                 </div>
-                <BookOpen className="size-5 shrink-0 text-violet-600" />
+                <BookOpen className="size-5 shrink-0 text-indigo-600" />
               </div>
-              <span className="mt-4 inline-flex rounded bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+              <span className="mt-4 inline-flex rounded bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">
                 {course.school.name}
               </span>
               <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-semibold text-slate-600">

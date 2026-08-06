@@ -123,7 +123,7 @@ export default function SchoolPaymentsPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[#111949]">
             Paiements des candidatures
           </h1>
-          <p className="mt-1 text-sm text-violet-600">
+          <p className="mt-1 text-sm text-indigo-600">
             Suivez les règlements liés aux candidats de votre établissement.
           </p>
         </div>

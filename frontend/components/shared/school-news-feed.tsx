@@ -73,7 +73,7 @@ export function SchoolNewsFeed() {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
           <Bell className="size-7" />
         </span>
         <p className="mt-4 text-sm font-bold text-slate-700">
@@ -93,7 +93,7 @@ export function SchoolNewsFeed() {
           key={item.announcementId}
           onClick={() => void markAsRead(item)}
           className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(68,50,140,0.05)] transition ${
-            item.isRead ? 'border-slate-100' : 'border-violet-200'
+            item.isRead ? 'border-slate-100' : 'border-indigo-200'
           }`}
         >
           {item.imageUrl && (
