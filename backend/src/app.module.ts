@@ -22,6 +22,8 @@ import { CompetitionModule } from './modules/competition/competition.module';
 import { FinancialPartnerModule } from './modules/financial-partner/financial-partner.module';
 import { LandingModule } from './modules/landing/landing.module';
 import { AcademicYearModule } from './modules/academic-year/academic-year.module';
+import { PlatformCityModule } from './modules/platform-city/platform-city.module';
+import { FeeBracketModule } from './modules/fee-bracket/fee-bracket.module';
 import { TeacherAvailabilityModule } from './modules/teacher-availability/teacher-availability.module';
 import { UserModule } from './modules/user/user.module';
 import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
@@ -58,6 +60,8 @@ import { AdminDashboardModule } from './modules/admin-dashboard/admin-dashboard.
     FinancialPartnerModule,
     LandingModule,
     AcademicYearModule,
+    PlatformCityModule,
+    FeeBracketModule,
     TeacherAvailabilityModule,
     UserModule,
     SystemSettingsModule,

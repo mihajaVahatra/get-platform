@@ -231,6 +231,7 @@ export function TeacherDirectory() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher par e-mail, département ou spécialité..."
             />
           </label>
@@ -372,6 +373,7 @@ export function TeacherDirectory() {
                       <Input
                         id="teacher-email"
                         type="email"
+                        maxLength={254}
                         value={teacherEmail}
                         onChange={(event) =>
                           setTeacherEmail(event.target.value)
@@ -425,6 +427,7 @@ export function TeacherDirectory() {
                 <Label htmlFor="teacher-department">Département</Label>
                 <Input
                   id="teacher-department"
+                  maxLength={100}
                   value={form.department}
                   onChange={(event) =>
                     setForm({ ...form, department: event.target.value })
@@ -436,6 +439,7 @@ export function TeacherDirectory() {
                 <Label htmlFor="teacher-specialty">Spécialité</Label>
                 <Input
                   id="teacher-specialty"
+                  maxLength={100}
                   value={form.specialty}
                   onChange={(event) =>
                     setForm({ ...form, specialty: event.target.value })

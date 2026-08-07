@@ -33,16 +33,17 @@ const registerSchema = z
       .string()
       .min(2, 'Nom trop court (minimum 2 caractères)')
       .max(50),
-    email: z.string().email('Saisissez une adresse e-mail valide'),
+    email: z.string().email('Saisissez une adresse e-mail valide').max(254),
     phone: z.string().max(30).optional(),
     password: z
       .string()
       .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+      .max(128, 'Mot de passe trop long')
       .regex(/[A-Z]/, 'Ajoutez une majuscule')
       .regex(/[a-z]/, 'Ajoutez une minuscule')
       .regex(/\d/, 'Ajoutez un chiffre')
       .regex(/[@$!%*?&]/, 'Ajoutez un caractère spécial'),
-    confirmPassword: z.string(),
+    confirmPassword: z.string().max(128),
     terms: z
       .boolean()
       .refine((value) => value, 'Vous devez accepter les conditions.'),
@@ -218,6 +219,7 @@ export default function RegisterPage() {
                     <Input
                       icon={UserRound}
                       placeholder="Ton prénom"
+                      maxLength={50}
                       {...register('firstName')}
                     />
                   </Field>
@@ -225,6 +227,7 @@ export default function RegisterPage() {
                     <Input
                       icon={UserRound}
                       placeholder="Ton nom"
+                      maxLength={50}
                       {...register('lastName')}
                     />
                   </Field>
@@ -234,6 +237,7 @@ export default function RegisterPage() {
                     icon={Mail}
                     type="email"
                     placeholder="exemple@email.com"
+                    maxLength={254}
                     {...register('email', {
                       onChange: () => setEmailAutoFilled(false),
                     })}
@@ -252,6 +256,7 @@ export default function RegisterPage() {
                     icon={Phone}
                     type="tel"
                     placeholder="034 12 345 67"
+                    maxLength={30}
                     {...register('phone')}
                   />
                 </Field>
@@ -452,6 +457,7 @@ function PasswordField({
         <input
           type={shown ? 'text' : 'password'}
           placeholder={placeholder}
+          maxLength={128}
           className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-11 pr-11 text-sm outline-none transition placeholder:text-[#8a93ab] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
           {...register}
         />

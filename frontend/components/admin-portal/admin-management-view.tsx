@@ -140,6 +140,7 @@ function SchoolsDirectory() {
               setPage(1);
             }}
             className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+            maxLength={150}
             placeholder="Rechercher un établissement..."
           />
         </label>
@@ -368,6 +369,7 @@ function EnrollmentsDirectory() {
                 setPage(1);
               }}
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher un étudiant..."
             />
           </label>
@@ -671,6 +673,7 @@ function UsersDirectory() {
                 setPage(1);
               }}
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher un email..."
             />
           </label>
@@ -860,12 +863,26 @@ function SchoolForm({
     school?.type === 'PUBLIC' ? 'Public' : 'Privé',
   );
   const [city, setCity] = useState(school?.city || '');
+  const [cities, setCities] = useState<string[]>([]);
   const [region, setRegion] = useState(school?.region || '');
   const [contactEmail, setContactEmail] = useState(school?.contactEmail || '');
   const [contactPhone, setContactPhone] = useState(school?.contactPhone || '');
   const [website, setWebsite] = useState(school?.website || '');
   const [description, setDescription] = useState(school?.description || '');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiClient
+      .get('/platform-cities')
+      .then((response) =>
+        setCities(
+          (response.data.data as { name: string; isActive: boolean }[])
+            .filter((item) => item.isActive)
+            .map((item) => item.name),
+        ),
+      )
+      .catch(() => setCities([]));
+  }, []);
 
   const submit = async () => {
     if (!name.trim()) return;
@@ -921,11 +938,11 @@ function SchoolForm({
               onChange={setType}
               options={['Public', 'Privé']}
             />
-            <Input
+            <Select
               label="Ville"
               value={city}
               onChange={setCity}
-              placeholder="Ex : Antananarivo"
+              options={cities}
             />
             <Input
               label="Région"
@@ -938,18 +955,23 @@ function SchoolForm({
               value={contactPhone}
               onChange={setContactPhone}
               placeholder="+261 20 22 222 22"
+              maxLength={30}
             />
             <Input
               label="Email officiel"
               value={contactEmail}
               onChange={setContactEmail}
               placeholder="contact@etablissement.mg"
+              type="email"
+              maxLength={254}
             />
             <Input
               label="Site web"
               value={website}
               onChange={setWebsite}
               placeholder="https://www.exemple.mg"
+              type="url"
+              maxLength={300}
             />
             <Input
               label="Description"
@@ -958,6 +980,7 @@ function SchoolForm({
               placeholder="Présentez brièvement l’établissement..."
               wide
               multiline
+              maxLength={2000}
             />
           </div>
         </FormBox>
@@ -1003,6 +1026,8 @@ function Input({
   placeholder,
   wide = false,
   multiline = false,
+  maxLength = 150,
+  type = 'text',
 }: {
   label: string;
   value?: string;
@@ -1010,6 +1035,8 @@ function Input({
   placeholder: string;
   wide?: boolean;
   multiline?: boolean;
+  maxLength?: number;
+  type?: string;
 }) {
   return (
     <label className={wide ? 'sm:col-span-2' : ''}>
@@ -1021,14 +1048,17 @@ function Input({
           value={value}
           onChange={(event) => onChange?.(event.target.value)}
           placeholder={placeholder}
+          maxLength={maxLength}
           rows={3}
           className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-xs outline-none focus:border-indigo-500"
         />
       ) : (
         <input
           value={value}
+          type={type}
           onChange={(event) => onChange?.(event.target.value)}
           placeholder={placeholder}
+          maxLength={maxLength}
           className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
         />
       )}
@@ -1287,12 +1317,15 @@ function SettingsView() {
             value={settings.contactEmail}
             onChange={(value) => setSettings({ ...settings, contactEmail: value })}
             placeholder="contact@get.mg"
+            type="email"
+            maxLength={254}
           />
           <Input
             label="Téléphone"
             value={settings.contactPhone}
             onChange={(value) => setSettings({ ...settings, contactPhone: value })}
             placeholder="+261 34 12 345 67"
+            maxLength={30}
           />
           <Input
             label="Adresse"
@@ -1309,10 +1342,243 @@ function SettingsView() {
           icon={Settings}
         />
       </section>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <PlatformCitiesSection />
+        <FeeBracketsSection />
+      </div>
       <div className="mt-4">
         <MfaSettingsCard />
       </div>
     </div>
+  );
+}
+
+type PlatformCityItem = { id: string; name: string; isActive: boolean };
+
+function PlatformCitiesSection() {
+  const [cities, setCities] = useState<PlatformCityItem[]>([]);
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/platform-cities');
+      setCities(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement villes:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => refresh());
+  }, [refresh]);
+
+  const addCity = async () => {
+    if (!name.trim()) return toast.error('Le nom de la ville est obligatoire');
+    try {
+      await apiClient.post('/platform-cities', { name: name.trim() });
+      setName('');
+      await refresh();
+      toast.success('Ville ajoutée');
+    } catch (error: unknown) {
+      toast.error(axiosMessage(error) || "Impossible d'ajouter cette ville");
+    }
+  };
+
+  const toggleCity = async (city: PlatformCityItem) => {
+    try {
+      await apiClient.patch(`/platform-cities/${city.id}`, {
+        isActive: !city.isActive,
+      });
+      await refresh();
+    } catch {
+      toast.error('Impossible de modifier cette ville');
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+      <h2 className="font-bold text-[#17204e]">Villes</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Utilisées pour la ville des établissements et le filtre de recherche
+        d’offres.
+      </p>
+      <div className="mt-4 flex gap-2">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={100}
+          placeholder="Ex. Antsirabe"
+          className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+        />
+        <button
+          type="button"
+          onClick={() => void addCity()}
+          className="shrink-0 rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 text-xs font-bold text-white"
+        >
+          Ajouter
+        </button>
+      </div>
+      <div className="mt-3 space-y-2 text-xs">
+        {loading ? (
+          <p className="text-slate-500">Chargement...</p>
+        ) : cities.length === 0 ? (
+          <p className="text-slate-500">Aucune ville configurée.</p>
+        ) : (
+          cities.map((city) => (
+            <div
+              key={city.id}
+              className="flex items-center justify-between rounded-lg border border-slate-50 p-2.5"
+            >
+              <span className={city.isActive ? '' : 'text-slate-400 line-through'}>
+                {city.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => void toggleCity(city)}
+                className="font-bold text-indigo-600"
+              >
+                {city.isActive ? 'Désactiver' : 'Réactiver'}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+type FeeBracketItem = {
+  id: string;
+  label: string;
+  minFees: number;
+  maxFees: number | null;
+  isActive: boolean;
+};
+
+function FeeBracketsSection() {
+  const [brackets, setBrackets] = useState<FeeBracketItem[]>([]);
+  const [label, setLabel] = useState('');
+  const [minFees, setMinFees] = useState('');
+  const [maxFees, setMaxFees] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await apiClient.get('/fee-brackets');
+      setBrackets(response.data.data);
+    } catch (error) {
+      console.error('Erreur chargement tranches de frais:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => refresh());
+  }, [refresh]);
+
+  const addBracket = async () => {
+    if (!label.trim() || !minFees) {
+      return toast.error('Le libellé et le montant minimum sont obligatoires');
+    }
+    try {
+      await apiClient.post('/fee-brackets', {
+        label: label.trim(),
+        minFees: Number(minFees),
+        maxFees: maxFees ? Number(maxFees) : undefined,
+      });
+      setLabel('');
+      setMinFees('');
+      setMaxFees('');
+      await refresh();
+      toast.success('Tranche de frais ajoutée');
+    } catch (error: unknown) {
+      toast.error(axiosMessage(error) || "Impossible d'ajouter cette tranche");
+    }
+  };
+
+  const toggleBracket = async (bracket: FeeBracketItem) => {
+    try {
+      await apiClient.patch(`/fee-brackets/${bracket.id}`, {
+        isActive: !bracket.isActive,
+      });
+      await refresh();
+    } catch {
+      toast.error('Impossible de modifier cette tranche');
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+      <h2 className="font-bold text-[#17204e]">Tranches de frais</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        Utilisées pour le filtre de frais de la recherche d’offres.
+      </p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          maxLength={60}
+          placeholder="Libellé"
+          className="col-span-3 h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500 sm:col-span-1"
+        />
+        <input
+          type="number"
+          min={0}
+          max={999999999}
+          value={minFees}
+          onChange={(event) => setMinFees(event.target.value.slice(0, 9))}
+          placeholder="Min (Ar)"
+          className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+        />
+        <input
+          type="number"
+          min={0}
+          max={999999999}
+          value={maxFees}
+          onChange={(event) => setMaxFees(event.target.value.slice(0, 9))}
+          placeholder="Max (Ar, facultatif)"
+          className="h-10 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+        />
+      </div>
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => void addBracket()}
+          className="rounded-lg bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-2 text-xs font-bold text-white"
+        >
+          Ajouter
+        </button>
+      </div>
+      <div className="mt-3 space-y-2 text-xs">
+        {loading ? (
+          <p className="text-slate-500">Chargement...</p>
+        ) : brackets.length === 0 ? (
+          <p className="text-slate-500">Aucune tranche configurée.</p>
+        ) : (
+          brackets.map((bracket) => (
+            <div
+              key={bracket.id}
+              className="flex items-center justify-between rounded-lg border border-slate-50 p-2.5"
+            >
+              <span className={bracket.isActive ? '' : 'text-slate-400 line-through'}>
+                {bracket.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => void toggleBracket(bracket)}
+                className="font-bold text-indigo-600"
+              >
+                {bracket.isActive ? 'Désactiver' : 'Réactiver'}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   );
 }
 function Bars({ items }: { items: Array<[string, number]> }) {

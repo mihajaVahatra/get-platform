@@ -86,6 +86,7 @@ export function TeacherConflictsView() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              maxLength={150}
               placeholder="Rechercher un professeur..."
               className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-indigo-500"
             />

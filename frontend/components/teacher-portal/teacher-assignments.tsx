@@ -509,9 +509,11 @@ function SubmissionGradingForm({
           <input
             type="number"
             step="0.01"
+            min={0}
+            max={20}
             className="mt-1 block h-8 w-24 rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-indigo-500"
             value={grade}
-            onChange={(event) => setGrade(event.target.value)}
+            onChange={(event) => setGrade(event.target.value.slice(0, 5))}
             required
           />
         </label>

@@ -214,6 +214,7 @@ export default function StudentDashboardPage() {
           <div className="relative hidden w-72 md:block">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <Input
+              maxLength={150}
               placeholder="Rechercher..."
               className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm"
             />

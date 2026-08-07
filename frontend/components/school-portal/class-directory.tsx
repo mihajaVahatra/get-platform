@@ -212,7 +212,7 @@ function CreateClassDialog({
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="class-name">Nom</Label>
-              <Input id="class-name" value={name} onChange={(event) => setName(event.target.value)} required />
+              <Input id="class-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={150} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="class-year">Année scolaire</Label>
@@ -252,11 +252,11 @@ function CreateClassDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="class-level">Niveau (facultatif)</Label>
-                <Input id="class-level" type="number" min={1} value={level} onChange={(event) => setLevel(event.target.value)} />
+                <Input id="class-level" type="number" min={1} max={20} value={level} onChange={(event) => setLevel(event.target.value.slice(0, 2))} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="class-count">Effectif (facultatif)</Label>
-                <Input id="class-count" type="number" min={0} value={studentCount} onChange={(event) => setStudentCount(event.target.value)} />
+                <Input id="class-count" type="number" min={0} max={5000} value={studentCount} onChange={(event) => setStudentCount(event.target.value.slice(0, 4))} />
               </div>
             </div>
           </div>
@@ -487,7 +487,7 @@ function ClassCard({
                     min={1}
                     max={40}
                     value={hoursPerWeek}
-                    onChange={(event) => setHoursPerWeek(event.target.value)}
+                    onChange={(event) => setHoursPerWeek(event.target.value.slice(0, 2))}
                   />
                 </div>
                 <Button type="submit" size="sm" disabled={adding || !subjectId}>

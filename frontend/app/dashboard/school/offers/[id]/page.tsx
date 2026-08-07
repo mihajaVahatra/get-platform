@@ -14,15 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import toast from 'react-hot-toast';
 
 const offerSchema = z.object({
-  title: z.string().min(3, 'Titre trop court'),
-  description: z.string().optional(),
-  diploma: z.string().min(2, 'Diplôme requis'),
-  duration: z.number().min(1, 'Durée minimale 1 mois'),
-  tuitionFees: z.number().min(0, 'Frais invalides'),
-  capacity: z.number().optional(),
+  title: z.string().min(3, 'Titre trop court').max(150, 'Titre trop long'),
+  description: z.string().max(2000, 'Description trop longue').optional(),
+  diploma: z.string().min(2, 'Diplôme requis').max(100),
+  duration: z.number().min(1, 'Durée minimale 1 mois').max(60, 'Durée trop longue'),
+  tuitionFees: z.number().min(0, 'Frais invalides').max(999999999, 'Montant trop élevé'),
+  capacity: z.number().max(10000, 'Capacité trop élevée').optional(),
   applicationDeadline: z.string().optional(),
-  academicYear: z.string().min(4, 'Année académique requise'),
-  prerequisites: z.string().optional(),
+  academicYear: z.string().min(4, 'Année académique requise').max(20),
+  prerequisites: z.string().max(2000, 'Prérequis trop longs').optional(),
   programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 
@@ -122,7 +122,7 @@ export default function EditOfferPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Titre de l'offre *</Label>
-              <Input id="title" {...register('title')} />
+              <Input id="title" maxLength={150} {...register('title')} />
               {errors.title && (
                 <p className="text-sm text-red-500">{errors.title.message}</p>
               )}
@@ -130,20 +130,20 @@ export default function EditOfferPage() {
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Input id="description" {...register('description')} />
+              <Input id="description" maxLength={2000} {...register('description')} />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="diploma">Diplôme *</Label>
-                <Input id="diploma" {...register('diploma')} />
+                <Input id="diploma" maxLength={100} {...register('diploma')} />
                 {errors.diploma && (
                   <p className="text-sm text-red-500">{errors.diploma.message}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="duration">Durée (mois) *</Label>
-                <Input id="duration" type="number" {...register('duration', { valueAsNumber: true })} />
+                <Input id="duration" type="number" min={1} max={60} {...register('duration', { valueAsNumber: true })} />
                 {errors.duration && (
                   <p className="text-sm text-red-500">{errors.duration.message}</p>
                 )}
@@ -153,14 +153,14 @@ export default function EditOfferPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="tuitionFees">Frais (MGA) *</Label>
-                <Input id="tuitionFees" type="number" {...register('tuitionFees', { valueAsNumber: true })} />
+                <Input id="tuitionFees" type="number" min={0} max={999999999} {...register('tuitionFees', { valueAsNumber: true })} />
                 {errors.tuitionFees && (
                   <p className="text-sm text-red-500">{errors.tuitionFees.message}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="capacity">Capacité</Label>
-                <Input id="capacity" type="number" {...register('capacity', { valueAsNumber: true })} />
+                <Input id="capacity" type="number" min={0} max={10000} {...register('capacity', { valueAsNumber: true })} />
               </div>
             </div>
 
@@ -185,7 +185,7 @@ export default function EditOfferPage() {
 
             <div className="space-y-2">
               <Label htmlFor="academicYear">Année académique *</Label>
-              <Input id="academicYear" {...register('academicYear')} />
+              <Input id="academicYear" maxLength={20} {...register('academicYear')} />
               {errors.academicYear && (
                 <p className="text-sm text-red-500">{errors.academicYear.message}</p>
               )}
@@ -198,7 +198,7 @@ export default function EditOfferPage() {
 
             <div className="space-y-2">
               <Label htmlFor="prerequisites">Prérequis (séparés par des virgules)</Label>
-              <Input id="prerequisites" {...register('prerequisites')} />
+              <Input id="prerequisites" maxLength={2000} {...register('prerequisites')} />
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">

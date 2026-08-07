@@ -36,27 +36,49 @@ export default function StudentOffersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [appliedOffers, setAppliedOffers] = useState<Set<string>>(new Set());
 
-  // Filtres
+  // Filtres — la ville et la tranche de frais viennent des listes de
+  // référence gérées par l'admin GET (/platform-cities, /fee-brackets)
+  // plutôt que de la saisie libre.
   const [filters, setFilters] = useState({
     diploma: '',
-    minFees: '',
-    maxFees: '',
+    feeBracketId: '',
     city: '',
   });
+  const [cities, setCities] = useState<string[]>([]);
+  const [feeBrackets, setFeeBrackets] = useState<
+    { id: string; label: string; minFees: number; maxFees: number | null; isActive: boolean }[]
+  >([]);
 
-  useEffect(() => {
-    fetchOffers();
-    fetchMyApplications();
-  }, []);
+  const fetchFilterOptions = async () => {
+    try {
+      const [citiesRes, bracketsRes] = await Promise.all([
+        apiClient.get('/platform-cities'),
+        apiClient.get('/fee-brackets'),
+      ]);
+      setCities(
+        (citiesRes.data.data as { name: string; isActive: boolean }[])
+          .filter((item) => item.isActive)
+          .map((item) => item.name),
+      );
+      setFeeBrackets(
+        (bracketsRes.data.data as typeof feeBrackets).filter((item) => item.isActive),
+      );
+    } catch (error) {
+      console.error('Erreur chargement des filtres:', error);
+    }
+  };
 
   const fetchOffers = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filters.diploma) params.append('diploma', filters.diploma);
-      if (filters.minFees) params.append('minFees', filters.minFees);
-      if (filters.maxFees) params.append('maxFees', filters.maxFees);
       if (filters.city) params.append('city', filters.city);
+      const bracket = feeBrackets.find((item) => item.id === filters.feeBracketId);
+      if (bracket) {
+        params.append('minFees', String(bracket.minFees));
+        if (bracket.maxFees !== null) params.append('maxFees', String(bracket.maxFees));
+      }
       params.append('isOpen', 'true');
 
       const response = await apiClient.get(`/offers?${params.toString()}`);
@@ -83,6 +105,14 @@ export default function StudentOffersPage() {
       console.error('Erreur chargement candidatures:', error);
     }
   };
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      fetchOffers();
+      fetchMyApplications();
+      fetchFilterOptions();
+    });
+  }, []);
 
   const handleApply = async (offerId: string) => {
     setIsSubmitting(true);
@@ -129,7 +159,7 @@ export default function StudentOffersPage() {
   };
 
   const resetFilters = () => {
-    setFilters({ diploma: '', minFees: '', maxFees: '', city: '' });
+    setFilters({ diploma: '', feeBracketId: '', city: '' });
     setTimeout(fetchOffers, 100);
   };
 
@@ -154,38 +184,46 @@ export default function StudentOffersPage() {
               <Input
                 id="diploma"
                 placeholder="BAC+5, BAC+3..."
+                maxLength={50}
                 value={filters.diploma}
                 onChange={(e) => handleFilterChange('diploma', e.target.value)}
               />
             </div>
             <div>
-              <Label htmlFor="minFees">Frais min (Ar)</Label>
-              <Input
-                id="minFees"
-                type="number"
-                placeholder="0"
-                value={filters.minFees}
-                onChange={(e) => handleFilterChange('minFees', e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="maxFees">Frais max (Ar)</Label>
-              <Input
-                id="maxFees"
-                type="number"
-                placeholder="5000000"
-                value={filters.maxFees}
-                onChange={(e) => handleFilterChange('maxFees', e.target.value)}
-              />
+              <Label htmlFor="feeBracketId">Frais (Ar)</Label>
+              <Select
+                value={filters.feeBracketId || undefined}
+                onValueChange={(value) => handleFilterChange('feeBracketId', value ?? '')}
+              >
+                <SelectTrigger id="feeBracketId">
+                  <SelectValue placeholder="Toutes les tranches" />
+                </SelectTrigger>
+                <SelectContent>
+                  {feeBrackets.map((bracket) => (
+                    <SelectItem key={bracket.id} value={bracket.id}>
+                      {bracket.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="city">Ville</Label>
-              <Input
-                id="city"
-                placeholder="Antananarivo"
-                value={filters.city}
-                onChange={(e) => handleFilterChange('city', e.target.value)}
-              />
+              <Select
+                value={filters.city || undefined}
+                onValueChange={(value) => handleFilterChange('city', value ?? '')}
+              >
+                <SelectTrigger id="city">
+                  <SelectValue placeholder="Toutes les villes" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex gap-2 mt-4">

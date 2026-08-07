@@ -553,6 +553,7 @@ function SchoolApplicationDetailContent() {
                 <Input
                   id="test-type"
                   required
+                  maxLength={150}
                   placeholder="Ex. QCM, entretien technique"
                   value={testForm.type}
                   onChange={(event) =>
@@ -564,6 +565,7 @@ function SchoolApplicationDetailContent() {
                 <Label htmlFor="test-details">Détails (facultatif)</Label>
                 <Input
                   id="test-details"
+                  maxLength={500}
                   value={testForm.details}
                   onChange={(event) =>
                     setTestForm({ ...testForm, details: event.target.value })
@@ -622,6 +624,7 @@ function SchoolApplicationDetailContent() {
                 <Input
                   id="interview-link"
                   type="url"
+                  maxLength={300}
                   placeholder="https://..."
                   value={interviewForm.link}
                   onChange={(event) =>
@@ -681,6 +684,7 @@ function SchoolApplicationDetailContent() {
                 <Label htmlFor="score-comments">Commentaire (facultatif)</Label>
                 <Input
                   id="score-comments"
+                  maxLength={500}
                   value={scoreForm.comments}
                   onChange={(event) =>
                     setScoreForm({ ...scoreForm, comments: event.target.value })
@@ -761,6 +765,7 @@ function SchoolApplicationDetailContent() {
                 </Label>
                 <Input
                   id="status-reason"
+                  maxLength={500}
                   value={statusForm.reason}
                   onChange={(event) =>
                     setStatusForm({ ...statusForm, reason: event.target.value })

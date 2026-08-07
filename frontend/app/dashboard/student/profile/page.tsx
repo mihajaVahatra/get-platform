@@ -15,17 +15,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Schéma de validation pour le formulaire
 const profileSchema = z.object({
-  firstName: z.string().min(2, 'Prénom trop court (min 2 caractères)'),
-  lastName: z.string().min(2, 'Nom trop court (min 2 caractères)'),
-  phone: z.string().optional(),
+  firstName: z.string().min(2, 'Prénom trop court (min 2 caractères)').max(50, 'Prénom trop long'),
+  lastName: z.string().min(2, 'Nom trop court (min 2 caractères)').max(50, 'Nom trop long'),
+  phone: z.string().max(30, 'Numéro trop long').optional(),
   birthDate: z.string().optional(),
-  cin: z.string().optional(),
+  cin: z.string().max(20, 'CIN trop long').optional(),
   bacYear: z.union([z.string(), z.number()]).optional(),
-  bacType: z.string().optional(),
-  city: z.string().optional(),
-  address: z.string().optional(),
-  region: z.string().optional(),
-  bio: z.string().optional(),
+  bacType: z.string().max(50, 'Trop long').optional(),
+  city: z.string().max(100, 'Trop long').optional(),
+  address: z.string().max(300, 'Adresse trop longue').optional(),
+  region: z.string().max(100, 'Trop long').optional(),
+  bio: z.string().max(1000, 'Bio trop longue').optional(),
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -141,6 +141,7 @@ export default function StudentProfilePage() {
                     <Label htmlFor="firstName">Prénom</Label>
                     <Input
                       id="firstName"
+                      maxLength={50}
                       {...register('firstName')}
                     />
                     {errors.firstName && (
@@ -151,6 +152,7 @@ export default function StudentProfilePage() {
                     <Label htmlFor="lastName">Nom</Label>
                     <Input
                       id="lastName"
+                      maxLength={50}
                       {...register('lastName')}
                     />
                     {errors.lastName && (
@@ -164,6 +166,7 @@ export default function StudentProfilePage() {
                   <Input
                     id="phone"
                     placeholder="+261 34 12 345 67"
+                    maxLength={30}
                     {...register('phone')}
                   />
                 </div>
@@ -178,6 +181,7 @@ export default function StudentProfilePage() {
                     <Input
                       id="cin"
                       placeholder="101234567"
+                      maxLength={20}
                       {...register('cin')}
                     />
                   </div>
@@ -189,6 +193,8 @@ export default function StudentProfilePage() {
                     <Input
                       id="bacYear"
                       type="number"
+                      min={1950}
+                      max={2100}
                       placeholder="2023"
                       {...register('bacYear')}
                     />
@@ -198,6 +204,7 @@ export default function StudentProfilePage() {
                     <Input
                       id="bacType"
                       placeholder="S, A, C, D…"
+                      maxLength={50}
                       {...register('bacType')}
                     />
                   </div>
@@ -209,6 +216,7 @@ export default function StudentProfilePage() {
                     <Input
                       id="city"
                       placeholder="Antananarivo"
+                      maxLength={100}
                       {...register('city')}
                     />
                   </div>
@@ -217,6 +225,7 @@ export default function StudentProfilePage() {
                     <Input
                       id="region"
                       placeholder="Analamanga"
+                      maxLength={100}
                       {...register('region')}
                     />
                   </div>
@@ -227,6 +236,7 @@ export default function StudentProfilePage() {
                   <Input
                     id="address"
                     placeholder="Lot II M 12 Bis Analakely"
+                    maxLength={300}
                     {...register('address')}
                   />
                 </div>
@@ -236,6 +246,7 @@ export default function StudentProfilePage() {
                   <Input
                     id="bio"
                     placeholder="Parlez-nous de vous..."
+                    maxLength={1000}
                     {...register('bio')}
                   />
                 </div>

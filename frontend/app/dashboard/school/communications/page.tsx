@@ -445,6 +445,7 @@ function TargetList({
             value={search}
             onChange={(event) => onSearch(event.target.value)}
             className="pl-9"
+            maxLength={150}
             placeholder={`Rechercher un ${label.toLowerCase().slice(0, -1)}...`}
           />
         </label>

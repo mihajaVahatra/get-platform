@@ -273,6 +273,7 @@ export function CourseDirectory() {
                     setSearch(event.target.value);
                     setPage(1);
                   }}
+                  maxLength={150}
                   className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
                   placeholder="Rechercher par code, titre ou professeur..."
                 />
@@ -537,6 +538,7 @@ export function CourseDirectory() {
                 label="Crédits"
                 id="course-credits"
                 type="number"
+                max={60}
                 value={form.credits}
                 onChange={(value) => setField('credits', value)}
                 required
@@ -616,6 +618,8 @@ function Field({
   value,
   onChange,
   required = false,
+  maxLength = 100,
+  max,
 }: {
   label: string;
   id: string;
@@ -623,6 +627,8 @@ function Field({
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  maxLength?: number;
+  max?: number;
 }) {
   return (
     <div className="space-y-2">
@@ -631,9 +637,17 @@ function Field({
         id={id}
         type={type}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(
+            type === 'number'
+              ? event.target.value.slice(0, 8)
+              : event.target.value,
+          )
+        }
         required={required}
         min={type === 'number' ? '0' : undefined}
+        max={type === 'number' ? max : undefined}
+        maxLength={type === 'number' ? undefined : maxLength}
       />
     </div>
   );

@@ -362,6 +362,7 @@ export function StudentImportDirectory() {
               value={search}
               onChange={(event) => updateSearch(event.target.value)}
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher par nom ou e-mail..."
             />
           </label>
@@ -505,6 +506,7 @@ export function StudentImportDirectory() {
                 <Input
                   id="enroll-email"
                   type="email"
+                  maxLength={254}
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
@@ -774,8 +776,9 @@ export function StudentImportDirectory() {
                   <Input
                     type="number"
                     min={1}
+                    max={20}
                     value={detailLevel}
-                    onChange={(event) => setDetailLevel(event.target.value)}
+                    onChange={(event) => setDetailLevel(event.target.value.slice(0, 2))}
                   />
                 </div>
                 <div className="space-y-2">

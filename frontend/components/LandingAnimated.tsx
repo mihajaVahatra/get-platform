@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useEffect, useState } from 'react';
@@ -220,10 +221,16 @@ export default function LandingAnimated({
             ))}
           </nav>
           <div className="flex items-center gap-2.5">
-            <Link href="/auth/login"
-              className="hidden rounded-lg border border-indigo-200 px-4 py-2.5 text-[13px] font-bold text-indigo-700 transition hover:bg-indigo-50 sm:inline-flex">
-              Se connecter
-            </Link>
+            <motion.div
+              className="hidden sm:block"
+              whileHover={reduce ? undefined : { y: -2 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              <Link href="/auth/login"
+                className="inline-flex rounded-lg border border-indigo-200 px-4 py-2.5 text-[13px] font-bold text-indigo-700 transition hover:bg-indigo-50">
+                Se connecter
+              </Link>
+            </motion.div>
             <MagneticButton href="/auth/register">S&apos;inscrire</MagneticButton>
           </div>
         </div>
@@ -330,16 +337,19 @@ export default function LandingAnimated({
             transition={{ type: 'spring', stiffness: 60, damping: 18, delay: 0.15 }}
           >
             <motion.div
-              className="relative h-[520px] overflow-hidden rounded-[36px] border-[6px] border-white shadow-[0_30px_60px_rgba(69,49,170,.18)]"
-              style={{
-                background: 'linear-gradient(160deg,#c7d2fe,#818cf8 45%,#5eead4 100%)',
-                ...(reduce ? {} : { y: heroImageY }),
-              }}
+              className="relative h-[520px] overflow-hidden rounded-[36px] border-[6px] border-white bg-[#e9eaff] shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+              style={reduce ? undefined : { y: heroImageY }}
             >
-              <div className="grid h-full place-items-center text-white/60">
-                <GraduationCap className="size-36" strokeWidth={1} />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-[#21185d]/35 via-transparent to-white/10" />
+              <Image
+                src="/landing-students-campus.png"
+                alt="Deux étudiants sur un campus universitaire"
+                fill
+                priority
+                quality={70}
+                className="object-cover object-center"
+                sizes="(max-width: 1023px) 90vw, 620px"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#21185d]/25 via-transparent to-white/10" />
             </motion.div>
 
             <motion.div

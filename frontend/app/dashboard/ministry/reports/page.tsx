@@ -261,6 +261,7 @@ export default function ReportsPage() {
                 <Input
                   id="name"
                   placeholder="Rapport annuel 2024"
+                  maxLength={150}
                   value={formData.name}
                   onChange={(event) =>
                     setFormData({ ...formData, name: event.target.value })

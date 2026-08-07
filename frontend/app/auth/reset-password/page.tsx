@@ -19,11 +19,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 const resetSchema = z.object({
   password: z.string()
     .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .max(128, 'Mot de passe trop long')
     .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule')
     .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une minuscule')
     .regex(/\d/, 'Le mot de passe doit contenir au moins un chiffre')
     .regex(/[@$!%*?&]/, 'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&)'),
-  confirmPassword: z.string(),
+  confirmPassword: z.string().max(128),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas',
   path: ['confirmPassword'],
@@ -203,6 +204,7 @@ function ResetPasswordForm() {
             <Input
               id="password"
               type="password"
+              maxLength={128}
               placeholder="••••••••"
               className={errors.password ? 'border-red-500 focus:ring-red-500' : ''}
               {...register('password')}
@@ -260,6 +262,7 @@ function ResetPasswordForm() {
             <Input
               id="confirmPassword"
               type="password"
+              maxLength={128}
               placeholder="••••••••"
               className={errors.confirmPassword ? 'border-red-500 focus:ring-red-500' : ''}
               {...register('confirmPassword')}

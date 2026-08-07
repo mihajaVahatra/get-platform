@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 const forgotSchema = z.object({
-  email: z.string().email('Email invalide'),
+  email: z.string().email('Email invalide').max(254),
 });
 
 type ForgotForm = z.infer<typeof forgotSchema>;
@@ -77,6 +77,7 @@ export default function ForgotPasswordPage() {
             <Input
               id="email"
               type="email"
+              maxLength={254}
               placeholder="jean.rakoto@email.com"
               className={errors.email ? 'border-red-500 focus:ring-red-500' : ''}
               {...register('email')}

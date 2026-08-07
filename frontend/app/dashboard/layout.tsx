@@ -42,6 +42,7 @@ import {
   X,
 } from 'lucide-react';
 import { AvatarUpload } from '@/components/AvatarUpload';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { apiClient } from '@/lib/api-client';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 import { Logo } from '@/components/Logo';
@@ -324,6 +325,7 @@ export default function DashboardLayout({
               displayName={
                 displayName === 'Étudiant' ? 'Administrateur' : displayName
               }
+              gender={user?.gender}
               onLogout={logout}
               unreadMessages={unreadMessages}
               mobileOpen={mobileMenuOpen}
@@ -748,6 +750,7 @@ function TeacherSidebar({
 function SchoolSidebar({
   pathname,
   displayName,
+  gender,
   onLogout,
   unreadMessages,
   mobileOpen,
@@ -755,6 +758,7 @@ function SchoolSidebar({
 }: {
   pathname: string;
   displayName: string;
+  gender?: string;
   onLogout: () => void;
   unreadMessages: number;
   mobileOpen: boolean;
@@ -827,9 +831,7 @@ function SchoolSidebar({
         <Logo variant="lockup" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
-        <span className="grid size-10 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
-          {displayName.slice(0, 1)}
-        </span>
+        <DefaultAvatar gender={gender} size={40} />
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">{displayName}</p>
           <p className="text-[11px] text-slate-500">Administrateur</p>
@@ -876,9 +878,7 @@ function SchoolSidebar({
           </div>
         </div>
         <div className="hidden items-center gap-2 border-t border-slate-100 pt-3 lg:flex">
-          <span className="grid size-9 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-            {displayName.slice(0, 1)}
-          </span>
+          <DefaultAvatar gender={gender} size={36} />
           <div className="min-w-0">
             <p className="truncate text-xs font-bold">{displayName}</p>
             <p className="text-[10px] text-slate-500">Administrateur</p>

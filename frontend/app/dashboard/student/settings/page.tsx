@@ -169,6 +169,7 @@ function SecurityTab() {
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
+            maxLength={128}
             required
           />
         </label>
@@ -181,6 +182,7 @@ function SecurityTab() {
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
             minLength={8}
+            maxLength={128}
             required
           />
         </label>
@@ -193,6 +195,7 @@ function SecurityTab() {
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
             minLength={8}
+            maxLength={128}
             required
           />
         </label>

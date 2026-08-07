@@ -541,6 +541,7 @@ function ComposeDialog({
               onChange={(event) => setRecipientEmail(event.target.value)}
               placeholder="enrolled@test.com"
               required
+              maxLength={254}
               className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
@@ -551,6 +552,7 @@ function ComposeDialog({
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
               placeholder="Ex. Question sur le cours"
+              maxLength={200}
               className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
