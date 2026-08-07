@@ -1,0 +1,76 @@
+version: '3.8'
+
+# Stack n8n locale, alignée sur l'architecture cible (n8n + PostgreSQL,
+# cf. docs/n8n/02-preparation-infrastructure.md). Elle rejoint le réseau
+# docker déjà créé par le docker-compose.yml principal pour réutiliser le
+# conteneur get-db (base "n8n" dédiée, créée séparément — voir le doc) sans
+# dupliquer d'infra. Le stack principal (postgres/redis/minio) doit donc
+# déjà tourner : docker compose up -d avant de démarrer n8n.
+#
+# Démarrage : docker compose -f docker-compose.n8n.yml --env-file .env --env-file .env.n8n up -d
+# Arrêt      : docker compose -f docker-compose.n8n.yml --env-file .env --env-file .env.n8n down
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: get-n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      # NB: n8n v2.x a retiré N8N_BASIC_AUTH_* pour l'éditeur (remplacé par
+      # un compte "owner" créé au premier lancement, cf. .env.n8n). Ces deux
+      # variables restent sans effet sur l'UI mais sont conservées pour
+      # référence si un downgrade de version est envisagé.
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:?N8N_USER must be set}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:?N8N_PASSWORD must be set}
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: Indian/Antananarivo
+      N8N_SECURE_COOKIE: "false"
+      # n8n bloque $env dans les expressions de nœud par défaut. Acceptable
+      # ici (instance 127.0.0.1 uniquement) ; une vraie instance partagée
+      # devrait plutôt stocker INTEGRATION_API_KEY comme Credential n8n
+      # (httpHeaderAuth) au lieu d'une expression $env dans le JSON du
+      # workflow — voir docs/n8n/03-connecteurs-get.md.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Base dédiée "n8n" dans le conteneur get-db existant (pas de nouvel
+      # engin à opérer), avec un rôle Postgres propre à n8n (n8n_service) —
+      # volontairement distinct de get_user pour ne pas dépendre de son mot
+      # de passe (voir docs/n8n/02-preparation-infrastructure.md, une
+      # incohérence a été repérée entre les .env et get_user en base réelle).
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n_service
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?N8N_DB_PASSWORD must be set}
+      # Consommés par les workflows via $env.* dans les nœuds HTTP Request
+      # (voir n8n/workflows/get-application-incomplete-reminder.json).
+      INTEGRATION_API_KEY: ${N8N_INTEGRATION_API_KEY:?N8N_INTEGRATION_API_KEY must be set}
+      GET_BACKEND_URL: ${GET_BACKEND_URL:?GET_BACKEND_URL must be set}
+      # Vérifié par le nœud IF du workflow GET-STUDENT-WELCOME-EMAIL avant
+      # d'appeler le backend — rejette les appels au webhook entrant qui ne
+      # viennent pas de AuthService.notifyN8n (voir .env.n8n).
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?N8N_WEBHOOK_SECRET must be set}
+    volumes:
+      # Ne conserve plus que la config n8n (clé de chiffrement des
+      # credentials, etc.) — les workflows/exécutions vivent désormais dans
+      # postgres_data (volume du docker-compose.yml principal).
+      - n8n_config:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro,Z
+    # Le backend NestJS tourne sur l'hôte (npm run start:dev), pas dans
+    # docker. host.docker.internal ne se résout pas nativement sur Docker
+    # Engine Linux (contrairement à Docker Desktop) sans cet ajout explicite.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: get-poc_default
+    external: true
+
+volumes:
+  n8n_config:

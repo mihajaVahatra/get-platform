@@ -1,0 +1,103 @@
+{
+  "id": "b2f3c4d5-0002-4b2b-9b2b-000000000000",
+  "name": "GET-APPLICATION-INCOMPLETE-REMINDER",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "b2f3c4d5-0002-4b2b-9b2b-000000000001",
+      "name": "Tous les jours à 7h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {},
+      "id": "b2f3c4d5-0002-4b2b-9b2b-000000000006",
+      "name": "Exécution manuelle (test)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 480]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/applications/pending-reminder",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "staleDays", "value": "3" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2f3c4d5-0002-4b2b-9b2b-000000000002",
+      "name": "Lister les candidatures à relancer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 390]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "b2f3c4d5-0002-4b2b-9b2b-000000000003",
+      "name": "Une candidature par exécution",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 390]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/applications/{{ $json.applicationId }}/reminder",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2f3c4d5-0002-4b2b-9b2b-000000000004",
+      "name": "Envoyer le rappel (endpoint existant)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [950, 390]
+    }
+  ],
+  "connections": {
+    "Tous les jours à 7h": {
+      "main": [[{ "node": "Lister les candidatures à relancer", "type": "main", "index": 0 }]]
+    },
+    "Exécution manuelle (test)": {
+      "main": [[{ "node": "Lister les candidatures à relancer", "type": "main", "index": 0 }]]
+    },
+    "Lister les candidatures à relancer": {
+      "main": [[{ "node": "Une candidature par exécution", "type": "main", "index": 0 }]]
+    },
+    "Une candidature par exécution": {
+      "main": [[{ "node": "Envoyer le rappel (endpoint existant)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

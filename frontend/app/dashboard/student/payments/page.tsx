@@ -386,19 +386,31 @@ function StudentPaymentsContent() {
 
       {/* Filtre */}
       <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-600">Filtrer :</label>
-        <select
+        <label className="text-sm text-muted-foreground">Filtrer :</label>
+        <Select
+          items={[
+            { value: 'ALL', label: 'Tous' },
+            { value: 'PENDING', label: 'En attente' },
+            { value: 'PROCESSING', label: 'En cours' },
+            { value: 'COMPLETED', label: 'Réussis' },
+            { value: 'FAILED', label: 'Échoués' },
+            { value: 'REFUNDED', label: 'Remboursés' },
+          ]}
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm"
+          onValueChange={(value) => setFilter(value ?? 'ALL')}
         >
-          <option value="ALL">Tous</option>
-          <option value="PENDING">En attente</option>
-          <option value="PROCESSING">En cours</option>
-          <option value="COMPLETED">Réussis</option>
-          <option value="FAILED">Échoués</option>
-          <option value="REFUNDED">Remboursés</option>
-        </select>
+          <SelectTrigger size="sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tous</SelectItem>
+            <SelectItem value="PENDING">En attente</SelectItem>
+            <SelectItem value="PROCESSING">En cours</SelectItem>
+            <SelectItem value="COMPLETED">Réussis</SelectItem>
+            <SelectItem value="FAILED">Échoués</SelectItem>
+            <SelectItem value="REFUNDED">Remboursés</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Liste des paiements */}

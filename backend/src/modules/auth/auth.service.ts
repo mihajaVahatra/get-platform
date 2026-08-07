@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -70,6 +71,8 @@ export class AuthService {
         role: true,
       },
     });
+
+    this.notifyN8n('student-created', 'student.created', user.id);
 
     const tokens = this.generateTokens(
       user.id,
@@ -293,6 +296,39 @@ export class AuthService {
   }
 
   // ========== PRIVATE HELPERS ==========
+
+  /**
+   * Best-effort : notifie n8n d'un événement métier via webhook. N8N_WEBHOOK_BASE_URL
+   * non défini = no-op silencieux (n8n non déployé, CI, prod avant décision
+   * d'hébergement — voir docs/n8n/02-preparation-infrastructure.md). Ne doit
+   * JAMAIS faire échouer l'appelant : intentionnellement non-awaited.
+   */
+  private notifyN8n(webhookPath: string, eventType: string, entityId: string): void {
+    const baseUrl = this.config.get<string>('N8N_WEBHOOK_BASE_URL');
+    if (!baseUrl) return;
+
+    const payload = {
+      eventId: randomUUID(),
+      eventType,
+      occurredAt: new Date().toISOString(),
+      entityId,
+      source: 'get-backend',
+    };
+
+    const secret = this.config.get<string>('N8N_WEBHOOK_SECRET');
+
+    fetch(`${baseUrl}/webhook/${webhookPath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(secret ? { 'x-webhook-secret': secret } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(3000),
+    }).catch((err) => {
+      console.error(`[n8n webhook] ${eventType} non délivré :`, err.message);
+    });
+  }
 
   private extractUserInfo(user: any) {
     const roleName = user.role?.name || 'STUDENT';

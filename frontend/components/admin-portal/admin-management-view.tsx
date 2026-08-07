@@ -6,6 +6,13 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { MfaSettingsCard } from '@/components/auth/MfaSettingsCard';
 import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Building,
   CalendarDays,
   ChevronRight,
@@ -373,21 +380,29 @@ function EnrollmentsDirectory() {
               placeholder="Rechercher un étudiant..."
             />
           </label>
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
+          <UiSelect
+            items={[
+              { value: 'ALL', label: 'Tous les statuts' },
+              ...APPLICATION_STATUS_OPTIONS.map(([value, label]) => ({ value, label })),
+            ]}
+            value={status || 'ALL'}
+            onValueChange={(value) => {
+              setStatus(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
-            <option value="">Tous les statuts</option>
-            {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous les statuts</SelectItem>
+              {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </UiSelect>
         </div>
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">
@@ -519,20 +534,31 @@ function TransactionsDirectory() {
       />
       <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="mb-6 flex flex-wrap gap-3">
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
+          <UiSelect
+            items={[
+              { value: 'ALL', label: 'Tous les statuts' },
+              { value: 'COMPLETED', label: 'Réussie' },
+              { value: 'PENDING', label: 'En attente' },
+              { value: 'FAILED', label: 'Échouée' },
+              { value: 'REFUNDED', label: 'Remboursée' },
+            ]}
+            value={status || 'ALL'}
+            onValueChange={(value) => {
+              setStatus(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
-            <option value="">Tous les statuts</option>
-            <option value="COMPLETED">Réussie</option>
-            <option value="PENDING">En attente</option>
-            <option value="FAILED">Échouée</option>
-            <option value="REFUNDED">Remboursée</option>
-          </select>
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous les statuts</SelectItem>
+              <SelectItem value="COMPLETED">Réussie</SelectItem>
+              <SelectItem value="PENDING">En attente</SelectItem>
+              <SelectItem value="FAILED">Échouée</SelectItem>
+              <SelectItem value="REFUNDED">Remboursée</SelectItem>
+            </SelectContent>
+          </UiSelect>
         </div>
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">
@@ -677,21 +703,33 @@ function UsersDirectory() {
               placeholder="Rechercher un email..."
             />
           </label>
-          <select
-            value={roleName}
-            onChange={(event) => {
-              setRoleName(event.target.value);
+          <UiSelect
+            items={[
+              { value: 'ALL', label: 'Tous les rôles' },
+              { value: 'ADMIN_GET', label: 'Admin GET' },
+              { value: 'SCHOOL_ADMIN', label: 'Admin école' },
+              { value: 'TEACHER', label: 'Professeur' },
+              { value: 'STUDENT', label: 'Étudiant' },
+              { value: 'MINISTRY', label: 'Ministère' },
+            ]}
+            value={roleName || 'ALL'}
+            onValueChange={(value) => {
+              setRoleName(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
-            <option value="">Tous les rôles</option>
-            <option value="ADMIN_GET">Admin GET</option>
-            <option value="SCHOOL_ADMIN">Admin école</option>
-            <option value="TEACHER">Professeur</option>
-            <option value="STUDENT">Étudiant</option>
-            <option value="MINISTRY">Ministère</option>
-          </select>
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tous les rôles</SelectItem>
+              <SelectItem value="ADMIN_GET">Admin GET</SelectItem>
+              <SelectItem value="SCHOOL_ADMIN">Admin école</SelectItem>
+              <SelectItem value="TEACHER">Professeur</SelectItem>
+              <SelectItem value="STUDENT">Étudiant</SelectItem>
+              <SelectItem value="MINISTRY">Ministère</SelectItem>
+            </SelectContent>
+          </UiSelect>
         </div>
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">
@@ -1077,21 +1115,23 @@ function Select({
   options?: string[];
 }) {
   return (
-    <label>
+    <div>
       <span className="mb-1.5 block text-xs font-bold text-[#34406b]">
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-500"
-      >
-        <option>Sélectionnez une option</option>
-        {options.map((option) => (
-          <option key={option}>{option}</option>
-        ))}
-      </select>
-    </label>
+      <UiSelect value={value} onValueChange={(next) => onChange?.(next ?? '')}>
+        <SelectTrigger className="h-10 w-full text-xs text-slate-500">
+          <SelectValue placeholder="Sélectionnez une option" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </UiSelect>
+    </div>
   );
 }
 function Footer({

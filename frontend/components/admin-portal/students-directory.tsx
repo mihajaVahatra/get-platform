@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight, Search, UsersRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type Student = {
   id: string;
@@ -89,21 +96,29 @@ export function StudentsDirectory() {
               placeholder="Rechercher un étudiant..."
             />
           </label>
-          <select
-            value={schoolId}
-            onChange={(event) => {
-              setSchoolId(event.target.value);
+          <Select
+            items={[
+              { value: 'ALL', label: 'Toutes les écoles' },
+              ...schools.map((school) => ({ value: school.id, label: school.name })),
+            ]}
+            value={schoolId || 'ALL'}
+            onValueChange={(value) => {
+              setSchoolId(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
           >
-            <option value="">Toutes les écoles</option>
-            {schools.map((school) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes les écoles</SelectItem>
+              {schools.map((school) => (
+                <SelectItem key={school.id} value={school.id}>
+                  {school.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">

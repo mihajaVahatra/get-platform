@@ -36,6 +36,13 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TeacherAssignments } from './teacher-assignments';
 import { TeacherSchedule } from './teacher-schedule';
 import { TeacherAvailabilityManager } from './teacher-availability';
@@ -300,23 +307,31 @@ function Courses() {
       subtitle="Gérez et consultez tous les cours que vous enseignez."
     >
       {schools.length > 1 && (
-        <label className="mb-4 block max-w-sm">
+        <div className="mb-4 block max-w-sm">
           <span className="mb-1 block text-xs font-bold text-[#34406b]">
             Établissement
           </span>
-          <select
-            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
+          <Select
+            items={[
+              { value: 'all', label: 'Tous les établissements' },
+              ...schools.map(({ school }) => ({ value: school.id, label: school.name })),
+            ]}
             value={selectedSchoolId}
-            onChange={(event) => setSelectedSchoolId(event.target.value)}
+            onValueChange={(value) => setSelectedSchoolId(value ?? 'all')}
           >
-            <option value="all">Tous les établissements</option>
-            {schools.map(({ school }) => (
-              <option key={school.id} value={school.id}>
-                {school.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger className="h-10 w-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les établissements</SelectItem>
+              {schools.map(({ school }) => (
+                <SelectItem key={school.id} value={school.id}>
+                  {school.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
       <label className="relative mb-4 block">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1098,19 +1113,23 @@ function CourseContent({
                   type="file"
                 />
               </label>
-              <label className="text-xs font-bold text-[#34406b]">
+              <div className="text-xs font-bold text-[#34406b]">
                 Type
-                <select
-                  className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 font-normal outline-none focus:border-indigo-500"
+                <Select
                   value={resourceType}
-                  onChange={(event) => setResourceType(event.target.value)}
+                  onValueChange={(value) => setResourceType(value ?? 'PDF')}
                 >
-                  <option value="PDF">PDF</option>
-                  <option value="Lien">Lien</option>
-                  <option value="Vidéo">Vidéo</option>
-                  <option value="Document">Document</option>
-                </select>
-              </label>
+                  <SelectTrigger className="mt-1 h-10 w-full font-normal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PDF">PDF</SelectItem>
+                    <SelectItem value="Lien">Lien</SelectItem>
+                    <SelectItem value="Vidéo">Vidéo</SelectItem>
+                    <SelectItem value="Document">Document</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <button
@@ -1205,19 +1224,23 @@ function CourseContent({
                   value={editingResourceUrl}
                 />
               </label>
-              <label className="text-xs font-bold text-[#34406b]">
+              <div className="text-xs font-bold text-[#34406b]">
                 Type
-                <select
-                  className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 font-normal outline-none focus:border-indigo-500"
-                  onChange={(event) => setEditingResourceType(event.target.value)}
+                <Select
                   value={editingResourceType}
+                  onValueChange={(value) => setEditingResourceType(value ?? 'PDF')}
                 >
-                  <option value="PDF">PDF</option>
-                  <option value="Lien">Lien</option>
-                  <option value="Vidéo">Vidéo</option>
-                  <option value="Document">Document</option>
-                </select>
-              </label>
+                  <SelectTrigger className="mt-1 h-10 w-full font-normal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PDF">PDF</SelectItem>
+                    <SelectItem value="Lien">Lien</SelectItem>
+                    <SelectItem value="Vidéo">Vidéo</SelectItem>
+                    <SelectItem value="Document">Document</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <button
@@ -1622,22 +1645,30 @@ function Students() {
       ) : (
         <div className="space-y-5">
           <div className="flex max-w-xl flex-wrap items-end gap-3">
-            <label className="min-w-60 flex-1">
+            <div className="min-w-60 flex-1">
               <span className="mb-1 block text-xs font-bold text-[#34406b]">
                 Cours
               </span>
-              <select
-                className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
+              <Select
+                items={courses.map((course) => ({
+                  value: course.id,
+                  label: `${course.title} · ${course.school.name}`,
+                }))}
                 value={selectedCourseId}
-                onChange={(event) => setSelectedCourseId(event.target.value)}
+                onValueChange={(value) => setSelectedCourseId(value ?? '')}
               >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title} · {course.school.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger className="h-10 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title} · {course.school.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {selectedCourseId && (
               <Link
                 href={`/dashboard/teacher?view=course-detail&courseId=${selectedCourseId}&tab=students`}
@@ -1716,20 +1747,28 @@ function CourseSelect({
   onChange: (courseId: string) => void;
 }) {
   return (
-    <label className="block max-w-xl">
+    <div className="block max-w-xl">
       <span className="mb-1 block text-xs font-bold text-[#34406b]">Cours</span>
-      <select
-        className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
+      <Select
+        items={courses.map((course) => ({
+          value: course.id,
+          label: `${course.title} · ${course.school.name}`,
+        }))}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onValueChange={(next) => onChange(next ?? '')}
       >
-        {courses.map((course) => (
-          <option key={course.id} value={course.id}>
-            {course.title} · {course.school.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger className="h-10 w-full text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {courses.map((course) => (
+            <SelectItem key={course.id} value={course.id}>
+              {course.title} · {course.school.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -2259,22 +2298,30 @@ function GradeBook({ courseId }: { courseId: string }) {
 
   return (
     <div className="space-y-5">
-      <label className="block max-w-xl">
+      <div className="block max-w-xl">
         <span className="mb-1 block text-xs font-bold text-[#34406b]">
           Évaluation
         </span>
-        <select
-          className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
+        <Select
+          items={evaluations.map((evaluation) => ({
+            value: evaluation.id,
+            label: `${evaluation.title} · ${evaluation.type}`,
+          }))}
           value={selectedEvaluationId}
-          onChange={(event) => setSelectedEvaluationId(event.target.value)}
+          onValueChange={(value) => setSelectedEvaluationId(value ?? '')}
         >
-          {evaluations.map((evaluation) => (
-            <option key={evaluation.id} value={evaluation.id}>
-              {evaluation.title} · {evaluation.type}
-            </option>
-          ))}
-        </select>
-      </label>
+          <SelectTrigger className="h-10 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {evaluations.map((evaluation) => (
+              <SelectItem key={evaluation.id} value={evaluation.id}>
+                {evaluation.title} · {evaluation.type}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Card title="Saisie des notes">
         <p className="mb-4 text-xs text-muted-foreground">
           Chaque note est enregistrée lorsque vous quittez son champ.
@@ -2616,20 +2663,28 @@ function Announcements() {
             </p>
           ) : (
             <form className="space-y-3" onSubmit={submitAnnouncement}>
-              <label className="block text-xs font-bold text-foreground">
+              <div className="block text-xs font-bold text-foreground">
                 Cours destinataire
-                <select
-                  className="mt-1.5 h-9 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
-                  onChange={(event) => setCourseId(event.target.value)}
+                <Select
+                  items={courses.map((course) => ({
+                    value: course.id,
+                    label: `${course.title} · ${course.school.name}`,
+                  }))}
                   value={courseId}
+                  onValueChange={(value) => setCourseId(value ?? '')}
                 >
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title} · {course.school.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <SelectTrigger className="mt-1.5 h-9 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.title} · {course.school.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <label className="block text-xs font-bold text-foreground">
                 Titre
                 <input

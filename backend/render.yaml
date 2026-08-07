@@ -48,6 +48,20 @@ services:
         sync: false
       - key: PAYMENT_WEBHOOK_SECRET
         sync: false
+      # Intégration n8n (voir docs/n8n/) — inutiles tant que ce QA n'est pas
+      # utilisé pour tester les workflows n8n contre un backend déployé.
+      # INTEGRATION_API_KEY : vérifie les appels n8n → ce backend.
+      # N8N_WEBHOOK_BASE_URL / N8N_WEBHOOK_SECRET : appels sortants de ce
+      # backend vers n8n (ex: student.created) — n'ont d'effet que si n8n
+      # est réellement joignable depuis Render (tunnel ou hébergement dédié,
+      # voir docs/n8n/02-preparation-infrastructure.md ; laisser
+      # N8N_WEBHOOK_BASE_URL vide désactive silencieusement ces appels).
+      - key: INTEGRATION_API_KEY
+        sync: false
+      - key: N8N_WEBHOOK_BASE_URL
+        sync: false
+      - key: N8N_WEBHOOK_SECRET
+        sync: false
       - key: APP_URL
         sync: false
       - key: FRONTEND_URL

@@ -235,19 +235,26 @@ function CreateClassDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="class-program">Filière (facultatif)</Label>
-              <select
-                id="class-program"
-                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                value={programId}
-                onChange={(event) => setProgramId(event.target.value)}
+              <Select
+                items={[
+                  { value: 'NONE', label: 'Aucune filière' },
+                  ...programs.map((program) => ({ value: program.id, label: program.name })),
+                ]}
+                value={programId || 'NONE'}
+                onValueChange={(value) => setProgramId(!value || value === 'NONE' ? '' : value)}
               >
-                <option value="">Aucune filière</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {program.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="class-program" className="h-9 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Aucune filière</SelectItem>
+                  {programs.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -394,18 +401,26 @@ function ClassCard({
           <div className="space-y-3 border-t border-slate-100 p-4">
             <div className="flex items-center gap-2 text-xs">
               <span className="font-bold text-slate-700">Filière</span>
-              <select
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                value={schoolClass.programId || ''}
-                onChange={(event) => void updateProgram(event.target.value)}
+              <Select
+                items={[
+                  { value: 'NONE', label: 'Aucune filière' },
+                  ...programs.map((program) => ({ value: program.id, label: program.name })),
+                ]}
+                value={schoolClass.programId || 'NONE'}
+                onValueChange={(value) => void updateProgram(!value || value === 'NONE' ? '' : value)}
               >
-                <option value="">Aucune filière</option>
-                {programs.map((program) => (
-                  <option key={program.id} value={program.id}>
-                    {program.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NONE">Aucune filière</SelectItem>
+                  {programs.map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             {schoolClass.requirements.length === 0 ? (
               <p className="text-sm text-slate-500">Aucune matière définie pour cette classe.</p>
@@ -426,22 +441,33 @@ function ClassCard({
                       </div>
                       <div className="flex items-center gap-2">
                         <UsersRound className="size-4 text-slate-400" />
-                        <select
-                          className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                          value={requirement.assignment?.teacher.id || ''}
-                          onChange={(event) =>
-                            event.target.value
-                              ? void assignTeacher(requirement.id, event.target.value)
+                        <Select
+                          items={[
+                            { value: 'NONE', label: 'Aucun professeur' },
+                            ...qualifiedTeachers.map((teacher) => ({
+                              value: teacher.teacherId,
+                              label: teacher.teacher.user.email,
+                            })),
+                          ]}
+                          value={requirement.assignment?.teacher.id || 'NONE'}
+                          onValueChange={(value) =>
+                            value && value !== 'NONE'
+                              ? void assignTeacher(requirement.id, value)
                               : void unassignTeacher(requirement.id)
                           }
                         >
-                          <option value="">Aucun professeur</option>
-                          {qualifiedTeachers.map((teacher) => (
-                            <option key={teacher.teacherId} value={teacher.teacherId}>
-                              {teacher.teacher.user.email}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NONE">Aucun professeur</SelectItem>
+                            {qualifiedTeachers.map((teacher) => (
+                              <SelectItem key={teacher.teacherId} value={teacher.teacherId}>
+                                {teacher.teacher.user.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         {qualifiedTeachers.length === 0 && (
                           <span className="text-[10px] text-amber-600">Aucun prof qualifié dans cette matière</span>
                         )}
