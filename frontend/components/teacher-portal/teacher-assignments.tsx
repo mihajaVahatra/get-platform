@@ -13,6 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type Course = {
   id: string;
@@ -246,22 +253,30 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
   return (
     <div className="space-y-5">
       {!courseId && (
-        <label className="block max-w-xl">
+        <div className="block max-w-xl">
           <span className="mb-1 block text-xs font-bold text-[#34406b]">
             Cours
           </span>
-          <select
-            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
+          <Select
+            items={courses.map((course) => ({
+              value: course.id,
+              label: `${course.title} · ${course.school.name}`,
+            }))}
             value={selectedCourseId}
-            onChange={(event) => setSelectedCourseId(event.target.value)}
+            onValueChange={(value) => setSelectedCourseId(value ?? '')}
           >
-            {courses.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.title} · {course.school.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger className="h-10 w-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {courses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>
+                  {course.title} · {course.school.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
       <Card className="p-4">
         <div className="mb-4 flex items-center justify-between gap-3">

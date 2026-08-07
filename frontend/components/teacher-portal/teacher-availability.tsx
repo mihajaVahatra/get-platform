@@ -4,6 +4,13 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
@@ -171,20 +178,21 @@ function UnavailabilitySection({
           </button>
         </div>
         {mode === 'recurring' ? (
-          <label className="text-xs font-bold text-foreground">
+          <div className="text-xs font-bold text-foreground">
             Jour
-            <select
-              value={dayOfWeek}
-              onChange={(event) => setDayOfWeek(event.target.value)}
-              className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
-            >
-              {DAYS.map((day) => (
-                <option key={day.value} value={day.value}>
-                  {day.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <Select items={DAYS} value={dayOfWeek} onValueChange={(value) => setDayOfWeek(value ?? '1')}>
+              <SelectTrigger className="mt-1.5 h-9 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS.map((day) => (
+                  <SelectItem key={day.value} value={day.value}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         ) : (
           <label className="text-xs font-bold text-foreground">
             Date
@@ -341,42 +349,52 @@ function TravelBufferSection({
       subtitle="Déclarez la marge minimale nécessaire pour vous déplacer d'un établissement à l'autre."
     >
       <form onSubmit={submit} className="mb-5 flex flex-wrap items-end gap-3 border-b border-border pb-5">
-        <label className="text-xs font-bold text-foreground">
+        <div className="text-xs font-bold text-foreground">
           École A
-          <select
-            value={schoolAId}
-            onChange={(event) => selectSchoolA(event.target.value)}
-            required
-            className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
-          >
-            <option value="">Choisir...</option>
-            {schools
+          <Select
+            items={schools
               .filter(({ school }) => school.id !== schoolBId)
-              .map(({ school }) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label className="text-xs font-bold text-foreground">
-          École B
-          <select
-            value={schoolBId}
-            onChange={(event) => selectSchoolB(event.target.value)}
-            required
-            className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
+              .map(({ school }) => ({ value: school.id, label: school.name }))}
+            value={schoolAId}
+            onValueChange={(value) => selectSchoolA(value ?? '')}
           >
-            <option value="">Choisir...</option>
-            {schools
+            <SelectTrigger className="mt-1.5 h-9 text-xs">
+              <SelectValue placeholder="Choisir..." />
+            </SelectTrigger>
+            <SelectContent>
+              {schools
+                .filter(({ school }) => school.id !== schoolBId)
+                .map(({ school }) => (
+                  <SelectItem key={school.id} value={school.id}>
+                    {school.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="text-xs font-bold text-foreground">
+          École B
+          <Select
+            items={schools
               .filter(({ school }) => school.id !== schoolAId)
-              .map(({ school }) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-          </select>
-        </label>
+              .map(({ school }) => ({ value: school.id, label: school.name }))}
+            value={schoolBId}
+            onValueChange={(value) => selectSchoolB(value ?? '')}
+          >
+            <SelectTrigger className="mt-1.5 h-9 text-xs">
+              <SelectValue placeholder="Choisir..." />
+            </SelectTrigger>
+            <SelectContent>
+              {schools
+                .filter(({ school }) => school.id !== schoolAId)
+                .map(({ school }) => (
+                  <SelectItem key={school.id} value={school.id}>
+                    {school.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
         <label className="text-xs font-bold text-foreground">
           Marge (minutes)
           <input

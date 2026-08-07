@@ -529,72 +529,111 @@ export function ScheduleBoard() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="generate-class">Classe (facultatif — sinon toute l&apos;école)</Label>
-                <select
-                  id="generate-class"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                  value={generateForm.classId}
-                  onChange={(event) =>
-                    setGenerateForm((current) => ({ ...current, classId: event.target.value }))
+                <Select
+                  items={[
+                    { value: 'ALL', label: 'Toutes les classes' },
+                    ...schoolClasses.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                  value={generateForm.classId || 'ALL'}
+                  onValueChange={(value) =>
+                    setGenerateForm((current) => ({
+                      ...current,
+                      classId: !value || value === 'ALL' ? '' : value,
+                    }))
                   }
                 >
-                  <option value="">Toutes les classes</option>
-                  {schoolClasses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="generate-class" className="h-9 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Toutes les classes</SelectItem>
+                    {schoolClasses.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="generate-subject">Matière (facultatif)</Label>
-                <select
-                  id="generate-subject"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                  value={generateForm.subjectId}
-                  onChange={(event) => selectSubject(event.target.value)}
+                <Select
+                  items={[
+                    { value: 'ALL', label: 'Toutes les matières' },
+                    ...filteredSubjects.map((subject) => ({ value: subject.id, label: subject.name })),
+                  ]}
+                  value={generateForm.subjectId || 'ALL'}
+                  onValueChange={(value) => selectSubject(!value || value === 'ALL' ? '' : value)}
                 >
-                  <option value="">Toutes les matières</option>
-                  {filteredSubjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="generate-subject" className="h-9 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Toutes les matières</SelectItem>
+                    {filteredSubjects.map((subject) => (
+                      <SelectItem key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="generate-teacher">Professeur (facultatif)</Label>
-                <select
-                  id="generate-teacher"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                  value={generateForm.teacherId}
-                  onChange={(event) => selectTeacher(event.target.value)}
+                <Select
+                  items={[
+                    { value: 'ALL', label: 'Tous les professeurs' },
+                    ...filteredTeachers.map((option) => ({
+                      value: option.teacherId,
+                      label:
+                        [option.teacher.firstName, option.teacher.lastName].filter(Boolean).join(' ') ||
+                        option.teacher.user.email,
+                    })),
+                  ]}
+                  value={generateForm.teacherId || 'ALL'}
+                  onValueChange={(value) => selectTeacher(!value || value === 'ALL' ? '' : value)}
                 >
-                  <option value="">Tous les professeurs</option>
-                  {filteredTeachers.map((option) => (
-                    <option key={option.teacherId} value={option.teacherId}>
-                      {[option.teacher.firstName, option.teacher.lastName].filter(Boolean).join(' ') ||
-                        option.teacher.user.email}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="generate-teacher" className="h-9 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Tous les professeurs</SelectItem>
+                    {filteredTeachers.map((option) => (
+                      <SelectItem key={option.teacherId} value={option.teacherId}>
+                        {[option.teacher.firstName, option.teacher.lastName].filter(Boolean).join(' ') ||
+                          option.teacher.user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="generate-room">Salle (facultatif)</Label>
-                <select
-                  id="generate-room"
-                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
-                  value={generateForm.roomId}
-                  onChange={(event) =>
-                    setGenerateForm((current) => ({ ...current, roomId: event.target.value }))
+                <Select
+                  items={[
+                    { value: 'ALL', label: 'Toutes les salles' },
+                    ...rooms.map((room) => ({ value: room.id, label: room.name })),
+                  ]}
+                  value={generateForm.roomId || 'ALL'}
+                  onValueChange={(value) =>
+                    setGenerateForm((current) => ({
+                      ...current,
+                      roomId: !value || value === 'ALL' ? '' : value,
+                    }))
                   }
                 >
-                  <option value="">Toutes les salles</option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="generate-room" className="h-9 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Toutes les salles</SelectItem>
+                    {rooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>

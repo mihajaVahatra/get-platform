@@ -14,6 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type DocumentType = 'CV' | 'LETTER' | 'ID' | 'DIPLOMA' | 'PHOTO' | 'OTHER';
 
@@ -188,22 +195,29 @@ export default function StudentDocumentsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <label className="text-xs font-bold text-[#34406b]">
+              <div className="text-xs font-bold text-[#34406b]">
                 Type de document
-                <select
-                  className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 font-normal outline-none focus:border-indigo-500"
+                <Select
+                  items={Object.entries(DOCUMENT_TYPE_LABELS).map(
+                    ([value, label]) => ({ value, label }),
+                  )}
                   value={uploadType}
-                  onChange={(event) =>
-                    setUploadType(event.target.value as DocumentType)
+                  onValueChange={(value) =>
+                    value && setUploadType(value as DocumentType)
                   }
                 >
-                  {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <SelectTrigger className="mt-1 h-10 w-full font-normal">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DOCUMENT_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <label className="text-xs font-bold text-[#34406b]">
                 Nom (facultatif)
                 <input

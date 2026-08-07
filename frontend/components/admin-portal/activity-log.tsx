@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type AuditLog = {
   id: string;
@@ -102,36 +109,52 @@ export function ActivityLog() {
       </header>
       <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="mb-5 flex flex-wrap gap-3">
-          <select
-            value={resource}
-            onChange={(event) => {
-              setResource(event.target.value);
+          <Select
+            items={[
+              { value: 'ALL', label: 'Toutes les ressources' },
+              ...Object.entries(RESOURCE_LABELS).map(([value, label]) => ({ value, label })),
+            ]}
+            value={resource || 'ALL'}
+            onValueChange={(value) => {
+              setResource(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:border-indigo-500"
           >
-            <option value="">Toutes les ressources</option>
-            {Object.entries(RESOURCE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={action}
-            onChange={(event) => {
-              setAction(event.target.value);
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes les ressources</SelectItem>
+              {Object.entries(RESOURCE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            items={[
+              { value: 'ALL', label: 'Toutes les actions' },
+              ...Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label })),
+            ]}
+            value={action || 'ALL'}
+            onValueChange={(value) => {
+              setAction(!value || value === 'ALL' ? '' : value);
               setPage(1);
             }}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-xs text-slate-600 outline-none focus:border-indigo-500"
           >
-            <option value="">Toutes les actions</option>
-            {Object.entries(ACTION_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger size="sm" className="h-10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Toutes les actions</SelectItem>
+              {Object.entries(ACTION_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {loading ? (
           <p className="py-12 text-center text-sm text-slate-500">

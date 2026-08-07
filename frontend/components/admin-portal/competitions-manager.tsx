@@ -11,6 +11,13 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type CompetitionItem = {
   id: string;
@@ -369,24 +376,25 @@ function CompetitionForm({
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
-          <label className="block text-xs font-bold text-[#34406b]">
+          <div className="block text-xs font-bold text-[#34406b]">
             Établissement
-            <select
+            <Select
+              items={schools.map((school) => ({ value: school.id, label: school.name }))}
               value={schoolId}
-              onChange={(event) => setSchoolId(event.target.value)}
-              required
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
+              onValueChange={(value) => setSchoolId(value ?? '')}
             >
-              <option value="" disabled>
-                Sélectionner un établissement
-              </option>
-              {schools.map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                <SelectValue placeholder="Sélectionner un établissement" />
+              </SelectTrigger>
+              <SelectContent>
+                {schools.map((school) => (
+                  <SelectItem key={school.id} value={school.id}>
+                    {school.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="block text-xs font-bold text-[#34406b]">
             Description
             <textarea
@@ -431,20 +439,28 @@ function CompetitionForm({
                 className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
-            <label className="block text-xs font-bold text-[#34406b]">
+            <div className="block text-xs font-bold text-[#34406b]">
               Statut
-              <select
+              <Select
+                items={Object.entries(STATUS_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
                 value={status}
-                onChange={(event) => setStatus(event.target.value)}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
+                onValueChange={(value) => setStatus(value ?? 'PLANNED')}
               >
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <button

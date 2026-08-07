@@ -3,6 +3,13 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const STAT_ICONS = [
   'ShieldCheck',
@@ -196,20 +203,24 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
       <form onSubmit={submit} className="space-y-4">
         {items.map((item, index) => (
           <div key={index} className="grid gap-3 sm:grid-cols-3">
-            <label className="block text-xs font-bold text-[#34406b]">
+            <div className="block text-xs font-bold text-[#34406b]">
               Icône
-              <select
+              <Select
                 value={item.icon}
-                onChange={(event) => update(index, { icon: event.target.value })}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
+                onValueChange={(value) => value && update(index, { icon: value })}
               >
-                {STAT_ICONS.map((icon) => (
-                  <option key={icon} value={icon}>
-                    {icon}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAT_ICONS.map((icon) => (
+                    <SelectItem key={icon} value={icon}>
+                      {icon}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <label className="block text-xs font-bold text-[#34406b]">
               Valeur
               <input
@@ -320,20 +331,24 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
       <form onSubmit={submit} className="space-y-4">
         {items.map((item, index) => (
           <div key={index} className="grid gap-3 sm:grid-cols-3">
-            <label className="block text-xs font-bold text-[#34406b]">
+            <div className="block text-xs font-bold text-[#34406b]">
               Icône
-              <select
+              <Select
                 value={item.icon}
-                onChange={(event) => update(index, { icon: event.target.value })}
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
+                onValueChange={(value) => value && update(index, { icon: value })}
               >
-                {ACTOR_ICONS.map((icon) => (
-                  <option key={icon} value={icon}>
-                    {icon}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTOR_ICONS.map((icon) => (
+                    <SelectItem key={icon} value={icon}>
+                      {icon}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <label className="block text-xs font-bold text-[#34406b]">
               Titre
               <input
