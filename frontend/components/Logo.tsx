@@ -1,10 +1,25 @@
 'use client';
 
-import { useId } from 'react';
 import { cn } from '@/lib/utils';
 
 type LogoVariant = 'mark' | 'lockup';
-type LogoTone = 'color' | 'light' | 'mono';
+type LogoTone = 'color' | 'light' | 'mono' | 'forest' | 'terracotta';
+
+/**
+ * Déclinaisons officielles de couleur (charte graphique GET, v1 · 2026).
+ * Le monogramme est fourni en un seul art (encre #1C1C1C sur fond transparent) et
+ * recoloré via `mask-image` pour respecter les déclinaisons encre / vert forêt / terre cuite / claire.
+ */
+const TONE_COLORS: Record<LogoTone, string> = {
+  color: '#1C1C1C', // encre — déclinaison par défaut
+  mono: 'currentColor',
+  light: '#ffffff',
+  forest: '#0E4D44',
+  terracotta: '#C1592A',
+};
+
+// Ratio natif de l'artwork (monogramme lemurien + wordmark "GET")
+const LOGO_ASPECT_RATIO = 281 / 248;
 
 export function Logo({
   variant = 'lockup',
@@ -17,51 +32,28 @@ export function Logo({
   size?: number;
   className?: string;
 }) {
-  const gradientId = useId();
+  const color = TONE_COLORS[tone];
+  const width = Math.round(size * LOGO_ASPECT_RATIO);
 
   const mark = (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      {tone === 'color' && (
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#4f46e5" />
-            <stop offset="1" stopColor="#2dd4bf" />
-          </linearGradient>
-        </defs>
-      )}
-      <rect
-        x="6"
-        y="6"
-        width="108"
-        height="108"
-        rx="30"
-        fill={tone === 'color' ? `url(#${gradientId})` : tone === 'light' ? '#ffffff' : 'currentColor'}
-        opacity={tone === 'light' ? 0.12 : 1}
-      />
-      <path
-        d="M84 46 A24 24 0 1 0 86 70 H60"
-        stroke={tone === 'light' ? 'currentColor' : '#ffffff'}
-        strokeWidth="10"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M74 60 l10 8 -10 8"
-        stroke={tone === 'light' ? 'currentColor' : '#ffffff'}
-        strokeWidth="10"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <span
+      role="img"
+      aria-label="GET"
+      className="inline-block shrink-0"
+      style={{
+        width,
+        height: size,
+        backgroundColor: color,
+        WebkitMaskImage: 'url(/brand/get-logo.png)',
+        maskImage: 'url(/brand/get-logo.png)',
+        WebkitMaskSize: 'contain',
+        maskSize: 'contain',
+        WebkitMaskRepeat: 'no-repeat',
+        maskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        maskPosition: 'center',
+      }}
+    />
   );
 
   if (variant === 'mark') {
@@ -71,24 +63,13 @@ export function Logo({
   return (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       {mark}
-      <span className="min-w-0">
-        <span
-          className={cn(
-            'block font-heading text-2xl leading-none tracking-tight',
-            tone === 'light' ? 'text-white' : tone === 'mono' ? 'text-current' : 'text-foreground'
-          )}
-          style={{ fontWeight: 800 }}
-        >
-          GET
-        </span>
-        <span
-          className={cn(
-            'mt-0.5 block whitespace-nowrap text-[9px] font-semibold leading-tight',
-            tone === 'light' ? 'text-white/70' : 'text-muted-foreground'
-          )}
-        >
-          Grandes Écoles de Tananarive
-        </span>
+      <span
+        className={cn(
+          'block whitespace-nowrap text-[9px] font-semibold leading-tight',
+          tone === 'light' ? 'text-white/70' : 'text-muted-foreground'
+        )}
+      >
+        Grandes Écoles de Tananarive
       </span>
     </span>
   );
