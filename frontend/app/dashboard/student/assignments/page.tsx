@@ -4,6 +4,13 @@ import { ChangeEvent, useEffect, useState } from 'react';
 import axios from 'axios';
 import { FileUp, LoaderCircle, UploadCloud } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type Course = {
   id: string;
@@ -126,20 +133,28 @@ export default function AssignmentsPage() {
         <Empty label="Vous n’êtes inscrit à aucun cours pour le moment." />
       ) : (
         <>
-          <label className="mb-5 block max-w-md text-sm font-semibold">
+          <div className="mb-5 max-w-md text-sm font-semibold">
             Cours
-            <select
+            <Select
+              items={courses.map((course) => ({
+                value: course.id,
+                label: `${course.title} · ${course.school.name}`,
+              }))}
               value={selectedCourseId}
-              onChange={(event) => setSelectedCourseId(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+              onValueChange={(value) => setSelectedCourseId(value ?? '')}
             >
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.title} · {course.school.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger className="mt-2 w-full rounded-xl">
+                <SelectValue placeholder="Sélectionner un cours" />
+              </SelectTrigger>
+              <SelectContent>
+                {courses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.title} · {course.school.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {loadingAssignments ? (
             <Loading label="Chargement des devoirs…" />

@@ -11,6 +11,13 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type PartnerItem = {
   id: string;
@@ -374,20 +381,28 @@ function PartnerForm({
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>
-          <label className="block text-xs font-bold text-[#34406b]">
+          <div className="block text-xs font-bold text-[#34406b]">
             Type de partenaire
-            <select
+            <Select
+              items={Object.entries(TYPE_LABELS).map(([value, label]) => ({
+                value,
+                label,
+              }))}
               value={type}
-              onChange={(event) => setType(event.target.value)}
-              className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
+              onValueChange={(value) => setType(value ?? 'OTHER')}
             >
-              {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <label className="block text-xs font-bold text-[#34406b]">
             Description
             <textarea

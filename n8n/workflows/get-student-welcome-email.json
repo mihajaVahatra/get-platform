@@ -1,0 +1,78 @@
+{
+  "id": "d4e5f6a7-0004-4d4d-9d4d-000000000000",
+  "name": "GET-STUDENT-WELCOME-EMAIL",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "student-created",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-4d4d-9d4d-000000000001",
+      "name": "Webhook: compte créé",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "d4e5f6a7-0004-4d4d-9d4d-000000000099"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d4e5f6a7-0004-4d4d-9d4d-000000000010",
+              "leftValue": "={{ $json.headers['x-webhook-secret'] }}",
+              "rightValue": "={{ $env.N8N_WEBHOOK_SECRET }}",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-4d4d-9d4d-000000000003",
+      "name": "Secret webhook valide ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [375, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/students/{{ $json.body.entityId }}/welcome-email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-0004-4d4d-9d4d-000000000002",
+      "name": "Envoyer le mail de bienvenue (endpoint existant)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [575, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: compte créé": {
+      "main": [[{ "node": "Secret webhook valide ?", "type": "main", "index": 0 }]]
+    },
+    "Secret webhook valide ?": {
+      "main": [
+        [{ "node": "Envoyer le mail de bienvenue (endpoint existant)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
