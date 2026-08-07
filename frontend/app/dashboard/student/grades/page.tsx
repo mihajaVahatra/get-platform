@@ -56,10 +56,10 @@ export default function StudentGradesPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-4xl text-slate-900">
+    <div className="mx-auto max-w-4xl text-foreground">
       <header className="mb-6">
         <h1 className="text-2xl font-extrabold">Mes notes</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Consultez vos évaluations et devoirs notés par cours.
         </p>
       </header>
@@ -79,24 +79,24 @@ export default function StudentGradesPage() {
             return (
               <section
                 key={course.courseId}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-2xl border border-border bg-card p-5 shadow-sm"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-extrabold">{course.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {course.code}
                     </p>
                   </div>
                   {average !== null && (
-                    <span className="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-extrabold text-indigo-700">
+                    <span className="rounded-lg bg-indigo-50 dark:bg-indigo-500/15 px-3 py-2 text-sm font-extrabold text-indigo-700 dark:text-indigo-300">
                       {average.toFixed(1)}/20
                     </span>
                   )}
                 </div>
 
                 {!hasContent ? (
-                  <p className="mt-4 text-xs text-slate-400">
+                  <p className="mt-4 text-xs text-muted-foreground">
                     Aucune note disponible pour ce cours.
                   </p>
                 ) : (
@@ -110,11 +110,11 @@ export default function StudentGradesPage() {
                           <p className="truncate font-semibold">
                             {evaluation.title}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
                             {evaluation.type} · Coef. {evaluation.coefficient}
                           </p>
                         </div>
-                        <span className="shrink-0 font-bold text-indigo-700">
+                        <span className="shrink-0 font-bold text-indigo-700 dark:text-indigo-300">
                           {evaluation.value !== null
                             ? `${evaluation.value}/20`
                             : 'En attente'}
@@ -130,11 +130,11 @@ export default function StudentGradesPage() {
                           <p className="truncate font-semibold">
                             {assignment.title}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
                             Devoir
                           </p>
                         </div>
-                        <span className="shrink-0 font-bold text-indigo-700">
+                        <span className="shrink-0 font-bold text-indigo-700 dark:text-indigo-300">
                           {assignment.grade !== null
                             ? `${assignment.grade}/20`
                             : 'En attente'}
@@ -154,7 +154,7 @@ export default function StudentGradesPage() {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 py-12 text-sm text-slate-500">
+    <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
       <LoaderCircle className="size-4 animate-spin" />
       {label}
     </div>
@@ -163,7 +163,7 @@ function Loading({ label }: { label: string }) {
 
 function Empty({ label }: { label: string }) {
   return (
-    <p className="rounded-xl bg-slate-50 p-6 text-sm text-slate-500">
+    <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">
       {label}
     </p>
   );

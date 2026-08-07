@@ -96,25 +96,25 @@ const tasks = [
     title: 'Devoir Algorithmique',
     date: 'À rendre le 15 juin 2025',
     badge: 'Urgent',
-    tone: 'bg-rose-50 text-rose-600',
+    tone: 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300',
   },
   {
     title: 'Projet Bases de Données',
     date: 'À rendre le 22 juin 2025',
     badge: 'Important',
-    tone: 'bg-orange-50 text-orange-600',
+    tone: 'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
   },
   {
     title: 'Préparer présentation Anglais',
     date: 'À rendre le 30 juin 2025',
     badge: 'À faire',
-    tone: 'bg-blue-50 text-blue-600',
+    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
   },
   {
     title: 'Réviser pour l’examen',
     date: 'Algorithmique Avancée',
     badge: 'À faire',
-    tone: 'bg-blue-50 text-blue-600',
+    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
   },
 ];
 
@@ -123,19 +123,19 @@ const courses = [
     title: 'Algorithmique Avancée',
     teacher: 'Pr. A. Andrianarison',
     grade: '15,5/20',
-    tone: 'bg-indigo-50 text-indigo-600',
+    tone: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
   },
   {
     title: 'Bases de Données',
     teacher: 'Pr. T. Ravelomanana',
     grade: '14/20',
-    tone: 'bg-emerald-50 text-emerald-600',
+    tone: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
   },
   {
     title: 'Anglais Technique',
     teacher: 'Dr. L. Rakotomalala',
     grade: '16/20',
-    tone: 'bg-blue-50 text-blue-600',
+    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
   },
 ];
 
@@ -177,7 +177,7 @@ export default function StudentDashboardPage() {
 
   if (loading) {
     return (
-      <div className="grid min-h-[50vh] place-items-center text-sm font-medium text-slate-500">
+      <div className="grid min-h-[50vh] place-items-center text-sm font-medium text-muted-foreground">
         Chargement de votre espace…
       </div>
     );
@@ -205,20 +205,20 @@ export default function StudentDashboardPage() {
             Bonjour {student?.firstName || 'Toavina'}{' '}
             <span aria-hidden="true">👋</span>
           </h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
             Bienvenue à {school}
             {year ? ` – ${year}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative hidden w-72 md:block">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               maxLength={150}
               placeholder="Rechercher..."
-              className="h-11 rounded-xl border-slate-200 bg-white pl-9 text-xs shadow-sm"
+              className="h-11 rounded-xl border-border bg-card pl-9 text-xs shadow-sm"
             />
-            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 px-1.5 py-1 text-[10px] text-indigo-500">
+            <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 dark:bg-indigo-500/15 px-1.5 py-1 text-[10px] text-indigo-500 dark:text-indigo-300">
               Ctrl K
             </kbd>
           </div>
@@ -269,7 +269,7 @@ export default function StudentDashboardPage() {
           title={
             <>
               Emploi du temps{' '}
-              <span className="font-normal text-slate-500">– Aujourd’hui</span>
+              <span className="font-normal text-muted-foreground">– Aujourd’hui</span>
             </>
           }
           action="Voir tout"
@@ -280,18 +280,18 @@ export default function StudentDashboardPage() {
                 key={item.time}
                 className="grid grid-cols-[108px_1fr_auto] items-center gap-3 py-2.5 text-xs"
               >
-                <div className="relative border-r border-slate-200 pr-3 text-indigo-700">
+                <div className="relative border-r border-border pr-3 text-indigo-700 dark:text-indigo-300">
                   <span
                     className={`absolute -right-[5px] top-1/2 size-2 rounded-full border-2 border-white ${item.active ? 'bg-indigo-600' : 'bg-slate-300'}`}
                   />
                   {item.time}
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800">{item.course}</p>
-                  <p className="mt-1 text-slate-400">{item.room}</p>
+                  <p className="font-bold text-foreground">{item.course}</p>
+                  <p className="mt-1 text-muted-foreground">{item.room}</p>
                 </div>
                 <span
-                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-indigo-50 text-indigo-600' : 'bg-indigo-50 text-indigo-500'}`}
+                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'}`}
                 >
                   {item.state}
                 </span>
@@ -305,7 +305,7 @@ export default function StudentDashboardPage() {
           title="Mes tâches"
           action="Voir toutes"
         >
-          <div className="mt-3 divide-y divide-slate-100">
+          <div className="mt-3 divide-y divide-border">
             {tasks.map((task) => (
               <div
                 key={task.title}
@@ -313,10 +313,10 @@ export default function StudentDashboardPage() {
               >
                 <CheckSquare className="size-4 shrink-0 text-slate-300" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-bold text-foreground">
                     {task.title}
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-500">{task.date}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">{task.date}</p>
                 </div>
                 <span
                   className={`rounded-full px-2 py-1 text-[10px] font-semibold ${task.tone}`}
@@ -342,21 +342,21 @@ export default function StudentDashboardPage() {
                 2025.
               </p>
             </div>
-            <div className="mt-3 divide-y divide-slate-100">
+            <div className="mt-3 divide-y divide-border">
               {[
                 'Conférence : IA et avenir',
                 'Résultats examens S1',
                 'Club Robotique',
               ].map((news, index) => (
                 <div key={news} className="flex items-center gap-3 py-2">
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500 dark:text-indigo-300">
                     <Sparkles className="size-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold text-slate-800">
+                    <p className="truncate text-xs font-bold text-foreground">
                       {news}
                     </p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-muted-foreground">
                       {index === 0
                         ? '06 juin 2025'
                         : index === 1
@@ -365,7 +365,7 @@ export default function StudentDashboardPage() {
                     </p>
                   </div>
                   {index < 2 && (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-muted-foreground">
                       {index === 0 ? '06 juin' : '04 juin'}
                     </span>
                   )}
@@ -426,7 +426,7 @@ export default function StudentDashboardPage() {
           </Widget>
           <div className="grid gap-4 lg:grid-cols-2">
             <Widget title="Mes cours" action="Voir tout">
-              <div className="mt-3 divide-y divide-slate-100">
+              <div className="mt-3 divide-y divide-border">
                 {courses.map((course) => (
                   <div
                     key={course.title}
@@ -438,14 +438,14 @@ export default function StudentDashboardPage() {
                       <BookOpen className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-800">
+                      <p className="text-xs font-bold text-foreground">
                         {course.title}
                       </p>
-                      <p className="mt-1 text-[11px] text-slate-500">
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         {course.teacher}
                       </p>
                     </div>
-                    <span className="text-sm font-extrabold text-indigo-600">
+                    <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-300">
                       {course.grade}
                     </span>
                   </div>
@@ -454,26 +454,26 @@ export default function StudentDashboardPage() {
             </Widget>
             <Widget title="Finances" action="Voir tout">
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-xl bg-emerald-50 p-4">
-                  <p className="text-[11px] text-slate-500">Solde actuel</p>
-                  <p className="mt-2 text-xl font-extrabold text-emerald-600">
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/15 p-4">
+                  <p className="text-[11px] text-muted-foreground">Solde actuel</p>
+                  <p className="mt-2 text-xl font-extrabold text-emerald-600 dark:text-emerald-300">
                     125 000 Ar
                   </p>
-                  <span className="mt-2 inline-block rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-600">
+                  <span className="mt-2 inline-block rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
                     ● Disponible
                   </span>
                 </div>
                 <div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-muted-foreground">
                     Prochain paiement
                   </p>
-                  <p className="mt-2 text-xs font-bold text-slate-700">
+                  <p className="mt-2 text-xs font-bold text-foreground">
                     Frais de scolarité S2
                   </p>
-                  <p className="mt-2 text-lg font-extrabold text-emerald-600">
+                  <p className="mt-2 text-lg font-extrabold text-emerald-600 dark:text-emerald-300">
                     350 000 Ar
                   </p>
-                  <p className="mt-2 text-[10px] text-slate-500">
+                  <p className="mt-2 text-[10px] text-muted-foreground">
                     À payer avant le 30 juin 2025
                   </p>
                   <Link
@@ -493,24 +493,24 @@ export default function StudentDashboardPage() {
           title="Événements à venir"
           action="Voir tout"
         >
-          <div className="mt-3 divide-y divide-slate-100">
+          <div className="mt-3 divide-y divide-border">
             {events.map((event) => (
               <div key={event.title} className="flex items-center gap-3 py-3">
-                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
                   <span className="text-[9px] font-bold">{event.month}</span>
                   <span className="text-lg font-extrabold leading-4">
                     {event.day}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-xs font-bold text-foreground">
                     {event.title}
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-500">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     {event.detail}
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-slate-500">
+                <span className="text-xs font-semibold text-muted-foreground">
                   {event.time}
                 </span>
               </div>
@@ -518,20 +518,20 @@ export default function StudentDashboardPage() {
           </div>
           <Link
             href="/dashboard/student?section=events"
-            className="mt-3 flex items-center justify-center rounded-lg bg-indigo-50 py-2 text-xs font-bold text-indigo-600"
+            className="mt-3 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-300"
           >
             Voir tous les événements
           </Link>
         </Widget>
       </section>
 
-      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-indigo-50 to-teal-50 px-4 py-3 text-xs text-indigo-700">
+      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-indigo-50 to-teal-50 px-4 py-3 text-xs text-indigo-700 dark:text-indigo-300">
         <Bell className="size-4 shrink-0" />
         <p>
           <span className="font-bold">Astuce GET :</span> Active les
           notifications pour ne rien manquer de tes cours et événements !
         </p>
-        <button className="ml-auto text-slate-400">×</button>
+        <button className="ml-auto text-muted-foreground">×</button>
       </div>
     </div>
   );
@@ -618,13 +618,13 @@ function CandidateDashboard({ student }: { student: Student }) {
     <div className="mx-auto max-w-[1280px] space-y-5 text-[#111a4b]">
       <header className="flex flex-wrap items-center justify-between gap-4 pb-2">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">
             Espace candidat
           </p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-[28px]">
             Bonjour {student.firstName} 👋
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Ton parcours d’études commence ici. Trouve la formation qui te
             ressemble.
           </p>
@@ -654,7 +654,7 @@ function CandidateDashboard({ student }: { student: Student }) {
             </p>
             <Link
               href="/dashboard/student/offers"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-card px-4 py-3 text-sm font-bold text-indigo-700 dark:text-indigo-300 transition hover:bg-indigo-50 dark:bg-indigo-500/15"
             >
               Rechercher une formation <ArrowRight className="size-4" />
             </Link>
@@ -707,17 +707,17 @@ function CandidateDashboard({ student }: { student: Student }) {
         />
       </section>
 
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)] sm:p-6">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)] sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">
               Les étapes de ton parcours
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Avance à ton rythme : tout se fait en ligne.
             </p>
           </div>
-          <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600">
+          <span className="rounded-full bg-indigo-50 dark:bg-indigo-500/15 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-300">
             {doneCount} / {steps.length} terminées
           </span>
         </div>
@@ -726,10 +726,10 @@ function CandidateDashboard({ student }: { student: Student }) {
             <Link
               key={step.title}
               href={step.href}
-              className={`group relative rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${step.done ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-slate-100 hover:border-indigo-200'}`}
+              className={`group relative rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${step.done ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300' : 'border-border hover:border-indigo-200'}`}
             >
               <span
-                className={`grid size-10 place-items-center rounded-xl ${step.done ? 'bg-emerald-100 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}
+                className={`grid size-10 place-items-center rounded-xl ${step.done ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'}`}
               >
                 {step.done ? (
                   <CircleCheck className="size-5" />
@@ -738,17 +738,17 @@ function CandidateDashboard({ student }: { student: Student }) {
                 )}
               </span>
               <span
-                className={`absolute right-4 top-4 grid size-6 place-items-center rounded-full border text-[10px] font-bold ${step.done ? 'border-emerald-300 text-emerald-600' : 'border-slate-200 text-slate-500'}`}
+                className={`absolute right-4 top-4 grid size-6 place-items-center rounded-full border text-[10px] font-bold ${step.done ? 'border-emerald-300 text-emerald-600 dark:text-emerald-300' : 'border-border text-muted-foreground'}`}
               >
                 {index + 1}
               </span>
-              <h3 className="mt-4 text-sm font-extrabold text-slate-800">
+              <h3 className="mt-4 text-sm font-extrabold text-foreground">
                 {step.title}
               </h3>
-              <p className="mt-2 text-xs leading-5 text-slate-500">
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
                 {step.text}
               </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-600">
+              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-300">
                 {step.done ? 'Terminé — revoir' : 'Commencer'}{' '}
                 <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
               </span>
@@ -758,11 +758,11 @@ function CandidateDashboard({ student }: { student: Student }) {
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
           <h2 className="text-sm font-extrabold">Dernières formations publiées</h2>
           <div className="mt-4 space-y-3">
             {recentOffers.length === 0 ? (
-              <p className="rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+              <p className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">
                 Aucune formation disponible pour le moment.
               </p>
             ) : (
@@ -770,20 +770,20 @@ function CandidateDashboard({ student }: { student: Student }) {
                 <Link
                   href="/dashboard/student/offers"
                   key={offer.id}
-                  className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition hover:bg-indigo-50"
+                  className="flex items-center gap-3 rounded-xl bg-muted p-3 transition hover:bg-indigo-50 dark:bg-indigo-500/15"
                 >
-                  <span className="grid size-10 place-items-center rounded-lg bg-white text-indigo-600 shadow-sm">
+                  <span className="grid size-10 place-items-center rounded-lg bg-card text-indigo-600 dark:text-indigo-300 shadow-sm">
                     <BookOpen className="size-4" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <b className="block truncate text-xs text-slate-800">
+                    <b className="block truncate text-xs text-foreground">
                       {offer.title}
                     </b>
-                    <small className="block truncate text-[11px] text-slate-500">
+                    <small className="block truncate text-[11px] text-muted-foreground">
                       {offer.school.name} · {offer.school.city}
                     </small>
                   </span>
-                  <span className="text-[10px] font-bold text-indigo-600">
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-300">
                     {offer.diploma}
                   </span>
                 </Link>
@@ -791,23 +791,23 @@ function CandidateDashboard({ student }: { student: Student }) {
             )}
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
           <h2 className="text-sm font-extrabold">Besoin d’aide ?</h2>
-          <p className="mt-2 text-xs leading-5 text-slate-500">
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
             Notre guide t’accompagne pour choisir une formation et préparer ton
             dossier.
           </p>
-          <div className="mt-5 rounded-xl bg-indigo-50 p-4">
-            <MapPin className="size-5 text-indigo-600" />
-            <p className="mt-3 text-sm font-bold text-slate-800">
+          <div className="mt-5 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 p-4">
+            <MapPin className="size-5 text-indigo-600 dark:text-indigo-300" />
+            <p className="mt-3 text-sm font-bold text-foreground">
               Trouve une école près de chez toi
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Explore les établissements par ville et par filière.
             </p>
             <Link
               href="/dashboard/student/offers"
-              className="mt-4 inline-flex text-xs font-bold text-indigo-600"
+              className="mt-4 inline-flex text-xs font-bold text-indigo-600 dark:text-indigo-300"
             >
               Voir la carte des établissements →
             </Link>
@@ -836,23 +836,23 @@ function CandidateCard({
   href: string;
 }) {
   const tones = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    blue: 'bg-blue-50 text-blue-500',
-    green: 'bg-emerald-50 text-emerald-600',
+    indigo: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+    blue: 'bg-blue-50 dark:bg-blue-500/15 text-blue-500 dark:text-blue-300',
+    green: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
   };
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
       <span
         className={`grid size-11 place-items-center rounded-xl ${tones[tone]}`}
       >
         <Icon className="size-5" />
       </span>
-      <p className="mt-4 text-xs font-bold text-slate-500">{title}</p>
+      <p className="mt-4 text-xs font-bold text-muted-foreground">{title}</p>
       <h2 className="mt-1 text-lg font-extrabold text-[#111a4b]">{value}</h2>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">{text}</p>
       <Link
         href={href}
-        className="mt-4 inline-flex text-xs font-bold text-indigo-600"
+        className="mt-4 inline-flex text-xs font-bold text-indigo-600 dark:text-indigo-300"
       >
         {action} →
       </Link>
@@ -878,19 +878,19 @@ function StatWidget({
   progress?: string;
 }) {
   const styles = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    orange: 'bg-orange-50 text-orange-500',
-    blue: 'bg-blue-50 text-blue-500',
+    indigo: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+    green: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+    orange: 'bg-orange-50 dark:bg-orange-500/15 text-orange-500 dark:text-orange-300',
+    blue: 'bg-blue-50 dark:bg-blue-500/15 text-blue-500 dark:text-blue-300',
   };
   const valueStyles = {
-    indigo: 'text-indigo-600',
-    green: 'text-emerald-600',
-    orange: 'text-orange-500',
-    blue: 'text-blue-500',
+    indigo: 'text-indigo-600 dark:text-indigo-300',
+    green: 'text-emerald-600 dark:text-emerald-300',
+    orange: 'text-orange-500 dark:text-orange-300',
+    blue: 'text-blue-500 dark:text-blue-300',
   };
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
       <div className="flex gap-4">
         <span
           className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${styles[tone]}`}
@@ -898,7 +898,7 @@ function StatWidget({
           <Icon className="size-6" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-bold text-slate-700">{title}</p>
+          <p className="text-xs font-bold text-foreground">{title}</p>
           <p
             className={`mt-1 text-[28px] font-extrabold leading-8 ${valueStyles[tone]}`}
           >
@@ -913,7 +913,7 @@ function StatWidget({
               />
             </div>
           )}
-          <p className="mt-2 text-[11px] text-slate-500">{hint}</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>
         </div>
       </div>
     </div>
@@ -933,12 +933,12 @@ function Widget({
 }) {
   return (
     <section
-      className={`rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)] ${className}`}
+      className={`rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)] ${className}`}
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold text-[#111a4b]">{title}</h2>
         {action && (
-          <button className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700">
+          <button className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:text-indigo-300">
             {action}
           </button>
         )}
@@ -962,23 +962,23 @@ function QuickAction({
   href: string;
 }) {
   const styles = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    orange: 'bg-orange-50 text-orange-500',
-    rose: 'bg-rose-50 text-rose-500',
-    blue: 'bg-blue-50 text-blue-500',
+    indigo: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+    green: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+    orange: 'bg-orange-50 dark:bg-orange-500/15 text-orange-500 dark:text-orange-300',
+    rose: 'bg-rose-50 dark:bg-rose-500/15 text-rose-500 dark:text-rose-300',
+    blue: 'bg-blue-50 dark:bg-blue-500/15 text-blue-500 dark:text-blue-300',
   };
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 rounded-xl p-2 transition hover:bg-slate-50"
+      className="flex items-center gap-2 rounded-xl p-2 transition hover:bg-muted"
     >
       <span
         className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${styles[tone]}`}
       >
         <Icon className="size-4" />
       </span>
-      <span className="text-[11px] font-bold leading-4 text-slate-600">
+      <span className="text-[11px] font-bold leading-4 text-muted-foreground">
         {label}
         <br />
         {detail}

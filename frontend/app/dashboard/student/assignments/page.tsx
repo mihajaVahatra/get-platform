@@ -106,16 +106,16 @@ export default function AssignmentsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl text-slate-900">
+    <div className="mx-auto max-w-5xl text-foreground">
       <header className="mb-6">
         <h1 className="text-2xl font-extrabold">Mes devoirs</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Déposez ou remplacez votre travail tant qu’il n’a pas été noté.
         </p>
       </header>
 
       {message && (
-        <p className="mb-4 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+        <p className="mb-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 px-4 py-3 text-sm text-indigo-800">
           {message}
         </p>
       )}
@@ -131,7 +131,7 @@ export default function AssignmentsPage() {
             <select
               value={selectedCourseId}
               onChange={(event) => setSelectedCourseId(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+              className="mt-2 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
             >
               {courses.map((course) => (
                 <option key={course.id} value={course.id}>
@@ -155,19 +155,19 @@ export default function AssignmentsPage() {
                 return (
                   <article
                     key={assignment.id}
-                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                    className="rounded-2xl border border-border bg-card p-5 shadow-sm"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h2 className="font-bold">{assignment.title}</h2>
                         {assignment.instructions && (
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
                             {assignment.instructions}
                           </p>
                         )}
                         {assignment.dueAt && (
                           <p
-                            className={`mt-3 text-xs font-semibold ${isLate ? 'text-orange-600' : 'text-slate-500'}`}
+                            className={`mt-3 text-xs font-semibold ${isLate ? 'text-orange-600 dark:text-orange-300' : 'text-muted-foreground'}`}
                           >
                             À rendre le{' '}
                             {new Date(assignment.dueAt).toLocaleString('fr-FR')}
@@ -177,7 +177,7 @@ export default function AssignmentsPage() {
                       </div>
                       <div className="shrink-0">
                         {isGraded ? (
-                          <span className="inline-flex rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+                          <span className="inline-flex rounded-lg bg-emerald-50 dark:bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                             Noté : {assignment.submission?.grade}/20
                           </span>
                         ) : (
@@ -204,7 +204,7 @@ export default function AssignmentsPage() {
                           </label>
                         )}
                         {assignment.submission && !isGraded && (
-                          <p className="mt-2 text-right text-xs text-slate-500">
+                          <p className="mt-2 text-right text-xs text-muted-foreground">
                             Déposé le{' '}
                             {new Date(
                               assignment.submission.submittedAt,
@@ -226,7 +226,7 @@ export default function AssignmentsPage() {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 py-12 text-sm text-slate-500">
+    <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
       <LoaderCircle className="size-4 animate-spin" />
       {label}
     </div>
@@ -234,5 +234,5 @@ function Loading({ label }: { label: string }) {
 }
 
 function Empty({ label }: { label: string }) {
-  return <p className="rounded-xl bg-slate-50 p-6 text-sm text-slate-500">{label}</p>;
+  return <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">{label}</p>;
 }

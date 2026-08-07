@@ -101,8 +101,8 @@ export function AvatarUpload({
         )}
 
         {/* Overlay flottant en bas à droite */}
-        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg border-2 border-white/20 group-hover:bg-gray-100 transition-colors">
-          <Camera className="h-5 w-5 text-purple-600" />
+        <div className="absolute bottom-0 right-0 bg-card rounded-full p-1.5 shadow-lg border-2 border-white/20 group-hover:bg-gray-100 transition-colors">
+          <Camera className="h-5 w-5 text-purple-600 dark:text-purple-300" />
         </div>
 
         {/* Tooltip au hover */}

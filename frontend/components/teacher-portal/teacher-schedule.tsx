@@ -64,30 +64,30 @@ export function TeacherSchedule() {
     <Card>
       <CardContent className="p-5">
         {loading ? (
-          <p className="py-12 text-center text-sm text-slate-500">
+          <p className="py-12 text-center text-sm text-muted-foreground">
             Chargement du planning…
           </p>
         ) : failed ? (
-          <div className="py-12 text-center text-sm text-rose-700">
+          <div className="py-12 text-center text-sm text-rose-700 dark:text-rose-300">
             <p>Le planning n’a pas pu être chargé.</p>
             <button
-              className="mt-3 text-xs font-bold text-indigo-600"
+              className="mt-3 text-xs font-bold text-indigo-600 dark:text-indigo-300"
               onClick={() => void loadSchedule()}
             >
               Réessayer
             </button>
           </div>
         ) : slots.length === 0 ? (
-          <div className="py-12 text-center text-slate-500">
+          <div className="py-12 text-center text-muted-foreground">
             <CalendarDaysIcon className="mx-auto size-8" />
             <p className="mt-3 text-sm">Aucun créneau planifié.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <div className="grid min-w-[900px] grid-cols-7 divide-x rounded-lg border border-slate-200">
+            <div className="grid min-w-[900px] grid-cols-7 divide-x rounded-lg border border-border">
               {DAYS.map((day) => (
-                <section key={day.value} className="min-h-80 bg-white">
-                  <h2 className="border-b bg-slate-50 px-3 py-3 text-center text-xs font-bold text-[#28315e]">
+                <section key={day.value} className="min-h-80 bg-card">
+                  <h2 className="border-b bg-muted px-3 py-3 text-center text-xs font-bold text-[#28315e]">
                     {day.label}
                   </h2>
                   <div className="space-y-2 p-2">
@@ -96,7 +96,7 @@ export function TeacherSchedule() {
                       .map((slot) => (
                         <article
                           key={slot.id}
-                          className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"
+                          className="rounded-lg border border-indigo-100 bg-indigo-50 dark:bg-indigo-500/15 p-3 text-xs text-indigo-950"
                         >
                           <p className="font-extrabold">
                             {slot.startTime} – {slot.endTime}
@@ -104,8 +104,8 @@ export function TeacherSchedule() {
                           <p className="mt-2 font-semibold">
                             {slot.course.code} · {slot.course.title}
                           </p>
-                          <p className="mt-1 text-indigo-700">{slot.room}</p>
-                          <p className="mt-2 rounded bg-white/70 px-2 py-1 text-[10px] font-bold text-indigo-700">
+                          <p className="mt-1 text-indigo-700 dark:text-indigo-300">{slot.room}</p>
+                          <p className="mt-2 rounded bg-white/70 px-2 py-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
                             {slot.course.school.name}
                           </p>
                         </article>

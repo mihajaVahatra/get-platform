@@ -65,12 +65,12 @@ function AttachmentItem({
       className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${
         mine
           ? 'bg-indigo-700/60 text-white hover:bg-indigo-700'
-          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          : 'bg-muted text-foreground hover:bg-muted'
       }`}
     >
       <FileText className="size-4 shrink-0" />
       <span className="max-w-[160px] truncate">{attachment.fileName}</span>
-      <span className={mine ? 'text-indigo-200' : 'text-slate-400'}>
+      <span className={mine ? 'text-indigo-200' : 'text-muted-foreground'}>
         {formatFileSize(attachment.size)}
       </span>
       <Download className="size-3.5 shrink-0" />

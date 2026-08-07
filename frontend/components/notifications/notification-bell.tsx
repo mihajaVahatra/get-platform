@@ -90,7 +90,7 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
           'relative grid size-9 place-items-center rounded-lg transition',
           dark
             ? 'text-white hover:bg-white/10'
-            : 'text-[#17204e] hover:bg-slate-100',
+            : 'text-[#17204e] hover:bg-muted',
         )}
       >
         <Bell className="size-5" />
@@ -102,15 +102,15 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="w-80 max-w-[calc(100vw-2rem)] origin-(--transform-origin) rounded-2xl border border-slate-100 bg-white shadow-xl duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <Popover.Popup className="w-80 max-w-[calc(100vw-2rem)] origin-(--transform-origin) rounded-2xl border border-border bg-card shadow-xl duration-100 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <p className="text-sm font-extrabold text-[#111949]">
                 Notifications
               </p>
               {items.some((item) => !item.isRead) && (
                 <button
                   onClick={() => void markAllAsRead()}
-                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700"
+                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:text-indigo-300"
                 >
                   <CheckCheck className="size-3.5" /> Tout marquer comme lu
                 </button>
@@ -118,11 +118,11 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
             </div>
             <div className="max-h-96 overflow-y-auto">
               {loading ? (
-                <p className="p-5 text-center text-xs text-slate-500">
+                <p className="p-5 text-center text-xs text-muted-foreground">
                   Chargement...
                 </p>
               ) : items.length === 0 ? (
-                <p className="p-5 text-center text-xs text-slate-500">
+                <p className="p-5 text-center text-xs text-muted-foreground">
                   Aucune notification pour le moment.
                 </p>
               ) : (
@@ -131,7 +131,7 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
                     key={item.id}
                     onClick={() => !item.isRead && void markAsRead(item.id)}
                     className={cn(
-                      'block w-full border-b border-slate-50 px-4 py-3 text-left last:border-0 hover:bg-slate-50',
+                      'block w-full border-b border-border px-4 py-3 text-left last:border-0 hover:bg-muted',
                       !item.isRead && 'bg-indigo-50/60',
                     )}
                   >
@@ -143,10 +143,10 @@ export function NotificationBell({ dark = false }: { dark?: boolean }) {
                         <p className="text-xs font-bold text-[#111949]">
                           {item.title}
                         </p>
-                        <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">
+                        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
                           {item.body}
                         </p>
-                        <p className="mt-1 text-[10px] text-slate-400">
+                        <p className="mt-1 text-[10px] text-muted-foreground">
                           {dateOf(item.createdAt)}
                         </p>
                       </div>

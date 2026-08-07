@@ -268,7 +268,7 @@ export default function StudentOffersPage() {
                       Durée : <span className="font-medium">{offer.duration} mois</span>
                     </span>
                     <span className="text-gray-500">
-                      Frais : <span className="font-medium text-blue-600">{formatAmount(offer.tuitionFees)}</span>
+                      Frais : <span className="font-medium text-blue-600 dark:text-blue-300">{formatAmount(offer.tuitionFees)}</span>
                     </span>
                     <span className="text-gray-500">
                       Date limite : <span className="font-medium">{formatDate(offer.applicationDeadline)}</span>
@@ -277,7 +277,7 @@ export default function StudentOffersPage() {
                 </CardContent>
                 <CardFooter>
                   {hasApplied ? (
-                    <Button variant="outline" disabled className="text-green-600">
+                    <Button variant="outline" disabled className="text-green-600 dark:text-green-300">
                       ✅ Candidature soumise
                     </Button>
                   ) : (

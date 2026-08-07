@@ -271,7 +271,7 @@ function StudentApplicationsContent() {
                         {formatDate(app.submittedAt)}
                       </span>
                       {app.score !== undefined && app.score !== null && (
-                        <span className="flex items-center gap-1 text-blue-600 font-medium">
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-300 font-medium">
                           ⭐ {app.score}/100
                         </span>
                       )}
@@ -377,7 +377,7 @@ function StudentApplicationsContent() {
                   selectedApp.score !== null && (
                     <div>
                       <p className="text-gray-500">Score</p>
-                      <p className="font-medium text-blue-600">
+                      <p className="font-medium text-blue-600 dark:text-blue-300">
                         {selectedApp.score}/100
                       </p>
                     </div>
@@ -401,7 +401,7 @@ function StudentApplicationsContent() {
                         href={selectedApp.interviewLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
+                        className="text-blue-600 dark:text-blue-300 hover:underline text-sm"
                       >
                         🔗 Lien de l'entretien
                       </a>

@@ -91,8 +91,8 @@ export function MfaSettingsCard() {
 
   if (loading) {
     return (
-      <section className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-2 text-sm text-slate-500">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
           Chargement…
         </div>
@@ -101,18 +101,18 @@ export function MfaSettingsCard() {
   }
 
   return (
-    <section className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm">
+    <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="font-bold text-[#17204e]">Double authentification (MFA)</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Protège ton compte avec un code à usage unique généré par une
             application comme Google Authenticator ou Authy, en plus de ton
             mot de passe.
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${mfaEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${mfaEnabled ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-muted text-muted-foreground'}`}
         >
           {mfaEnabled ? 'Activée' : 'Désactivée'}
         </span>
@@ -134,14 +134,14 @@ export function MfaSettingsCard() {
           <img
             src={enroll.qrCode}
             alt="QR code à scanner avec votre application d'authentification"
-            className="size-40 rounded-lg border border-white bg-white p-2"
+            className="size-40 rounded-lg border border-white bg-card p-2"
           />
           <div className="min-w-0 space-y-3">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               1. Scannez ce QR code avec votre application d'authentification.
               <br />
               2. Ou saisissez la clé manuellement :{' '}
-              <code className="rounded bg-white px-1.5 py-0.5 text-xs">
+              <code className="rounded bg-card px-1.5 py-0.5 text-xs">
                 {enroll.secret}
               </code>
             </p>
@@ -153,7 +153,7 @@ export function MfaSettingsCard() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   inputMode="numeric"
                   placeholder="123456"
-                  className="mt-1 block h-10 w-40 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-indigo-500"
+                  className="mt-1 block h-10 w-40 rounded-lg border border-border px-3 text-sm outline-none focus:border-indigo-500"
                 />
               </label>
             </div>
@@ -170,7 +170,7 @@ export function MfaSettingsCard() {
                   setEnroll(null);
                   setCode('');
                 }}
-                className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500"
+                className="rounded-lg px-4 py-2 text-xs font-bold text-muted-foreground"
               >
                 Annuler
               </button>
@@ -182,7 +182,7 @@ export function MfaSettingsCard() {
       {mfaEnabled && !disableOpen && (
         <button
           onClick={() => setDisableOpen(true)}
-          className="mt-5 flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
+          className="mt-5 flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:bg-rose-500/15"
         >
           <ShieldOff className="size-4" />
           Désactiver la double authentification
@@ -191,7 +191,7 @@ export function MfaSettingsCard() {
 
       {disableOpen && (
         <div className="mt-5 space-y-3 rounded-xl border border-rose-100 bg-rose-50/40 p-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted-foreground">
             Saisissez un code de votre application pour confirmer la
             désactivation.
           </p>
@@ -200,7 +200,7 @@ export function MfaSettingsCard() {
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             inputMode="numeric"
             placeholder="123456"
-            className="block h-10 w-40 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-rose-400"
+            className="block h-10 w-40 rounded-lg border border-border px-3 text-sm outline-none focus:border-rose-400"
           />
           <div className="flex gap-2">
             <button
@@ -215,7 +215,7 @@ export function MfaSettingsCard() {
                 setDisableOpen(false);
                 setCode('');
               }}
-              className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500"
+              className="rounded-lg px-4 py-2 text-xs font-bold text-muted-foreground"
             >
               Annuler
             </button>

@@ -37,10 +37,10 @@ export default function StudentSchedulePage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl text-slate-900">
+    <div className="mx-auto max-w-6xl text-foreground">
       <header className="mb-6">
         <h1 className="text-2xl font-extrabold">Emploi du temps</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Vos créneaux hebdomadaires pour tous vos cours.
         </p>
       </header>
@@ -53,10 +53,10 @@ export default function StudentSchedulePage() {
         <Empty label="Aucun créneau planifié pour le moment." />
       ) : (
         <div className="overflow-x-auto">
-          <div className="grid min-w-[900px] grid-cols-7 divide-x rounded-lg border border-slate-200">
+          <div className="grid min-w-[900px] grid-cols-7 divide-x rounded-lg border border-border">
             {DAYS.map((day) => (
-              <section key={day.value} className="min-h-80 bg-white">
-                <h2 className="border-b bg-slate-50 px-3 py-3 text-center text-xs font-bold text-[#28315e]">
+              <section key={day.value} className="min-h-80 bg-card">
+                <h2 className="border-b bg-muted px-3 py-3 text-center text-xs font-bold text-[#28315e]">
                   {day.label}
                 </h2>
                 <div className="space-y-2 p-2">
@@ -65,7 +65,7 @@ export default function StudentSchedulePage() {
                     .map((slot) => (
                       <article
                         key={slot.id}
-                        className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-950"
+                        className="rounded-lg border border-indigo-100 bg-indigo-50 dark:bg-indigo-500/15 p-3 text-xs text-indigo-950"
                       >
                         <p className="font-extrabold">
                           {slot.startTime} – {slot.endTime}
@@ -73,7 +73,7 @@ export default function StudentSchedulePage() {
                         <p className="mt-2 font-semibold">
                           {slot.course.code} · {slot.course.title}
                         </p>
-                        <p className="mt-1 text-indigo-700">{slot.room}</p>
+                        <p className="mt-1 text-indigo-700 dark:text-indigo-300">{slot.room}</p>
                       </article>
                     ))}
                 </div>
@@ -88,7 +88,7 @@ export default function StudentSchedulePage() {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 py-12 text-sm text-slate-500">
+    <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
       <LoaderCircle className="size-4 animate-spin" />
       {label}
     </div>
@@ -97,7 +97,7 @@ function Loading({ label }: { label: string }) {
 
 function Empty({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-slate-50 py-12 text-center text-sm text-slate-500">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-muted py-12 text-center text-sm text-muted-foreground">
       <CalendarDaysIcon className="size-8" />
       {label}
     </div>

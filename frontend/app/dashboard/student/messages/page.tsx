@@ -247,7 +247,7 @@ function MessagesPageContent() {
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold">Messages</h1>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Vos discussions privées avec les étudiants et les services GET.
           </p>
         </div>
@@ -259,19 +259,19 @@ function MessagesPageContent() {
           Nouveau message
         </button>
       </header>
-      <div className="grid overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_4px_18px_rgba(68,50,140,0.05)] md:grid-cols-[310px_1fr]">
+      <div className="grid overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_18px_rgba(68,50,140,0.05)] md:grid-cols-[310px_1fr]">
         <aside
-          className={`${selected ? 'hidden md:block' : ''} border-b border-slate-100 md:border-b-0 md:border-r`}
+          className={`${selected ? 'hidden md:block' : ''} border-b border-border md:border-b-0 md:border-r`}
         >
-          <div className="border-b border-slate-100 px-4 py-3">
+          <div className="border-b border-border px-4 py-3">
             <p className="text-xs font-extrabold">Discussions</p>
-            <p className="mt-1 text-[10px] text-slate-500">
+            <p className="mt-1 text-[10px] text-muted-foreground">
               Les messages sont regroupés par contact.
             </p>
           </div>
           <div className="max-h-[590px] overflow-y-auto">
             {loading ? (
-              <p className="p-5 text-xs text-slate-500">Chargement…</p>
+              <p className="p-5 text-xs text-muted-foreground">Chargement…</p>
             ) : conversations.length === 0 ? (
               <EmptyConversation onCompose={() => setShowCompose(true)} />
             ) : (
@@ -291,30 +291,30 @@ function MessagesPageContent() {
         >
           {selected ? (
             <>
-              <div className="flex items-center gap-3 border-b border-slate-100 p-4">
+              <div className="flex items-center gap-3 border-b border-border p-4">
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
                   aria-label="Retour aux discussions"
-                  className="-ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 md:hidden"
+                  className="-ml-1 rounded-lg p-1.5 text-muted-foreground hover:bg-muted md:hidden"
                 >
                   <ArrowLeft className="size-5" />
                 </button>
-                <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600">
+                <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-sm font-bold text-indigo-600 dark:text-indigo-300">
                   {nameOf(selected.participant)[0]?.toUpperCase()}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-extrabold">
                     {nameOf(selected.participant)}
                   </p>
-                  <p className="truncate text-[11px] text-slate-500">
+                  <p className="truncate text-[11px] text-muted-foreground">
                     {selected.participant?.email}
                   </p>
                 </div>
               </div>
               <div className="flex-1 space-y-3 overflow-y-auto bg-[#fcfcff] p-4">
                 {threadLoading ? (
-                  <p className="text-center text-xs text-slate-400">
+                  <p className="text-center text-xs text-muted-foreground">
                     Chargement de la discussion…
                   </p>
                 ) : (
@@ -329,7 +329,7 @@ function MessagesPageContent() {
               </div>
               <form
                 onSubmit={sendReply}
-                className="border-t border-slate-100 bg-white p-3"
+                className="border-t border-border bg-card p-3"
               >
                 <PendingAttachmentChips
                   files={replyFiles}
@@ -337,7 +337,7 @@ function MessagesPageContent() {
                     setReplyFiles((files) => files.filter((_, i) => i !== index))
                   }
                 />
-                <div className="flex items-end gap-1 rounded-xl border border-slate-200 bg-slate-50 p-2 focus-within:border-indigo-400">
+                <div className="flex items-end gap-1 rounded-xl border border-border bg-muted p-2 focus-within:border-indigo-400">
                   <AttachmentPickerButton
                     files={replyFiles}
                     onChange={setReplyFiles}
@@ -367,7 +367,7 @@ function MessagesPageContent() {
                     <Send className="size-4" />
                   </button>
                 </div>
-                <p className="mt-1.5 px-1 text-[10px] text-slate-400">
+                <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
                   Entrée crée une nouvelle ligne · cliquez sur l’avion pour
                   envoyer
                 </p>
@@ -376,10 +376,10 @@ function MessagesPageContent() {
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <MailOpen className="size-10 text-indigo-200" />
-              <p className="mt-3 text-sm font-bold text-slate-700">
+              <p className="mt-3 text-sm font-bold text-foreground">
                 Aucune discussion sélectionnée
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Choisissez un contact ou démarrez un nouveau message.
               </p>
             </div>
@@ -409,10 +409,10 @@ function ConversationRow({
   return (
     <button
       onClick={onClick}
-      className={`w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-indigo-50/60 ${active ? 'bg-indigo-50' : ''}`}
+      className={`w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-indigo-50/60 ${active ? 'bg-indigo-50 dark:bg-indigo-500/15' : ''}`}
     >
       <div className="flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+        <span className="flex size-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-xs font-bold text-indigo-600 dark:text-indigo-300">
           {nameOf(conversation.participant)[0]?.toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
@@ -420,7 +420,7 @@ function ConversationRow({
             <span className="truncate text-xs font-extrabold">
               {nameOf(conversation.participant)}
             </span>
-            <span className="ml-auto text-[10px] text-slate-400">
+            <span className="ml-auto text-[10px] text-muted-foreground">
               {dateOf(conversation.lastMessageAt)}
             </span>
           </span>
@@ -428,7 +428,7 @@ function ConversationRow({
             {conversation.lastMessage?.hasAttachments && (
               <Paperclip className="size-3 shrink-0 text-indigo-400" />
             )}
-            <span className="truncate text-[10px] text-slate-500">
+            <span className="truncate text-[10px] text-muted-foreground">
               {conversation.lastMessage?.body || 'Nouvelle discussion'}
             </span>
             {conversation.unreadCount > 0 && (
@@ -452,11 +452,11 @@ function MessageBubble({
   return (
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[82%] rounded-2xl px-4 py-3 ${mine ? 'rounded-br-sm bg-indigo-600 text-white' : 'rounded-bl-sm bg-white text-slate-700 shadow-sm ring-1 ring-slate-100'}`}
+        className={`max-w-[82%] rounded-2xl px-4 py-3 ${mine ? 'rounded-br-sm bg-indigo-600 text-white' : 'rounded-bl-sm bg-card text-foreground shadow-sm ring-1 ring-slate-100'}`}
       >
         {message.subject && (
           <p
-            className={`mb-1 text-[10px] font-bold ${mine ? 'text-indigo-200' : 'text-indigo-500'}`}
+            className={`mb-1 text-[10px] font-bold ${mine ? 'text-indigo-200' : 'text-indigo-500 dark:text-indigo-300'}`}
           >
             {message.subject}
           </p>
@@ -464,7 +464,7 @@ function MessageBubble({
         <p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p>
         <AttachmentGrid attachments={message.attachments || []} mine={mine} />
         <p
-          className={`mt-2 text-right text-[10px] ${mine ? 'text-indigo-200' : 'text-slate-400'}`}
+          className={`mt-2 text-right text-[10px] ${mine ? 'text-indigo-200' : 'text-muted-foreground'}`}
         >
           {dateOf(message.createdAt)}
         </p>
@@ -476,10 +476,10 @@ function EmptyConversation({ onCompose }: { onCompose: () => void }) {
   return (
     <div className="p-6 text-center">
       <MessageCircle className="mx-auto size-7 text-indigo-200" />
-      <p className="mt-2 text-xs font-bold text-slate-700">Aucune discussion</p>
+      <p className="mt-2 text-xs font-bold text-foreground">Aucune discussion</p>
       <button
         onClick={onCompose}
-        className="mt-3 text-xs font-bold text-indigo-600"
+        className="mt-3 text-xs font-bold text-indigo-600 dark:text-indigo-300"
       >
         Écrire un message
       </button>
@@ -515,25 +515,25 @@ function ComposeDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4">
       <form
         onSubmit={handleSubmit}
-        className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-5 shadow-2xl"
       >
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-extrabold">Nouvelle discussion</h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Une discussion existante sera automatiquement réutilisée.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
           >
             <X className="size-4" />
           </button>
         </div>
         <div className="mt-5 space-y-3">
-          <label className="block text-xs font-bold text-slate-700">
+          <label className="block text-xs font-bold text-foreground">
             Destinataire
             <input
               type="email"
@@ -542,21 +542,21 @@ function ComposeDialog({
               placeholder="enrolled@test.com"
               required
               maxLength={254}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
+              className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
-          <label className="block text-xs font-bold text-slate-700">
-            Objet <span className="font-normal text-slate-400">(facultatif)</span>
+          <label className="block text-xs font-bold text-foreground">
+            Objet <span className="font-normal text-muted-foreground">(facultatif)</span>
             <input
               type="text"
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
               placeholder="Ex. Question sur le cours"
               maxLength={200}
-              className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
+              className="mt-1.5 w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-indigo-400"
             />
           </label>
-          <label className="block text-xs font-bold text-slate-700">
+          <label className="block text-xs font-bold text-foreground">
             Message
             <textarea
               value={body}
@@ -564,7 +564,7 @@ function ComposeDialog({
               required
               minLength={1}
               maxLength={20000}
-              className="mt-1.5 min-h-32 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-indigo-400"
+              className="mt-1.5 min-h-32 w-full rounded-xl border border-border p-3 text-sm outline-none focus:border-indigo-400"
               placeholder="Écrivez votre message…"
             />
           </label>
@@ -585,7 +585,7 @@ function ComposeDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100"
+            className="rounded-lg px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
           >
             Annuler
           </button>
