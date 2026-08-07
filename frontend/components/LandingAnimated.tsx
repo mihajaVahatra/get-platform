@@ -44,11 +44,11 @@ const ACTOR_ICONS: Record<string, typeof GraduationCap> = { GraduationCap, Build
 const STEP_ICONS = [ClipboardCheck, Search, BookOpen, WalletCards];
 const NEWS_GRADIENTS = [
   'from-slate-700 via-slate-500 to-emerald-300',
-  'from-indigo-800 via-teal-500 to-amber-200',
-  'from-amber-700 via-orange-300 to-teal-300',
+  'from-violet-800 via-[#f0568a] to-amber-200',
+  'from-amber-700 via-orange-300 to-emerald-300',
 ];
 const ACTOR_TONES = [
-  { bg: 'bg-indigo-50', tx: 'text-indigo-600', border: 'border-indigo-100', glow: '#4f46e5' },
+  { bg: 'bg-violet-50', tx: 'text-violet-600', border: 'border-violet-100', glow: '#7c3aed' },
   { bg: 'bg-emerald-50', tx: 'text-emerald-600', border: 'border-emerald-100', glow: '#10b981' },
   { bg: 'bg-orange-50', tx: 'text-orange-500', border: 'border-orange-100', glow: '#f97316' },
   { bg: 'bg-blue-50', tx: 'text-blue-600', border: 'border-blue-100', glow: '#3b82f6' },
@@ -215,7 +215,7 @@ export default function LandingAnimated({
           <nav className="hidden items-center gap-1 lg:flex">
             {navLinks.map(([label, href]) => (
               <a key={href} href={href}
-                className="rounded-full px-3.5 py-2 text-[13.5px] font-bold text-[#4a4470] transition hover:bg-indigo-50 hover:text-indigo-600">
+                className="rounded-full px-3.5 py-2 text-[13.5px] font-bold text-[#4a4470] transition hover:bg-violet-50 hover:text-violet-600">
                 {label}
               </a>
             ))}
@@ -227,7 +227,7 @@ export default function LandingAnimated({
               whileTap={{ scale: 0.96 }}
             >
               <Link href="/auth/login"
-                className="inline-flex rounded-lg border border-indigo-200 px-4 py-2.5 text-[13px] font-bold text-indigo-700 transition hover:bg-indigo-50">
+                className="inline-flex rounded-lg border border-violet-200 px-4 py-2.5 text-[13px] font-bold text-violet-700 transition hover:bg-violet-50">
                 Se connecter
               </Link>
             </motion.div>
@@ -243,14 +243,14 @@ export default function LandingAnimated({
             <motion.div
               aria-hidden
               className="pointer-events-none absolute -right-32 -top-40 h-[520px] w-[520px] rounded-full"
-              style={{ background: 'radial-gradient(circle, rgba(45,212,191,.16), transparent 62%)' }}
+              style={{ background: 'radial-gradient(circle, rgba(255,138,91,.16), transparent 62%)' }}
               animate={{ scale: [1, 1.15, 1], x: [0, 30, 0], y: [0, 20, 0] }}
               transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div
               aria-hidden
               className="pointer-events-none absolute -left-36 top-10 h-[460px] w-[460px] rounded-full"
-              style={{ background: 'radial-gradient(circle, rgba(79,70,229,.14), transparent 62%)' }}
+              style={{ background: 'radial-gradient(circle, rgba(124,58,237,.14), transparent 62%)' }}
               animate={{ scale: [1, 1.2, 1], x: [0, -20, 0], y: [0, 30, 0] }}
               transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
             />
@@ -261,7 +261,7 @@ export default function LandingAnimated({
           <motion.div style={reduce ? undefined : { y: heroCopyY }}>
             <motion.div variants={containerStagger} initial="hidden" animate="show">
               <motion.span variants={fadeUp}
-                className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-[#4a4470] shadow-sm">
+                className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-[#4a4470] shadow-sm">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-600">
                   <motion.i className="h-1.5 w-1.5 rounded-full bg-emerald-500"
                     animate={reduce ? undefined : { opacity: [1, 0.3, 1] }}
@@ -278,7 +278,7 @@ export default function LandingAnimated({
                     {i === 0 ? (
                       line
                     ) : (
-                      <span className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-teal-400 bg-clip-text text-transparent">
+                      <span className="bg-gradient-to-r from-violet-600 via-violet-500 to-[#ff8a5b] bg-clip-text text-transparent">
                         {line}
                       </span>
                     )}
@@ -299,14 +299,14 @@ export default function LandingAnimated({
                 </MagneticButton>
                 <motion.div whileHover={reduce ? undefined : { y: -2 }} whileTap={{ scale: 0.98 }}>
                   <Link href="/auth/register"
-                    className="inline-flex items-center gap-2 rounded-[10px] border border-indigo-200 bg-white px-6 py-3.5 text-[15px] font-bold text-indigo-700 transition hover:bg-indigo-50">
+                    className="inline-flex items-center gap-2 rounded-[10px] border border-violet-200 bg-white px-6 py-3.5 text-[15px] font-bold text-violet-700 transition hover:bg-violet-50">
                     <Building2 className="size-[18px]" />
                     Je suis une école
                   </Link>
                 </motion.div>
               </motion.div>
 
-              <motion.div variants={fadeUp} className="mt-10 flex flex-wrap gap-7 border-t border-indigo-100 pt-6">
+              <motion.div variants={fadeUp} className="mt-10 flex flex-wrap gap-7 border-t border-violet-100 pt-6">
                 {[
                   [ShieldCheck, '100% en ligne', 'Accessible partout'],
                   [BadgeCheck, 'Sécurisé & fiable', 'Données protégées'],
@@ -315,7 +315,7 @@ export default function LandingAnimated({
                   const I = Icon as typeof ShieldCheck;
                   return (
                     <div key={title as string} className="flex items-start gap-3">
-                      <span className="grid size-[38px] place-items-center rounded-[11px] bg-indigo-50 text-indigo-600">
+                      <span className="grid size-[38px] place-items-center rounded-[11px] bg-violet-50 text-violet-600">
                         <I className="size-[19px]" />
                       </span>
                       <div>
@@ -337,7 +337,7 @@ export default function LandingAnimated({
             transition={{ type: 'spring', stiffness: 60, damping: 18, delay: 0.15 }}
           >
             <motion.div
-              className="relative h-[520px] overflow-hidden rounded-[36px] border-[6px] border-white bg-[#e9eaff] shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+              className="relative h-[520px] overflow-hidden rounded-[36px] border-[6px] border-white bg-[#efe7ff] shadow-[0_30px_60px_rgba(76,29,149,.18)]"
               style={reduce ? undefined : { y: heroImageY }}
             >
               <Image
@@ -349,11 +349,11 @@ export default function LandingAnimated({
                 className="object-cover object-center"
                 sizes="(max-width: 1023px) 90vw, 620px"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#21185d]/25 via-transparent to-white/10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#2a1065]/25 via-transparent to-white/10" />
             </motion.div>
 
             <motion.div
-              className="absolute -left-6 top-7 flex items-center gap-3 rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+              className="absolute -left-6 top-7 flex items-center gap-3 rounded-[20px] border border-slate-100 bg-white p-3.5 shadow-[0_30px_60px_rgba(76,29,149,.18)]"
               initial={reduce ? undefined : { opacity: 0, x: -30 }}
               animate={reduce ? undefined : { opacity: 1, x: 0, y: [0, -10, 0] }}
               transition={{
@@ -371,7 +371,7 @@ export default function LandingAnimated({
             </motion.div>
 
             <motion.div
-              className="absolute right-[-22px] top-[150px] flex items-center gap-2.5 rounded-[20px] bg-gradient-to-r from-indigo-600 to-teal-400 p-3.5 text-white shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+              className="absolute right-[-22px] top-[150px] flex items-center gap-2.5 rounded-[20px] bg-gradient-to-r from-violet-600 to-[#ff8a5b] p-3.5 text-white shadow-[0_30px_60px_rgba(76,29,149,.18)]"
               initial={reduce ? undefined : { opacity: 0, scale: 0.6 }}
               animate={reduce ? undefined : { opacity: 1, scale: 1, y: [0, 12, 0] }}
               transition={{
@@ -384,12 +384,12 @@ export default function LandingAnimated({
             </motion.div>
 
             <motion.div
-              className="absolute inset-x-6 -bottom-6 flex items-center gap-3.5 rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+              className="absolute inset-x-6 -bottom-6 flex items-center gap-3.5 rounded-[20px] border border-slate-100 bg-white p-4 shadow-[0_30px_60px_rgba(76,29,149,.18)]"
               initial={reduce ? undefined : { opacity: 0, y: 30 }}
               animate={reduce ? undefined : { opacity: 1, y: 0 }}
               transition={{ delay: 1.1, type: 'spring', stiffness: 80, damping: 16 }}
             >
-              <span className="grid size-[46px] shrink-0 place-items-center rounded-full bg-indigo-50 text-indigo-600">
+              <span className="grid size-[46px] shrink-0 place-items-center rounded-full bg-violet-50 text-violet-600">
                 <GraduationCap className="size-[22px]" />
               </span>
               <div>
@@ -406,7 +406,7 @@ export default function LandingAnimated({
         <Reveal className="mx-auto max-w-[640px] text-center">
           <SectionEyebrow>Pourquoi choisir GET</SectionEyebrow>
           <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-            Une plateforme pensée pour <span className="text-indigo-600">tous les acteurs</span>
+            Une plateforme pensée pour <span className="text-violet-600">tous les acteurs</span>
           </h2>
           <p className="mt-3.5 text-[16px] text-[#56618a]">
             GET connecte étudiants, établissements, partenaires financiers et le ministère dans un écosystème
@@ -453,7 +453,7 @@ export default function LandingAnimated({
           <Reveal className="mx-auto max-w-[640px] text-center">
             <SectionEyebrow>Comment ça marche</SectionEyebrow>
             <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-              Un parcours simple en <span className="text-indigo-600">4 étapes</span>
+              Un parcours simple en <span className="text-violet-600">4 étapes</span>
             </h2>
           </Reveal>
 
@@ -471,12 +471,12 @@ export default function LandingAnimated({
                   {i < config.steps.length - 1 && (
                     <div className="absolute left-11 top-[15px] hidden h-0.5 w-[calc(100%-1rem)] bg-[repeating-linear-gradient(90deg,#e0e7ff_0_6px,transparent_6px_12px)] lg:block" />
                   )}
-                  <span className="grid size-[30px] place-items-center rounded-full bg-gradient-to-r from-indigo-600 to-teal-400 font-heading text-[13px] font-extrabold text-white shadow-[0_8px_18px_-6px_rgba(79,70,229,.6)]">
+                  <span className="grid size-[30px] place-items-center rounded-full bg-gradient-to-r from-violet-600 to-[#ff8a5b] font-heading text-[13px] font-extrabold text-white shadow-[0_8px_18px_-6px_rgba(124,58,237,.6)]">
                     {i + 1}
                   </span>
                   <motion.span
                     whileHover={reduce ? undefined : { rotate: -8, scale: 1.06 }}
-                    className="my-4 grid size-14 place-items-center rounded-[18px] border border-slate-100 bg-white text-indigo-600 shadow-sm"
+                    className="my-4 grid size-14 place-items-center rounded-[18px] border border-slate-100 bg-white text-violet-600 shadow-sm"
                   >
                     <Icon className="size-[26px]" />
                   </motion.span>
@@ -488,7 +488,7 @@ export default function LandingAnimated({
           </motion.div>
 
           <Reveal amount={0.4}>
-            <div className="relative mt-16 grid gap-6 overflow-hidden rounded-[36px] bg-gradient-to-r from-indigo-700 via-indigo-600 to-teal-500 px-10 py-11 shadow-[0_30px_60px_rgba(69,49,170,.18)] sm:grid-cols-2 lg:grid-cols-4">
+            <div className="relative mt-16 grid gap-6 overflow-hidden rounded-[36px] bg-gradient-to-r from-violet-700 via-violet-600 to-[#ff8a5b] px-10 py-11 shadow-[0_30px_60px_rgba(76,29,149,.18)] sm:grid-cols-2 lg:grid-cols-4">
               <div className="pointer-events-none absolute -right-10 -top-16 size-56 rounded-full bg-white/10" />
               {config.stats.map((stat) => (
                 <div key={stat.label} className="relative flex items-center gap-3.5">
@@ -537,7 +537,7 @@ export default function LandingAnimated({
           </Reveal>
 
           <Reveal variants={fadeInRight}>
-            <TiltCard className="overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-[0_30px_60px_rgba(69,49,170,.18)]">
+            <TiltCard className="overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-[0_30px_60px_rgba(76,29,149,.18)]">
               <StudentMock />
             </TiltCard>
           </Reveal>
@@ -548,12 +548,12 @@ export default function LandingAnimated({
       <section className="mx-auto max-w-[1200px] px-6 pb-24">
         <Reveal>
           <div className="relative overflow-hidden rounded-[36px] border border-slate-100 bg-white px-8 py-12 text-center shadow-sm">
-            <span className="absolute left-8 top-2 font-heading text-[120px] leading-none text-indigo-50">&ldquo;</span>
+            <span className="absolute left-8 top-2 font-heading text-[120px] leading-none text-violet-50">&ldquo;</span>
             <blockquote className="relative mx-auto max-w-[20ch] font-heading text-[clamp(20px,3vw,28px)] font-bold leading-snug tracking-tight">
-              J&apos;ai postulé à <span className="text-indigo-600">5 écoles en une soirée.</span> Trois réponses en une semaine. GET a tout changé.
+              J&apos;ai postulé à <span className="text-violet-600">5 écoles en une soirée.</span> Trois réponses en une semaine. GET a tout changé.
             </blockquote>
             <div className="mt-6 flex items-center justify-center gap-3">
-              <span className="grid size-[46px] place-items-center rounded-full bg-gradient-to-r from-indigo-600 to-teal-400 font-bold text-white">TR</span>
+              <span className="grid size-[46px] place-items-center rounded-full bg-gradient-to-r from-violet-600 to-[#ff8a5b] font-bold text-white">TR</span>
               <div className="text-left">
                 <p className="text-[14px] font-extrabold">Tantely R.</p>
                 <p className="text-[12px] text-[#78819a]">Étudiante en L1 · promotion 2025</p>
@@ -570,7 +570,7 @@ export default function LandingAnimated({
             <div>
               <SectionEyebrow>Actualités</SectionEyebrow>
               <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-                Reste <span className="text-indigo-600">informé</span>
+                Reste <span className="text-violet-600">informé</span>
               </h2>
             </div>
           </Reveal>
@@ -593,7 +593,7 @@ export default function LandingAnimated({
                   <img src={item.imageUrl} alt="" className="h-40 w-full object-cover" />
                 ) : (
                   <div className={`h-40 bg-gradient-to-br p-3.5 ${NEWS_GRADIENTS[index % NEWS_GRADIENTS.length]}`}>
-                    <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-indigo-700">
+                    <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-violet-700">
                       {item.type}
                     </span>
                   </div>
@@ -617,7 +617,7 @@ export default function LandingAnimated({
         <Reveal className="mx-auto max-w-[640px] text-center">
           <SectionEyebrow>Nos partenaires</SectionEyebrow>
           <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-            Ils nous font <span className="text-indigo-600">confiance</span>
+            Ils nous font <span className="text-violet-600">confiance</span>
           </h2>
         </Reveal>
         {!hasPartners ? (
@@ -635,7 +635,7 @@ export default function LandingAnimated({
         <Reveal amount={0.4}>
           <motion.div
             whileHover={reduce ? undefined : { scale: 1.005 }}
-            className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-indigo-700 via-indigo-600 to-teal-500 px-12 py-16 text-center shadow-[0_30px_60px_rgba(69,49,170,.18)]"
+            className="relative overflow-hidden rounded-[36px] bg-gradient-to-r from-violet-700 via-violet-600 to-[#ff8a5b] px-12 py-16 text-center shadow-[0_30px_60px_rgba(76,29,149,.18)]"
           >
             <motion.div
               aria-hidden
@@ -655,7 +655,7 @@ export default function LandingAnimated({
             <div className="relative mt-8 flex flex-wrap justify-center gap-3">
               <motion.div whileHover={reduce ? undefined : { y: -2 }} whileTap={{ scale: 0.97 }}>
                 <Link href="/auth/register"
-                  className="inline-flex items-center gap-2 rounded-[10px] bg-white px-6 py-3.5 text-[15px] font-bold text-indigo-700">
+                  className="inline-flex items-center gap-2 rounded-[10px] bg-white px-6 py-3.5 text-[15px] font-bold text-violet-700">
                   <UserRound className="size-[18px]" />
                   Créer mon compte gratuitement
                 </Link>
@@ -680,17 +680,17 @@ export default function LandingAnimated({
           <div>
             <h4 className="text-[13px] font-extrabold">Contact</h4>
             <ul className="mt-4 space-y-2.5 text-[13.5px] text-[#56618a]">
-              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-indigo-600">☎</span>+261 34 12 345 67</li>
-              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-indigo-600">✉</span>contact@get.mg</li>
-              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-indigo-600">📍</span>Antananarivo, Madagascar</li>
+              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">☎</span>+261 34 12 345 67</li>
+              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">✉</span>contact@get.mg</li>
+              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">📍</span>Antananarivo, Madagascar</li>
             </ul>
           </div>
         </div>
         <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-3 border-t border-slate-100 px-6 py-5 text-[12.5px] text-[#78819a]">
           <span>© 2025 GET — Tous droits réservés.</span>
           <span className="flex gap-5">
-            <a href="#" className="hover:text-indigo-600">Conditions d&apos;utilisation</a>
-            <a href="#" className="hover:text-indigo-600">Politique de confidentialité</a>
+            <a href="#" className="hover:text-violet-600">Conditions d&apos;utilisation</a>
+            <a href="#" className="hover:text-violet-600">Politique de confidentialité</a>
           </span>
         </div>
       </footer>
@@ -728,7 +728,7 @@ function MagneticButton({
       onMouseLeave={leave}
       whileTap={{ scale: 0.96 }}
       style={reduce ? undefined : { x: sx, y: sy }}
-      className={`inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-r from-indigo-600 to-teal-400 font-bold text-white shadow-[0_10px_24px_-8px_rgba(79,70,229,.55)] ${
+      className={`inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-r from-violet-600 to-[#ff8a5b] font-bold text-white shadow-[0_10px_24px_-8px_rgba(124,58,237,.55)] ${
         large ? 'px-6 py-3.5 text-[15px]' : 'px-4 py-2.5 text-[13px]'
       } ${className ?? ''}`}
     >
@@ -739,7 +739,7 @@ function MagneticButton({
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-indigo-600">
+    <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3.5 py-1.5 text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-violet-600">
       {children}
     </span>
   );
@@ -765,7 +765,7 @@ function FooterCol({ title, links }: { title: string; links: string[] }) {
       <h4 className="text-[13px] font-extrabold">{title}</h4>
       <ul className="mt-4 space-y-2.5">
         {links.map((l) => (
-          <li key={l}><a href="#" className="text-[13.5px] text-[#56618a] transition hover:text-indigo-600">{l}</a></li>
+          <li key={l}><a href="#" className="text-[13.5px] text-[#56618a] transition hover:text-violet-600">{l}</a></li>
         ))}
       </ul>
     </div>
@@ -805,7 +805,7 @@ function PartnerLogo({ item }: { item: PartnerItem }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.logoUrl} alt={item.name} className="h-12 w-full object-contain" />
       ) : (
-        <span className="grid size-12 place-items-center rounded-full bg-indigo-50 text-sm font-black text-indigo-600">{item.name.slice(0, 1).toUpperCase()}</span>
+        <span className="grid size-12 place-items-center rounded-full bg-violet-50 text-sm font-black text-violet-600">{item.name.slice(0, 1).toUpperCase()}</span>
       )}
       <p className="line-clamp-2 text-[11px] font-bold text-[#28315e]">{item.name}</p>
     </div>
@@ -823,13 +823,13 @@ function StudentMock() {
         <span className="ml-2.5 font-mono text-[11px] text-[#78819a]">app.get.mg/dashboard</span>
       </div>
       <div className="p-5">
-        <div className="mb-4 rounded-[20px] bg-gradient-to-r from-indigo-700 via-indigo-600 to-teal-500 p-[18px] text-white">
+        <div className="mb-4 rounded-[20px] bg-gradient-to-r from-violet-700 via-violet-600 to-[#ff8a5b] p-[18px] text-white">
           <p className="text-[16px] font-extrabold">Bonjour Mihaja 👋</p>
           <p className="mt-0.5 text-[11.5px] opacity-90">Voici où en est ton parcours aujourd&apos;hui.</p>
         </div>
         <div className="mb-3.5 grid grid-cols-3 gap-2.5">
           {[
-            ['3', 'Candidatures', 'bg-indigo-50', 'text-indigo-600'],
+            ['3', 'Candidatures', 'bg-violet-50', 'text-violet-600'],
             ['1', 'Admission', 'bg-emerald-50', 'text-emerald-600'],
             ['450k', 'Ar à régler', 'bg-orange-50', 'text-orange-500'],
           ].map(([v, l, bg, tx]) => (
@@ -845,7 +845,7 @@ function StudentMock() {
         {[
           ['IN', 'INSCAE — Management', 'Décision reçue', 'Accepté', 'bg-emerald-50', 'text-emerald-600'],
           ['ES', 'ESPA — Génie Logiciel', "En cours d'examen", 'En attente', 'bg-amber-50', 'text-amber-600'],
-          ['EM', 'EMIT — Réseaux', 'Concours le 14 avril', 'Concours', 'bg-indigo-50', 'text-indigo-600'],
+          ['EM', 'EMIT — Réseaux', 'Concours le 14 avril', 'Concours', 'bg-violet-50', 'text-violet-600'],
         ].map(([ini, name, sub, badge, bg, tx]) => (
           <div key={name} className="flex items-center gap-2.5 border-b border-slate-100 py-2.5 last:border-0">
             <span className={`grid size-8 shrink-0 place-items-center rounded-[9px] text-[11px] font-extrabold ${bg} ${tx}`}>{ini}</span>
