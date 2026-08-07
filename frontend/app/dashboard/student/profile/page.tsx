@@ -145,7 +145,7 @@ export default function StudentProfilePage() {
                       {...register('firstName')}
                     />
                     {errors.firstName && (
-                      <p className="text-sm text-red-500">{errors.firstName.message}</p>
+                      <p className="text-sm text-red-500 dark:text-red-300">{errors.firstName.message}</p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -156,7 +156,7 @@ export default function StudentProfilePage() {
                       {...register('lastName')}
                     />
                     {errors.lastName && (
-                      <p className="text-sm text-red-500">{errors.lastName.message}</p>
+                      <p className="text-sm text-red-500 dark:text-red-300">{errors.lastName.message}</p>
                     )}
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default function StudentProfilePage() {
               <CardFooter className="flex items-center justify-between">
                 <a
                   href="/dashboard/student/documents"
-                  className="text-sm font-medium text-indigo-600 hover:underline"
+                  className="text-sm font-medium text-indigo-600 dark:text-indigo-300 hover:underline"
                 >
                   Gérer mes documents (CV, CIN, diplôme…) →
                 </a>
@@ -283,34 +283,34 @@ export default function StudentProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="bg-blue-50 p-4 rounded-lg text-center border border-blue-100">
-                  <p className="text-2xl font-bold text-blue-600">
+                <div className="bg-blue-50 dark:bg-blue-500/15 p-4 rounded-lg text-center border border-blue-100">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-300">
                     {stats?.totalApplications || 0}
                   </p>
                   <p className="text-sm text-gray-600">Candidatures</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg text-center border border-green-100">
-                  <p className="text-2xl font-bold text-green-600">
+                <div className="bg-green-50 dark:bg-green-500/15 p-4 rounded-lg text-center border border-green-100">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-300">
                     {stats?.acceptedApplications || 0}
                   </p>
                   <p className="text-sm text-gray-600">Acceptées</p>
                 </div>
-                <div className="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-100">
-                  <p className="text-2xl font-bold text-yellow-600">
+                <div className="bg-yellow-50 dark:bg-yellow-500/15 p-4 rounded-lg text-center border border-yellow-100">
+                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-300">
                     {stats?.pendingApplications || 0}
                   </p>
                   <p className="text-sm text-gray-600">En attente</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="bg-purple-50 p-4 rounded-lg text-center border border-purple-100">
-                  <p className="text-2xl font-bold text-purple-600">
+                <div className="bg-purple-50 dark:bg-purple-500/15 p-4 rounded-lg text-center border border-purple-100">
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-300">
                     {stats?.documentsUploaded || 0}
                   </p>
                   <p className="text-sm text-gray-600">Documents</p>
                 </div>
-                <div className="bg-indigo-50 p-4 rounded-lg text-center border border-indigo-100">
-                  <p className="text-2xl font-bold text-indigo-600">
+                <div className="bg-indigo-50 dark:bg-indigo-500/15 p-4 rounded-lg text-center border border-indigo-100">
+                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
                     {stats?.profileCompletion || 0}%
                   </p>
                   <p className="text-sm text-gray-600">Profil complété</p>

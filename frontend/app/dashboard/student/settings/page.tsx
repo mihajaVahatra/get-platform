@@ -42,19 +42,19 @@ export default function StudentSettingsPage() {
   ] as const;
 
   return (
-    <div className="mx-auto max-w-3xl text-slate-900">
+    <div className="mx-auto max-w-3xl text-foreground">
       <header className="mb-6">
         <h1 className="text-2xl font-extrabold">Profil & Paramètres</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Gérez votre photo, votre sécurité et vos préférences.
         </p>
       </header>
-      <nav className="mb-5 flex gap-5 border-b border-slate-100 text-xs font-bold">
+      <nav className="mb-5 flex gap-5 border-b border-border text-xs font-bold">
         {tabs.map(([id, label]) => (
           <button
             key={id}
             type="button"
-            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-indigo-600'}`}
+            className={`whitespace-nowrap border-b-2 px-1 py-3 ${activeTab === id ? 'border-indigo-600 text-indigo-600 dark:text-indigo-300' : 'border-transparent text-muted-foreground hover:text-indigo-600 dark:text-indigo-300'}`}
             onClick={() => setActiveTab(id)}
           >
             {label}
@@ -81,18 +81,18 @@ function ProfileTab() {
   }, []);
 
   if (loading) {
-    return <p className="py-8 text-sm text-slate-500">Chargement…</p>;
+    return <p className="py-8 text-sm text-muted-foreground">Chargement…</p>;
   }
   if (!profile) {
     return (
-      <p className="rounded-xl bg-slate-50 p-6 text-sm text-slate-500">
+      <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">
         Votre profil n’a pas pu être chargé.
       </p>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col items-center text-center">
         <AvatarUpload
           currentUrl={profile.avatarUrl ?? undefined}
@@ -107,10 +107,10 @@ function ProfileTab() {
         <p className="mt-3 font-bold text-[#16204d]">
           {profile.firstName} {profile.lastName}
         </p>
-        <p className="text-xs text-slate-500">{profile.user.email}</p>
+        <p className="text-xs text-muted-foreground">{profile.user.email}</p>
         <Link
           href="/dashboard/student/profile"
-          className="mt-4 text-xs font-bold text-indigo-600 hover:underline"
+          className="mt-4 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:underline"
         >
           Modifier mes informations personnelles
         </Link>
@@ -158,14 +158,14 @@ function SecurityTab() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <h2 className="text-sm font-extrabold">Mot de passe</h2>
       <form className="mt-4 max-w-sm space-y-4" onSubmit={submit}>
-        <label className="block text-xs font-bold text-slate-700">
+        <label className="block text-xs font-bold text-foreground">
           Mot de passe actuel
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
@@ -173,11 +173,11 @@ function SecurityTab() {
             required
           />
         </label>
-        <label className="block text-xs font-bold text-slate-700">
+        <label className="block text-xs font-bold text-foreground">
           Nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
@@ -186,11 +186,11 @@ function SecurityTab() {
             required
           />
         </label>
-        <label className="block text-xs font-bold text-slate-700">
+        <label className="block text-xs font-bold text-foreground">
           Confirmer le nouveau mot de passe
           <input
             type="password"
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
@@ -199,7 +199,7 @@ function SecurityTab() {
             required
           />
         </label>
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-muted-foreground">
           Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre
           et un caractère spécial (@$!%*?&amp;).
         </p>
@@ -260,13 +260,13 @@ function PreferencesTab() {
   };
 
   if (loading) {
-    return <p className="py-8 text-sm text-slate-500">Chargement…</p>;
+    return <p className="py-8 text-sm text-muted-foreground">Chargement…</p>;
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <h2 className="text-sm font-extrabold">Apparence</h2>
-      <p className="mb-4 mt-1 text-xs text-slate-500">
+      <p className="mb-4 mt-1 text-xs text-muted-foreground">
         Choisissez l’apparence de l’application sur cet appareil.
       </p>
       <div className="flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ function PreferencesTab() {
             className={`rounded-lg border px-4 py-2 text-xs font-bold transition disabled:opacity-60 ${
               theme === option.value
                 ? 'border-indigo-600 bg-indigo-600 text-white'
-                : 'border-slate-200 text-slate-600 hover:border-indigo-200'
+                : 'border-border text-muted-foreground hover:border-indigo-200'
             }`}
             onClick={() => selectTheme(option.value)}
           >

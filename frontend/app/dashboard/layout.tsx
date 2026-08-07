@@ -219,7 +219,7 @@ export default function DashboardLayout({
 
   if (userRole === 'STUDENT') {
     return (
-      <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+      <div className="min-h-screen bg-background text-foreground lg:flex">
         <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
         {mobileMenuOpen && (
           <MobileBackdrop onClick={() => setMobileMenuOpen(false)} />
@@ -293,7 +293,7 @@ export default function DashboardLayout({
 
   if (userRole === 'SCHOOL_ADMIN' || userRole === 'TEACHER') {
     return (
-      <div className="min-h-screen bg-[#fbfbff] text-slate-900 lg:flex">
+      <div className="min-h-screen bg-background text-foreground lg:flex">
         <MobileTopBar
           onOpenMenu={() => setMobileMenuOpen(true)}
           dark={userRole === 'TEACHER'}
@@ -517,13 +517,13 @@ function MobileTopBar({
 }) {
   return (
     <header
-      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-indigo-950 text-white' : 'border-slate-100 bg-white text-[#111949]'}`}
+      className={`sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 lg:hidden ${dark ? 'border-white/10 bg-indigo-950 text-white' : 'border-border bg-card text-foreground'}`}
     >
       <Logo variant="mark" tone={dark ? 'light' : 'color'} size={32} />
       <button
         onClick={onOpenMenu}
         aria-label="Ouvrir le menu de navigation"
-        className={`grid size-9 place-items-center rounded-lg ${dark ? 'bg-white/10' : 'bg-slate-100'}`}
+        className={`grid size-9 place-items-center rounded-lg ${dark ? 'bg-white/10' : 'bg-muted'}`}
       >
         <Menu className="size-5" />
       </button>
@@ -552,7 +552,7 @@ function MobileCloseButton({
     <button
       onClick={onClick}
       aria-label="Fermer le menu"
-      className={`absolute right-3 top-3 grid size-8 place-items-center rounded-lg lg:hidden ${dark ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'}`}
+      className={`absolute right-3 top-3 grid size-8 place-items-center rounded-lg lg:hidden ${dark ? 'bg-white/10 text-white' : 'bg-muted text-muted-foreground'}`}
     >
       <X className="size-4" />
     </button>
@@ -1415,13 +1415,13 @@ function StudentSidebar({
 
   return (
     <aside
-      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-7`}
+      className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-border bg-card px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-7`}
     >
       <MobileCloseButton onClick={onMobileClose} />
       <Link href="/dashboard/student" className="mb-4 shrink-0 px-3 lg:mb-7">
         <Logo variant="lockup" size={40} />
       </Link>
-      <div className="mb-3 flex shrink-0 items-center gap-2.5 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
+      <div className="mb-3 flex shrink-0 items-center gap-2.5 rounded-xl border border-border p-2.5 shadow-sm lg:hidden">
         <AvatarUpload
           currentUrl={avatarUrl}
           endpoint="/students/me/avatar"
@@ -1434,7 +1434,7 @@ function StudentSidebar({
         />
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">{displayName}</p>
-          <p className="truncate text-[11px] text-slate-500">
+          <p className="truncate text-[11px] text-muted-foreground">
             {year || 'Étudiant inscrit'}
           </p>
         </div>
@@ -1449,7 +1449,7 @@ function StudentSidebar({
             <Link
               key={label}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-muted-foreground hover:bg-indigo-50 hover:text-indigo-700'}`}
             >
               <Icon className="size-4" />
               <span className="flex-1">{label}</span>
@@ -1463,7 +1463,7 @@ function StudentSidebar({
         })}
       </nav>
       <div className="mt-2 shrink-0 space-y-3 pt-2">
-        <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
+        <div className="hidden rounded-xl border border-border p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2.5">
             <AvatarUpload
               currentUrl={avatarUrl}
@@ -1477,7 +1477,7 @@ function StudentSidebar({
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{displayName}</p>
-              <p className="truncate text-[11px] text-slate-500">
+              <p className="truncate text-[11px] text-muted-foreground">
                 {year || 'Candidat'}
               </p>
             </div>
@@ -1494,13 +1494,13 @@ function StudentSidebar({
             <Headphones className="size-4" />
             Besoin d’aide ?
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             Centre d’aide & support
           </p>
         </div>
         <button
           onClick={onLogout}
-          className="flex w-full items-center gap-2 px-3 text-xs font-semibold text-slate-500 hover:text-rose-600"
+          className="flex w-full items-center gap-2 px-3 text-xs font-semibold text-muted-foreground hover:text-rose-600"
         >
           <LogOut className="size-4" />
           Déconnexion

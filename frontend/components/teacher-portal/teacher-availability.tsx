@@ -90,9 +90,9 @@ export function TeacherAvailabilityManager() {
 
 function SectionCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+    <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <h2 className="font-extrabold text-[#17204e]">{title}</h2>
-      <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -153,30 +153,30 @@ function UnavailabilitySection({
       title="Mes indisponibilités"
       subtitle="Déclarez les créneaux où vous ne pouvez pas enseigner, qu'ils soient récurrents ou ponctuels."
     >
-      <form onSubmit={submit} className="mb-5 flex flex-wrap items-end gap-3 border-b border-slate-100 pb-5">
+      <form onSubmit={submit} className="mb-5 flex flex-wrap items-end gap-3 border-b border-border pb-5">
         <div className="flex gap-2 text-xs font-bold">
           <button
             type="button"
             onClick={() => setMode('recurring')}
-            className={`rounded-lg px-3 py-2 ${mode === 'recurring' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+            className={`rounded-lg px-3 py-2 ${mode === 'recurring' ? 'bg-indigo-600 text-white' : 'bg-muted text-muted-foreground'}`}
           >
             Récurrent
           </button>
           <button
             type="button"
             onClick={() => setMode('exception')}
-            className={`rounded-lg px-3 py-2 ${mode === 'exception' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}
+            className={`rounded-lg px-3 py-2 ${mode === 'exception' ? 'bg-indigo-600 text-white' : 'bg-muted text-muted-foreground'}`}
           >
             Date précise
           </button>
         </div>
         {mode === 'recurring' ? (
-          <label className="text-xs font-bold text-slate-700">
+          <label className="text-xs font-bold text-foreground">
             Jour
             <select
               value={dayOfWeek}
               onChange={(event) => setDayOfWeek(event.target.value)}
-              className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
+              className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
             >
               {DAYS.map((day) => (
                 <option key={day.value} value={day.value}>
@@ -186,43 +186,43 @@ function UnavailabilitySection({
             </select>
           </label>
         ) : (
-          <label className="text-xs font-bold text-slate-700">
+          <label className="text-xs font-bold text-foreground">
             Date
             <input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
               required
-              className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
+              className="mt-1.5 h-9 rounded-lg border border-border px-2 text-xs outline-none focus:border-indigo-500"
             />
           </label>
         )}
-        <label className="text-xs font-bold text-slate-700">
+        <label className="text-xs font-bold text-foreground">
           Début
           <input
             type="time"
             value={startTime}
             onChange={(event) => setStartTime(event.target.value)}
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 rounded-lg border border-border px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="text-xs font-bold text-slate-700">
+        <label className="text-xs font-bold text-foreground">
           Fin
           <input
             type="time"
             value={endTime}
             onChange={(event) => setEndTime(event.target.value)}
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 rounded-lg border border-border px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
-        <label className="min-w-[160px] flex-1 text-xs font-bold text-slate-700">
+        <label className="min-w-[160px] flex-1 text-xs font-bold text-foreground">
           Motif (facultatif)
           <input
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Ex. Rendez-vous médical"
             maxLength={200}
-            className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 w-full rounded-lg border border-border px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <button
@@ -234,28 +234,28 @@ function UnavailabilitySection({
         </button>
       </form>
       {loading ? (
-        <p className="text-sm text-slate-500">Chargement...</p>
+        <p className="text-sm text-muted-foreground">Chargement...</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-slate-500">Aucune indisponibilité déclarée.</p>
+        <p className="text-sm text-muted-foreground">Aucune indisponibilité déclarée.</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 text-xs">
+            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs">
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-800">
+                <p className="font-bold text-foreground">
                   {item.dayOfWeek
                     ? DAYS.find((d) => Number(d.value) === item.dayOfWeek)?.label
                     : item.date && new Date(item.date).toLocaleDateString('fr-FR')}
                   {' · '}
                   {item.startTime}–{item.endTime}
                 </p>
-                {item.reason && <p className="mt-0.5 text-slate-500">{item.reason}</p>}
+                {item.reason && <p className="mt-0.5 text-muted-foreground">{item.reason}</p>}
               </div>
               <button
                 type="button"
                 aria-label="Supprimer"
                 onClick={() => void remove(item.id)}
-                className="text-slate-400 hover:text-rose-600"
+                className="text-muted-foreground hover:text-rose-600 dark:text-rose-300"
               >
                 <Trash2 className="size-4" />
               </button>
@@ -328,7 +328,7 @@ function TravelBufferSection({
         title="Temps de trajet entre mes écoles"
         subtitle="Disponible dès que vous intervenez dans au moins deux établissements."
       >
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Vous n&apos;êtes actuellement affecté qu&apos;à un seul établissement.
         </p>
       </SectionCard>
@@ -340,14 +340,14 @@ function TravelBufferSection({
       title="Temps de trajet entre mes écoles"
       subtitle="Déclarez la marge minimale nécessaire pour vous déplacer d'un établissement à l'autre."
     >
-      <form onSubmit={submit} className="mb-5 flex flex-wrap items-end gap-3 border-b border-slate-100 pb-5">
-        <label className="text-xs font-bold text-slate-700">
+      <form onSubmit={submit} className="mb-5 flex flex-wrap items-end gap-3 border-b border-border pb-5">
+        <label className="text-xs font-bold text-foreground">
           École A
           <select
             value={schoolAId}
             onChange={(event) => selectSchoolA(event.target.value)}
             required
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Choisir...</option>
             {schools
@@ -359,13 +359,13 @@ function TravelBufferSection({
               ))}
           </select>
         </label>
-        <label className="text-xs font-bold text-slate-700">
+        <label className="text-xs font-bold text-foreground">
           École B
           <select
             value={schoolBId}
             onChange={(event) => selectSchoolB(event.target.value)}
             required
-            className="mt-1.5 h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 rounded-lg border border-border bg-card px-2 text-xs outline-none focus:border-indigo-500"
           >
             <option value="">Choisir...</option>
             {schools
@@ -377,7 +377,7 @@ function TravelBufferSection({
               ))}
           </select>
         </label>
-        <label className="text-xs font-bold text-slate-700">
+        <label className="text-xs font-bold text-foreground">
           Marge (minutes)
           <input
             type="number"
@@ -385,7 +385,7 @@ function TravelBufferSection({
             max={480}
             value={minutesBuffer}
             onChange={(event) => setMinutesBuffer(event.target.value)}
-            className="mt-1.5 h-9 w-24 rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
+            className="mt-1.5 h-9 w-24 rounded-lg border border-border px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>
         <button
@@ -397,24 +397,24 @@ function TravelBufferSection({
         </button>
       </form>
       {loading ? (
-        <p className="text-sm text-slate-500">Chargement...</p>
+        <p className="text-sm text-muted-foreground">Chargement...</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-slate-500">Aucun temps de trajet déclaré.</p>
+        <p className="text-sm text-muted-foreground">Aucun temps de trajet déclaré.</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 text-xs">
+            <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border p-3 text-xs">
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-800">
+                <p className="font-bold text-foreground">
                   {item.schoolA.name} ↔ {item.schoolB.name}
                 </p>
-                <p className="mt-0.5 text-slate-500">{item.minutesBuffer} minutes minimum</p>
+                <p className="mt-0.5 text-muted-foreground">{item.minutesBuffer} minutes minimum</p>
               </div>
               <button
                 type="button"
                 aria-label="Supprimer"
                 onClick={() => void remove(item.id)}
-                className="text-slate-400 hover:text-rose-600"
+                className="text-muted-foreground hover:text-rose-600 dark:text-rose-300"
               >
                 <Trash2 className="size-4" />
               </button>

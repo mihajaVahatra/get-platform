@@ -288,7 +288,7 @@ function StudentPaymentsContent() {
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm text-gray-500">Total payé</p>
-            <p className="text-xl font-bold text-green-600">
+            <p className="text-xl font-bold text-green-600 dark:text-green-300">
               {formatAmount(totalAmount)}
             </p>
           </div>
@@ -475,7 +475,7 @@ function StudentPaymentsContent() {
                       </Button>
                     )}
                     {payment.status === 'PENDING' && (
-                      <span className="text-xs text-yellow-600">
+                      <span className="text-xs text-yellow-600 dark:text-yellow-300">
                         ⏳ En attente de confirmation
                       </span>
                     )}
@@ -483,7 +483,7 @@ function StudentPaymentsContent() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-red-600"
+                        className="text-red-600 dark:text-red-300"
                         disabled={retryingId === payment.id}
                         onClick={() => handleRetry(payment)}
                       >

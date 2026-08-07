@@ -56,7 +56,7 @@ export function AttachmentPickerButton({
         type="button"
         onClick={() => inputRef.current?.click()}
         aria-label="Joindre un fichier"
-        className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 ${className || ''}`}
+        className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-indigo-600 dark:text-indigo-300 ${className || ''}`}
       >
         <Paperclip className="size-5" />
       </button>
@@ -77,7 +77,7 @@ export function PendingAttachmentChips({
       {files.map((file, index) => (
         <span
           key={`${file.name}-${index}`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300"
         >
           {file.type.startsWith('video/') ? (
             <Film className="size-3.5" />
@@ -90,7 +90,7 @@ export function PendingAttachmentChips({
             type="button"
             onClick={() => onRemove(index)}
             aria-label={`Retirer ${file.name}`}
-            className="text-indigo-400 hover:text-indigo-700"
+            className="text-indigo-400 hover:text-indigo-700 dark:text-indigo-300"
           >
             <X className="size-3.5" />
           </button>

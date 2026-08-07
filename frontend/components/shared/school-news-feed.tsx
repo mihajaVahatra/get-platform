@@ -64,7 +64,7 @@ export function SchoolNewsFeed() {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center text-sm text-slate-500 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+      <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
         Chargement des actualités…
       </div>
     );
@@ -72,14 +72,14 @@ export function SchoolNewsFeed() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+      <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
           <Bell className="size-7" />
         </span>
-        <p className="mt-4 text-sm font-bold text-slate-700">
+        <p className="mt-4 text-sm font-bold text-foreground">
           Aucune actualité pour le moment
         </p>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           Les actualités publiées par votre établissement apparaîtront ici.
         </p>
       </div>
@@ -92,8 +92,8 @@ export function SchoolNewsFeed() {
         <article
           key={item.announcementId}
           onClick={() => void markAsRead(item)}
-          className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(68,50,140,0.05)] transition ${
-            item.isRead ? 'border-slate-100' : 'border-indigo-200'
+          className={`cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-[0_4px_18px_rgba(68,50,140,0.05)] transition ${
+            item.isRead ? 'border-border' : 'border-indigo-200'
           }`}
         >
           {item.imageUrl && (
@@ -113,10 +113,10 @@ export function SchoolNewsFeed() {
                 <span className="mt-1 size-2 shrink-0 rounded-full bg-rose-500" />
               )}
             </div>
-            <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
+            <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
               {item.body}
             </p>
-            <p className="mt-3 text-[10px] text-slate-400">
+            <p className="mt-3 text-[10px] text-muted-foreground">
               {new Date(item.createdAt).toLocaleDateString('fr-FR', {
                 day: 'numeric',
                 month: 'long',

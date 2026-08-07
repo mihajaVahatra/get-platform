@@ -120,11 +120,11 @@ export default function StudentDocumentsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl text-slate-900">
+    <div className="mx-auto max-w-3xl text-foreground">
       <header className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold">Mes documents</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Gérez vos documents personnels (CV, pièce d’identité, diplômes…).
           </p>
         </div>
@@ -146,13 +146,13 @@ export default function StudentDocumentsPage() {
       ) : documents.length === 0 ? (
         <Empty label="Vous n’avez encore ajouté aucun document." />
       ) : (
-        <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white px-4">
+        <div className="divide-y divide-border rounded-2xl border border-border bg-card px-4">
           {documents.map((doc) => (
             <div key={doc.id} className="flex items-center gap-3 py-3">
-              <FileText className="size-5 shrink-0 text-emerald-500" />
+              <FileText className="size-5 shrink-0 text-emerald-500 dark:text-emerald-300" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold">{doc.name}</p>
-                <p className="mt-1 text-[10px] text-slate-500">
+                <p className="mt-1 text-[10px] text-muted-foreground">
                   {DOCUMENT_TYPE_LABELS[doc.type]} · Ajouté le{' '}
                   {new Date(doc.uploadedAt).toLocaleDateString('fr-FR')}
                 </p>
@@ -162,13 +162,13 @@ export default function StudentDocumentsPage() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`Télécharger ${doc.name}`}
-                className="min-h-11 min-w-11 rounded p-2 text-indigo-600 hover:bg-indigo-50"
+                className="min-h-11 min-w-11 rounded p-2 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:bg-indigo-500/15"
               >
                 <Download className="size-4" />
               </a>
               <button
                 aria-label={`Supprimer ${doc.name}`}
-                className="min-h-11 min-w-11 rounded p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                className="min-h-11 min-w-11 rounded p-2 text-muted-foreground hover:bg-rose-50 dark:bg-rose-500/15 hover:text-rose-600 dark:text-rose-300"
                 onClick={() => setDocumentToDelete(doc)}
               >
                 <Trash2 className="size-4" />
@@ -191,7 +191,7 @@ export default function StudentDocumentsPage() {
               <label className="text-xs font-bold text-[#34406b]">
                 Type de document
                 <select
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-indigo-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 font-normal outline-none focus:border-indigo-500"
                   value={uploadType}
                   onChange={(event) =>
                     setUploadType(event.target.value as DocumentType)
@@ -207,7 +207,7 @@ export default function StudentDocumentsPage() {
               <label className="text-xs font-bold text-[#34406b]">
                 Nom (facultatif)
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 font-normal outline-none focus:border-indigo-500"
                   value={uploadName}
                   onChange={(event) => setUploadName(event.target.value)}
                   maxLength={160}
@@ -280,7 +280,7 @@ export default function StudentDocumentsPage() {
 
 function Loading({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 py-12 text-sm text-slate-500">
+    <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
       <LoaderCircle className="size-4 animate-spin" />
       {label}
     </div>
@@ -289,7 +289,7 @@ function Loading({ label }: { label: string }) {
 
 function Empty({ label }: { label: string }) {
   return (
-    <p className="rounded-xl bg-slate-50 p-6 text-sm text-slate-500">
+    <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">
       {label}
     </p>
   );

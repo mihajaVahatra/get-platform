@@ -57,7 +57,7 @@ export function EmojiPickerButton({
         type="button"
         onClick={toggle}
         aria-label="Ajouter un emoji"
-        className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 ${className || ''}`}
+        className={`inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-indigo-600 dark:text-indigo-300 ${className || ''}`}
       >
         <Smile className="size-5" />
       </button>

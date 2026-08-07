@@ -33,7 +33,7 @@ export function MessageIconLink({
       aria-label="Messages"
       className={cn(
         'relative grid size-9 place-items-center rounded-lg transition',
-        dark ? 'text-white hover:bg-white/10' : 'text-[#17204e] hover:bg-slate-100',
+        dark ? 'text-white hover:bg-white/10' : 'text-[#17204e] hover:bg-muted',
       )}
     >
       <Mail className="size-5" />

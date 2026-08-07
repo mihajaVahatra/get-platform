@@ -7,7 +7,7 @@ export default function TeacherDashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="grid min-h-[60vh] place-items-center text-sm text-slate-500">
+        <div className="grid min-h-[60vh] place-items-center text-sm text-muted-foreground">
           Chargement du portail professeur…
         </div>
       }

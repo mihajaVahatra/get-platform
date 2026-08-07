@@ -38,7 +38,7 @@ export function MobileBottomNav({
     <nav
       className={cn(
         'fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t px-2 pb-[max(env(safe-area-inset-bottom),0.375rem)] pt-1.5 lg:hidden',
-        dark ? 'border-white/10 bg-indigo-950' : 'border-slate-100 bg-white',
+        dark ? 'border-white/10 bg-indigo-950' : 'border-border bg-card',
       )}
     >
       {composeHref ? (
@@ -100,7 +100,7 @@ function NavButton({
           ? 'text-indigo-600'
           : dark
             ? 'text-indigo-100/80'
-            : 'text-slate-400',
+            : 'text-muted-foreground',
       )}
     >
       <Icon className="size-5" />

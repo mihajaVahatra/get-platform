@@ -221,14 +221,14 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
       });
 
   if (loadingCourses)
-    return <p className="text-sm text-slate-500">Chargement de vos cours…</p>;
+    return <p className="text-sm text-muted-foreground">Chargement de vos cours…</p>;
 
   if (coursesFailed)
     return (
-      <div className="rounded-xl border border-rose-100 bg-rose-50 p-5 text-sm text-rose-700">
+      <div className="rounded-xl border border-rose-100 bg-rose-50 dark:bg-rose-500/15 p-5 text-sm text-rose-700 dark:text-rose-300">
         <p>Vos cours n’ont pas pu être chargés.</p>
         <button
-          className="mt-3 text-xs font-bold text-indigo-600"
+          className="mt-3 text-xs font-bold text-indigo-600 dark:text-indigo-300"
           onClick={() => void fetchCourses()}
         >
           Réessayer
@@ -238,7 +238,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
 
   if (!courseId && courses.length === 0)
     return (
-      <p className="rounded-xl border border-slate-100 bg-white p-5 text-sm text-slate-500 shadow-sm">
+      <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground shadow-sm">
         Aucun cours ne vous est actuellement affecté.
       </p>
     );
@@ -251,7 +251,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
             Cours
           </span>
           <select
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-indigo-500"
+            className="h-10 w-full rounded-lg border border-border bg-card px-3 text-xs outline-none focus:border-indigo-500"
             value={selectedCourseId}
             onChange={(event) => setSelectedCourseId(event.target.value)}
           >
@@ -274,16 +274,16 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
           </button>
         </div>
         {loadingAssignments ? (
-          <p className="text-xs text-slate-500">Chargement des devoirs…</p>
+          <p className="text-xs text-muted-foreground">Chargement des devoirs…</p>
         ) : assignmentsFailed ? (
           <button
-            className="text-xs font-bold text-indigo-600"
+            className="text-xs font-bold text-indigo-600 dark:text-indigo-300"
             onClick={() => void fetchAssignments()}
           >
             Réessayer de charger les devoirs
           </button>
         ) : assignments.length === 0 ? (
-          <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+          <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
             Aucun devoir pour ce cours.
           </p>
         ) : (
@@ -292,7 +292,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               const published = Boolean(assignment.publishedAt);
               return (
                 <article
-                  className={`rounded-lg border p-3 ${published ? 'border-emerald-100 bg-emerald-50/40' : 'border-amber-200 bg-amber-50'}`}
+                  className={`rounded-lg border p-3 ${published ? 'border-emerald-100 bg-emerald-50/40' : 'border-amber-200 bg-amber-50 dark:bg-amber-500/15'}`}
                   key={assignment.id}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -302,17 +302,17 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
                           {assignment.title}
                         </h3>
                         <span
-                          className={`rounded px-2 py-1 text-[9px] font-bold ${published ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}
+                          className={`rounded px-2 py-1 text-[9px] font-bold ${published ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300'}`}
                         >
                           {published ? 'Publié' : 'Brouillon'}
                         </span>
                       </div>
                       {assignment.instructions && (
-                        <p className="mt-2 max-w-2xl text-[11px] text-slate-600">
+                        <p className="mt-2 max-w-2xl text-[11px] text-muted-foreground">
                           {assignment.instructions}
                         </p>
                       )}
-                      <p className="mt-2 text-[10px] text-slate-500">
+                      <p className="mt-2 text-[10px] text-muted-foreground">
                         Date limite :{' '}
                         {assignment.dueAt
                           ? new Date(assignment.dueAt).toLocaleDateString(
@@ -324,7 +324,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
                     <div className="flex gap-2">
                       {published ? (
                         <button
-                          className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-[10px] font-bold text-emerald-700"
+                          className="rounded-lg border border-emerald-200 bg-card px-3 py-2 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
                           onClick={() => openSubmissions(assignment)}
                         >
                           Voir les soumissions
@@ -361,7 +361,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Titre
                 <input
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 font-normal outline-none focus:border-indigo-500"
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={160}
@@ -371,7 +371,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               <label className="text-xs font-bold text-[#34406b]">
                 Consignes (facultatives)
                 <textarea
-                  className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 p-3 font-normal outline-none focus:border-indigo-500"
+                  className="mt-1 min-h-24 w-full rounded-lg border border-border p-3 font-normal outline-none focus:border-indigo-500"
                   value={instructions}
                   onChange={(event) => setInstructions(event.target.value)}
                   maxLength={5000}
@@ -381,7 +381,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
                 Date limite (facultative)
                 <input
                   type="date"
-                  className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
+                  className="mt-1 h-10 w-full rounded-lg border border-border px-3 font-normal outline-none focus:border-indigo-500"
                   value={dueAt}
                   onChange={(event) => setDueAt(event.target.value)}
                 />
@@ -411,12 +411,12 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
             </DialogDescription>
           </DialogHeader>
           {loadingSubmissions ? (
-            <p className="py-4 text-xs text-slate-500">
+            <p className="py-4 text-xs text-muted-foreground">
               Chargement des soumissions…
             </p>
           ) : submissionsFailed ? (
             <button
-              className="text-xs font-bold text-indigo-600"
+              className="text-xs font-bold text-indigo-600 dark:text-indigo-300"
               onClick={() =>
                 selectedAssignment &&
                 void fetchSubmissions(selectedAssignment.id)
@@ -425,7 +425,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
               Réessayer de charger les soumissions
             </button>
           ) : submissions.length === 0 ? (
-            <p className="py-4 text-xs text-slate-500">
+            <p className="py-4 text-xs text-muted-foreground">
               Aucune soumission reçue pour le moment.
             </p>
           ) : (
@@ -485,17 +485,17 @@ function SubmissionGradingForm({
   };
 
   return (
-    <form className="rounded-lg border border-slate-100 p-3" onSubmit={submit}>
+    <form className="rounded-lg border border-border p-3" onSubmit={submit}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold text-[#26305e]">{studentName}</p>
-          <p className="mt-1 text-[10px] text-slate-500">
+          <p className="mt-1 text-[10px] text-muted-foreground">
             {submission.student.user.email} · remis le{' '}
             {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
           </p>
           {submission.contentUrl && (
             <a
-              className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 hover:underline"
               href={submission.contentUrl}
               target="_blank"
               rel="noreferrer"
@@ -511,7 +511,7 @@ function SubmissionGradingForm({
             step="0.01"
             min={0}
             max={20}
-            className="mt-1 block h-8 w-24 rounded-lg border border-slate-200 px-2 text-xs font-normal outline-none focus:border-indigo-500"
+            className="mt-1 block h-8 w-24 rounded-lg border border-border px-2 text-xs font-normal outline-none focus:border-indigo-500"
             value={grade}
             onChange={(event) => setGrade(event.target.value.slice(0, 5))}
             required
@@ -521,7 +521,7 @@ function SubmissionGradingForm({
       <label className="mt-3 block text-[10px] font-bold text-[#34406b]">
         Commentaire
         <textarea
-          className="mt-1 min-h-16 w-full rounded-lg border border-slate-200 p-2 text-xs font-normal outline-none focus:border-indigo-500"
+          className="mt-1 min-h-16 w-full rounded-lg border border-border p-2 text-xs font-normal outline-none focus:border-indigo-500"
           value={feedback}
           onChange={(event) => setFeedback(event.target.value)}
           maxLength={2000}
