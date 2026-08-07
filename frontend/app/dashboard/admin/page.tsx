@@ -118,6 +118,7 @@ function DashboardSummary() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-8 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher un étudiant, une école, un cours..."
             />
             <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">

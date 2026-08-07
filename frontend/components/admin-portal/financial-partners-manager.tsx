@@ -124,6 +124,7 @@ export function FinancialPartnersManager() {
               setPage(1);
             }}
             className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+            maxLength={150}
             placeholder="Rechercher un partenaire..."
           />
         </label>
@@ -406,6 +407,7 @@ function PartnerForm({
                 value={contactEmail}
                 onChange={(event) => setContactEmail(event.target.value)}
                 placeholder="contact@partenaire.mg"
+                maxLength={254}
                 className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
@@ -415,6 +417,7 @@ function PartnerForm({
                 value={contactPhone}
                 onChange={(event) => setContactPhone(event.target.value)}
                 placeholder="+261 20 22 123 45"
+                maxLength={30}
                 className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />
             </label>
@@ -426,6 +429,7 @@ function PartnerForm({
               value={website}
               onChange={(event) => setWebsite(event.target.value)}
               placeholder="https://www.partenaire.mg"
+              maxLength={300}
               className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
             />
           </label>

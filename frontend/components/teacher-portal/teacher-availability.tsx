@@ -221,6 +221,7 @@ function UnavailabilitySection({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Ex. Rendez-vous médical"
+            maxLength={200}
             className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
           />
         </label>

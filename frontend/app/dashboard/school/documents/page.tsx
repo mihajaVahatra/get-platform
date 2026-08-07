@@ -171,6 +171,7 @@ function SchoolDocumentsContent() {
               <input
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
+                maxLength={150}
                 placeholder="Rechercher un étudiant..."
                 className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm outline-none focus:border-indigo-500"
               />

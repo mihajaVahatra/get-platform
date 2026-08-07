@@ -45,6 +45,45 @@ async function main() {
 
   console.log('✅ Rôles créés');
 
+  const platformCities = [
+    'Antananarivo',
+    'Toamasina',
+    'Fianarantsoa',
+    'Mahajanga',
+    'Toliara',
+    'Antsirabe',
+    'Antsiranana',
+  ];
+  for (const name of platformCities) {
+    await prisma.platformCity.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
+  const feeBrackets: {
+    label: string;
+    minFees: number;
+    maxFees?: number;
+    sortOrder: number;
+  }[] = [
+    { label: 'Moins de 2 000 000 Ar', minFees: 0, maxFees: 2000000, sortOrder: 0 },
+    { label: '2 000 000 - 3 000 000 Ar', minFees: 2000000, maxFees: 3000000, sortOrder: 1 },
+    { label: '3 000 000 - 4 000 000 Ar', minFees: 3000000, maxFees: 4000000, sortOrder: 2 },
+    { label: '4 000 000 - 5 000 000 Ar', minFees: 4000000, maxFees: 5000000, sortOrder: 3 },
+    { label: '5 000 000 Ar et plus', minFees: 5000000, sortOrder: 4 },
+  ];
+  for (const bracket of feeBrackets) {
+    await prisma.feeBracket.upsert({
+      where: { label: bracket.label },
+      update: {},
+      create: bracket,
+    });
+  }
+
+  console.log('✅ Villes et tranches de frais de référence créées');
+
   const adminPassword = await bcrypt.hash('Admin123!', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@get.mg' },

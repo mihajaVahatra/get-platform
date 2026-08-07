@@ -27,10 +27,11 @@ import { apiClient } from '@/lib/api-client';
 import { Logo } from '@/components/Logo';
 
 const loginSchema = z.object({
-  email: z.string().email('Saisissez une adresse e-mail valide'),
+  email: z.string().email('Saisissez une adresse e-mail valide').max(254),
   password: z
     .string()
-    .min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+    .min(6, 'Le mot de passe doit contenir au moins 6 caractères')
+    .max(128, 'Mot de passe trop long'),
   remember: z.boolean(),
 });
 
@@ -208,6 +209,7 @@ export function LoginScreen() {
                   <input
                     type="email"
                     autoComplete="email"
+                    maxLength={254}
                     placeholder={
                       isInstitution
                         ? 'exemple@ecole.mg'
@@ -230,6 +232,7 @@ export function LoginScreen() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    maxLength={128}
                     placeholder={
                       isInstitution
                         ? 'Entrez votre mot de passe'

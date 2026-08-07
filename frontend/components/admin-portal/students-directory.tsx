@@ -85,6 +85,7 @@ export function StudentsDirectory() {
                 setPage(1);
               }}
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+              maxLength={150}
               placeholder="Rechercher un étudiant..."
             />
           </label>

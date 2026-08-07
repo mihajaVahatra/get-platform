@@ -111,6 +111,20 @@ export default function SchoolSettingsPage() {
     { id: string; name: string; isActive: boolean }[]
   >([]);
   const [subjectName, setSubjectName] = useState('');
+  const [platformCities, setPlatformCities] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiClient
+      .get('/platform-cities')
+      .then((response) =>
+        setPlatformCities(
+          (response.data.data as { name: string; isActive: boolean }[])
+            .filter((item) => item.isActive)
+            .map((item) => item.name),
+        ),
+      )
+      .catch(() => setPlatformCities([]));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -410,6 +424,7 @@ export default function SchoolSettingsPage() {
                 <Input
                   id="school-name"
                   required
+                  maxLength={150}
                   value={form.name}
                   onChange={(event) => updateField('name', event.target.value)}
                 />
@@ -422,22 +437,35 @@ export default function SchoolSettingsPage() {
                   onChange={(event) =>
                     updateField('description', event.target.value)
                   }
+                  maxLength={2000}
                   rows={4}
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-city">Ville</Label>
-                <Input
-                  id="school-city"
+                <Select
+                  items={platformCities.map((city) => ({ value: city, label: city }))}
                   value={form.city}
-                  onChange={(event) => updateField('city', event.target.value)}
-                />
+                  onValueChange={(value) => updateField('city', value ?? '')}
+                >
+                  <SelectTrigger id="school-city">
+                    <SelectValue placeholder="Sélectionner une ville" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {platformCities.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-region">Région</Label>
                 <Input
                   id="school-region"
+                  maxLength={100}
                   value={form.region}
                   onChange={(event) =>
                     updateField('region', event.target.value)
@@ -449,6 +477,7 @@ export default function SchoolSettingsPage() {
                 <Input
                   id="school-email"
                   type="email"
+                  maxLength={254}
                   value={form.contactEmail}
                   onChange={(event) =>
                     updateField('contactEmail', event.target.value)
@@ -459,6 +488,7 @@ export default function SchoolSettingsPage() {
                 <Label htmlFor="school-phone">Téléphone</Label>
                 <Input
                   id="school-phone"
+                  maxLength={30}
                   value={form.contactPhone}
                   onChange={(event) =>
                     updateField('contactPhone', event.target.value)
@@ -471,6 +501,7 @@ export default function SchoolSettingsPage() {
                   id="school-website"
                   type="url"
                   placeholder="https://..."
+                  maxLength={300}
                   value={form.website}
                   onChange={(event) =>
                     updateField('website', event.target.value)
@@ -498,6 +529,7 @@ export default function SchoolSettingsPage() {
               onChange={(event) =>
                 setProgramForm({ ...programForm, name: event.target.value })
               }
+              maxLength={150}
               placeholder="Nom"
             />
             <Input
@@ -505,6 +537,7 @@ export default function SchoolSettingsPage() {
               onChange={(event) =>
                 setProgramForm({ ...programForm, diploma: event.target.value })
               }
+              maxLength={100}
               placeholder="Diplôme"
             />
             <Select
@@ -572,6 +605,7 @@ export default function SchoolSettingsPage() {
             <Input
               value={subjectName}
               onChange={(event) => setSubjectName(event.target.value)}
+              maxLength={150}
               placeholder="Ex. Algorithmique"
             />
             <Button type="button" onClick={addSubject}>
@@ -628,6 +662,7 @@ export default function SchoolSettingsPage() {
               onChange={(event) =>
                 setAcademicForm({ ...academicForm, label: event.target.value })
               }
+              maxLength={20}
               placeholder="2025-2026"
             />
             <Input
@@ -718,6 +753,7 @@ export default function SchoolSettingsPage() {
             <Input
               value={requirementName}
               onChange={(event) => setRequirementName(event.target.value)}
+              maxLength={150}
               placeholder="Ex. Copie CIN"
             />
             <label className="flex shrink-0 items-center gap-2 text-sm">
@@ -916,7 +952,7 @@ function RoomsManager() {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="room-name">Nom</Label>
-                <Input id="room-name" value={name} onChange={(event) => setName(event.target.value)} required />
+                <Input id="room-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={100} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="room-capacity">Capacité (facultatif)</Label>
@@ -924,8 +960,9 @@ function RoomsManager() {
                   id="room-capacity"
                   type="number"
                   min={1}
+                  max={10000}
                   value={capacity}
-                  onChange={(event) => setCapacity(event.target.value)}
+                  onChange={(event) => setCapacity(event.target.value.slice(0, 5))}
                 />
               </div>
               <div className="space-y-2">

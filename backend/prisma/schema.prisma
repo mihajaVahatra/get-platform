@@ -375,6 +375,36 @@ model AcademicYear {
   @@map("academic_years")
 }
 
+// Liste de référence plateforme (gérée par ADMIN_GET) utilisée pour peupler
+// les sélecteurs de ville — recherche d'offres et formulaire école — plutôt
+// que de la saisie libre. Volontairement pas de FK vers School.city (qui
+// reste du texte libre) pour éviter une migration de données existantes.
+model PlatformCity {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_cities")
+}
+
+// Tranches de frais prédéfinies (gérées par ADMIN_GET) utilisées pour
+// peupler le sélecteur "Frais" de la recherche d'offres, en lieu et place
+// des deux champs numériques libres min/max.
+model FeeBracket {
+  id        String   @id @default(uuid())
+  label     String   @unique
+  minFees   Float
+  maxFees   Float?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fee_brackets")
+}
+
 model Room {
   id        String   @id @default(uuid())
   schoolId  String

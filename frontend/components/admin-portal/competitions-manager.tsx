@@ -159,6 +159,7 @@ export function CompetitionsManager() {
               setPage(1);
             }}
             className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-xs outline-none focus:border-indigo-500"
+            maxLength={150}
             placeholder="Rechercher un concours..."
           />
         </label>
@@ -423,8 +424,9 @@ function CompetitionForm({
               <input
                 type="number"
                 min={0}
+                max={100000}
                 value={capacity}
-                onChange={(event) => setCapacity(event.target.value)}
+                onChange={(event) => setCapacity(event.target.value.slice(0, 6))}
                 placeholder="Ex. 200"
                 className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
               />

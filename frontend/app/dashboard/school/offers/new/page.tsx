@@ -26,15 +26,15 @@ function diplomaDefaults(diploma: string): { duration: number; tuitionFees: numb
 }
 
 const schema = z.object({
-  title: z.string().min(3, 'Titre trop court'),
-  description: z.string().optional(),
-  diploma: z.string().min(2, 'Diplôme requis'),
+  title: z.string().min(3, 'Titre trop court').max(150, 'Titre trop long'),
+  description: z.string().max(2000, 'Description trop longue').optional(),
+  diploma: z.string().min(2, 'Diplôme requis').max(100),
   duration: z.number().min(6, 'La durée minimale est de 6 mois').max(60),
-  tuitionFees: z.number().min(0, 'Frais invalides'),
-  capacity: z.number().min(1).optional(),
+  tuitionFees: z.number().min(0, 'Frais invalides').max(999999999, 'Montant trop élevé'),
+  capacity: z.number().min(1).max(10000, 'Capacité trop élevée').optional(),
   applicationDeadline: z.string().optional(),
-  academicYear: z.string().min(4, 'Année académique requise'),
-  prerequisites: z.string().optional(),
+  academicYear: z.string().min(4, 'Année académique requise').max(20),
+  prerequisites: z.string().max(2000, 'Prérequis trop longs').optional(),
   programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 type OfferForm = z.infer<typeof schema>;
@@ -106,8 +106,8 @@ export default function NewSchoolOfferPage() {
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
           <CardContent className="space-y-4">
-            <Field label="Titre de l’offre" required error={errors.title?.message}><Input {...register('title')} placeholder="Licence Informatique" /></Field>
-            <Field label="Description"><Input {...register('description')} placeholder="Présentez brièvement la formation" /></Field>
+            <Field label="Titre de l’offre" required error={errors.title?.message}><Input {...register('title')} maxLength={150} placeholder="Licence Informatique" /></Field>
+            <Field label="Description"><Input {...register('description')} maxLength={2000} placeholder="Présentez brièvement la formation" /></Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Diplôme" required error={errors.diploma?.message}>
                 <Select
@@ -157,9 +157,9 @@ export default function NewSchoolOfferPage() {
                   <SelectContent>{filteredPrograms.map((program) => <SelectItem key={program.id} value={program.id}>{program.name}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
-              <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" {...register('duration', { valueAsNumber: true })} /></Field>
-              <Field label="Frais de scolarité (MGA)" required error={errors.tuitionFees?.message}><Input type="number" {...register('tuitionFees', { valueAsNumber: true })} /><p className="text-xs text-muted-foreground">Prérempli selon le diplôme, modifiable si nécessaire.</p></Field>
-              <Field label="Capacité"><Input type="number" {...register('capacity', { valueAsNumber: true })} /></Field>
+              <Field label="Durée (mois)" required error={errors.duration?.message}><Input type="number" min={6} max={60} {...register('duration', { valueAsNumber: true })} /></Field>
+              <Field label="Frais de scolarité (MGA)" required error={errors.tuitionFees?.message}><Input type="number" min={0} max={999999999} {...register('tuitionFees', { valueAsNumber: true })} /><p className="text-xs text-muted-foreground">Prérempli selon le diplôme, modifiable si nécessaire.</p></Field>
+              <Field label="Capacité"><Input type="number" min={1} max={10000} {...register('capacity', { valueAsNumber: true })} /></Field>
               <Field label="Année académique" required error={errors.academicYear?.message}>
                 <Select items={academicYears.map((year) => ({ value: year, label: year }))} defaultValue={academicYears[0]} onValueChange={(value) => setValue('academicYear', value ?? academicYears[0], { shouldValidate: true })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -168,7 +168,7 @@ export default function NewSchoolOfferPage() {
               </Field>
               <Field label="Date limite"><Input type="date" {...register('applicationDeadline')} /></Field>
             </div>
-            <Field label="Prérequis"><Input {...register('prerequisites')} placeholder="Baccalauréat, dossier académique" /></Field>
+            <Field label="Prérequis"><Input {...register('prerequisites')} maxLength={2000} placeholder="Baccalauréat, dossier académique" /></Field>
             <div className="space-y-2">
               <Label>Pièces et prérequis du dossier</Label>
               {requirements.length ? requirements.map((requirement) => <label key={requirement.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedRequirements.includes(requirement.id)} onChange={() => setSelectedRequirements((current) => current.includes(requirement.id) ? current.filter((id) => id !== requirement.id) : [...current, requirement.id])} />{requirement.name}{requirement.isRequired && <span className="text-red-500">*</span>}</label>) : <p className="text-sm text-muted-foreground">Aucun prérequis configuré. Ajoutez-les dans Paramètres.</p>}

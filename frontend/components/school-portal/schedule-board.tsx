@@ -472,6 +472,7 @@ export function ScheduleBoard() {
                 <Label htmlFor="slot-room">Salle</Label>
                 <Input
                   id="slot-room"
+                  maxLength={100}
                   value={form.room}
                   onChange={(event) => setField('room', event.target.value)}
                   required
@@ -808,6 +809,7 @@ function TimeSlotsManager() {
                 <Label htmlFor="ts-label">Libellé (facultatif)</Label>
                 <Input
                   id="ts-label"
+                  maxLength={100}
                   value={form.label}
                   onChange={(event) => setField('label', event.target.value)}
                   placeholder="Ex. Créneau 1"

@@ -323,6 +323,7 @@ function Courses() {
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          maxLength={150}
           placeholder="Rechercher un cours..."
           className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-indigo-500"
         />
@@ -1080,6 +1081,7 @@ function CourseContent({
                   type="url"
                   className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   placeholder="https://…"
+                  maxLength={2048}
                   value={resourceUrl}
                   onChange={(event) => setResourceUrl(event.target.value)}
                   required={!resourceFile}
@@ -1199,6 +1201,7 @@ function CourseContent({
                   onChange={(event) => setEditingResourceUrl(event.target.value)}
                   required
                   type="url"
+                  maxLength={2048}
                   value={editingResourceUrl}
                 />
               </label>
@@ -2075,10 +2078,11 @@ function EvaluationPanel({ courseId }: { courseId: string }) {
                 <input
                   type="number"
                   min="0"
+                  max="100"
                   step="0.01"
                   className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 font-normal outline-none focus:border-indigo-500"
                   value={coefficient}
-                  onChange={(event) => setCoefficient(event.target.value)}
+                  onChange={(event) => setCoefficient(event.target.value.slice(0, 6))}
                   required
                 />
               </label>
@@ -2354,9 +2358,11 @@ function GradeInput({
       <input
         type="number"
         step="0.01"
+        min={0}
+        max={20}
         className="h-9 w-full rounded-lg border border-slate-200 px-2 text-xs outline-none focus:border-indigo-500"
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => setDraft(event.target.value.slice(0, 5))}
         onBlur={saveOnBlur}
         aria-label="Note"
       />
@@ -2629,6 +2635,7 @@ function Announcements() {
                 <input
                   className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500"
                   onChange={(event) => setTitle(event.target.value)}
+                  maxLength={200}
                   required
                   value={title}
                 />
@@ -2638,6 +2645,7 @@ function Announcements() {
                 <textarea
                   className="mt-1.5 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500"
                   onChange={(event) => setBody(event.target.value)}
+                  maxLength={5000}
                   required
                   value={body}
                 />
@@ -2828,15 +2836,15 @@ function TeacherProfileSettings() {
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-xs font-bold text-slate-700">
             Prénom
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setFirstName(event.target.value)} value={firstName} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setFirstName(event.target.value)} value={firstName} maxLength={50} />
           </label>
           <label className="text-xs font-bold text-slate-700">
             Nom
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setLastName(event.target.value)} value={lastName} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setLastName(event.target.value)} value={lastName} maxLength={50} />
           </label>
           <label className="text-xs font-bold text-slate-700">
             Téléphone
-            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setPhone(event.target.value)} value={phone} />
+            <input className="mt-1.5 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-indigo-500" onChange={(event) => setPhone(event.target.value)} value={phone} maxLength={30} />
           </label>
           <div className="text-xs font-bold text-slate-700">
             E-mail
@@ -2902,6 +2910,7 @@ function TeacherSecuritySettings() {
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
             autoComplete="current-password"
+            maxLength={128}
             required
           />
         </label>
@@ -2914,6 +2923,7 @@ function TeacherSecuritySettings() {
             onChange={(event) => setNewPassword(event.target.value)}
             autoComplete="new-password"
             minLength={8}
+            maxLength={128}
             required
           />
         </label>
@@ -2926,6 +2936,7 @@ function TeacherSecuritySettings() {
             onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
             minLength={8}
+            maxLength={128}
             required
           />
         </label>
