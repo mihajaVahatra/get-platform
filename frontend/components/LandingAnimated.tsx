@@ -223,15 +223,14 @@ export default function LandingAnimated({
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             <LanguageSwitcher className="hidden sm:inline-flex" />
             <motion.div
-              className="hidden sm:block"
               whileHover={reduce ? undefined : { y: -2 }}
               whileTap={{ scale: 0.96 }}
             >
               <Link href="/auth/login"
-                className="inline-flex rounded-lg border border-violet-200 px-4 py-2.5 text-[13px] font-bold text-violet-700 transition hover:bg-violet-50">
+                className="inline-flex rounded-lg border border-violet-200 px-2.5 py-2 text-[12px] font-bold text-violet-700 transition hover:bg-violet-50 sm:px-4 sm:py-2.5 sm:text-[13px]">
                 {t('header.login')}
               </Link>
             </motion.div>

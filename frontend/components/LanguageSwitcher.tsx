@@ -24,7 +24,8 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     <div
       role="group"
       aria-label="Language"
-      className={`inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-white p-0.5 text-[12px] font-bold ${isPending ? 'opacity-60' : ''} ${className ?? ''}`}
+      translate="no"
+      className={`notranslate inline-flex items-center gap-0.5 rounded-full border border-violet-200 bg-white p-0.5 text-[12px] font-bold ${isPending ? 'opacity-60' : ''} ${className ?? ''}`}
     >
       {locales.map((l) => (
         <button
@@ -38,7 +39,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
             l === locale ? 'bg-violet-600 text-white' : 'text-[#4a4470] hover:bg-violet-50'
           }`}
         >
-          {l}
+          {l.toUpperCase()}
         </button>
       ))}
     </div>
