@@ -24,6 +24,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "GET - Grandes Écoles de Tananarive",
   description: "Plateforme de gestion des candidatures post-bac",
+  // Le site gère lui-même le FR/EN (voir LanguageSwitcher) : on désactive
+  // la traduction automatique du navigateur, qui entre en conflit avec le
+  // rendu React et duplique/mélange le texte lors du changement de langue.
+  other: { google: "notranslate" },
 };
 
 export default async function RootLayout({
@@ -35,7 +39,8 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`${jakarta.variable} ${sora.variable} ${jetbrainsMono.variable}`}
+      translate="no"
+      className={`notranslate ${jakarta.variable} ${sora.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased min-h-screen">
         <NextIntlClientProvider>
