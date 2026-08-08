@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
-  IsOptional,
+  IsNotEmpty,
   IsString,
   MinLength,
   MaxLength,
@@ -38,9 +38,9 @@ export class RegisterDto {
   @MaxLength(50)
   lastName: string;
 
-  @ApiProperty({ example: '034 12 345 67', required: false })
-  @IsOptional()
+  @ApiProperty({ example: '034 12 345 67' })
+  @IsNotEmpty({ message: 'Le numéro de téléphone est obligatoire' })
   @IsString()
   @MaxLength(30)
-  phone?: string;
+  phone: string;
 }

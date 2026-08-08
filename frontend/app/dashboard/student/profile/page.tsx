@@ -138,7 +138,7 @@ export default function StudentProfilePage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">Prénom</Label>
+                    <Label htmlFor="firstName">Prénom <span className="text-red-500">*</span></Label>
                     <Input
                       id="firstName"
                       maxLength={50}
@@ -149,7 +149,7 @@ export default function StudentProfilePage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom</Label>
+                    <Label htmlFor="lastName">Nom <span className="text-red-500">*</span></Label>
                     <Input
                       id="lastName"
                       maxLength={50}

@@ -34,7 +34,10 @@ const registerSchema = z
       .min(2, 'Nom trop court (minimum 2 caractères)')
       .max(50),
     email: z.string().email('Saisissez une adresse e-mail valide').max(254),
-    phone: z.string().max(30).optional(),
+    phone: z
+      .string()
+      .min(1, 'Le numéro de téléphone est obligatoire')
+      .max(30),
     password: z
       .string()
       .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
@@ -403,15 +406,17 @@ function FormSection({
 function Field({
   label,
   error,
+  required = true,
   children,
 }: {
   label: string;
   error?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <label className="block text-sm font-bold text-[#17204e]">
-      {label}
+      {label} {required && <span className="text-rose-500">*</span>}
       {children}
       {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
     </label>

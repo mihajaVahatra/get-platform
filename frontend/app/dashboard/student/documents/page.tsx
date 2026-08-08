@@ -229,10 +229,18 @@ export default function StudentDocumentsPage() {
                 />
               </label>
               <label className="text-xs font-bold text-[#34406b]">
-                Fichier
+                Fichier <span className="text-rose-500">*</span>
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex cursor-pointer items-center rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-[#34406b] hover:bg-slate-50">
+                    Choisir un fichier
+                  </span>
+                  <span className="text-[11px] font-normal italic text-muted-foreground">
+                    {uploadFile?.name ?? 'Aucun fichier choisi'}
+                  </span>
+                </div>
                 <input
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  className="mt-1 block w-full text-xs font-normal"
+                  className="hidden"
                   type="file"
                   required
                   onChange={(event: ChangeEvent<HTMLInputElement>) =>
