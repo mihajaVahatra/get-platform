@@ -1,0 +1,106 @@
+{
+  "Common": {
+    "switchToFr": "Passer en français",
+    "switchToEn": "Switch to English"
+  },
+  "Landing": {
+    "nav": {
+      "home": "Home",
+      "about": "About",
+      "schools": "Schools",
+      "features": "Features",
+      "news": "News",
+      "contact": "Contact"
+    },
+    "header": {
+      "login": "Log in",
+      "register": "Sign up"
+    },
+    "hero": {
+      "badgeOnline": "ONLINE",
+      "badgeText": "Official post-secondary platform · Madagascar",
+      "ctaStudent": "I'm a student",
+      "ctaSchool": "I'm a school",
+      "imageAlt": "Two students on a university campus",
+      "trustOnlineTitle": "100% online",
+      "trustOnlineText": "Accessible anywhere",
+      "trustSecureTitle": "Secure & reliable",
+      "trustSecureText": "Protected data",
+      "trustFastTitle": "Simple & fast",
+      "trustFastText": "Save valuable time",
+      "floatingAccepted": "Application accepted",
+      "floatingAcceptedSub": "INSCAE · 2 min ago",
+      "floatingSchoolsLabel": "partner schools",
+      "floatingJoinTitle": "Join the top schools",
+      "floatingJoinText": "and build your future starting today."
+    },
+    "actors": {
+      "eyebrow": "Why choose GET",
+      "titleStart": "A platform built for",
+      "titleHighlight": "everyone involved",
+      "text": "GET connects students, schools, financial partners and the ministry in a simple, transparent and efficient digital ecosystem."
+    },
+    "steps": {
+      "eyebrow": "How it works",
+      "titleStart": "A simple journey in",
+      "titleHighlight": "4 steps"
+    },
+    "studentFeature": {
+      "eyebrow": "Student space",
+      "titleLine1": "Your whole journey,",
+      "titleLine2": "in your pocket",
+      "text": "A clear dashboard that brings together applications, entrance exams, grades, schedule and payments. No more running between schools.",
+      "feature1Title": "Real-time applications",
+      "feature1Text": "Track the status of every file, school by school.",
+      "feature2Title": "Mobile Money & card payments",
+      "feature2Text": "Pay your exam and registration fees in seconds.",
+      "feature3Title": "Documents & library",
+      "feature3Text": "Your certificates and course resources, all in one place.",
+      "cta": "Create my account"
+    },
+    "testimonial": {
+      "quoteBefore": "I applied to ",
+      "quoteHighlight": "5 schools in one evening.",
+      "quoteAfter": " Three replies within a week. GET changed everything.",
+      "name": "Tantely R.",
+      "role": "1st-year student · class of 2025"
+    },
+    "news": {
+      "eyebrow": "News",
+      "titleStart": "Stay",
+      "titleHighlight": "informed"
+    },
+    "partners": {
+      "eyebrow": "Our partners",
+      "titleStart": "They trust",
+      "titleHighlight": "us",
+      "empty": "Our partners will be featured here soon.",
+      "schools": "Partner schools",
+      "financial": "Financial partners"
+    },
+    "finalCta": {
+      "title": "Ready to build your future?",
+      "text": "Join thousands of students and access the best study opportunities in Madagascar.",
+      "button": "Create my account for free",
+      "note": "It's fast, free and secure!"
+    },
+    "footer": {
+      "tagline": "The platform that paves the way to your degree and your future.",
+      "platformTitle": "Platform",
+      "platformLink1": "Features",
+      "platformLink2": "Schools",
+      "platformLink3": "Pricing",
+      "platformLink4": "FAQ",
+      "resourcesTitle": "Resources",
+      "resourcesLink1": "Student guides",
+      "resourcesLink2": "Career advice",
+      "resourcesLink3": "News",
+      "resourcesLink4": "Help center",
+      "contactTitle": "Contact",
+      "address": "Antananarivo, Madagascar",
+      "copyright": "© 2025 GET — All rights reserved.",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy"
+    }
+  }
+}

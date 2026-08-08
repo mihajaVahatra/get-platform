@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useRef } from 'react';
 import { useEffect, useState } from 'react';
 import {
@@ -21,6 +22,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 /* =============================================================
    TYPES (source de vérité, réutilisés par app/page.tsx)
@@ -34,10 +36,8 @@ export type NewsItem = { id: string; type: string; title: string; body: string; 
 export type PartnerItem = { id: string; name: string; logoUrl: string | null; kind: string };
 export type Partners = { schools: PartnerItem[]; financialPartners: PartnerItem[] };
 
-const navLinks = [
-  ['Accueil', '#accueil'], ['À propos', '#apropos'], ['Établissements', '#etablissements'],
-  ['Fonctionnalités', '#fonctionnalites'], ['Actualités', '#actualites'], ['Contact', '#contact'],
-] as const;
+const navHrefs = ['#accueil', '#apropos', '#etablissements', '#fonctionnalites', '#actualites', '#contact'] as const;
+const navKeys = ['home', 'about', 'schools', 'features', 'news', 'contact'] as const;
 
 const STAT_ICONS: Record<string, typeof Building2> = { ShieldCheck, BadgeCheck, Sparkles, Building2, UserRound, ClipboardCheck };
 const ACTOR_ICONS: Record<string, typeof GraduationCap> = { GraduationCap, Building2, Landmark, ShieldCheck };
@@ -116,6 +116,7 @@ function AnimatedStat({ value }: { value: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.6 });
   const reduce = useReducedMotion();
+  const locale = useLocale();
 
   const match = value.replace(/\s/g, '').match(/^([^\d]*)(\d+)(.*)$/);
   const prefix = match?.[1] ?? '';
@@ -134,7 +135,7 @@ function AnimatedStat({ value }: { value: string }) {
     return () => controls.stop();
   }, [inView, target, reduce]);
 
-  const formatted = display.toLocaleString('fr-FR');
+  const formatted = display.toLocaleString(locale);
   return (
     <span ref={ref}>
       {prefix}
@@ -190,6 +191,8 @@ export default function LandingAnimated({
   partners: Partners;
 }) {
   const reduce = useReducedMotion();
+  const t = useTranslations('Landing');
+  const locale = useLocale();
   const hasPartners = partners.schools.length > 0 || partners.financialPartners.length > 0;
 
   const heroRef = useRef<HTMLElement>(null);
@@ -213,14 +216,15 @@ export default function LandingAnimated({
         <div className="mx-auto flex h-[76px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
           <Link href="/"><Logo size={44} /></Link>
           <nav className="hidden items-center gap-1 lg:flex">
-            {navLinks.map(([label, href]) => (
+            {navHrefs.map((href, i) => (
               <a key={href} href={href}
                 className="rounded-full px-3.5 py-2 text-[13.5px] font-bold text-[#4a4470] transition hover:bg-violet-50 hover:text-violet-600">
-                {label}
+                {t(`nav.${navKeys[i]}`)}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-2.5">
+            <LanguageSwitcher className="hidden sm:inline-flex" />
             <motion.div
               className="hidden sm:block"
               whileHover={reduce ? undefined : { y: -2 }}
@@ -228,10 +232,10 @@ export default function LandingAnimated({
             >
               <Link href="/auth/login"
                 className="inline-flex rounded-lg border border-violet-200 px-4 py-2.5 text-[13px] font-bold text-violet-700 transition hover:bg-violet-50">
-                Se connecter
+                {t('header.login')}
               </Link>
             </motion.div>
-            <MagneticButton href="/auth/register">S&apos;inscrire</MagneticButton>
+            <MagneticButton href="/auth/register">{t('header.register')}</MagneticButton>
           </div>
         </div>
       </motion.header>
@@ -266,9 +270,9 @@ export default function LandingAnimated({
                   <motion.i className="h-1.5 w-1.5 rounded-full bg-emerald-500"
                     animate={reduce ? undefined : { opacity: [1, 0.3, 1] }}
                     transition={{ duration: 2, repeat: Infinity }} />
-                  EN LIGNE
+                  {t('hero.badgeOnline')}
                 </span>
-                Plateforme officielle post-bac · Madagascar
+                {t('hero.badgeText')}
               </motion.span>
 
               <motion.h1 variants={fadeUp}
@@ -294,23 +298,23 @@ export default function LandingAnimated({
               <motion.div variants={fadeUp} className="mt-8 flex flex-wrap gap-3">
                 <MagneticButton href="/auth/register" large>
                   <UserRound className="size-[18px]" />
-                  Je suis étudiant
+                  {t('hero.ctaStudent')}
                   <ArrowRight className="size-4" />
                 </MagneticButton>
                 <motion.div whileHover={reduce ? undefined : { y: -2 }} whileTap={{ scale: 0.98 }}>
                   <Link href="/auth/register"
                     className="inline-flex items-center gap-2 rounded-[10px] border border-violet-200 bg-white px-6 py-3.5 text-[15px] font-bold text-violet-700 transition hover:bg-violet-50">
                     <Building2 className="size-[18px]" />
-                    Je suis une école
+                    {t('hero.ctaSchool')}
                   </Link>
                 </motion.div>
               </motion.div>
 
               <motion.div variants={fadeUp} className="mt-10 flex flex-wrap gap-7 border-t border-violet-100 pt-6">
                 {[
-                  [ShieldCheck, '100% en ligne', 'Accessible partout'],
-                  [BadgeCheck, 'Sécurisé & fiable', 'Données protégées'],
-                  [Zap, 'Simple & rapide', 'Gain de temps assuré'],
+                  [ShieldCheck, t('hero.trustOnlineTitle'), t('hero.trustOnlineText')],
+                  [BadgeCheck, t('hero.trustSecureTitle'), t('hero.trustSecureText')],
+                  [Zap, t('hero.trustFastTitle'), t('hero.trustFastText')],
                 ].map(([Icon, title, text]) => {
                   const I = Icon as typeof ShieldCheck;
                   return (
@@ -342,7 +346,7 @@ export default function LandingAnimated({
             >
               <Image
                 src="/landing-students-campus.png"
-                alt="Deux étudiants sur un campus universitaire"
+                alt={t('hero.imageAlt')}
                 fill
                 priority
                 quality={70}
@@ -365,8 +369,8 @@ export default function LandingAnimated({
                 <CheckCircle2 className="size-5" />
               </span>
               <div>
-                <p className="text-[13.5px] font-extrabold">Candidature acceptée</p>
-                <p className="text-[11px] text-[#78819a]">INSCAE · il y a 2 min</p>
+                <p className="text-[13.5px] font-extrabold">{t('hero.floatingAccepted')}</p>
+                <p className="text-[11px] text-[#78819a]">{t('hero.floatingAcceptedSub')}</p>
               </div>
             </motion.div>
 
@@ -380,7 +384,7 @@ export default function LandingAnimated({
               }}
             >
               <span className="font-heading text-[22px] font-extrabold leading-none">50+</span>
-              <span className="max-w-[11ch] text-[11px] leading-tight opacity-90">écoles partenaires</span>
+              <span className="max-w-[11ch] text-[11px] leading-tight opacity-90">{t('hero.floatingSchoolsLabel')}</span>
             </motion.div>
 
             <motion.div
@@ -393,8 +397,8 @@ export default function LandingAnimated({
                 <GraduationCap className="size-[22px]" />
               </span>
               <div>
-                <p className="text-[14px] font-extrabold">Rejoins les grandes écoles</p>
-                <p className="text-[12px] text-[#78819a]">et construis ton avenir dès aujourd&apos;hui.</p>
+                <p className="text-[14px] font-extrabold">{t('hero.floatingJoinTitle')}</p>
+                <p className="text-[12px] text-[#78819a]">{t('hero.floatingJoinText')}</p>
               </div>
             </motion.div>
           </motion.div>
@@ -404,13 +408,12 @@ export default function LandingAnimated({
       {/* ===================== ACTORS ===================== */}
       <section id="apropos" className="mx-auto max-w-[1200px] px-6 py-24">
         <Reveal className="mx-auto max-w-[640px] text-center">
-          <SectionEyebrow>Pourquoi choisir GET</SectionEyebrow>
+          <SectionEyebrow>{t('actors.eyebrow')}</SectionEyebrow>
           <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-            Une plateforme pensée pour <span className="text-violet-600">tous les acteurs</span>
+            {t('actors.titleStart')} <span className="text-violet-600">{t('actors.titleHighlight')}</span>
           </h2>
           <p className="mt-3.5 text-[16px] text-[#56618a]">
-            GET connecte étudiants, établissements, partenaires financiers et le ministère dans un écosystème
-            numérique simple, transparent et efficace.
+            {t('actors.text')}
           </p>
         </Reveal>
 
@@ -451,9 +454,9 @@ export default function LandingAnimated({
       <div className="border-y border-slate-100 bg-slate-50/60">
         <section id="fonctionnalites" className="mx-auto max-w-[1200px] px-6 py-24">
           <Reveal className="mx-auto max-w-[640px] text-center">
-            <SectionEyebrow>Comment ça marche</SectionEyebrow>
+            <SectionEyebrow>{t('steps.eyebrow')}</SectionEyebrow>
             <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-              Un parcours simple en <span className="text-violet-600">4 étapes</span>
+              {t('steps.titleStart')} <span className="text-violet-600">{t('steps.titleHighlight')}</span>
             </h2>
           </Reveal>
 
@@ -512,27 +515,26 @@ export default function LandingAnimated({
       <section className="mx-auto max-w-[1200px] px-6 py-24">
         <div className="grid items-center gap-14 lg:grid-cols-2">
           <Reveal variants={fadeInLeft}>
-            <SectionEyebrow>Espace étudiant</SectionEyebrow>
+            <SectionEyebrow>{t('studentFeature.eyebrow')}</SectionEyebrow>
             <h2 className="mt-4 text-[clamp(26px,3.6vw,36px)] font-black leading-tight">
-              Tout ton parcours,
+              {t('studentFeature.titleLine1')}
               <br />
-              dans ta poche
+              {t('studentFeature.titleLine2')}
             </h2>
             <p className="mt-3.5 max-w-[46ch] text-[15.5px] text-[#56618a]">
-              Un tableau de bord clair qui rassemble candidatures, concours, notes, emploi du temps et
-              paiements. Plus besoin de courir entre les établissements.
+              {t('studentFeature.text')}
             </p>
             <div className="mt-6 flex flex-col gap-4">
               {[
-                ['Candidatures en temps réel', 'Suis le statut de chaque dossier, école par école.'],
-                ['Paiements Mobile Money & carte', "Règle tes frais de concours et d'inscription en quelques secondes."],
-                ['Documents & bibliothèque', 'Tes attestations et ressources de cours, centralisées.'],
+                [t('studentFeature.feature1Title'), t('studentFeature.feature1Text')],
+                [t('studentFeature.feature2Title'), t('studentFeature.feature2Text')],
+                [t('studentFeature.feature3Title'), t('studentFeature.feature3Text')],
               ].map(([b, p]) => (
                 <FeatureItem key={b} title={b} text={p} />
               ))}
             </div>
             <MagneticButton href="/auth/register" className="mt-7">
-              Créer mon compte <ArrowRight className="size-4" />
+              {t('studentFeature.cta')} <ArrowRight className="size-4" />
             </MagneticButton>
           </Reveal>
 
@@ -550,13 +552,13 @@ export default function LandingAnimated({
           <div className="relative overflow-hidden rounded-[36px] border border-slate-100 bg-white px-8 py-12 text-center shadow-sm">
             <span className="absolute left-8 top-2 font-heading text-[120px] leading-none text-violet-50">&ldquo;</span>
             <blockquote className="relative mx-auto max-w-[20ch] font-heading text-[clamp(20px,3vw,28px)] font-bold leading-snug tracking-tight">
-              J&apos;ai postulé à <span className="text-violet-600">5 écoles en une soirée.</span> Trois réponses en une semaine. GET a tout changé.
+              {t('testimonial.quoteBefore')}<span className="text-violet-600">{t('testimonial.quoteHighlight')}</span>{t('testimonial.quoteAfter')}
             </blockquote>
             <div className="mt-6 flex items-center justify-center gap-3">
               <span className="grid size-[46px] place-items-center rounded-full bg-gradient-to-r from-violet-600 to-[#ff8a5b] font-bold text-white">TR</span>
               <div className="text-left">
-                <p className="text-[14px] font-extrabold">Tantely R.</p>
-                <p className="text-[12px] text-[#78819a]">Étudiante en L1 · promotion 2025</p>
+                <p className="text-[14px] font-extrabold">{t('testimonial.name')}</p>
+                <p className="text-[12px] text-[#78819a]">{t('testimonial.role')}</p>
               </div>
             </div>
           </div>
@@ -568,9 +570,9 @@ export default function LandingAnimated({
         <section id="actualites" className="mx-auto max-w-[1200px] px-6 pb-24">
           <Reveal className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <SectionEyebrow>Actualités</SectionEyebrow>
+              <SectionEyebrow>{t('news.eyebrow')}</SectionEyebrow>
               <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-                Reste <span className="text-violet-600">informé</span>
+                {t('news.titleStart')} <span className="text-violet-600">{t('news.titleHighlight')}</span>
               </h2>
             </div>
           </Reveal>
@@ -601,7 +603,7 @@ export default function LandingAnimated({
                 <div className="p-[18px]">
                   <div className="flex justify-between text-[11px] font-semibold text-[#78819a]">
                     <span>{item.type}</span>
-                    <span>{new Date(item.publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    <span>{new Date(item.publishedAt).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                   </div>
                   <h3 className="mt-2 text-[16px] font-extrabold leading-tight">{item.title}</h3>
                   <p className="mt-2 text-[13px] leading-relaxed text-[#56618a]">{item.body}</p>
@@ -615,17 +617,17 @@ export default function LandingAnimated({
       {/* ===================== PARTENAIRES ===================== */}
       <section id="etablissements" className="mx-auto max-w-[1200px] px-6 pb-24">
         <Reveal className="mx-auto max-w-[640px] text-center">
-          <SectionEyebrow>Nos partenaires</SectionEyebrow>
+          <SectionEyebrow>{t('partners.eyebrow')}</SectionEyebrow>
           <h2 className="mt-4 text-[clamp(28px,4.2vw,40px)] font-black">
-            Ils nous font <span className="text-violet-600">confiance</span>
+            {t('partners.titleStart')} <span className="text-violet-600">{t('partners.titleHighlight')}</span>
           </h2>
         </Reveal>
         {!hasPartners ? (
-          <p className="mt-8 text-center text-sm text-[#68738f]">Nos partenaires seront bientôt affichés ici.</p>
+          <p className="mt-8 text-center text-sm text-[#68738f]">{t('partners.empty')}</p>
         ) : (
           <div className="mt-11 space-y-10">
-            {partners.schools.length > 0 && <PartnerRow title="Établissements partenaires" items={partners.schools} />}
-            {partners.financialPartners.length > 0 && <PartnerRow title="Partenaires financiers" items={partners.financialPartners} />}
+            {partners.schools.length > 0 && <PartnerRow title={t('partners.schools')} items={partners.schools} />}
+            {partners.financialPartners.length > 0 && <PartnerRow title={t('partners.financial')} items={partners.financialPartners} />}
           </div>
         )}
       </section>
@@ -647,21 +649,21 @@ export default function LandingAnimated({
               <GraduationCap className="size-[30px]" />
             </span>
             <h2 className="relative mx-auto mt-5 max-w-[20ch] text-[clamp(28px,4.4vw,42px)] font-black text-white">
-              Prêt à construire ton avenir ?
+              {t('finalCta.title')}
             </h2>
             <p className="relative mx-auto mt-4 max-w-[52ch] text-[16px] text-white/90">
-              Rejoins des milliers d&apos;étudiants et accède aux meilleures opportunités d&apos;études à Madagascar.
+              {t('finalCta.text')}
             </p>
             <div className="relative mt-8 flex flex-wrap justify-center gap-3">
               <motion.div whileHover={reduce ? undefined : { y: -2 }} whileTap={{ scale: 0.97 }}>
                 <Link href="/auth/register"
                   className="inline-flex items-center gap-2 rounded-[10px] bg-white px-6 py-3.5 text-[15px] font-bold text-violet-700">
                   <UserRound className="size-[18px]" />
-                  Créer mon compte gratuitement
+                  {t('finalCta.button')}
                 </Link>
               </motion.div>
             </div>
-            <p className="relative mt-5 text-[13px] font-semibold text-white/85">C&apos;est rapide, gratuit et sécurisé !</p>
+            <p className="relative mt-5 text-[13px] font-semibold text-white/85">{t('finalCta.note')}</p>
           </motion.div>
         </Reveal>
       </section>
@@ -672,25 +674,31 @@ export default function LandingAnimated({
           <div>
             <Link href="/"><Logo size={44} /></Link>
             <p className="mt-4 max-w-[26ch] text-[13.5px] leading-relaxed text-[#56618a]">
-              La plateforme qui ouvre la voie vers ton bac et ton futur.
+              {t('footer.tagline')}
             </p>
           </div>
-          <FooterCol title="Plateforme" links={['Fonctionnalités', 'Établissements', 'Tarifs', 'FAQ']} />
-          <FooterCol title="Ressources" links={['Guides étudiants', 'Conseils orientation', 'Actualités', "Centre d'aide"]} />
+          <FooterCol
+            title={t('footer.platformTitle')}
+            links={[t('footer.platformLink1'), t('footer.platformLink2'), t('footer.platformLink3'), t('footer.platformLink4')]}
+          />
+          <FooterCol
+            title={t('footer.resourcesTitle')}
+            links={[t('footer.resourcesLink1'), t('footer.resourcesLink2'), t('footer.resourcesLink3'), t('footer.resourcesLink4')]}
+          />
           <div>
-            <h4 className="text-[13px] font-extrabold">Contact</h4>
+            <h4 className="text-[13px] font-extrabold">{t('footer.contactTitle')}</h4>
             <ul className="mt-4 space-y-2.5 text-[13.5px] text-[#56618a]">
               <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">☎</span>+261 34 12 345 67</li>
               <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">✉</span>contact@get.mg</li>
-              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">📍</span>Antananarivo, Madagascar</li>
+              <li className="flex items-start gap-2.5"><span className="mt-0.5 size-4 shrink-0 text-violet-600">📍</span>{t('footer.address')}</li>
             </ul>
           </div>
         </div>
         <div className="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-3 border-t border-slate-100 px-6 py-5 text-[12.5px] text-[#78819a]">
-          <span>© 2025 GET — Tous droits réservés.</span>
+          <span>{t('footer.copyright')}</span>
           <span className="flex gap-5">
-            <a href="#" className="hover:text-violet-600">Conditions d&apos;utilisation</a>
-            <a href="#" className="hover:text-violet-600">Politique de confidentialité</a>
+            <a href="#" className="hover:text-violet-600">{t('footer.terms')}</a>
+            <a href="#" className="hover:text-violet-600">{t('footer.privacy')}</a>
           </span>
         </div>
       </footer>

@@ -1,0 +1,106 @@
+{
+  "Common": {
+    "switchToFr": "Passer en français",
+    "switchToEn": "Switch to English"
+  },
+  "Landing": {
+    "nav": {
+      "home": "Accueil",
+      "about": "À propos",
+      "schools": "Établissements",
+      "features": "Fonctionnalités",
+      "news": "Actualités",
+      "contact": "Contact"
+    },
+    "header": {
+      "login": "Se connecter",
+      "register": "S'inscrire"
+    },
+    "hero": {
+      "badgeOnline": "EN LIGNE",
+      "badgeText": "Plateforme officielle post-bac · Madagascar",
+      "ctaStudent": "Je suis étudiant",
+      "ctaSchool": "Je suis une école",
+      "imageAlt": "Deux étudiants sur un campus universitaire",
+      "trustOnlineTitle": "100% en ligne",
+      "trustOnlineText": "Accessible partout",
+      "trustSecureTitle": "Sécurisé & fiable",
+      "trustSecureText": "Données protégées",
+      "trustFastTitle": "Simple & rapide",
+      "trustFastText": "Gain de temps assuré",
+      "floatingAccepted": "Candidature acceptée",
+      "floatingAcceptedSub": "INSCAE · il y a 2 min",
+      "floatingSchoolsLabel": "écoles partenaires",
+      "floatingJoinTitle": "Rejoins les grandes écoles",
+      "floatingJoinText": "et construis ton avenir dès aujourd'hui."
+    },
+    "actors": {
+      "eyebrow": "Pourquoi choisir GET",
+      "titleStart": "Une plateforme pensée pour",
+      "titleHighlight": "tous les acteurs",
+      "text": "GET connecte étudiants, établissements, partenaires financiers et le ministère dans un écosystème numérique simple, transparent et efficace."
+    },
+    "steps": {
+      "eyebrow": "Comment ça marche",
+      "titleStart": "Un parcours simple en",
+      "titleHighlight": "4 étapes"
+    },
+    "studentFeature": {
+      "eyebrow": "Espace étudiant",
+      "titleLine1": "Tout ton parcours,",
+      "titleLine2": "dans ta poche",
+      "text": "Un tableau de bord clair qui rassemble candidatures, concours, notes, emploi du temps et paiements. Plus besoin de courir entre les établissements.",
+      "feature1Title": "Candidatures en temps réel",
+      "feature1Text": "Suis le statut de chaque dossier, école par école.",
+      "feature2Title": "Paiements Mobile Money & carte",
+      "feature2Text": "Règle tes frais de concours et d'inscription en quelques secondes.",
+      "feature3Title": "Documents & bibliothèque",
+      "feature3Text": "Tes attestations et ressources de cours, centralisées.",
+      "cta": "Créer mon compte"
+    },
+    "testimonial": {
+      "quoteBefore": "J'ai postulé à ",
+      "quoteHighlight": "5 écoles en une soirée.",
+      "quoteAfter": " Trois réponses en une semaine. GET a tout changé.",
+      "name": "Tantely R.",
+      "role": "Étudiante en L1 · promotion 2025"
+    },
+    "news": {
+      "eyebrow": "Actualités",
+      "titleStart": "Reste",
+      "titleHighlight": "informé"
+    },
+    "partners": {
+      "eyebrow": "Nos partenaires",
+      "titleStart": "Ils nous font",
+      "titleHighlight": "confiance",
+      "empty": "Nos partenaires seront bientôt affichés ici.",
+      "schools": "Établissements partenaires",
+      "financial": "Partenaires financiers"
+    },
+    "finalCta": {
+      "title": "Prêt à construire ton avenir ?",
+      "text": "Rejoins des milliers d'étudiants et accède aux meilleures opportunités d'études à Madagascar.",
+      "button": "Créer mon compte gratuitement",
+      "note": "C'est rapide, gratuit et sécurisé !"
+    },
+    "footer": {
+      "tagline": "La plateforme qui ouvre la voie vers ton bac et ton futur.",
+      "platformTitle": "Plateforme",
+      "platformLink1": "Fonctionnalités",
+      "platformLink2": "Établissements",
+      "platformLink3": "Tarifs",
+      "platformLink4": "FAQ",
+      "resourcesTitle": "Ressources",
+      "resourcesLink1": "Guides étudiants",
+      "resourcesLink2": "Conseils orientation",
+      "resourcesLink3": "Actualités",
+      "resourcesLink4": "Centre d'aide",
+      "contactTitle": "Contact",
+      "address": "Antananarivo, Madagascar",
+      "copyright": "© 2025 GET — Tous droits réservés.",
+      "terms": "Conditions d'utilisation",
+      "privacy": "Politique de confidentialité"
+    }
+  }
+}

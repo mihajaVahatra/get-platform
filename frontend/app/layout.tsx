@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Sora, JetBrains_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
@@ -24,19 +26,22 @@ export const metadata: Metadata = {
   description: "Plateforme de gestion des candidatures post-bac",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
     <html
-      lang="fr"
+      lang={locale}
       className={`${jakarta.variable} ${sora.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased min-h-screen">
-        {children}
-        <Toaster 
+        <NextIntlClientProvider>
+          {children}
+        </NextIntlClientProvider>
+        <Toaster
           position="top-right"
           toastOptions={{
             duration: 4000,
