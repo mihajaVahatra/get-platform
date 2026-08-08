@@ -196,6 +196,62 @@ export class AuthService {
     };
   }
 
+  // ========== REFRESH TOKEN ==========
+  // L'access token dure volontairement peu (15 min) : c'est le refresh token
+  // (7 jours, cookie httpOnly séparé) qui doit permettre d'en obtenir un
+  // nouveau silencieusement, sans forcer une reconnexion tant que la session
+  // n'a pas été explicitement révoquée (logout / changement de sessionVersion).
+  async refreshTokens(refreshToken: string) {
+    let payload: {
+      sub: string;
+      sessionVersion: number;
+      type?: string;
+    };
+    try {
+      payload = this.jwt.verify(refreshToken, {
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException(
+        'Session expirée, veuillez vous reconnecter',
+      );
+    }
+
+    // Comme pour l'access token dans JwtStrategy : rejette les jetons à
+    // usage unique (reset, challenge MFA) même signés avec le bon secret.
+    if (payload.type) {
+      throw new UnauthorizedException('Jeton invalide pour cet usage');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { student: true, schoolAdmin: true, role: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Utilisateur non trouvé ou inactif');
+    }
+
+    if (payload.sessionVersion !== user.sessionVersion) {
+      throw new UnauthorizedException(
+        'Session révoquée, veuillez vous reconnecter',
+      );
+    }
+
+    const tokens = this.generateTokens(
+      user.id,
+      user.email,
+      user.role!.name,
+      user.sessionVersion,
+    );
+    const userInfo = this.extractUserInfo(user);
+
+    return {
+      ...tokens,
+      user: userInfo,
+    };
+  }
+
   // ========== LOGOUT ==========
 
   async revokeSession(userId: string) {
