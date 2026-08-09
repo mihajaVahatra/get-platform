@@ -1,9 +1,7 @@
 'use client';
 
-import { useLocale, useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
-import { locales, localeCookieName, type Locale } from '@/i18n/config';
+import { useTranslations } from 'next-intl';
+import { useLocaleSwitcher } from '@/i18n/use-locale-switcher';
 
 export function LanguageSwitcher({
   className,
@@ -12,19 +10,8 @@ export function LanguageSwitcher({
   className?: string;
   variant?: 'light' | 'sidebar';
 }) {
-  const locale = useLocale();
+  const { locale, locales, isPending, setLocale } = useLocaleSwitcher();
   const t = useTranslations('Common');
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [pendingLocale, setPendingLocale] = useState<Locale | null>(null);
-
-  useEffect(() => {
-    if (!pendingLocale || pendingLocale === locale) return;
-    document.cookie = `${localeCookieName}=${pendingLocale}; path=/; max-age=31536000; SameSite=Lax`;
-    startTransition(() => {
-      router.refresh();
-    });
-  }, [pendingLocale, locale, router]);
 
   const containerClass =
     variant === 'sidebar'
@@ -47,7 +34,7 @@ export function LanguageSwitcher({
         <button
           key={l}
           type="button"
-          onClick={() => setPendingLocale(l)}
+          onClick={() => setLocale(l)}
           disabled={isPending}
           aria-pressed={l === locale}
           aria-label={l === 'fr' ? t('switchToFr') : t('switchToEn')}
