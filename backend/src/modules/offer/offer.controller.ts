@@ -82,6 +82,17 @@ export class OfferController {
     };
   }
 
+  @Public()
+  @Get('diplomas')
+  @ApiOperation({ summary: 'Get distinct diplomas used by open offers (used to populate the diploma picker)' })
+  async getDiplomas() {
+    return {
+      success: true,
+      data: await this.offerService.findDistinctDiplomas(),
+      message: 'Diplomas retrieved successfully',
+    };
+  }
+
   @Get('mine')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')

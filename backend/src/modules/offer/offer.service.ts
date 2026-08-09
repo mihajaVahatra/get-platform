@@ -122,6 +122,16 @@ export class OfferService {
     };
   }
 
+  async findDistinctDiplomas() {
+    const rows = await this.prisma.offer.findMany({
+      where: { deletedAt: null, isOpen: true },
+      distinct: ['diploma'],
+      select: { diploma: true },
+      orderBy: { diploma: 'asc' },
+    });
+    return rows.map((row) => row.diploma);
+  }
+
   async findOne(id: string) {
     const offer = await this.prisma.offer.findFirst({
       where: { id, deletedAt: null },
