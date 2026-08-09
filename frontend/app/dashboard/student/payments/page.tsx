@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import {
   Card,
@@ -64,9 +65,10 @@ type PaymentApplication = {
 };
 
 export default function StudentPaymentsPage() {
+  const t = useTranslations('StudentPayments');
   return (
     <Suspense
-      fallback={<div className="flex justify-center p-8">Chargement...</div>}
+      fallback={<div className="flex justify-center p-8">{t('loading')}</div>}
     >
       <StudentPaymentsContent />
     </Suspense>
@@ -74,6 +76,7 @@ export default function StudentPaymentsPage() {
 }
 
 function StudentPaymentsContent() {
+  const t = useTranslations('StudentPayments');
   const searchParams = useSearchParams();
   const preselectedApplicationId = searchParams.get('applicationId');
 
@@ -121,7 +124,7 @@ function StudentPaymentsContent() {
       setPayments(response.data.data || []);
     } catch (error) {
       console.error('Erreur chargement paiements:', error);
-      toast.error('Erreur lors du chargement des paiements');
+      toast.error(t('loadPaymentsError'));
     } finally {
       setLoading(false);
     }
@@ -133,7 +136,7 @@ function StudentPaymentsContent() {
       setApplications(response.data.data || []);
     } catch (error) {
       console.error('Erreur chargement candidatures:', error);
-      toast.error('Impossible de charger les candidatures disponibles');
+      toast.error(t('loadApplicationsError'));
     }
   };
 
@@ -159,23 +162,23 @@ function StudentPaymentsContent() {
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
-      PENDING: 'En attente',
-      PROCESSING: 'En cours',
-      COMPLETED: 'Réussi ✅',
-      FAILED: 'Échoué ❌',
-      REFUNDED: 'Remboursé',
-      CANCELLED: 'Annulé',
-      EXPIRED: 'Expiré',
+      PENDING: t('statuses.PENDING'),
+      PROCESSING: t('statuses.PROCESSING'),
+      COMPLETED: t('statuses.COMPLETED'),
+      FAILED: t('statuses.FAILED'),
+      REFUNDED: t('statuses.REFUNDED'),
+      CANCELLED: t('statuses.CANCELLED'),
+      EXPIRED: t('statuses.EXPIRED'),
     };
     return labels[status] || status;
   };
 
   const getMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      ORANGE_MONEY: 'Orange Money',
-      MVOLA: 'Mvola',
-      CARD: 'Carte bancaire',
-      BANK_TRANSFER: 'Virement bancaire',
+      ORANGE_MONEY: t('methods.ORANGE_MONEY'),
+      MVOLA: t('methods.MVOLA'),
+      CARD: t('methods.CARD'),
+      BANK_TRANSFER: t('methods.BANK_TRANSFER'),
     };
     return labels[method] || method;
   };
@@ -196,7 +199,7 @@ function StudentPaymentsContent() {
 
   const handleInitiatePayment = async () => {
     if (!paymentData.applicationId || !paymentData.method) {
-      toast.error('Sélectionnez une candidature et une méthode de paiement');
+      toast.error(t('selectApplicationAndMethod'));
       return;
     }
 
@@ -207,7 +210,7 @@ function StudentPaymentsContent() {
         applicationId: paymentData.applicationId,
       });
 
-      toast.success('Paiement initié avec succès !');
+      toast.success(t('initiateSuccess'));
       setIsDialogOpen(false);
       setPaymentData({ applicationId: '', method: '' });
 
@@ -218,7 +221,7 @@ function StudentPaymentsContent() {
       }
     } catch (error: any) {
       const message =
-        error.response?.data?.message || "Erreur lors de l'initiation";
+        error.response?.data?.message || t('initiateError');
       toast.error(message);
     } finally {
       setIsInitiating(false);
@@ -227,7 +230,7 @@ function StudentPaymentsContent() {
 
   const handleRetry = async (payment: Payment) => {
     if (!payment.application?.id) {
-      toast.error('Candidature introuvable pour ce paiement');
+      toast.error(t('applicationNotFound'));
       return;
     }
     setRetryingId(payment.id);
@@ -236,7 +239,7 @@ function StudentPaymentsContent() {
         method: payment.method,
         applicationId: payment.application.id,
       });
-      toast.success('Nouveau paiement initié');
+      toast.success(t('retrySuccess'));
       if (response.data.data?.redirectUrl) {
         window.location.href = response.data.data.redirectUrl;
       } else {
@@ -244,7 +247,7 @@ function StudentPaymentsContent() {
       }
     } catch (error: any) {
       const message =
-        error.response?.data?.message || 'Erreur lors de la relance du paiement';
+        error.response?.data?.message || t('retryError');
       toast.error(message);
     } finally {
       setRetryingId(null);
@@ -263,15 +266,15 @@ function StudentPaymentsContent() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success('Reçu téléchargé');
+      toast.success(t('receiptDownloaded'));
     } catch (error) {
-      toast.error('Erreur lors du téléchargement du reçu');
+      toast.error(t('receiptDownloadError'));
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center p-8">Chargement des paiements...</div>
+      <div className="flex justify-center p-8">{t('loadingPayments')}</div>
     );
   }
 
@@ -280,32 +283,32 @@ function StudentPaymentsContent() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Mes paiements</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-gray-500 text-sm">
-            {payments.length} paiement(s) au total
+            {t('totalCount', { count: payments.length })}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-sm text-gray-500">Total payé</p>
+            <p className="text-sm text-gray-500">{t('totalPaid')}</p>
             <p className="text-xl font-bold text-green-600 dark:text-green-300">
               {formatAmount(totalAmount)}
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-              🆕 Nouveau paiement
+              {t('newPayment')}
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Initier un paiement</DialogTitle>
+                <DialogTitle>{t('initiatePaymentTitle')}</DialogTitle>
                 <DialogDescription>
-                  Remplissez les informations pour effectuer un paiement
+                  {t('initiatePaymentSubtitle')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="applicationId">Candidature</Label>
+                  <Label htmlFor="applicationId">{t('applicationLabel')}</Label>
                   <Select
                     items={payableApplications.map((application) => ({
                       value: application.id,
@@ -320,7 +323,7 @@ function StudentPaymentsContent() {
                     }
                   >
                     <SelectTrigger id="applicationId">
-                      <SelectValue placeholder="Choisir une candidature" />
+                      <SelectValue placeholder={t('chooseApplication')} />
                     </SelectTrigger>
                     <SelectContent>
                       {payableApplications.map((application) => (
@@ -334,20 +337,18 @@ function StudentPaymentsContent() {
                   </Select>
                   {payableApplications.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      Aucune candidature acceptée pour l’instant : le paiement
-                      n’est possible qu’après une réponse favorable de
-                      l’établissement.
+                      {t('noPayableApplications')}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="method">Méthode de paiement</Label>
+                  <Label htmlFor="method">{t('methodLabel')}</Label>
                   <Select
                     items={[
-                      { value: 'ORANGE_MONEY', label: 'Orange Money' },
-                      { value: 'MVOLA', label: 'Mvola' },
-                      { value: 'CARD', label: 'Carte bancaire' },
-                      { value: 'BANK_TRANSFER', label: 'Virement bancaire' },
+                      { value: 'ORANGE_MONEY', label: t('methods.ORANGE_MONEY') },
+                      { value: 'MVOLA', label: t('methods.MVOLA') },
+                      { value: 'CARD', label: t('methods.CARD') },
+                      { value: 'BANK_TRANSFER', label: t('methods.BANK_TRANSFER') },
                     ]}
                     value={paymentData.method}
                     onValueChange={(value) =>
@@ -355,14 +356,14 @@ function StudentPaymentsContent() {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Choisir une méthode" />
+                      <SelectValue placeholder={t('chooseMethod')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ORANGE_MONEY">Orange Money</SelectItem>
-                      <SelectItem value="MVOLA">Mvola</SelectItem>
-                      <SelectItem value="CARD">Carte bancaire</SelectItem>
+                      <SelectItem value="ORANGE_MONEY">{t('methods.ORANGE_MONEY')}</SelectItem>
+                      <SelectItem value="MVOLA">{t('methods.MVOLA')}</SelectItem>
+                      <SelectItem value="CARD">{t('methods.CARD')}</SelectItem>
                       <SelectItem value="BANK_TRANSFER">
-                        Virement bancaire
+                        {t('methods.BANK_TRANSFER')}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -373,10 +374,10 @@ function StudentPaymentsContent() {
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
                 >
-                  Annuler
+                  {t('cancel')}
                 </Button>
                 <Button onClick={handleInitiatePayment} disabled={isInitiating}>
-                  {isInitiating ? 'En cours...' : 'Payer'}
+                  {isInitiating ? t('inProgress') : t('pay')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -386,15 +387,15 @@ function StudentPaymentsContent() {
 
       {/* Filtre */}
       <div className="flex items-center gap-2">
-        <label className="text-sm text-muted-foreground">Filtrer :</label>
+        <label className="text-sm text-muted-foreground">{t('filterLabel')}</label>
         <Select
           items={[
-            { value: 'ALL', label: 'Tous' },
-            { value: 'PENDING', label: 'En attente' },
-            { value: 'PROCESSING', label: 'En cours' },
-            { value: 'COMPLETED', label: 'Réussis' },
-            { value: 'FAILED', label: 'Échoués' },
-            { value: 'REFUNDED', label: 'Remboursés' },
+            { value: 'ALL', label: t('filterStatuses.ALL') },
+            { value: 'PENDING', label: t('filterStatuses.PENDING') },
+            { value: 'PROCESSING', label: t('filterStatuses.PROCESSING') },
+            { value: 'COMPLETED', label: t('filterStatuses.COMPLETED') },
+            { value: 'FAILED', label: t('filterStatuses.FAILED') },
+            { value: 'REFUNDED', label: t('filterStatuses.REFUNDED') },
           ]}
           value={filter}
           onValueChange={(value) => setFilter(value ?? 'ALL')}
@@ -403,12 +404,12 @@ function StudentPaymentsContent() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tous</SelectItem>
-            <SelectItem value="PENDING">En attente</SelectItem>
-            <SelectItem value="PROCESSING">En cours</SelectItem>
-            <SelectItem value="COMPLETED">Réussis</SelectItem>
-            <SelectItem value="FAILED">Échoués</SelectItem>
-            <SelectItem value="REFUNDED">Remboursés</SelectItem>
+            <SelectItem value="ALL">{t('filterStatuses.ALL')}</SelectItem>
+            <SelectItem value="PENDING">{t('filterStatuses.PENDING')}</SelectItem>
+            <SelectItem value="PROCESSING">{t('filterStatuses.PROCESSING')}</SelectItem>
+            <SelectItem value="COMPLETED">{t('filterStatuses.COMPLETED')}</SelectItem>
+            <SelectItem value="FAILED">{t('filterStatuses.FAILED')}</SelectItem>
+            <SelectItem value="REFUNDED">{t('filterStatuses.REFUNDED')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -419,8 +420,8 @@ function StudentPaymentsContent() {
           <CardContent className="p-8 text-center">
             <p className="text-gray-500">
               {payments.length === 0
-                ? "Vous n'avez pas encore effectué de paiement."
-                : 'Aucun paiement ne correspond à ce filtre.'}
+                ? t('noPaymentsYet')
+                : t('noMatchFilter')}
             </p>
           </CardContent>
         </Card>
@@ -444,8 +445,8 @@ function StudentPaymentsContent() {
                     </CardTitle>
                     <CardDescription>
                       {payment.application?.offer?.school?.name ||
-                        'Paiement direct'}{' '}
-                      •{payment.application?.offer?.title || 'Sans candidature'}
+                        t('directPayment')}{' '}
+                      •{payment.application?.offer?.title || t('noApplication')}
                     </CardDescription>
                   </div>
                   <div className="text-right">
@@ -462,14 +463,14 @@ function StudentPaymentsContent() {
                 <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
                   <div className="flex items-center gap-4">
                     <span className="text-gray-500">
-                      Méthode :{' '}
+                      {t('methodPrefix')}{' '}
                       <span className="font-medium">
                         {getMethodLabel(payment.method)}
                       </span>
                     </span>
                     {payment.paidAt && (
                       <span className="text-gray-500">
-                        Payé le :{' '}
+                        {t('paidOnPrefix')}{' '}
                         <span className="font-medium">
                           {formatDate(payment.paidAt)}
                         </span>
@@ -483,12 +484,12 @@ function StudentPaymentsContent() {
                         size="sm"
                         onClick={() => handleDownloadReceipt(payment.id)}
                       >
-                        📥 Reçu
+                        {t('receipt')}
                       </Button>
                     )}
                     {payment.status === 'PENDING' && (
                       <span className="text-xs text-yellow-600 dark:text-yellow-300">
-                        ⏳ En attente de confirmation
+                        {t('pendingConfirmation')}
                       </span>
                     )}
                     {payment.status === 'FAILED' && (
@@ -500,8 +501,8 @@ function StudentPaymentsContent() {
                         onClick={() => handleRetry(payment)}
                       >
                         {retryingId === payment.id
-                          ? 'Relance…'
-                          : '🔄 Réessayer'}
+                          ? t('retrying')
+                          : t('retry')}
                       </Button>
                     )}
                   </div>

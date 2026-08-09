@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ type Offer = {
 };
 
 export default function StudentOffersPage() {
+  const t = useTranslations('StudentOffers');
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
@@ -93,7 +95,7 @@ export default function StudentOffersPage() {
       setOffers(response.data.data || []);
     } catch (error) {
       console.error('Erreur chargement offres:', error);
-      toast.error('Erreur lors du chargement des offres');
+      toast.error(t('loadOffersError'));
     } finally {
       setLoading(false);
     }
@@ -130,15 +132,15 @@ export default function StudentOffersPage() {
       });
       
       if (response.data.data?.submitted?.includes(offerId)) {
-        toast.success('Candidature soumise avec succès !');
+        toast.success(t('applySuccess'));
         setAppliedOffers(prev => new Set(prev).add(offerId));
         setIsDialogOpen(false);
         await fetchMyApplications();
       } else {
-        toast.error('Erreur lors de la soumission');
+        toast.error(t('applyError'));
       }
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Erreur lors de la soumission';
+      const message = error.response?.data?.message || t('applyError');
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -150,7 +152,7 @@ export default function StudentOffersPage() {
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Non définie';
+    if (!dateString) return t('notDefined');
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
@@ -173,15 +175,15 @@ export default function StudentOffersPage() {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-8">Chargement des offres...</div>;
+    return <div className="flex justify-center p-8">{t('loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* En-tête */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Rechercher des offres</h1>
-        <span className="text-sm text-gray-500">{offers.length} offre(s) disponible(s)</span>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <span className="text-sm text-gray-500">{t('offersAvailable', { count: offers.length })}</span>
       </div>
 
       {/* Filtres */}
@@ -189,14 +191,14 @@ export default function StudentOffersPage() {
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="diploma">Diplôme</Label>
+              <Label htmlFor="diploma">{t('diploma')}</Label>
               <Select
                 items={diplomas.map((diploma) => ({ value: diploma, label: diploma }))}
                 value={filters.diploma || undefined}
                 onValueChange={(value) => handleFilterChange('diploma', value ?? '')}
               >
                 <SelectTrigger id="diploma">
-                  <SelectValue placeholder="Tous les diplômes" />
+                  <SelectValue placeholder={t('allDiplomas')} />
                 </SelectTrigger>
                 <SelectContent>
                   {diplomas.map((diploma) => (
@@ -208,14 +210,14 @@ export default function StudentOffersPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="feeBracketId">Frais (Ar)</Label>
+              <Label htmlFor="feeBracketId">{t('fees')}</Label>
               <Select
                 items={feeBrackets.map((bracket) => ({ value: bracket.id, label: bracket.label }))}
                 value={filters.feeBracketId || undefined}
                 onValueChange={(value) => handleFilterChange('feeBracketId', value ?? '')}
               >
                 <SelectTrigger id="feeBracketId">
-                  <SelectValue placeholder="Toutes les tranches" />
+                  <SelectValue placeholder={t('allBrackets')} />
                 </SelectTrigger>
                 <SelectContent>
                   {feeBrackets.map((bracket) => (
@@ -227,13 +229,14 @@ export default function StudentOffersPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="city">Ville</Label>
+              <Label htmlFor="city">{t('city')}</Label>
               <Select
+                items={cities.map((city) => ({ value: city, label: city }))}
                 value={filters.city || undefined}
                 onValueChange={(value) => handleFilterChange('city', value ?? '')}
               >
                 <SelectTrigger id="city">
-                  <SelectValue placeholder="Toutes les villes" />
+                  <SelectValue placeholder={t('allCities')} />
                 </SelectTrigger>
                 <SelectContent>
                   {cities.map((city) => (
@@ -246,8 +249,8 @@ export default function StudentOffersPage() {
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <Button onClick={applyFilters}>🔍 Rechercher</Button>
-            <Button variant="outline" onClick={resetFilters}>Réinitialiser</Button>
+            <Button onClick={applyFilters}>🔍 {t('search')}</Button>
+            <Button variant="outline" onClick={resetFilters}>{t('reset')}</Button>
           </div>
         </CardContent>
       </Card>
@@ -256,7 +259,7 @@ export default function StudentOffersPage() {
       {offers.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-gray-500">Aucune offre ne correspond à vos critères.</p>
+            <p className="text-gray-500">{t('noMatch')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -274,30 +277,30 @@ export default function StudentOffersPage() {
                       </CardDescription>
                     </div>
                     <Badge className={offer.isOpen ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}>
-                      {offer.isOpen ? '📢 Ouvert' : '🔒 Fermé'}
+                      {offer.isOpen ? `📢 ${t('open')}` : `🔒 ${t('closed')}`}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-4 text-sm">
                     <span className="text-gray-500">
-                      Diplôme : <span className="font-medium">{offer.diploma}</span>
+                      {t('diplomaLabel')} <span className="font-medium">{offer.diploma}</span>
                     </span>
                     <span className="text-gray-500">
-                      Durée : <span className="font-medium">{offer.duration} mois</span>
+                      {t('durationLabel')} <span className="font-medium">{t('durationMonths', { count: offer.duration })}</span>
                     </span>
                     <span className="text-gray-500">
-                      Frais : <span className="font-medium text-blue-600 dark:text-blue-300">{formatAmount(offer.tuitionFees)}</span>
+                      {t('feesLabel')} <span className="font-medium text-blue-600 dark:text-blue-300">{formatAmount(offer.tuitionFees)}</span>
                     </span>
                     <span className="text-gray-500">
-                      Date limite : <span className="font-medium">{formatDate(offer.applicationDeadline)}</span>
+                      {t('deadlineLabel')} <span className="font-medium">{formatDate(offer.applicationDeadline)}</span>
                     </span>
                   </div>
                 </CardContent>
                 <CardFooter>
                   {hasApplied ? (
                     <Button variant="outline" disabled className="text-green-600 dark:text-green-300">
-                      ✅ Candidature soumise
+                      ✅ {t('alreadyApplied')}
                     </Button>
                   ) : (
                     <Dialog open={isDialogOpen && selectedOffer?.id === offer.id} onOpenChange={(open) => {
@@ -308,27 +311,27 @@ export default function StudentOffersPage() {
                         render={<Button className="bg-blue-600 text-white hover:bg-blue-700" />}
                         onClick={() => setSelectedOffer(offer)}
                       >
-                        📨 Postuler
+                        📨 {t('apply')}
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Confirmer la candidature</DialogTitle>
+                          <DialogTitle>{t('confirmApplicationTitle')}</DialogTitle>
                           <DialogDescription>
-                            Vous êtes sur le point de postuler à l'offre suivante :
+                            {t('confirmApplicationDescription')}
                           </DialogDescription>
                         </DialogHeader>
                         <div className="py-4 space-y-2">
-                          <p><strong>Offre :</strong> {offer.title}</p>
-                          <p><strong>École :</strong> {offer.school.name}</p>
-                          <p><strong>Diplôme :</strong> {offer.diploma}</p>
-                          <p><strong>Frais :</strong> {formatAmount(offer.tuitionFees)}</p>
+                          <p><strong>{t('offerLabel')}</strong> {offer.title}</p>
+                          <p><strong>{t('schoolLabel')}</strong> {offer.school.name}</p>
+                          <p><strong>{t('diplomaLabel')}</strong> {offer.diploma}</p>
+                          <p><strong>{t('feesLabel')}</strong> {formatAmount(offer.tuitionFees)}</p>
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                            Annuler
+                            {t('cancel')}
                           </Button>
                           <Button onClick={() => handleApply(offer.id)} disabled={isSubmitting}>
-                            {isSubmitting ? 'En cours...' : '✅ Confirmer'}
+                            {isSubmitting ? t('confirming') : `✅ ${t('confirm')}`}
                           </Button>
                         </DialogFooter>
                       </DialogContent>

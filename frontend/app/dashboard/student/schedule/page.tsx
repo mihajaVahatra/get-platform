@@ -2,17 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarDaysIcon, LoaderCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
-const DAYS = [
-  { value: 1, label: 'Lundi' },
-  { value: 2, label: 'Mardi' },
-  { value: 3, label: 'Mercredi' },
-  { value: 4, label: 'Jeudi' },
-  { value: 5, label: 'Vendredi' },
-  { value: 6, label: 'Samedi' },
-  { value: 7, label: 'Dimanche' },
-];
+const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7] as const;
 
 type Slot = {
   id: string;
@@ -24,6 +17,7 @@ type Slot = {
 };
 
 export default function StudentSchedulePage() {
+  const t = useTranslations('StudentSchedule');
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -39,29 +33,29 @@ export default function StudentSchedulePage() {
   return (
     <div className="mx-auto max-w-6xl text-foreground">
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">Emploi du temps</h1>
+        <h1 className="text-2xl font-extrabold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Vos créneaux hebdomadaires pour tous vos cours.
+          {t('subtitle')}
         </p>
       </header>
 
       {loading ? (
-        <Loading label="Chargement de l’emploi du temps…" />
+        <Loading label={t('loading')} />
       ) : failed ? (
-        <Empty label="Votre emploi du temps n’a pas pu être chargé." />
+        <Empty label={t('loadError')} />
       ) : slots.length === 0 ? (
-        <Empty label="Aucun créneau planifié pour le moment." />
+        <Empty label={t('empty')} />
       ) : (
         <div className="overflow-x-auto">
           <div className="grid min-w-[900px] grid-cols-7 divide-x rounded-lg border border-border">
-            {DAYS.map((day) => (
-              <section key={day.value} className="min-h-80 bg-card">
+            {DAY_VALUES.map((dayValue) => (
+              <section key={dayValue} className="min-h-80 bg-card">
                 <h2 className="border-b bg-muted px-3 py-3 text-center text-xs font-bold text-[#28315e]">
-                  {day.label}
+                  {t(`days.${dayValue}`)}
                 </h2>
                 <div className="space-y-2 p-2">
                   {slots
-                    .filter((slot) => slot.dayOfWeek === day.value)
+                    .filter((slot) => slot.dayOfWeek === dayValue)
                     .map((slot) => (
                       <article
                         key={slot.id}

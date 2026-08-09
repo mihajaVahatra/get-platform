@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BookOpen, LoaderCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 type Course = {
@@ -16,6 +17,7 @@ type Course = {
 };
 
 export default function StudentCoursesPage() {
+  const t = useTranslations('StudentCourses');
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -31,18 +33,18 @@ export default function StudentCoursesPage() {
   return (
     <div className="mx-auto max-w-5xl text-foreground">
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">Mes cours</h1>
+        <h1 className="text-2xl font-extrabold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Retrouvez ici tous les cours auxquels vous êtes inscrit.
+          {t('subtitle')}
         </p>
       </header>
 
       {loading ? (
-        <Loading label="Chargement de vos cours…" />
+        <Loading label={t('loading')} />
       ) : failed ? (
-        <Empty label="Vos cours n’ont pas pu être chargés." />
+        <Empty label={t('loadError')} />
       ) : courses.length === 0 ? (
-        <Empty label="Vous n’êtes inscrit à aucun cours pour le moment." />
+        <Empty label={t('empty')} />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {courses.map((course) => (
@@ -66,11 +68,11 @@ export default function StudentCoursesPage() {
               </span>
               <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-semibold text-muted-foreground">
                 <span className="rounded bg-muted px-2 py-1">
-                  {course.credits} crédit{course.credits > 1 ? 's' : ''}
+                  {t('credits', { count: course.credits })}
                 </span>
                 {course.room && (
                   <span className="rounded bg-muted px-2 py-1">
-                    Salle {course.room}
+                    {t('room', { room: course.room })}
                   </span>
                 )}
                 {course.schedule && (

@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useState } from 'react';
 import axios from 'axios';
 import { FileUp, LoaderCircle, UploadCloud } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import {
   Select,
@@ -28,6 +29,7 @@ type Assignment = {
 };
 
 export default function AssignmentsPage() {
+  const t = useTranslations('StudentAssignments');
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -45,7 +47,7 @@ export default function AssignmentsPage() {
         setCourses(loadedCourses);
         setSelectedCourseId(loadedCourses[0]?.id ?? '');
       })
-      .catch(() => setMessage('Impossible de charger vos cours.'))
+      .catch(() => setMessage(t('loadCoursesError')))
       .finally(() => setLoadingCourses(false));
   }, []);
 
@@ -62,7 +64,7 @@ export default function AssignmentsPage() {
       .catch(() => {
         setAssignments([]);
         setLoadedAssignmentsCourseId(selectedCourseId);
-        setMessage('Impossible de charger les devoirs de ce cours.');
+        setMessage(t('loadAssignmentsError'));
       });
   }, [selectedCourseId]);
 
@@ -101,12 +103,12 @@ export default function AssignmentsPage() {
             : item,
         ),
       );
-      setMessage('Votre devoir a bien été déposé.');
+      setMessage(t('submitSuccess'));
     } catch (error: unknown) {
       const errorMessage = axios.isAxiosError<{ message?: string }>(error)
         ? error.response?.data?.message
         : undefined;
-      setMessage(errorMessage ?? 'Le dépôt du devoir a échoué.');
+      setMessage(errorMessage ?? t('submitError'));
     } finally {
       setUploadingId(null);
     }
@@ -115,9 +117,9 @@ export default function AssignmentsPage() {
   return (
     <div className="mx-auto max-w-5xl text-foreground">
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">Mes devoirs</h1>
+        <h1 className="text-2xl font-extrabold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Déposez ou remplacez votre travail tant qu’il n’a pas été noté.
+          {t('subtitle')}
         </p>
       </header>
 
@@ -128,13 +130,13 @@ export default function AssignmentsPage() {
       )}
 
       {loadingCourses ? (
-        <Loading label="Chargement de vos cours…" />
+        <Loading label={t('loadingCourses')} />
       ) : courses.length === 0 ? (
-        <Empty label="Vous n’êtes inscrit à aucun cours pour le moment." />
+        <Empty label={t('noCourses')} />
       ) : (
         <>
           <div className="mb-5 max-w-md text-sm font-semibold">
-            Cours
+            {t('courseLabel')}
             <Select
               items={courses.map((course) => ({
                 value: course.id,
@@ -144,7 +146,7 @@ export default function AssignmentsPage() {
               onValueChange={(value) => setSelectedCourseId(value ?? '')}
             >
               <SelectTrigger className="mt-2 w-full rounded-xl">
-                <SelectValue placeholder="Sélectionner un cours" />
+                <SelectValue placeholder={t('selectCourse')} />
               </SelectTrigger>
               <SelectContent>
                 {courses.map((course) => (
@@ -157,9 +159,9 @@ export default function AssignmentsPage() {
           </div>
 
           {loadingAssignments ? (
-            <Loading label="Chargement des devoirs…" />
+            <Loading label={t('loadingAssignments')} />
           ) : assignments.length === 0 ? (
-            <Empty label="Aucun devoir publié dans ce cours." />
+            <Empty label={t('noAssignments')} />
           ) : (
             <div className="space-y-3">
               {assignments.map((assignment) => {
@@ -184,16 +186,15 @@ export default function AssignmentsPage() {
                           <p
                             className={`mt-3 text-xs font-semibold ${isLate ? 'text-orange-600 dark:text-orange-300' : 'text-muted-foreground'}`}
                           >
-                            À rendre le{' '}
-                            {new Date(assignment.dueAt).toLocaleString('fr-FR')}
-                            {isLate ? ' · En retard accepté' : ''}
+                            {t('dueOn', { date: new Date(assignment.dueAt).toLocaleString('fr-FR') })}
+                            {isLate ? t('lateAccepted') : ''}
                           </p>
                         )}
                       </div>
                       <div className="shrink-0">
                         {isGraded ? (
                           <span className="inline-flex rounded-lg bg-emerald-50 dark:bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                            Noté : {assignment.submission?.grade}/20
+                            {t('graded', { grade: assignment.submission?.grade ?? 0 })}
                           </span>
                         ) : (
                           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">
@@ -205,10 +206,10 @@ export default function AssignmentsPage() {
                               <UploadCloud className="size-4" />
                             )}
                             {uploadingId === assignment.id
-                              ? 'Dépôt…'
+                              ? t('uploading')
                               : assignment.submission
-                                ? 'Remplacer le fichier'
-                                : 'Déposer un fichier'}
+                                ? t('replaceFile')
+                                : t('submitFile')}
                             <input
                               type="file"
                               className="sr-only"
@@ -220,10 +221,9 @@ export default function AssignmentsPage() {
                         )}
                         {assignment.submission && !isGraded && (
                           <p className="mt-2 text-right text-xs text-muted-foreground">
-                            Déposé le{' '}
-                            {new Date(
-                              assignment.submission.submittedAt,
-                            ).toLocaleString('fr-FR')}
+                            {t('submittedOn', {
+                              date: new Date(assignment.submission.submittedAt).toLocaleString('fr-FR'),
+                            })}
                           </p>
                         )}
                       </div>
