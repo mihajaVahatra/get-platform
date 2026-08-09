@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -179,6 +180,37 @@ export class AuthController {
     const { accessToken, refreshToken, user } =
       await this.authService.completeMfaLogin(dto.challengeToken, dto.code);
     this.setSessionCookies(response, accessToken, refreshToken);
+    return { user };
+  }
+
+  // ========== REFRESH ==========
+  // L'access token ne dure que 15 min (voir setSessionCookies) : sans cet
+  // endpoint, toute session active finit par un 401 sur le premier appel API
+  // suivant l'expiration, avec redirection immédiate vers /auth/login côté
+  // frontend (voir api-client.ts) — même en cours d'utilisation active. Le
+  // refresh token (7 jours) permet d'obtenir un nouvel access token
+  // silencieusement tant que la session n'a pas été révoquée (logout).
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Refresh the access token using the refresh token cookie' })
+  @ApiResponse({ status: 200, description: 'Access token refreshed' })
+  @ApiResponse({ status: 401, description: 'Missing, invalid or expired refresh token' })
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = request.headers.cookie
+      ?.split('; ')
+      .find((cookie) => cookie.startsWith('refresh_token='))
+      ?.split('=')[1];
+    if (!refreshToken) {
+      throw new UnauthorizedException('Aucune session à rafraîchir');
+    }
+    const { accessToken, refreshToken: newRefreshToken, user } =
+      await this.authService.refreshTokens(refreshToken);
+    this.setSessionCookies(response, accessToken, newRefreshToken);
     return { user };
   }
 
