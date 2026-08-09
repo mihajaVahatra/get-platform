@@ -26,12 +26,14 @@ type Hero = { title: string; subtitle: string };
 type StatItem = { icon: string; value: string; label: string };
 type StepItem = { title: string; text: string };
 type ActorCardItem = { icon: string; title: string; text: string };
+type Locale = 'fr' | 'en';
+type Bilingual<T> = { fr: T; en: T };
 
 type Config = {
-  hero: Hero;
-  stats: StatItem[];
-  steps: StepItem[];
-  actorCards: ActorCardItem[];
+  hero: Bilingual<Hero>;
+  stats: Bilingual<StatItem[]>;
+  steps: Bilingual<StepItem[]>;
+  actorCards: Bilingual<ActorCardItem[]>;
 };
 
 function axiosMessage(error: unknown): string | undefined {
@@ -46,7 +48,7 @@ export function LandingContentManager() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/landing/config');
+      const response = await apiClient.get('/landing/config/raw');
       setConfig(response.data.data);
     } catch (error) {
       console.error('Erreur chargement config landing:', error);
@@ -82,12 +84,14 @@ export function LandingContentManager() {
         </h1>
         <p className="mt-1 text-sm text-indigo-600">
           Modifiez le hero, les chiffres clés, les étapes et les cartes
-          acteurs de la page d&apos;accueil publique.
+          acteurs de la page d&apos;accueil publique, en français et en
+          anglais.
         </p>
         <p className="mt-2 rounded-lg bg-indigo-50 p-3 text-xs text-indigo-800">
           Les logos des établissements se gèrent depuis « Établissements » ;
           les logos des partenaires financiers depuis « Partenaires
-          financiers ».
+          financiers ». Si un champ anglais est laissé vide, le visiteur
+          anglophone verra la version française en attendant.
         </p>
       </header>
       <HeroSection hero={config.hero} />
@@ -127,16 +131,63 @@ function SaveButton({ saving }: { saving: boolean }) {
   );
 }
 
-function HeroSection({ hero }: { hero: Hero }) {
-  const [title, setTitle] = useState(hero.title);
-  const [subtitle, setSubtitle] = useState(hero.subtitle);
+function LocaleField({
+  label,
+  fr,
+  en,
+  onChangeFr,
+  onChangeEn,
+  maxLength,
+  rows,
+}: {
+  label: string;
+  fr: string;
+  en: string;
+  onChangeFr: (value: string) => void;
+  onChangeEn: (value: string) => void;
+  maxLength: number;
+  rows?: number;
+}) {
+  const Field = rows ? 'textarea' : 'input';
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="block text-xs font-bold text-[#34406b]">
+        {label} <span className="font-normal text-muted-foreground">(FR)</span>
+        <Field
+          value={fr}
+          onChange={(event) => onChangeFr(event.target.value)}
+          maxLength={maxLength}
+          rows={rows}
+          required
+          className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
+        />
+      </label>
+      <label className="block text-xs font-bold text-[#34406b]">
+        {label} <span className="font-normal text-muted-foreground">(EN)</span>
+        <Field
+          value={en}
+          onChange={(event) => onChangeEn(event.target.value)}
+          maxLength={maxLength}
+          rows={rows}
+          className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
+        />
+      </label>
+    </div>
+  );
+}
+
+function HeroSection({ hero }: { hero: Bilingual<Hero> }) {
+  const [content, setContent] = useState(hero);
   const [saving, setSaving] = useState(false);
+
+  const update = (locale: Locale, patch: Partial<Hero>) =>
+    setContent((current) => ({ ...current, [locale]: { ...current[locale], ...patch } }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setSaving(true);
-      await apiClient.put('/landing/config/hero', { title, subtitle });
+      await apiClient.put('/landing/config/hero', content);
       toast.success('Hero mis à jour');
     } catch (error) {
       toast.error(axiosMessage(error) || 'Impossible d’enregistrer le hero');
@@ -148,48 +199,50 @@ function HeroSection({ hero }: { hero: Hero }) {
   return (
     <SectionCard title="Hero">
       <form onSubmit={submit} className="space-y-3">
-        <label className="block text-xs font-bold text-[#34406b]">
-          Titre
-          <textarea
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            maxLength={200}
-            rows={2}
-            required
-            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
-          />
-        </label>
-        <label className="block text-xs font-bold text-[#34406b]">
-          Sous-titre
-          <textarea
-            value={subtitle}
-            onChange={(event) => setSubtitle(event.target.value)}
-            maxLength={500}
-            rows={3}
-            required
-            className="mt-1.5 w-full rounded-lg border border-slate-200 p-3 text-sm font-normal outline-none focus:border-indigo-500"
-          />
-        </label>
+        <LocaleField
+          label="Titre"
+          fr={content.fr.title}
+          en={content.en.title}
+          onChangeFr={(value) => update('fr', { title: value })}
+          onChangeEn={(value) => update('en', { title: value })}
+          maxLength={200}
+          rows={2}
+        />
+        <LocaleField
+          label="Sous-titre"
+          fr={content.fr.subtitle}
+          en={content.en.subtitle}
+          onChangeFr={(value) => update('fr', { subtitle: value })}
+          onChangeEn={(value) => update('en', { subtitle: value })}
+          maxLength={500}
+          rows={3}
+        />
         <SaveButton saving={saving} />
       </form>
     </SectionCard>
   );
 }
 
-function StatsSection({ stats }: { stats: StatItem[] }) {
-  const [items, setItems] = useState(stats);
+function StatsSection({ stats }: { stats: Bilingual<StatItem[]> }) {
+  const [content, setContent] = useState(stats);
   const [saving, setSaving] = useState(false);
 
-  const update = (index: number, patch: Partial<StatItem>) =>
-    setItems((current) =>
-      current.map((item, idx) => (idx === index ? { ...item, ...patch } : item)),
-    );
+  const update = (locale: Locale, index: number, patch: Partial<StatItem>) =>
+    setContent((current) => ({
+      ...current,
+      [locale]: current[locale].map((item, idx) =>
+        idx === index ? { ...item, ...patch } : item,
+      ),
+    }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setSaving(true);
-      await apiClient.put('/landing/config/stats', { items });
+      await apiClient.put('/landing/config/stats', {
+        fr: { items: content.fr },
+        en: { items: content.en },
+      });
       toast.success('Chiffres clés mis à jour');
     } catch (error) {
       toast.error(axiosMessage(error) || 'Impossible d’enregistrer les chiffres clés');
@@ -200,16 +253,20 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
 
   return (
     <SectionCard title="Chiffres clés">
-      <form onSubmit={submit} className="space-y-4">
-        {items.map((item, index) => (
-          <div key={index} className="grid gap-3 sm:grid-cols-3">
+      <form onSubmit={submit} className="space-y-5">
+        {content.fr.map((item, index) => (
+          <div key={index} className="space-y-2 border-b border-slate-100 pb-4 last:border-0">
             <div className="block text-xs font-bold text-[#34406b]">
               Icône
               <Select
                 value={item.icon}
-                onValueChange={(value) => value && update(index, { icon: value })}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  update('fr', index, { icon: value });
+                  update('en', index, { icon: value });
+                }}
               >
-                <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                <SelectTrigger className="mt-1.5 h-10 w-full max-w-xs font-normal">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -221,26 +278,22 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <label className="block text-xs font-bold text-[#34406b]">
-              Valeur
-              <input
-                value={item.value}
-                onChange={(event) => update(index, { value: event.target.value })}
-                maxLength={20}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
-            <label className="block text-xs font-bold text-[#34406b]">
-              Libellé
-              <input
-                value={item.label}
-                onChange={(event) => update(index, { label: event.target.value })}
-                maxLength={80}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
+            <LocaleField
+              label="Valeur"
+              fr={item.value}
+              en={content.en[index].value}
+              onChangeFr={(value) => update('fr', index, { value })}
+              onChangeEn={(value) => update('en', index, { value })}
+              maxLength={20}
+            />
+            <LocaleField
+              label="Libellé"
+              fr={item.label}
+              en={content.en[index].label}
+              onChangeFr={(value) => update('fr', index, { label: value })}
+              onChangeEn={(value) => update('en', index, { label: value })}
+              maxLength={80}
+            />
           </div>
         ))}
         <SaveButton saving={saving} />
@@ -249,20 +302,26 @@ function StatsSection({ stats }: { stats: StatItem[] }) {
   );
 }
 
-function StepsSection({ steps }: { steps: StepItem[] }) {
-  const [items, setItems] = useState(steps);
+function StepsSection({ steps }: { steps: Bilingual<StepItem[]> }) {
+  const [content, setContent] = useState(steps);
   const [saving, setSaving] = useState(false);
 
-  const update = (index: number, patch: Partial<StepItem>) =>
-    setItems((current) =>
-      current.map((item, idx) => (idx === index ? { ...item, ...patch } : item)),
-    );
+  const update = (locale: Locale, index: number, patch: Partial<StepItem>) =>
+    setContent((current) => ({
+      ...current,
+      [locale]: current[locale].map((item, idx) =>
+        idx === index ? { ...item, ...patch } : item,
+      ),
+    }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setSaving(true);
-      await apiClient.put('/landing/config/steps', { items });
+      await apiClient.put('/landing/config/steps', {
+        fr: { items: content.fr },
+        en: { items: content.en },
+      });
       toast.success('Étapes mises à jour');
     } catch (error) {
       toast.error(axiosMessage(error) || 'Impossible d’enregistrer les étapes');
@@ -273,29 +332,26 @@ function StepsSection({ steps }: { steps: StepItem[] }) {
 
   return (
     <SectionCard title="Comment ça marche (4 étapes)">
-      <form onSubmit={submit} className="space-y-4">
-        {items.map((item, index) => (
-          <div key={index} className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-xs font-bold text-[#34406b]">
-              Étape {index + 1} — titre
-              <input
-                value={item.title}
-                onChange={(event) => update(index, { title: event.target.value })}
-                maxLength={80}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
-            <label className="block text-xs font-bold text-[#34406b]">
-              Texte
-              <input
-                value={item.text}
-                onChange={(event) => update(index, { text: event.target.value })}
-                maxLength={200}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
+      <form onSubmit={submit} className="space-y-5">
+        {content.fr.map((item, index) => (
+          <div key={index} className="space-y-2 border-b border-slate-100 pb-4 last:border-0">
+            <p className="text-xs font-bold text-[#17204e]">Étape {index + 1}</p>
+            <LocaleField
+              label="Titre"
+              fr={item.title}
+              en={content.en[index].title}
+              onChangeFr={(value) => update('fr', index, { title: value })}
+              onChangeEn={(value) => update('en', index, { title: value })}
+              maxLength={80}
+            />
+            <LocaleField
+              label="Texte"
+              fr={item.text}
+              en={content.en[index].text}
+              onChangeFr={(value) => update('fr', index, { text: value })}
+              onChangeEn={(value) => update('en', index, { text: value })}
+              maxLength={200}
+            />
           </div>
         ))}
         <SaveButton saving={saving} />
@@ -304,20 +360,26 @@ function StepsSection({ steps }: { steps: StepItem[] }) {
   );
 }
 
-function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
-  const [items, setItems] = useState(actorCards);
+function ActorCardsSection({ actorCards }: { actorCards: Bilingual<ActorCardItem[]> }) {
+  const [content, setContent] = useState(actorCards);
   const [saving, setSaving] = useState(false);
 
-  const update = (index: number, patch: Partial<ActorCardItem>) =>
-    setItems((current) =>
-      current.map((item, idx) => (idx === index ? { ...item, ...patch } : item)),
-    );
+  const update = (locale: Locale, index: number, patch: Partial<ActorCardItem>) =>
+    setContent((current) => ({
+      ...current,
+      [locale]: current[locale].map((item, idx) =>
+        idx === index ? { ...item, ...patch } : item,
+      ),
+    }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       setSaving(true);
-      await apiClient.put('/landing/config/actor-cards', { items });
+      await apiClient.put('/landing/config/actor-cards', {
+        fr: { items: content.fr },
+        en: { items: content.en },
+      });
       toast.success('Cartes acteurs mises à jour');
     } catch (error) {
       toast.error(axiosMessage(error) || 'Impossible d’enregistrer les cartes acteurs');
@@ -328,16 +390,20 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
 
   return (
     <SectionCard title="Cartes acteurs (4)">
-      <form onSubmit={submit} className="space-y-4">
-        {items.map((item, index) => (
-          <div key={index} className="grid gap-3 sm:grid-cols-3">
+      <form onSubmit={submit} className="space-y-5">
+        {content.fr.map((item, index) => (
+          <div key={index} className="space-y-2 border-b border-slate-100 pb-4 last:border-0">
             <div className="block text-xs font-bold text-[#34406b]">
               Icône
               <Select
                 value={item.icon}
-                onValueChange={(value) => value && update(index, { icon: value })}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  update('fr', index, { icon: value });
+                  update('en', index, { icon: value });
+                }}
               >
-                <SelectTrigger className="mt-1.5 h-10 w-full font-normal">
+                <SelectTrigger className="mt-1.5 h-10 w-full max-w-xs font-normal">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -349,26 +415,22 @@ function ActorCardsSection({ actorCards }: { actorCards: ActorCardItem[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <label className="block text-xs font-bold text-[#34406b]">
-              Titre
-              <input
-                value={item.title}
-                onChange={(event) => update(index, { title: event.target.value })}
-                maxLength={80}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
-            <label className="block text-xs font-bold text-[#34406b]">
-              Texte
-              <input
-                value={item.text}
-                onChange={(event) => update(index, { text: event.target.value })}
-                maxLength={300}
-                required
-                className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-normal outline-none focus:border-indigo-500"
-              />
-            </label>
+            <LocaleField
+              label="Titre"
+              fr={item.title}
+              en={content.en[index].title}
+              onChangeFr={(value) => update('fr', index, { title: value })}
+              onChangeEn={(value) => update('en', index, { title: value })}
+              maxLength={80}
+            />
+            <LocaleField
+              label="Texte"
+              fr={item.text}
+              en={content.en[index].text}
+              onChangeFr={(value) => update('fr', index, { text: value })}
+              onChangeEn={(value) => update('en', index, { text: value })}
+              maxLength={300}
+            />
           </div>
         ))}
         <SaveButton saving={saving} />
