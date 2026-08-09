@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import toast from 'react-hot-toast';
@@ -36,14 +35,16 @@ export default function StudentOffersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [appliedOffers, setAppliedOffers] = useState<Set<string>>(new Set());
 
-  // Filtres — la ville et la tranche de frais viennent des listes de
-  // référence gérées par l'admin GET (/platform-cities, /fee-brackets)
-  // plutôt que de la saisie libre.
+  // Filtres à choix uniquement (pas de saisie libre) : le diplôme vient des
+  // offres ouvertes existantes (/offers/diplomas), la ville et la tranche de
+  // frais des listes de référence gérées par l'admin GET (/platform-cities,
+  // /fee-brackets).
   const [filters, setFilters] = useState({
     diploma: '',
     feeBracketId: '',
     city: '',
   });
+  const [diplomas, setDiplomas] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [feeBrackets, setFeeBrackets] = useState<
     { id: string; label: string; minFees: number; maxFees: number | null; isActive: boolean }[]
@@ -51,10 +52,12 @@ export default function StudentOffersPage() {
 
   const fetchFilterOptions = async () => {
     try {
-      const [citiesRes, bracketsRes] = await Promise.all([
+      const [diplomasRes, citiesRes, bracketsRes] = await Promise.all([
+        apiClient.get('/offers/diplomas'),
         apiClient.get('/platform-cities'),
         apiClient.get('/fee-brackets'),
       ]);
+      setDiplomas(diplomasRes.data.data as string[]);
       setCities(
         (citiesRes.data.data as { name: string; isActive: boolean }[])
           .filter((item) => item.isActive)
@@ -68,13 +71,18 @@ export default function StudentOffersPage() {
     }
   };
 
-  const fetchOffers = async () => {
+  // Accepte les filtres à appliquer en paramètre plutôt que de toujours lire
+  // l'état `filters` : resetFilters() a besoin d'enchaîner la remise à zéro
+  // et le rechargement dans le même appel, sans dépendre d'une fermeture
+  // (closure) figée sur les anciennes valeurs le temps que le re-render
+  // React propage le nouvel état.
+  const fetchOffers = async (activeFilters: typeof filters = filters) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.diploma) params.append('diploma', filters.diploma);
-      if (filters.city) params.append('city', filters.city);
-      const bracket = feeBrackets.find((item) => item.id === filters.feeBracketId);
+      if (activeFilters.diploma) params.append('diploma', activeFilters.diploma);
+      if (activeFilters.city) params.append('city', activeFilters.city);
+      const bracket = feeBrackets.find((item) => item.id === activeFilters.feeBracketId);
       if (bracket) {
         params.append('minFees', String(bracket.minFees));
         if (bracket.maxFees !== null) params.append('maxFees', String(bracket.maxFees));
@@ -159,8 +167,9 @@ export default function StudentOffersPage() {
   };
 
   const resetFilters = () => {
-    setFilters({ diploma: '', feeBracketId: '', city: '' });
-    setTimeout(fetchOffers, 100);
+    const cleared = { diploma: '', feeBracketId: '', city: '' };
+    setFilters(cleared);
+    fetchOffers(cleared);
   };
 
   if (loading) {
@@ -181,17 +190,27 @@ export default function StudentOffersPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="diploma">Diplôme</Label>
-              <Input
-                id="diploma"
-                placeholder="BAC+5, BAC+3..."
-                maxLength={50}
-                value={filters.diploma}
-                onChange={(e) => handleFilterChange('diploma', e.target.value)}
-              />
+              <Select
+                items={diplomas.map((diploma) => ({ value: diploma, label: diploma }))}
+                value={filters.diploma || undefined}
+                onValueChange={(value) => handleFilterChange('diploma', value ?? '')}
+              >
+                <SelectTrigger id="diploma">
+                  <SelectValue placeholder="Tous les diplômes" />
+                </SelectTrigger>
+                <SelectContent>
+                  {diplomas.map((diploma) => (
+                    <SelectItem key={diploma} value={diploma}>
+                      {diploma}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="feeBracketId">Frais (Ar)</Label>
               <Select
+                items={feeBrackets.map((bracket) => ({ value: bracket.id, label: bracket.label }))}
                 value={filters.feeBracketId || undefined}
                 onValueChange={(value) => handleFilterChange('feeBracketId', value ?? '')}
               >
