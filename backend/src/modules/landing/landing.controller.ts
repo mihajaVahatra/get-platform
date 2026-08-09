@@ -60,8 +60,9 @@ export class LandingController {
   @Public()
   @Get('config')
   @ApiOperation({ summary: 'Get public landing page configuration' })
-  async getConfig() {
-    return this.landingService.getConfig();
+  @ApiQuery({ name: 'locale', required: false, example: 'fr' })
+  async getConfig(@Query('locale') locale?: string) {
+    return this.landingService.getConfig(locale);
   }
 
   @Public()
@@ -81,6 +82,15 @@ export class LandingController {
 
   // ========== ADMIN ROUTES (ADMIN_GET) ==========
 
+  @Get('config/raw')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN_GET')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get landing config with both FR/EN variants, unresolved (Admin only)' })
+  async getRawConfig() {
+    return this.landingService.getRawConfig();
+  }
+
   @Put('config/hero')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -96,7 +106,7 @@ export class LandingController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update landing stats (Admin only)' })
   async updateStats(@Body() dto: StatsConfigDto) {
-    return this.landingService.setStats(dto.items);
+    return this.landingService.setStats({ fr: dto.fr.items, en: dto.en.items });
   }
 
   @Put('config/steps')
@@ -105,7 +115,7 @@ export class LandingController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update landing steps (Admin only)' })
   async updateSteps(@Body() dto: StepsConfigDto) {
-    return this.landingService.setSteps(dto.items);
+    return this.landingService.setSteps({ fr: dto.fr.items, en: dto.en.items });
   }
 
   @Put('config/actor-cards')
@@ -114,7 +124,7 @@ export class LandingController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update landing actor cards (Admin only)' })
   async updateActorCards(@Body() dto: ActorCardsConfigDto) {
-    return this.landingService.setActorCards(dto.items);
+    return this.landingService.setActorCards({ fr: dto.fr.items, en: dto.en.items });
   }
 
   @Get('news/admin')

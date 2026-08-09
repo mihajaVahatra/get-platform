@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -8,15 +8,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import {
   ArrowRight,
   BookOpen,
   Building2,
-  ChevronDown,
   Eye,
   EyeOff,
   FileText,
-  Globe2,
   LockKeyhole,
   Mail,
   ShieldCheck,
@@ -25,20 +24,25 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Logo } from '@/components/Logo';
+import { LanguageDropdown } from '@/components/LanguageDropdown';
 
-const loginSchema = z.object({
-  email: z.string().email('Saisissez une adresse e-mail valide').max(254),
-  password: z
-    .string()
-    .min(6, 'Le mot de passe doit contenir au moins 6 caractères')
-    .max(128, 'Mot de passe trop long'),
-  remember: z.boolean(),
-});
+function createLoginSchema(t: (key: string) => string) {
+  return z.object({
+    email: z.string().email(t('emailInvalid')).max(254),
+    password: z
+      .string()
+      .min(6, t('passwordMin'))
+      .max(128, t('passwordMax')),
+    remember: z.boolean(),
+  });
+}
 
-type LoginForm = z.infer<typeof loginSchema>;
+type LoginForm = z.infer<ReturnType<typeof createLoginSchema>>;
 type AccountType = 'student' | 'school';
 
 export function LoginScreen() {
+  const t = useTranslations('Auth');
+  const loginSchema = useMemo(() => createLoginSchema(t), [t]);
   const router = useRouter();
   const [accountType, setAccountType] = useState<AccountType>('student');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,14 +67,12 @@ export function LoginScreen() {
 
     if (isInstitution && !isInstitutionUser) {
       await apiClient.post('/auth/logout');
-      toast.error('Ce compte étudiant doit se connecter depuis l’onglet Étudiant.');
+      toast.error(t('studentMustUseStudentTab'));
       return;
     }
     if (!isInstitution && isInstitutionUser) {
       await apiClient.post('/auth/logout');
-      toast.error(
-        'Ce compte institutionnel doit se connecter depuis l’onglet École / Institution.',
-      );
+      toast.error(t('institutionMustUseInstitutionTab'));
       return;
     }
 
@@ -80,7 +82,7 @@ export function LoginScreen() {
       MINISTRY: '/dashboard/ministry',
       ADMIN_GET: '/dashboard/admin',
     };
-    toast.success(`Bienvenue ${user.firstName || ''} !`);
+    toast.success(t('welcomeBack', { name: user.firstName || '' }));
     router.replace(destinations[user.role] || '/dashboard/student');
   };
 
@@ -97,8 +99,8 @@ export function LoginScreen() {
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
-          ? error.response?.data?.message || 'Erreur de connexion'
-          : 'Erreur de connexion',
+          ? error.response?.data?.message || t('loginError')
+          : t('loginError'),
       );
     } finally {
       setIsLoading(false);
@@ -142,19 +144,11 @@ export function LoginScreen() {
         </section>
 
         <section className="relative flex items-center justify-center bg-white px-5 py-9 sm:px-10 lg:px-14 xl:px-16">
-          <div className="absolute right-7 top-7 hidden items-center gap-2 text-sm font-semibold text-[#151b48] lg:flex">
-            <Globe2 className="size-5" />
-            Français
-            <ChevronDown className="size-4" />
-          </div>
+          <LanguageDropdown className="absolute right-7 top-7 hidden lg:block" />
           <div className="w-full max-w-[580px]">
             <div className="mb-10 flex flex-wrap items-start justify-between gap-3 lg:hidden">
               <Brand />
-              <div className="flex shrink-0 items-center gap-2 text-sm font-semibold text-[#151b48]">
-                <Globe2 className="size-5" />
-                Français
-                <ChevronDown className="size-4" />
-              </div>
+              <LanguageDropdown className="shrink-0" />
             </div>
             <div
               key={`heading-${accountType}`}
@@ -163,22 +157,21 @@ export function LoginScreen() {
               {isInstitution ? (
                 <>
                   <h2 className="text-3xl font-extrabold tracking-tight text-[#101643] sm:text-[34px]">
-                    Connexion{' '}
-                    <span className="text-indigo-600">institution</span>{' '}
+                    {t('institutionTitle')}{' '}
+                    <span className="text-indigo-600">{t('institutionTitleHighlight')}</span>{' '}
                     <Building2 className="ml-1 inline size-8 text-indigo-600" />
                   </h2>
                   <p className="mx-auto mt-2 max-w-md text-lg text-slate-500">
-                    Accédez à votre espace institutionnel GET pour gérer votre
-                    établissement.
+                    {t('institutionSubtitle')}
                   </p>
                 </>
               ) : (
                 <>
                   <h2 className="text-3xl font-extrabold tracking-tight text-[#101643] sm:text-[34px]">
-                    Bienvenue sur <span className="text-indigo-600">GET</span> !
+                    {t('studentTitle')} <span className="text-indigo-600">GET</span> {t('studentTitleSuffix')}
                   </h2>
                   <p className="mt-2 text-lg text-slate-500">
-                    Connecte-toi pour accéder à ton espace
+                    {t('studentSubtitle')}
                   </p>
                 </>
               )}
@@ -189,14 +182,14 @@ export function LoginScreen() {
                 icon={UserRound}
                 onClick={() => setAccountType('student')}
               >
-                Étudiant
+                {t('tabStudent')}
               </AccountTab>
               <AccountTab
                 active={isInstitution}
                 icon={Building2}
                 onClick={() => setAccountType('school')}
               >
-                École / Institution
+                {t('tabInstitution')}
               </AccountTab>
             </div>
             <form
@@ -207,8 +200,8 @@ export function LoginScreen() {
             >
               <label className="block text-sm font-bold text-[#151b48]">
                 {isInstitution
-                  ? 'Adresse e-mail institutionnelle'
-                  : 'Adresse e-mail ou téléphone'}
+                  ? t('institutionEmailLabel')
+                  : t('studentEmailLabel')}
                 <div className="relative mt-2">
                   <Mail className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
                   <input
@@ -217,8 +210,8 @@ export function LoginScreen() {
                     maxLength={254}
                     placeholder={
                       isInstitution
-                        ? 'exemple@ecole.mg'
-                        : 'exemple@email.com ou 034 12 345 67'
+                        ? t('institutionEmailPlaceholder')
+                        : t('studentEmailPlaceholder')
                     }
                     className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-base outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                     {...register('email')}
@@ -231,7 +224,7 @@ export function LoginScreen() {
                 )}
               </label>
               <label className="block text-sm font-bold text-[#151b48]">
-                Mot de passe
+                {t('passwordLabel')}
                 <div className="relative mt-2">
                   <LockKeyhole className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
                   <input
@@ -240,7 +233,7 @@ export function LoginScreen() {
                     maxLength={128}
                     placeholder={
                       isInstitution
-                        ? 'Entrez votre mot de passe'
+                        ? t('institutionPasswordPlaceholder')
                         : '••••••••••••••'
                     }
                     className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-12 text-base outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
@@ -250,8 +243,8 @@ export function LoginScreen() {
                     type="button"
                     aria-label={
                       showPassword
-                        ? 'Masquer le mot de passe'
-                        : 'Afficher le mot de passe'
+                        ? t('hidePassword')
+                        : t('showPassword')
                     }
                     onClick={() => setShowPassword((value) => !value)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600"
@@ -276,20 +269,20 @@ export function LoginScreen() {
                     className="size-4 rounded border-slate-300 accent-indigo-600"
                     {...register('remember')}
                   />
-                  Se souvenir de moi
+                  {t('rememberMe')}
                 </label>
                 <Link
                   href="/auth/forgot-password"
                   className="text-sm font-bold text-indigo-600 hover:text-indigo-700"
                 >
-                  Mot de passe oublié ?
+                  {t('forgotPassword')}
                 </Link>
               </div>
               <button
                 disabled={isLoading}
                 className="mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 text-base font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoading ? 'Connexion…' : 'Se connecter'}
+                {isLoading ? t('connecting') : t('login')}
                 <span className="flex size-8 items-center justify-center rounded-full bg-white/15">
                   {isInstitution ? (
                     <LockKeyhole className="size-5" />
@@ -302,52 +295,50 @@ export function LoginScreen() {
             {isInstitution ? (
               <>
                 <div className="my-8 flex items-center gap-4 text-xs text-slate-400 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200">
-                  ou
+                  {t('or')}
                 </div>
                 <button
                   type="button"
                   onClick={() =>
-                    toast(
-                      'La connexion par certificat sera bientôt disponible.',
-                    )
+                    toast(t('certificateComingSoon'))
                   }
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 text-sm font-bold text-indigo-600 transition hover:bg-indigo-50"
                 >
                   <ShieldCheck className="size-5" />
-                  Connexion avec certificat institutionnel
+                  {t('certificateLogin')}
                 </button>
                 <p className="mt-14 text-center text-base text-slate-600">
-                  Besoin d’aide ?{' '}
+                  {t('needHelp')}{' '}
                   <a
                     href="mailto:contact@get.mg"
                     className="font-extrabold text-indigo-600 hover:text-indigo-700"
                   >
-                    Contactez l’administrateur GET
+                    {t('contactAdmin')}
                   </a>
                 </p>
               </>
             ) : (
               <>
                 <div className="my-8 flex items-center gap-4 text-xs text-slate-400 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200">
-                  ou
+                  {t('or')}
                 </div>
                 <button
                   type="button"
                   onClick={() =>
-                    toast('La connexion Google sera bientôt disponible.')
+                    toast(t('googleComingSoon'))
                   }
                   className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 text-sm font-bold text-[#151b48] transition hover:bg-slate-50"
                 >
                   <span className="text-2xl font-bold text-[#4285F4]">G</span>
-                  Continuer avec Google
+                  {t('googleLogin')}
                 </button>
                 <p className="mt-14 text-center text-base text-slate-600">
-                  Pas encore de compte ?{' '}
+                  {t('noAccountYet')}{' '}
                   <Link
                     href="/auth/register"
                     className="font-extrabold text-indigo-600 hover:text-indigo-700"
                   >
-                    Créer un compte
+                    {t('createAccount')}
                   </Link>
                 </p>
               </>
@@ -368,12 +359,13 @@ function MfaChallengeScreen({
   onBack: () => void;
   onVerified: (user: { role: string; firstName?: string }) => Promise<void>;
 }) {
+  const t = useTranslations('Auth');
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const submit = async () => {
     if (code.length !== 6) {
-      toast.error('Saisissez le code à 6 chiffres de votre application');
+      toast.error(t('mfaCodeRequired'));
       return;
     }
     setIsLoading(true);
@@ -386,8 +378,8 @@ function MfaChallengeScreen({
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
-          ? error.response?.data?.message || 'Code invalide ou expiré'
-          : 'Code invalide ou expiré',
+          ? error.response?.data?.message || t('mfaInvalidCode')
+          : t('mfaInvalidCode'),
       );
     } finally {
       setIsLoading(false);
@@ -401,11 +393,10 @@ function MfaChallengeScreen({
           <ShieldCheck className="size-7" />
         </span>
         <h2 className="mt-5 text-2xl font-extrabold text-[#101643]">
-          Vérification en deux étapes
+          {t('mfaTitle')}
         </h2>
         <p className="mt-2 text-sm text-slate-500">
-          Saisissez le code à 6 chiffres généré par votre application
-          d’authentification.
+          {t('mfaSubtitle')}
         </p>
         <input
           value={code}
@@ -421,13 +412,13 @@ function MfaChallengeScreen({
           disabled={isLoading}
           className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 text-base font-extrabold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isLoading ? 'Vérification…' : 'Vérifier'}
+          {isLoading ? t('verifying') : t('verify')}
         </button>
         <button
           onClick={onBack}
           className="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-700"
         >
-          ← Retour à la connexion
+          {t('backToLogin')}
         </button>
       </div>
     </main>
@@ -435,38 +426,37 @@ function MfaChallengeScreen({
 }
 
 function StudentHero() {
+  const t = useTranslations('Auth');
   return (
     <>
       <div className="mt-14 max-w-md">
         <h1 className="text-[44px] font-extrabold leading-[1.12] tracking-tight text-[#121949]">
-          Ton avenir
+          {t('studentHeroTitleLine1')}
           <br />
-          commence <span className="text-indigo-600">ici.</span>
+          {t('studentHeroTitleLine2')} <span className="text-indigo-600">{t('studentHeroTitleHighlight')}</span>
         </h1>
         <p className="mt-5 text-lg leading-7 text-[#28315e]">
-          GET est la plateforme officielle qui simplifie ton parcours post-bac :
-          candidatures, concours, paiements et inscriptions, tout en un seul
-          endroit.
+          {t('studentHeroText')}
         </p>
       </div>
       <div className="mt-8 space-y-5">
         <Benefit
           icon={FileText}
           tone="indigo"
-          title="Simple et rapide"
-          text="Un dossier unique pour toutes les écoles."
+          title={t('benefitSimpleTitle')}
+          text={t('benefitSimpleText')}
         />
         <Benefit
           icon={ShieldCheck}
           tone="green"
-          title="Sécurisé"
-          text="Tes données sont protégées et confidentielles."
+          title={t('benefitSecureTitle')}
+          text={t('benefitSecureText')}
         />
         <Benefit
           icon={Smartphone}
           tone="orange"
-          title="Accessible partout"
-          text="Sur mobile, tablette ou ordinateur."
+          title={t('benefitAccessibleTitle')}
+          text={t('benefitAccessibleText')}
         />
       </div>
       <Stats institution={false} />
@@ -474,47 +464,47 @@ function StudentHero() {
   );
 }
 function InstitutionHero() {
+  const t = useTranslations('Auth');
   return (
     <>
       <div className="mt-12 inline-flex w-fit items-center gap-2 rounded-lg bg-indigo-100/90 px-4 py-2 text-sm font-extrabold tracking-[0.12em] text-indigo-600">
         <Building2 className="size-5" />
-        INSTITUTION
+        {t('institutionBadge')}
       </div>
       <div className="mt-6 max-w-md">
         <h1 className="text-[42px] font-extrabold leading-[1.12] tracking-tight text-[#121949]">
-          Gérez votre établissement
+          {t('institutionHeroTitleLine1')}
           <br />
-          avec <span className="text-indigo-600">efficacité.</span>
+          {t('institutionHeroTitleLine2')} <span className="text-indigo-600">{t('institutionHeroTitleHighlight')}</span>
         </h1>
         <p className="mt-5 text-lg leading-7 text-[#28315e]">
-          La plateforme officielle pour gérer vos étudiants, cours, professeurs
-          et toutes les activités de votre institution en un seul endroit.
+          {t('institutionHeroText')}
         </p>
       </div>
       <div className="mt-7 space-y-4">
         <Benefit
           icon={UserRound}
           tone="indigo"
-          title="Gestion des étudiants"
-          text="Suivi des inscriptions et parcours académiques"
+          title={t('benefitStudentMgmtTitle')}
+          text={t('benefitStudentMgmtText')}
         />
         <Benefit
           icon={BookOpen}
           tone="green"
-          title="Gestion académique"
-          text="Cours, programmes et emploi du temps"
+          title={t('benefitAcademicTitle')}
+          text={t('benefitAcademicText')}
         />
         <Benefit
           icon={Building2}
           tone="orange"
-          title="Administration simplifiée"
-          text="Documents, paiements et rapports"
+          title={t('benefitAdminTitle')}
+          text={t('benefitAdminText')}
         />
         <Benefit
           icon={ShieldCheck}
           tone="blue"
-          title="Sécurisée et fiable"
-          text="Données protégées et conformité garantie"
+          title={t('benefitSecureReliableTitle')}
+          text={t('benefitSecureReliableText')}
         />
       </div>
       <Stats institution />
@@ -522,23 +512,24 @@ function InstitutionHero() {
   );
 }
 function Stats({ institution }: { institution: boolean }) {
+  const t = useTranslations('Auth');
   return (
     <div className="mt-auto grid max-w-[570px] grid-cols-3 gap-3 rounded-2xl border border-white/60 bg-white/80 p-4 backdrop-blur-sm">
       <Metric
         value={institution ? '50+' : '+50'}
         label={
-          institution ? 'Établissements partenaires' : 'Écoles partenaires'
+          institution ? t('partnerSchoolsInstitution') : t('partnerSchoolsStudent')
         }
         icon={Building2}
       />
       <Metric
         value={institution ? '30 000+' : '+30 000'}
-        label={institution ? 'Étudiants gérés' : 'Étudiants inscrits'}
+        label={institution ? t('managedStudents') : t('enrolledStudents')}
         icon={UserRound}
       />
       <Metric
         value="100%"
-        label={institution ? 'Sécurisée et conforme' : 'En ligne'}
+        label={institution ? t('secureCompliant') : t('online')}
         icon={ShieldCheck}
       />
     </div>
@@ -568,10 +559,11 @@ function AccountTab({
   );
 }
 function Brand({ light = false }: { light?: boolean }) {
+  const t = useTranslations('Auth');
   return (
     <Link
       href="/"
-      aria-label="Retour à l’accueil GET"
+      aria-label={t('backToHome')}
       className="flex w-fit items-center transition-transform hover:scale-[1.02]"
     >
       <Logo size={52} tone={light ? 'light' : 'color'} />

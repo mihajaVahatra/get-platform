@@ -25,7 +25,7 @@ export const ACTOR_ICONS = [
   'ShieldCheck',
 ] as const;
 
-export class HeroConfigDto {
+export class HeroContentDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
@@ -35,6 +35,16 @@ export class HeroConfigDto {
   @IsNotEmpty()
   @MaxLength(500)
   subtitle: string;
+}
+
+export class HeroConfigDto {
+  @ValidateNested()
+  @Type(() => HeroContentDto)
+  fr: HeroContentDto;
+
+  @ValidateNested()
+  @Type(() => HeroContentDto)
+  en: HeroContentDto;
 }
 
 export class StatItemDto {
@@ -52,12 +62,22 @@ export class StatItemDto {
   label: string;
 }
 
-export class StatsConfigDto {
+export class StatsContentDto {
   @ValidateNested({ each: true })
   @Type(() => StatItemDto)
   @ArrayMinSize(4)
   @ArrayMaxSize(4)
   items: StatItemDto[];
+}
+
+export class StatsConfigDto {
+  @ValidateNested()
+  @Type(() => StatsContentDto)
+  fr: StatsContentDto;
+
+  @ValidateNested()
+  @Type(() => StatsContentDto)
+  en: StatsContentDto;
 }
 
 export class StepItemDto {
@@ -72,12 +92,22 @@ export class StepItemDto {
   text: string;
 }
 
-export class StepsConfigDto {
+export class StepsContentDto {
   @ValidateNested({ each: true })
   @Type(() => StepItemDto)
   @ArrayMinSize(4)
   @ArrayMaxSize(4)
   items: StepItemDto[];
+}
+
+export class StepsConfigDto {
+  @ValidateNested()
+  @Type(() => StepsContentDto)
+  fr: StepsContentDto;
+
+  @ValidateNested()
+  @Type(() => StepsContentDto)
+  en: StepsContentDto;
 }
 
 export class ActorCardItemDto {
@@ -95,10 +125,20 @@ export class ActorCardItemDto {
   text: string;
 }
 
-export class ActorCardsConfigDto {
+export class ActorCardsContentDto {
   @ValidateNested({ each: true })
   @Type(() => ActorCardItemDto)
   @ArrayMinSize(4)
   @ArrayMaxSize(4)
   items: ActorCardItemDto[];
+}
+
+export class ActorCardsConfigDto {
+  @ValidateNested()
+  @Type(() => ActorCardsContentDto)
+  fr: ActorCardsContentDto;
+
+  @ValidateNested()
+  @Type(() => ActorCardsContentDto)
+  en: ActorCardsContentDto;
 }
