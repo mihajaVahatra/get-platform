@@ -26,16 +26,52 @@ export const apiClient = axios.create({
 // identifiants) est une réponse attendue que l'écran de connexion doit
 // afficher lui-même (toast), pas un signal de session expirée : la rediriger
 // vers /auth/login rechargeait la page avant que le composant ait eu la
-// moindre chance d'afficher l'erreur.
-const AUTH_ENDPOINTS_WITHOUT_REDIRECT = ['/auth/login', '/auth/register'];
+// moindre chance d'afficher l'erreur. /auth/refresh est exclu pour la même
+// raison : son propre échec ne doit pas se re-déclencher lui-même.
+const AUTH_ENDPOINTS_WITHOUT_REDIRECT = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+];
+
+// L'access token expire au bout de 15 min (voir backend AuthController) —
+// sans ce mécanisme, la moindre pause de plus de 15 min pendant un test
+// (ou entre deux clics) se traduisait par un 401 sur le prochain appel et un
+// aller-retour immédiat vers /auth/login, alors que le refresh token (7j)
+// aurait pu prolonger la session silencieusement. On ne veut lancer qu'un
+// seul appel /auth/refresh à la fois même si plusieurs requêtes échouent en
+// même temps (ex. plusieurs appels API lancés en parallèle au chargement
+// d'une page) : les requêtes suivantes attendent la même promesse.
+let refreshPromise: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = apiClient
+      .post('/auth/refresh')
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const isAuthEndpoint = AUTH_ENDPOINTS_WITHOUT_REDIRECT.some((path) =>
       error.config?.url?.includes(path),
     );
     if (error.response?.status === 401 && !isAuthEndpoint) {
+      const originalRequest = error.config;
+      if (originalRequest && !originalRequest._retriedAfterRefresh) {
+        originalRequest._retriedAfterRefresh = true;
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          return apiClient(originalRequest);
+        }
+      }
       if (typeof window !== 'undefined') {
         window.location.href = '/auth/login';
       }
