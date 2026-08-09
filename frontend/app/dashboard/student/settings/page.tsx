@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { AvatarUpload } from '@/components/AvatarUpload';
 
@@ -25,28 +26,23 @@ function applyTheme(theme: string) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'light', label: 'Clair' },
-  { value: 'dark', label: 'Sombre' },
-  { value: 'system', label: 'Système' },
-];
-
 export default function StudentSettingsPage() {
+  const t = useTranslations('StudentSettings');
   const [activeTab, setActiveTab] = useState<
     'profile' | 'security' | 'preferences'
   >('profile');
   const tabs = [
-    ['profile', 'Mon profil'],
-    ['security', 'Sécurité'],
-    ['preferences', 'Préférences'],
+    ['profile', t('tabs.profile')],
+    ['security', t('tabs.security')],
+    ['preferences', t('tabs.preferences')],
   ] as const;
 
   return (
     <div className="mx-auto max-w-3xl text-foreground">
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">Profil & Paramètres</h1>
+        <h1 className="text-2xl font-extrabold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gérez votre photo, votre sécurité et vos préférences.
+          {t('subtitle')}
         </p>
       </header>
       <nav className="mb-5 flex gap-5 border-b border-border text-xs font-bold">
@@ -69,6 +65,7 @@ export default function StudentSettingsPage() {
 }
 
 function ProfileTab() {
+  const t = useTranslations('StudentSettings');
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,17 +73,18 @@ function ProfileTab() {
     apiClient
       .get('/students/me')
       .then((response) => setProfile(response.data.data as StudentProfile))
-      .catch(() => toast.error('Impossible de charger votre profil'))
+      .catch(() => toast.error(t('loadProfileError')))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
-    return <p className="py-8 text-sm text-muted-foreground">Chargement…</p>;
+    return <p className="py-8 text-sm text-muted-foreground">{t('loading')}</p>;
   }
   if (!profile) {
     return (
       <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">
-        Votre profil n’a pas pu être chargé.
+        {t('profileLoadFailed')}
       </p>
     );
   }
@@ -112,7 +110,7 @@ function ProfileTab() {
           href="/dashboard/student/profile"
           className="mt-4 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:underline"
         >
-          Modifier mes informations personnelles
+          {t('editPersonalInfo')}
         </Link>
       </div>
     </div>
@@ -120,6 +118,7 @@ function ProfileTab() {
 }
 
 function SecurityTab() {
+  const t = useTranslations('StudentSettings');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -128,7 +127,7 @@ function SecurityTab() {
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (newPassword !== confirmPassword) {
-      toast.error('La confirmation ne correspond pas au nouveau mot de passe');
+      toast.error(t('passwordMismatch'));
       return;
     }
     void (async () => {
@@ -141,15 +140,15 @@ function SecurityTab() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        toast.success('Mot de passe mis à jour');
+        toast.success(t('passwordUpdated'));
       } catch (error) {
         console.error('Erreur changement de mot de passe:', error);
         const status = (error as { response?: { status?: number } }).response
           ?.status;
         toast.error(
           status === 400
-            ? 'Le mot de passe actuel est incorrect'
-            : 'Impossible de mettre à jour le mot de passe',
+            ? t('currentPasswordWrong')
+            : t('passwordUpdateError'),
         );
       } finally {
         setSaving(false);
@@ -159,10 +158,10 @@ function SecurityTab() {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <h2 className="text-sm font-extrabold">Mot de passe</h2>
+      <h2 className="text-sm font-extrabold">{t('passwordSectionTitle')}</h2>
       <form className="mt-4 max-w-sm space-y-4" onSubmit={submit}>
         <label className="block text-xs font-bold text-foreground">
-          Mot de passe actuel
+          {t('currentPassword')}
           <input
             type="password"
             className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
@@ -174,7 +173,7 @@ function SecurityTab() {
           />
         </label>
         <label className="block text-xs font-bold text-foreground">
-          Nouveau mot de passe
+          {t('newPassword')}
           <input
             type="password"
             className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
@@ -187,7 +186,7 @@ function SecurityTab() {
           />
         </label>
         <label className="block text-xs font-bold text-foreground">
-          Confirmer le nouveau mot de passe
+          {t('confirmPassword')}
           <input
             type="password"
             className="mt-1.5 h-9 w-full rounded-lg border border-border px-3 text-xs outline-none focus:border-indigo-500"
@@ -200,15 +199,14 @@ function SecurityTab() {
           />
         </label>
         <p className="text-[10px] text-muted-foreground">
-          Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre
-          et un caractère spécial (@$!%*?&amp;).
+          {t('passwordHint')}
         </p>
         <button
           className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           disabled={saving}
           type="submit"
         >
-          {saving ? 'Mise à jour…' : 'Mettre à jour le mot de passe'}
+          {saving ? t('updating') : t('updatePassword')}
         </button>
       </form>
     </div>
@@ -216,6 +214,12 @@ function SecurityTab() {
 }
 
 function PreferencesTab() {
+  const t = useTranslations('StudentSettings');
+  const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+    { value: 'light', label: t('themeOptions.light') },
+    { value: 'dark', label: t('themeOptions.dark') },
+    { value: 'system', label: t('themeOptions.system') },
+  ];
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -247,12 +251,12 @@ function PreferencesTab() {
       try {
         setSaving(true);
         await apiClient.patch('/students/me/theme', { theme: value });
-        toast.success('Préférence enregistrée');
+        toast.success(t('preferenceSaved'));
       } catch (error) {
         console.error('Erreur mise à jour du thème:', error);
         setTheme(previous);
         applyTheme(previous);
-        toast.error('Impossible d’enregistrer votre préférence');
+        toast.error(t('preferenceSaveError'));
       } finally {
         setSaving(false);
       }
@@ -260,14 +264,14 @@ function PreferencesTab() {
   };
 
   if (loading) {
-    return <p className="py-8 text-sm text-muted-foreground">Chargement…</p>;
+    return <p className="py-8 text-sm text-muted-foreground">{t('loading')}</p>;
   }
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <h2 className="text-sm font-extrabold">Apparence</h2>
+      <h2 className="text-sm font-extrabold">{t('appearanceTitle')}</h2>
       <p className="mb-4 mt-1 text-xs text-muted-foreground">
-        Choisissez l’apparence de l’application sur cet appareil.
+        {t('appearanceSubtitle')}
       </p>
       <div className="flex flex-wrap gap-2">
         {THEME_OPTIONS.map((option) => (

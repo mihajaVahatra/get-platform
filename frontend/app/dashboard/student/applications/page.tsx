@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,19 +67,19 @@ type Application = {
   }[];
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'En attente',
-  PRESELECTED: 'Présélectionné',
-  TEST_SCHEDULED: 'Test planifié',
-  TEST_COMPLETED: 'Test complété',
-  INTERVIEW_SCHEDULED: 'Entretien planifié',
-  INTERVIEW_COMPLETED: 'Entretien complété',
-  ACCEPTED: '✅ Acceptée',
-  REJECTED: '❌ Refusée',
-  WAITLISTED: "Liste d'attente",
-  ENROLLED: 'Inscrit',
-  CANCELLED: 'Annulé',
-};
+const STATUS_KEYS = [
+  'PENDING',
+  'PRESELECTED',
+  'TEST_SCHEDULED',
+  'TEST_COMPLETED',
+  'INTERVIEW_SCHEDULED',
+  'INTERVIEW_COMPLETED',
+  'ACCEPTED',
+  'REJECTED',
+  'WAITLISTED',
+  'ENROLLED',
+  'CANCELLED',
+] as const;
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
@@ -95,11 +96,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function StudentApplicationsPage() {
+  const t = useTranslations('StudentApplications');
   return (
     <Suspense
       fallback={
         <div className="flex justify-center p-8">
-          Chargement des candidatures...
+          {t('loading')}
         </div>
       }
     >
@@ -109,6 +111,10 @@ export default function StudentApplicationsPage() {
 }
 
 function StudentApplicationsContent() {
+  const t = useTranslations('StudentApplications');
+  const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+    STATUS_KEYS.map((key) => [key, t(`statuses.${key}`)]),
+  );
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStatus = searchParams.get('status') || 'ALL';
@@ -142,7 +148,7 @@ function StudentApplicationsContent() {
       setTotalPages(response.data.meta?.totalPages || 1);
     } catch (error) {
       console.error('Erreur chargement candidatures:', error);
-      toast.error('Erreur lors du chargement des candidatures');
+      toast.error(t('loadError'));
     } finally {
       setLoading(false);
     }
@@ -178,7 +184,7 @@ function StudentApplicationsContent() {
   if (loading) {
     return (
       <div className="flex justify-center p-8">
-        Chargement des candidatures...
+        {t('loading')}
       </div>
     );
   }
@@ -188,21 +194,21 @@ function StudentApplicationsContent() {
       {/* En-tête avec filtres */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">📋 Mes candidatures</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-gray-500 text-sm">
-            {totalItems} candidature(s) au total
+            {t('totalCount', { count: totalItems })}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">Filtrer :</span>
+          <span className="text-sm text-gray-600">{t('filterLabel')}</span>
           <Select
             items={[
-              { value: 'ALL', label: 'Tous' },
-              { value: 'PENDING', label: 'En attente' },
-              { value: 'ACCEPTED', label: '✅ Acceptées' },
-              { value: 'REJECTED', label: '❌ Refusées' },
-              { value: 'INTERVIEW_SCHEDULED', label: 'Entretiens planifiés' },
-              { value: 'TEST_SCHEDULED', label: 'Tests planifiés' },
+              { value: 'ALL', label: t('filterAll') },
+              { value: 'PENDING', label: t('filterPending') },
+              { value: 'ACCEPTED', label: t('filterAccepted') },
+              { value: 'REJECTED', label: t('filterRejected') },
+              { value: 'INTERVIEW_SCHEDULED', label: t('filterInterviews') },
+              { value: 'TEST_SCHEDULED', label: t('filterTests') },
             ]}
             value={statusFilter}
             onValueChange={(value) => {
@@ -211,17 +217,17 @@ function StudentApplicationsContent() {
             }}
           >
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Tous les statuts" />
+              <SelectValue placeholder={t('allStatuses')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tous</SelectItem>
-              <SelectItem value="PENDING">En attente</SelectItem>
-              <SelectItem value="ACCEPTED">✅ Acceptées</SelectItem>
-              <SelectItem value="REJECTED">❌ Refusées</SelectItem>
+              <SelectItem value="ALL">{t('filterAll')}</SelectItem>
+              <SelectItem value="PENDING">{t('filterPending')}</SelectItem>
+              <SelectItem value="ACCEPTED">{t('filterAccepted')}</SelectItem>
+              <SelectItem value="REJECTED">{t('filterRejected')}</SelectItem>
               <SelectItem value="INTERVIEW_SCHEDULED">
-                Entretiens planifiés
+                {t('filterInterviews')}
               </SelectItem>
-              <SelectItem value="TEST_SCHEDULED">Tests planifiés</SelectItem>
+              <SelectItem value="TEST_SCHEDULED">{t('filterTests')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -234,8 +240,8 @@ function StudentApplicationsContent() {
             <FileTextIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
             <p className="text-gray-500">
               {statusFilter !== 'ALL'
-                ? 'Aucune candidature ne correspond à ce filtre.'
-                : "Vous n'avez pas encore soumis de candidature."}
+                ? t('noMatchFilter')
+                : t('noApplicationsYet')}
             </p>
           </CardContent>
         </Card>
@@ -288,11 +294,11 @@ function StudentApplicationsContent() {
                           );
                         }}
                       >
-                        Payer
+                        {t('pay')}
                       </Button>
                     )}
                     <Button variant="outline" size="sm">
-                      Voir détails →
+                      {t('viewDetails')}
                     </Button>
                   </div>
                 </div>
@@ -350,7 +356,7 @@ function StudentApplicationsContent() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Détails de la candidature</DialogTitle>
+            <DialogTitle>{t('detailsTitle')}</DialogTitle>
             <DialogDescription>
               {selectedApp?.offer.title} • {selectedApp?.offer.school.name}
             </DialogDescription>
@@ -360,7 +366,7 @@ function StudentApplicationsContent() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-gray-500">Statut</p>
+                  <p className="text-gray-500">{t('statusLabel')}</p>
                   <Badge
                     className={`${STATUS_COLORS[selectedApp.status] || 'bg-gray-300'} text-white`}
                   >
@@ -368,7 +374,7 @@ function StudentApplicationsContent() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-gray-500">Date de soumission</p>
+                  <p className="text-gray-500">{t('submissionDate')}</p>
                   <p className="font-medium">
                     {formatDate(selectedApp.submittedAt)}
                   </p>
@@ -376,7 +382,7 @@ function StudentApplicationsContent() {
                 {selectedApp.score !== undefined &&
                   selectedApp.score !== null && (
                     <div>
-                      <p className="text-gray-500">Score</p>
+                      <p className="text-gray-500">{t('score')}</p>
                       <p className="font-medium text-blue-600 dark:text-blue-300">
                         {selectedApp.score}/100
                       </p>
@@ -384,7 +390,7 @@ function StudentApplicationsContent() {
                   )}
                 {selectedApp.decisionReason && (
                   <div className="col-span-2">
-                    <p className="text-gray-500">Motif de la décision</p>
+                    <p className="text-gray-500">{t('decisionReason')}</p>
                     <p className="text-sm text-gray-700">
                       {selectedApp.decisionReason}
                     </p>
@@ -392,7 +398,7 @@ function StudentApplicationsContent() {
                 )}
                 {selectedApp.interviewDate && (
                   <div className="col-span-2">
-                    <p className="text-gray-500">Entretien</p>
+                    <p className="text-gray-500">{t('interview')}</p>
                     <p className="text-sm">
                       {formatDate(selectedApp.interviewDate)}
                     </p>
@@ -403,7 +409,7 @@ function StudentApplicationsContent() {
                         rel="noopener noreferrer"
                         className="text-blue-600 dark:text-blue-300 hover:underline text-sm"
                       >
-                        🔗 Lien de l'entretien
+                        {t('interviewLink')}
                       </a>
                     )}
                   </div>
@@ -412,7 +418,7 @@ function StudentApplicationsContent() {
 
               {/* Timeline */}
               <div>
-                <p className="font-medium text-sm mb-2">📜 Historique</p>
+                <p className="font-medium text-sm mb-2">{t('history')}</p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {selectedApp.timeline?.map((event, index) => (
                     <div
@@ -442,7 +448,7 @@ function StudentApplicationsContent() {
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
                 >
-                  Fermer
+                  {t('close')}
                 </Button>
                 {selectedApp.status === 'ACCEPTED' && (
                   <Button
@@ -452,7 +458,7 @@ function StudentApplicationsContent() {
                       )
                     }
                   >
-                    Payer les frais de scolarité
+                    {t('payTuition')}
                   </Button>
                 )}
               </DialogFooter>

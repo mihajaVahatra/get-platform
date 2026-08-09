@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { EmojiPickerButton } from '@/components/messages/emoji-picker-button';
 import {
@@ -74,10 +75,10 @@ function buildMessageFormData(payload: {
   return formData;
 }
 
-const nameOf = (user: UserPreview | null) =>
+const nameOf = (user: UserPreview | null, fallback: string) =>
   user?.student
     ? `${user.student.firstName} ${user.student.lastName}`.trim()
-    : user?.email || 'Utilisateur';
+    : user?.email || fallback;
 const dateOf = (date: string) =>
   new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',
@@ -95,6 +96,7 @@ export default function MessagesPage() {
 }
 
 function MessagesPageContent() {
+  const t = useTranslations('StudentMessages');
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -125,9 +127,7 @@ function MessagesPageContent() {
       );
     } catch (error) {
       console.error('Erreur chargement conversations:', error);
-      toast.error(
-        'Impossible de charger les conversations. Vérifiez la migration Prisma.',
-      );
+      toast.error(t('loadConversationsError'));
       setConversations([]);
       setSelected(null);
     } finally {
@@ -153,7 +153,7 @@ function MessagesPageContent() {
       window.dispatchEvent(new Event('messages:updated'));
     } catch (error) {
       console.error('Erreur chargement discussion:', error);
-      toast.error('Impossible de charger cette discussion');
+      toast.error(t('loadThreadError'));
     } finally {
       setThreadLoading(false);
     }
@@ -190,7 +190,7 @@ function MessagesPageContent() {
         { headers: { 'Content-Type': 'multipart/form-data' } },
       );
       const sent = response.data.data as ThreadMessage;
-      toast.success('Message envoyé');
+      toast.success(t('messageSent'));
       setShowCompose(false);
       await loadConversations();
       setSelected({
@@ -206,8 +206,8 @@ function MessagesPageContent() {
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
-          ? error.response?.data?.message || 'Impossible d’envoyer le message'
-          : 'Impossible d’envoyer le message',
+          ? error.response?.data?.message || t('sendMessageError')
+          : t('sendMessageError'),
       );
     } finally {
       setSending(false);
@@ -234,8 +234,8 @@ function MessagesPageContent() {
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
-          ? error.response?.data?.message || 'Impossible d’envoyer la réponse'
-          : 'Impossible d’envoyer la réponse',
+          ? error.response?.data?.message || t('sendReplyError')
+          : t('sendReplyError'),
       );
     } finally {
       setReplying(false);
@@ -246,9 +246,9 @@ function MessagesPageContent() {
     <div className="mx-auto max-w-[1180px] text-[#111a4b]">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold">Messages</h1>
+          <h1 className="text-xl font-extrabold">{t('title')}</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Vos discussions privées avec les étudiants et les services GET.
+            {t('subtitle')}
           </p>
         </div>
         <button
@@ -256,7 +256,7 @@ function MessagesPageContent() {
           className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
         >
           <PenLine className="size-4" />
-          Nouveau message
+          {t('newMessage')}
         </button>
       </header>
       <div className="grid overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_18px_rgba(68,50,140,0.05)] md:grid-cols-[310px_1fr]">
@@ -264,14 +264,14 @@ function MessagesPageContent() {
           className={`${selected ? 'hidden md:block' : ''} border-b border-border md:border-b-0 md:border-r`}
         >
           <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-extrabold">Discussions</p>
+            <p className="text-xs font-extrabold">{t('discussionsTitle')}</p>
             <p className="mt-1 text-[10px] text-muted-foreground">
-              Les messages sont regroupés par contact.
+              {t('discussionsSubtitle')}
             </p>
           </div>
           <div className="max-h-[590px] overflow-y-auto">
             {loading ? (
-              <p className="p-5 text-xs text-muted-foreground">Chargement…</p>
+              <p className="p-5 text-xs text-muted-foreground">{t('loading')}</p>
             ) : conversations.length === 0 ? (
               <EmptyConversation onCompose={() => setShowCompose(true)} />
             ) : (
@@ -295,17 +295,17 @@ function MessagesPageContent() {
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
-                  aria-label="Retour aux discussions"
+                  aria-label={t('backToDiscussions')}
                   className="-ml-1 rounded-lg p-1.5 text-muted-foreground hover:bg-muted md:hidden"
                 >
                   <ArrowLeft className="size-5" />
                 </button>
                 <span className="flex size-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-sm font-bold text-indigo-600 dark:text-indigo-300">
-                  {nameOf(selected.participant)[0]?.toUpperCase()}
+                  {nameOf(selected.participant, t('defaultUser'))[0]?.toUpperCase()}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-extrabold">
-                    {nameOf(selected.participant)}
+                    {nameOf(selected.participant, t('defaultUser'))}
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {selected.participant?.email}
@@ -315,7 +315,7 @@ function MessagesPageContent() {
               <div className="flex-1 space-y-3 overflow-y-auto bg-[#fcfcff] p-4">
                 {threadLoading ? (
                   <p className="text-center text-xs text-muted-foreground">
-                    Chargement de la discussion…
+                    {t('loadingThread')}
                   </p>
                 ) : (
                   messages.map((message) => (
@@ -352,7 +352,7 @@ function MessagesPageContent() {
                     onChange={(event) => setReplyText(event.target.value)}
                     rows={2}
                     maxLength={20000}
-                    placeholder={`Répondre à ${nameOf(selected.participant)}…`}
+                    placeholder={t('replyPlaceholder', { name: nameOf(selected.participant, t('defaultUser')) })}
                     className="min-h-10 flex-1 resize-none bg-transparent px-2 py-1 text-sm outline-none"
                   />
                   <button
@@ -362,14 +362,13 @@ function MessagesPageContent() {
                       !selected.participant?.email
                     }
                     className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    title="Envoyer la réponse"
+                    title={t('sendReplyTitle')}
                   >
                     <Send className="size-4" />
                   </button>
                 </div>
                 <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
-                  Entrée crée une nouvelle ligne · cliquez sur l’avion pour
-                  envoyer
+                  {t('replyHint')}
                 </p>
               </form>
             </>
@@ -377,10 +376,10 @@ function MessagesPageContent() {
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <MailOpen className="size-10 text-indigo-200" />
               <p className="mt-3 text-sm font-bold text-foreground">
-                Aucune discussion sélectionnée
+                {t('noDiscussionSelected')}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Choisissez un contact ou démarrez un nouveau message.
+                {t('chooseContact')}
               </p>
             </div>
           )}
@@ -406,6 +405,7 @@ function ConversationRow({
   active: boolean;
   onClick: () => void;
 }) {
+  const t = useTranslations('StudentMessages');
   return (
     <button
       onClick={onClick}
@@ -413,12 +413,12 @@ function ConversationRow({
     >
       <div className="flex items-center gap-2.5">
         <span className="flex size-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-          {nameOf(conversation.participant)[0]?.toUpperCase()}
+          {nameOf(conversation.participant, t('defaultUser'))[0]?.toUpperCase()}
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-xs font-extrabold">
-              {nameOf(conversation.participant)}
+              {nameOf(conversation.participant, t('defaultUser'))}
             </span>
             <span className="ml-auto text-[10px] text-muted-foreground">
               {dateOf(conversation.lastMessageAt)}
@@ -429,7 +429,7 @@ function ConversationRow({
               <Paperclip className="size-3 shrink-0 text-indigo-400" />
             )}
             <span className="truncate text-[10px] text-muted-foreground">
-              {conversation.lastMessage?.body || 'Nouvelle discussion'}
+              {conversation.lastMessage?.body || t('newConversationFallback')}
             </span>
             {conversation.unreadCount > 0 && (
               <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-bold text-white">
@@ -473,15 +473,16 @@ function MessageBubble({
   );
 }
 function EmptyConversation({ onCompose }: { onCompose: () => void }) {
+  const t = useTranslations('StudentMessages');
   return (
     <div className="p-6 text-center">
       <MessageCircle className="mx-auto size-7 text-indigo-200" />
-      <p className="mt-2 text-xs font-bold text-foreground">Aucune discussion</p>
+      <p className="mt-2 text-xs font-bold text-foreground">{t('noDiscussion')}</p>
       <button
         onClick={onCompose}
         className="mt-3 text-xs font-bold text-indigo-600 dark:text-indigo-300"
       >
-        Écrire un message
+        {t('writeMessage')}
       </button>
     </div>
   );
@@ -500,6 +501,7 @@ function ComposeDialog({
   }) => void;
   sending: boolean;
 }) {
+  const t = useTranslations('StudentMessages');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -519,9 +521,9 @@ function ComposeDialog({
       >
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-extrabold">Nouvelle discussion</h2>
+            <h2 className="font-extrabold">{t('newDiscussion')}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Une discussion existante sera automatiquement réutilisée.
+              {t('reuseExisting')}
             </p>
           </div>
           <button
@@ -534,7 +536,7 @@ function ComposeDialog({
         </div>
         <div className="mt-5 space-y-3">
           <label className="block text-xs font-bold text-foreground">
-            Destinataire
+            {t('recipient')}
             <input
               type="email"
               value={recipientEmail}
@@ -546,7 +548,7 @@ function ComposeDialog({
             />
           </label>
           <label className="block text-xs font-bold text-foreground">
-            Objet <span className="font-normal text-muted-foreground">(facultatif)</span>
+            {t('subject')} <span className="font-normal text-muted-foreground">{t('optional')}</span>
             <input
               type="text"
               value={subject}
@@ -557,7 +559,7 @@ function ComposeDialog({
             />
           </label>
           <label className="block text-xs font-bold text-foreground">
-            Message
+            {t('message')}
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
@@ -565,7 +567,7 @@ function ComposeDialog({
               minLength={1}
               maxLength={20000}
               className="mt-1.5 min-h-32 w-full rounded-xl border border-border p-3 text-sm outline-none focus:border-indigo-400"
-              placeholder="Écrivez votre message…"
+              placeholder={t('messagePlaceholder')}
             />
           </label>
           <PendingAttachmentChips
@@ -587,14 +589,14 @@ function ComposeDialog({
             onClick={onClose}
             className="rounded-lg px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
           >
-            Annuler
+            {t('cancel')}
           </button>
           <button
             disabled={sending}
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
           >
             <Send className="size-4" />
-            {sending ? 'Envoi…' : 'Envoyer'}
+            {sending ? t('sendingEllipsis') : t('send')}
           </button>
         </div>
       </form>

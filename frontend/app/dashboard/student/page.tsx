@@ -25,6 +25,7 @@ import {
   Sparkles,
   WalletCards,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Input } from '@/components/ui/input';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -68,26 +69,26 @@ const schedule = [
     time: '08:00 – 10:00',
     course: 'Algorithmique Avancée',
     room: 'Salle B204',
-    state: 'En cours',
+    state: 'inProgress' as const,
     active: true,
   },
   {
     time: '10:15 – 12:15',
     course: 'Bases de Données',
     room: 'Salle B205',
-    state: 'À venir',
+    state: 'upcoming' as const,
   },
   {
     time: '14:00 – 16:00',
     course: 'Anglais Technique',
     room: 'Salle A102',
-    state: 'À venir',
+    state: 'upcoming' as const,
   },
   {
     time: '16:15 – 18:15',
     course: 'Mathématiques Discrètes',
     room: 'Salle B203',
-    state: 'À venir',
+    state: 'upcoming' as const,
   },
 ];
 
@@ -95,25 +96,25 @@ const tasks = [
   {
     title: 'Devoir Algorithmique',
     date: 'À rendre le 15 juin 2025',
-    badge: 'Urgent',
+    badge: 'urgent' as const,
     tone: 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300',
   },
   {
     title: 'Projet Bases de Données',
     date: 'À rendre le 22 juin 2025',
-    badge: 'Important',
+    badge: 'important' as const,
     tone: 'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
   },
   {
     title: 'Préparer présentation Anglais',
     date: 'À rendre le 30 juin 2025',
-    badge: 'À faire',
+    badge: 'todo' as const,
     tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
   },
   {
     title: 'Réviser pour l’examen',
     date: 'Algorithmique Avancée',
-    badge: 'À faire',
+    badge: 'todo' as const,
     tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
   },
 ];
@@ -164,6 +165,7 @@ const events = [
 ];
 
 export default function StudentDashboardPage() {
+  const t = useTranslations('StudentDashboard');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -178,7 +180,7 @@ export default function StudentDashboardPage() {
   if (loading) {
     return (
       <div className="grid min-h-[50vh] place-items-center text-sm font-medium text-muted-foreground">
-        Chargement de votre espace…
+        {t('loadingSpace')}
       </div>
     );
   }
@@ -192,21 +194,21 @@ export default function StudentDashboardPage() {
   // on les énumère plutôt que de n'en montrer qu'un seul arbitrairement.
   const school =
     enrollments.length > 1
-      ? enrollments.map((enrollment) => enrollment.school?.name).filter(Boolean).join(' et ')
+      ? enrollments.map((enrollment) => enrollment.school?.name).filter(Boolean).join(t('schoolJoiner'))
       : (enrollments[0]?.school?.name ?? 'ESPA');
   const year =
-    enrollments.length > 1 ? '' : (enrollments[0]?.enrolledYear ?? '2ᵉ année Informatique');
+    enrollments.length > 1 ? '' : (enrollments[0]?.enrolledYear ?? t('defaultYear'));
 
   return (
     <div className="mx-auto max-w-[1450px] space-y-4 text-[#111a4b]">
       <header className="flex flex-wrap items-center justify-between gap-4 pb-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-[27px]">
-            Bonjour {student?.firstName || 'Toavina'}{' '}
+            {t('greeting', { name: student?.firstName || 'Toavina' })}{' '}
             <span aria-hidden="true">👋</span>
           </h1>
           <p className="mt-1 text-sm font-medium text-muted-foreground">
-            Bienvenue à {school}
+            {t('welcomeTo', { school })}
             {year ? ` – ${year}` : ''}
           </p>
         </div>
@@ -215,7 +217,7 @@ export default function StudentDashboardPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               maxLength={150}
-              placeholder="Rechercher..."
+              placeholder={t('searchPlaceholder')}
               className="h-11 rounded-xl border-border bg-card pl-9 text-xs shadow-sm"
             />
             <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-indigo-50 dark:bg-indigo-500/15 px-1.5 py-1 text-[10px] text-indigo-500 dark:text-indigo-300">
@@ -230,35 +232,35 @@ export default function StudentDashboardPage() {
       <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatWidget
           icon={BookOpen}
-          title="Moyenne générale"
+          title={t('statAverage')}
           value="15,2"
           suffix="/20"
-          hint="↑ +1,3 vs semestre précédent"
+          hint={t('statAverageHint')}
           tone="indigo"
         />
         <StatWidget
           icon={BookOpenCheck}
-          title="Crédits validés"
+          title={t('statCredits')}
           value="18"
           suffix="/30"
-          hint="60% du programme"
+          hint={t('statCreditsHint', { percent: 60 })}
           progress="60"
           tone="green"
         />
         <StatWidget
           icon={CalendarDays}
-          title="Absences"
+          title={t('statAbsences')}
           value="2"
           suffix=""
-          hint="Justifiées"
+          hint={t('statAbsencesHint')}
           tone="orange"
         />
         <StatWidget
           icon={Award}
-          title="Points de mérite"
+          title={t('statMerit')}
           value="120"
           suffix="pts"
-          hint="Bravo ! Continue comme ça 💪"
+          hint={t('statMeritHint')}
           tone="blue"
         />
       </section>
@@ -268,11 +270,11 @@ export default function StudentDashboardPage() {
           className="xl:col-span-4"
           title={
             <>
-              Emploi du temps{' '}
-              <span className="font-normal text-muted-foreground">– Aujourd’hui</span>
+              {t('scheduleTitle')}{' '}
+              <span className="font-normal text-muted-foreground">{t('scheduleTodaySuffix')}</span>
             </>
           }
-          action="Voir tout"
+          action={t('viewAll')}
         >
           <div className="mt-4 space-y-1">
             {schedule.map((item) => (
@@ -293,7 +295,7 @@ export default function StudentDashboardPage() {
                 <span
                   className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'}`}
                 >
-                  {item.state}
+                  {t(`scheduleStates.${item.state}`)}
                 </span>
               </div>
             ))}
@@ -302,8 +304,8 @@ export default function StudentDashboardPage() {
 
         <Widget
           className="xl:col-span-4"
-          title="Mes tâches"
-          action="Voir toutes"
+          title={t('tasksTitle')}
+          action={t('viewAllFem')}
         >
           <div className="mt-3 divide-y divide-border">
             {tasks.map((task) => (
@@ -321,7 +323,7 @@ export default function StudentDashboardPage() {
                 <span
                   className={`rounded-full px-2 py-1 text-[10px] font-semibold ${task.tone}`}
                 >
-                  {task.badge}
+                  {t(`taskBadges.${task.badge}`)}
                 </span>
               </div>
             ))}
@@ -329,10 +331,10 @@ export default function StudentDashboardPage() {
         </Widget>
 
         <div className="space-y-4 xl:col-span-4">
-          <Widget title="Actualités" action="Voir tout">
+          <Widget title={t('newsTitle')} action={t('viewAll')}>
             <div className="mt-4 overflow-hidden rounded-xl bg-gradient-to-br from-[#27204d] via-[#5651a8] to-[#88a0bc] p-4 text-white shadow-inner">
               <span className="rounded bg-indigo-600 px-2 py-1 text-[10px] font-bold">
-                IMPORTANT
+                {t('importantBadge')}
               </span>
               <h3 className="mt-5 text-base font-bold">
                 Réinscription 2025–2026
@@ -378,54 +380,54 @@ export default function StudentDashboardPage() {
 
       <section className="grid gap-4 xl:grid-cols-12">
         <div className="space-y-4 xl:col-span-8">
-          <Widget title="Accès rapides">
+          <Widget title={t('quickAccessTitle')}>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <QuickAction
                 icon={Download}
-                label="Télécharger"
-                detail="attestation"
+                label={t('quickDownload')}
+                detail={t('quickDownloadDetail')}
                 tone="indigo"
                 href="/dashboard/student/profile"
               />
               <QuickAction
                 icon={FileCheck2}
-                label="Demande de"
-                detail="document"
+                label={t('quickDocRequest')}
+                detail={t('quickDocRequestDetail')}
                 tone="green"
                 href="/dashboard/student/profile"
               />
               <QuickAction
                 icon={WalletCards}
-                label="Paiement en"
-                detail="ligne"
+                label={t('quickOnlinePayment')}
+                detail={t('quickOnlinePaymentDetail')}
                 tone="orange"
                 href="/dashboard/student/payments"
               />
               <QuickAction
                 icon={ShieldCheck}
-                label="Demande de"
-                detail="bourse"
+                label={t('quickScholarship')}
+                detail={t('quickScholarshipDetail')}
                 tone="rose"
                 href="/dashboard/student"
               />
               <QuickAction
                 icon={BriefcaseBusiness}
-                label="Stages &"
-                detail="emplois"
+                label={t('quickInternships')}
+                detail={t('quickInternshipsDetail')}
                 tone="blue"
                 href="/dashboard/student"
               />
               <QuickAction
                 icon={LibraryBig}
-                label="Bibliothèque"
-                detail="en ligne"
+                label={t('quickLibrary')}
+                detail={t('quickLibraryDetail')}
                 tone="indigo"
                 href="/dashboard/student"
               />
             </div>
           </Widget>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Widget title="Mes cours" action="Voir tout">
+            <Widget title={t('coursesTitle')} action={t('viewAll')}>
               <div className="mt-3 divide-y divide-border">
                 {courses.map((course) => (
                   <div
@@ -452,35 +454,35 @@ export default function StudentDashboardPage() {
                 ))}
               </div>
             </Widget>
-            <Widget title="Finances" action="Voir tout">
+            <Widget title={t('financesTitle')} action={t('viewAll')}>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/15 p-4">
-                  <p className="text-[11px] text-muted-foreground">Solde actuel</p>
+                  <p className="text-[11px] text-muted-foreground">{t('currentBalance')}</p>
                   <p className="mt-2 text-xl font-extrabold text-emerald-600 dark:text-emerald-300">
                     125 000 Ar
                   </p>
                   <span className="mt-2 inline-block rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">
-                    ● Disponible
+                    {t('available')}
                   </span>
                 </div>
                 <div>
                   <p className="text-[11px] text-muted-foreground">
-                    Prochain paiement
+                    {t('nextPayment')}
                   </p>
                   <p className="mt-2 text-xs font-bold text-foreground">
-                    Frais de scolarité S2
+                    {t('tuitionS2')}
                   </p>
                   <p className="mt-2 text-lg font-extrabold text-emerald-600 dark:text-emerald-300">
                     350 000 Ar
                   </p>
                   <p className="mt-2 text-[10px] text-muted-foreground">
-                    À payer avant le 30 juin 2025
+                    {t('payBefore', { date: '30 juin 2025' })}
                   </p>
                   <Link
                     href="/dashboard/student/payments"
                     className="mt-4 flex items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
                   >
-                    Payer maintenant
+                    {t('payNow')}
                   </Link>
                 </div>
               </div>
@@ -490,8 +492,8 @@ export default function StudentDashboardPage() {
 
         <Widget
           className="xl:col-span-4"
-          title="Événements à venir"
-          action="Voir tout"
+          title={t('upcomingEventsTitle')}
+          action={t('viewAll')}
         >
           <div className="mt-3 divide-y divide-border">
             {events.map((event) => (
@@ -520,7 +522,7 @@ export default function StudentDashboardPage() {
             href="/dashboard/student?section=events"
             className="mt-3 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-300"
           >
-            Voir tous les événements
+            {t('viewAllEvents')}
           </Link>
         </Widget>
       </section>
@@ -528,8 +530,7 @@ export default function StudentDashboardPage() {
       <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-indigo-50 to-teal-50 px-4 py-3 text-xs text-indigo-700 dark:text-indigo-300">
         <Bell className="size-4 shrink-0" />
         <p>
-          <span className="font-bold">Astuce GET :</span> Active les
-          notifications pour ne rien manquer de tes cours et événements !
+          <span className="font-bold">{t('tipTitle')}</span> {t('tipText')}
         </p>
         <button className="ml-auto text-muted-foreground">×</button>
       </div>
@@ -538,6 +539,7 @@ export default function StudentDashboardPage() {
 }
 
 function CandidateDashboard({ student }: { student: Student }) {
+  const t = useTranslations('StudentDashboard');
   const [applications, setApplications] = useState<CandidateApplication[]>(
     [],
   );
@@ -570,22 +572,22 @@ function CandidateDashboard({ student }: { student: Student }) {
 
   const steps = [
     {
-      title: 'Complète ton dossier',
-      text: 'Ajoute tes informations personnelles et ton parcours scolaire.',
+      title: t('step1Title'),
+      text: t('step1Text'),
       icon: FileUp,
       done: Boolean(student.profileCompleted),
       href: '/dashboard/student/profile',
     },
     {
-      title: 'Candidate aux formations qui t’intéressent',
-      text: 'Explore les établissements et postule en ligne.',
+      title: t('step2Title'),
+      text: t('step2Text'),
       icon: Compass,
       done: totalApplications > 0,
       href: '/dashboard/student/offers',
     },
     {
-      title: 'Suis tes admissions',
-      text: 'Retrouve ici les réponses et la suite à donner.',
+      title: t('step3Title'),
+      text: t('step3Text'),
       icon: CircleCheck,
       done: hasDecision,
       href: '/dashboard/student/applications',
@@ -594,24 +596,24 @@ function CandidateDashboard({ student }: { student: Student }) {
   const doneCount = steps.filter((s) => s.done).length;
 
   const dossierCard = student.profileCompleted
-    ? { value: 'Complet', text: 'Ton dossier est prêt pour candidater.' }
+    ? { value: t('fileComplete'), text: t('fileCompleteText') }
     : {
-        value: 'À compléter',
-        text: 'Renseigne tes informations pour pouvoir postuler.',
+        value: t('fileIncomplete'),
+        text: t('fileIncompleteText'),
       };
 
   const applicationsCard =
     totalApplications === 0
       ? {
-          value: 'Aucune candidature',
-          text: 'Tu n’as pas encore envoyé de dossier.',
+          value: t('noApplications'),
+          text: t('noApplicationsText'),
         }
       : {
-          value: `${totalApplications} candidature${totalApplications > 1 ? 's' : ''}`,
+          value: t('applicationsCount', { count: totalApplications }),
           text:
             accepted > 0
-              ? `${accepted} accepté${accepted > 1 ? 'es' : 'e'} · ${pending} en attente`
-              : `${pending} en attente de réponse`,
+              ? `${t('acceptedCount', { count: accepted })} · ${t('pendingCount', { count: pending })}`
+              : t('pendingResponseCount', { count: pending }),
         };
 
   return (
@@ -619,14 +621,13 @@ function CandidateDashboard({ student }: { student: Student }) {
       <header className="flex flex-wrap items-center justify-between gap-4 pb-2">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-300">
-            Espace candidat
+            {t('candidateSpace')}
           </p>
           <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-[28px]">
-            Bonjour {student.firstName} 👋
+            {t('candidateGreeting', { name: student.firstName })}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ton parcours d’études commence ici. Trouve la formation qui te
-            ressemble.
+            {t('candidateIntro')}
           </p>
         </div>
         <Link
@@ -634,7 +635,7 @@ function CandidateDashboard({ student }: { student: Student }) {
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-teal-400 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:brightness-105"
         >
           <Compass className="size-4" />
-          Découvrir les établissements
+          {t('discoverSchools')}
         </Link>
       </header>
 
@@ -643,20 +644,19 @@ function CandidateDashboard({ student }: { student: Student }) {
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold">
               <GraduationCap className="size-4" />
-              Prêt(e) à construire ton avenir ?
+              {t('readyTitle')}
             </span>
             <h2 className="mt-4 max-w-2xl text-2xl font-extrabold leading-tight sm:text-3xl">
-              Explore les meilleures écoles et formations de Madagascar.
+              {t('heroTitle')}
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-indigo-100">
-              Complète ton dossier, choisis tes programmes, puis envoie tes
-              candidatures depuis un seul espace.
+              {t('heroText')}
             </p>
             <Link
               href="/dashboard/student/offers"
               className="mt-5 inline-flex items-center gap-2 rounded-xl bg-card px-4 py-3 text-sm font-bold text-indigo-700 dark:text-indigo-300 transition hover:bg-indigo-50 dark:bg-indigo-500/15"
             >
-              Rechercher une formation <ArrowRight className="size-4" />
+              {t('searchFormation')} <ArrowRight className="size-4" />
             </Link>
           </div>
           <div className="grid size-28 place-items-center rounded-full border border-white/20 bg-white/10 sm:size-36">
@@ -669,35 +669,35 @@ function CandidateDashboard({ student }: { student: Student }) {
         <CandidateCard
           icon={FileCheck2}
           tone="indigo"
-          title="Mon dossier"
+          title={t('myFileTitle')}
           value={dossierCard.value}
           text={dossierCard.text}
           action={
-            student.profileCompleted ? 'Voir mon profil' : 'Compléter mon profil'
+            student.profileCompleted ? t('viewProfile') : t('completeProfile')
           }
           href="/dashboard/student/profile"
         />
         <CandidateCard
           icon={BookOpen}
           tone="blue"
-          title="Formations disponibles"
+          title={t('availableFormationsTitle')}
           value={
             totalOffers > 0
-              ? `${totalOffers} formation${totalOffers > 1 ? 's' : ''}`
-              : '—'
+              ? t('formationsCount', { count: totalOffers })
+              : t('noneAvailable')
           }
-          text="Des programmes à découvrir selon ton projet."
-          action="Explorer les formations"
+          text={t('formationsText')}
+          action={t('exploreFormations')}
           href="/dashboard/student/offers"
         />
         <CandidateCard
           icon={ClipboardCheck}
           tone="green"
-          title="Mes candidatures"
+          title={t('myApplicationsTitle')}
           value={applicationsCard.value}
           text={applicationsCard.text}
           action={
-            totalApplications === 0 ? 'Commencer ma recherche' : 'Voir mes candidatures'
+            totalApplications === 0 ? t('startSearch') : t('viewApplications')
           }
           href={
             totalApplications === 0
@@ -711,14 +711,14 @@ function CandidateDashboard({ student }: { student: Student }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold">
-              Les étapes de ton parcours
+              {t('stepsTitle')}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Avance à ton rythme : tout se fait en ligne.
+              {t('stepsSubtitle')}
             </p>
           </div>
           <span className="rounded-full bg-indigo-50 dark:bg-indigo-500/15 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-            {doneCount} / {steps.length} terminées
+            {t('stepsCompleted', { done: doneCount, total: steps.length })}
           </span>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -749,7 +749,7 @@ function CandidateDashboard({ student }: { student: Student }) {
                 {step.text}
               </p>
               <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                {step.done ? 'Terminé — revoir' : 'Commencer'}{' '}
+                {step.done ? t('stepDone') : t('stepStart')}{' '}
                 <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
               </span>
             </Link>
@@ -759,11 +759,11 @@ function CandidateDashboard({ student }: { student: Student }) {
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
-          <h2 className="text-sm font-extrabold">Dernières formations publiées</h2>
+          <h2 className="text-sm font-extrabold">{t('latestFormationsTitle')}</h2>
           <div className="mt-4 space-y-3">
             {recentOffers.length === 0 ? (
               <p className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">
-                Aucune formation disponible pour le moment.
+                {t('noFormationsAvailable')}
               </p>
             ) : (
               recentOffers.map((offer) => (
@@ -792,24 +792,23 @@ function CandidateDashboard({ student }: { student: Student }) {
           </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_4px_18px_rgba(68,50,140,0.05)]">
-          <h2 className="text-sm font-extrabold">Besoin d’aide ?</h2>
+          <h2 className="text-sm font-extrabold">{t('helpTitle')}</h2>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Notre guide t’accompagne pour choisir une formation et préparer ton
-            dossier.
+            {t('helpText')}
           </p>
           <div className="mt-5 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 p-4">
             <MapPin className="size-5 text-indigo-600 dark:text-indigo-300" />
             <p className="mt-3 text-sm font-bold text-foreground">
-              Trouve une école près de chez toi
+              {t('findSchoolTitle')}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Explore les établissements par ville et par filière.
+              {t('findSchoolText')}
             </p>
             <Link
               href="/dashboard/student/offers"
               className="mt-4 inline-flex text-xs font-bold text-indigo-600 dark:text-indigo-300"
             >
-              Voir la carte des établissements →
+              {t('viewMap')}
             </Link>
           </div>
         </div>

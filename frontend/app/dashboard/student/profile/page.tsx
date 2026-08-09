@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,24 +14,27 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Schéma de validation pour le formulaire
-const profileSchema = z.object({
-  firstName: z.string().min(2, 'Prénom trop court (min 2 caractères)').max(50, 'Prénom trop long'),
-  lastName: z.string().min(2, 'Nom trop court (min 2 caractères)').max(50, 'Nom trop long'),
-  phone: z.string().max(30, 'Numéro trop long').optional(),
-  birthDate: z.string().optional(),
-  cin: z.string().max(20, 'CIN trop long').optional(),
-  bacYear: z.union([z.string(), z.number()]).optional(),
-  bacType: z.string().max(50, 'Trop long').optional(),
-  city: z.string().max(100, 'Trop long').optional(),
-  address: z.string().max(300, 'Adresse trop longue').optional(),
-  region: z.string().max(100, 'Trop long').optional(),
-  bio: z.string().max(1000, 'Bio trop longue').optional(),
-});
+function createProfileSchema(t: (key: string) => string) {
+  return z.object({
+    firstName: z.string().min(2, t('validation.firstNameShort')).max(50, t('validation.firstNameLong')),
+    lastName: z.string().min(2, t('validation.lastNameShort')).max(50, t('validation.lastNameLong')),
+    phone: z.string().max(30, t('validation.phoneLong')).optional(),
+    birthDate: z.string().optional(),
+    cin: z.string().max(20, t('validation.cinLong')).optional(),
+    bacYear: z.union([z.string(), z.number()]).optional(),
+    bacType: z.string().max(50, t('validation.tooLong')).optional(),
+    city: z.string().max(100, t('validation.tooLong')).optional(),
+    address: z.string().max(300, t('validation.addressLong')).optional(),
+    region: z.string().max(100, t('validation.tooLong')).optional(),
+    bio: z.string().max(1000, t('validation.bioLong')).optional(),
+  });
+}
 
-type ProfileForm = z.infer<typeof profileSchema>;
+type ProfileForm = z.infer<ReturnType<typeof createProfileSchema>>;
 
 export default function StudentProfilePage() {
+  const t = useTranslations('StudentProfile');
+  const profileSchema = useMemo(() => createProfileSchema(t), [t]);
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -61,7 +65,7 @@ export default function StudentProfilePage() {
       });
     } catch (error) {
       console.error('Erreur chargement profil:', error);
-      toast.error('Erreur lors du chargement du profil');
+      toast.error(t('loadError'));
     }
   };
 
@@ -86,9 +90,9 @@ export default function StudentProfilePage() {
       };
       const response = await apiClient.put('/students/me', payload);
       setProfile(response.data.data);
-      toast.success('Profil mis à jour avec succès !');
+      toast.success(t('updateSuccess'));
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Erreur lors de la mise à jour';
+      const message = error.response?.data?.message || t('updateError');
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -96,14 +100,14 @@ export default function StudentProfilePage() {
   };
 
   if (!profile) {
-    return <div className="flex justify-center p-8">Chargement...</div>;
+    return <div className="flex justify-center p-8">{t('loading')}</div>;
   }
 
   return (
     <div className="space-y-6">
       {/* En-tête avec avatar */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Mon Profil</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12">
             <AvatarImage src="/avatar-placeholder.png" />
@@ -121,24 +125,24 @@ export default function StudentProfilePage() {
       {/* Onglets */}
       <Tabs defaultValue="informations" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="informations">Informations</TabsTrigger>
-          <TabsTrigger value="stats">Statistiques</TabsTrigger>
+          <TabsTrigger value="informations">{t('tabInfo')}</TabsTrigger>
+          <TabsTrigger value="stats">{t('tabStats')}</TabsTrigger>
         </TabsList>
 
         {/* === ONGLET INFORMATIONS === */}
         <TabsContent value="informations">
           <Card>
             <CardHeader>
-              <CardTitle>Informations personnelles</CardTitle>
+              <CardTitle>{t('personalInfoTitle')}</CardTitle>
               <CardDescription>
-                Modifiez vos informations personnelles
+                {t('personalInfoSubtitle')}
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit(onSubmit)} method="post" action="#">
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="firstName">Prénom <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="firstName">{t('firstName')} <span className="text-red-500">*</span></Label>
                     <Input
                       id="firstName"
                       maxLength={50}
@@ -149,7 +153,7 @@ export default function StudentProfilePage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="lastName">{t('lastName')} <span className="text-red-500">*</span></Label>
                     <Input
                       id="lastName"
                       maxLength={50}
@@ -162,7 +166,7 @@ export default function StudentProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone">{t('phone')}</Label>
                   <Input
                     id="phone"
                     placeholder="+261 34 12 345 67"
@@ -173,11 +177,11 @@ export default function StudentProfilePage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="birthDate">Date de naissance</Label>
+                    <Label htmlFor="birthDate">{t('birthDate')}</Label>
                     <Input id="birthDate" type="date" {...register('birthDate')} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="cin">CIN</Label>
+                    <Label htmlFor="cin">{t('cin')}</Label>
                     <Input
                       id="cin"
                       placeholder="101234567"
@@ -189,7 +193,7 @@ export default function StudentProfilePage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="bacYear">Année du bac</Label>
+                    <Label htmlFor="bacYear">{t('bacYear')}</Label>
                     <Input
                       id="bacYear"
                       type="number"
@@ -200,7 +204,7 @@ export default function StudentProfilePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="bacType">Série du bac</Label>
+                    <Label htmlFor="bacType">{t('bacType')}</Label>
                     <Input
                       id="bacType"
                       placeholder="S, A, C, D…"
@@ -212,7 +216,7 @@ export default function StudentProfilePage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="city">Ville</Label>
+                    <Label htmlFor="city">{t('city')}</Label>
                     <Input
                       id="city"
                       placeholder="Antananarivo"
@@ -221,7 +225,7 @@ export default function StudentProfilePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="region">Région</Label>
+                    <Label htmlFor="region">{t('region')}</Label>
                     <Input
                       id="region"
                       placeholder="Analamanga"
@@ -232,7 +236,7 @@ export default function StudentProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Adresse</Label>
+                  <Label htmlFor="address">{t('address')}</Label>
                   <Input
                     id="address"
                     placeholder="Lot II M 12 Bis Analakely"
@@ -242,10 +246,10 @@ export default function StudentProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
+                  <Label htmlFor="bio">{t('bio')}</Label>
                   <Input
                     id="bio"
-                    placeholder="Parlez-nous de vous..."
+                    placeholder={t('bioPlaceholder')}
                     maxLength={1000}
                     {...register('bio')}
                   />
@@ -256,10 +260,10 @@ export default function StudentProfilePage() {
                   href="/dashboard/student/documents"
                   className="text-sm font-medium text-indigo-600 dark:text-indigo-300 hover:underline"
                 >
-                  Gérer mes documents (CV, CIN, diplôme…) →
+                  {t('manageDocuments')}
                 </a>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+                  {isLoading ? t('saving') : t('save')}
                 </Button>
               </CardFooter>
             </form>
@@ -276,9 +280,9 @@ export default function StudentProfilePage() {
         <TabsContent value="stats">
           <Card>
             <CardHeader>
-              <CardTitle>Mes statistiques</CardTitle>
+              <CardTitle>{t('statsTitle')}</CardTitle>
               <CardDescription>
-                Vue d'ensemble de votre activité
+                {t('statsSubtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -287,19 +291,19 @@ export default function StudentProfilePage() {
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-300">
                     {stats?.totalApplications || 0}
                   </p>
-                  <p className="text-sm text-gray-600">Candidatures</p>
+                  <p className="text-sm text-gray-600">{t('statApplications')}</p>
                 </div>
                 <div className="bg-green-50 dark:bg-green-500/15 p-4 rounded-lg text-center border border-green-100">
                   <p className="text-2xl font-bold text-green-600 dark:text-green-300">
                     {stats?.acceptedApplications || 0}
                   </p>
-                  <p className="text-sm text-gray-600">Acceptées</p>
+                  <p className="text-sm text-gray-600">{t('statAccepted')}</p>
                 </div>
                 <div className="bg-yellow-50 dark:bg-yellow-500/15 p-4 rounded-lg text-center border border-yellow-100">
                   <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-300">
                     {stats?.pendingApplications || 0}
                   </p>
-                  <p className="text-sm text-gray-600">En attente</p>
+                  <p className="text-sm text-gray-600">{t('statPending')}</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -307,13 +311,13 @@ export default function StudentProfilePage() {
                   <p className="text-2xl font-bold text-purple-600 dark:text-purple-300">
                     {stats?.documentsUploaded || 0}
                   </p>
-                  <p className="text-sm text-gray-600">Documents</p>
+                  <p className="text-sm text-gray-600">{t('statDocuments')}</p>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-500/15 p-4 rounded-lg text-center border border-indigo-100">
                   <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
                     {stats?.profileCompletion || 0}%
                   </p>
-                  <p className="text-sm text-gray-600">Profil complété</p>
+                  <p className="text-sm text-gray-600">{t('statProfileCompletion')}</p>
                 </div>
               </div>
             </CardContent>

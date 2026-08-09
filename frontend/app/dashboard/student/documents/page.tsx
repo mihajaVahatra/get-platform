@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Download, FileText, LoaderCircle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,16 +33,16 @@ type StudentDocument = {
   uploadedAt: string;
 };
 
-const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  CV: 'CV',
-  LETTER: 'Lettre de motivation',
-  ID: "Pièce d'identité",
-  DIPLOMA: 'Diplôme',
-  PHOTO: "Photo d'identité",
-  OTHER: 'Autre',
-};
-
 export default function StudentDocumentsPage() {
+  const t = useTranslations('StudentDocuments');
+  const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+    CV: t('documentTypes.CV'),
+    LETTER: t('documentTypes.LETTER'),
+    ID: t('documentTypes.ID'),
+    DIPLOMA: t('documentTypes.DIPLOMA'),
+    PHOTO: t('documentTypes.PHOTO'),
+    OTHER: t('documentTypes.OTHER'),
+  };
   const [documents, setDocuments] = useState<StudentDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -63,7 +64,7 @@ export default function StudentDocumentsPage() {
     } catch (error) {
       console.error('Erreur chargement documents:', error);
       setFailed(true);
-      toast.error('Impossible de charger vos documents');
+      toast.error(t('loadErrorToast'));
     } finally {
       setLoading(false);
     }
@@ -96,12 +97,12 @@ export default function StudentDocumentsPage() {
         setUploadType('CV');
         setUploadName('');
         setUploadFile(null);
-        toast.success('Document ajouté');
+        toast.success(t('addSuccess'));
       } catch (error: unknown) {
         const message = axios.isAxiosError<{ message?: string }>(error)
           ? error.response?.data?.message
           : undefined;
-        toast.error(message ?? "Impossible d'ajouter le document");
+        toast.error(message ?? t('addError'));
       } finally {
         setUploading(false);
       }
@@ -117,10 +118,10 @@ export default function StudentDocumentsPage() {
         current.filter((doc) => doc.id !== documentToDelete.id),
       );
       setDocumentToDelete(null);
-      toast.success('Document supprimé');
+      toast.success(t('deleteSuccess'));
     } catch (error) {
       console.error('Erreur suppression document:', error);
-      toast.error('Impossible de supprimer le document');
+      toast.error(t('deleteError'));
     } finally {
       setDeleting(false);
     }
@@ -130,9 +131,9 @@ export default function StudentDocumentsPage() {
     <div className="mx-auto max-w-3xl text-foreground">
       <header className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold">Mes documents</h1>
+          <h1 className="text-2xl font-extrabold">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gérez vos documents personnels (CV, pièce d’identité, diplômes…).
+            {t('subtitle')}
           </p>
         </div>
         <button
@@ -142,16 +143,16 @@ export default function StudentDocumentsPage() {
             setUploadOpen(true);
           }}
         >
-          Ajouter un document
+          {t('addDocument')}
         </button>
       </header>
 
       {loading ? (
-        <Loading label="Chargement de vos documents…" />
+        <Loading label={t('loading')} />
       ) : failed ? (
-        <Empty label="Vos documents n’ont pas pu être chargés." />
+        <Empty label={t('loadError')} />
       ) : documents.length === 0 ? (
-        <Empty label="Vous n’avez encore ajouté aucun document." />
+        <Empty label={t('empty')} />
       ) : (
         <div className="divide-y divide-border rounded-2xl border border-border bg-card px-4">
           {documents.map((doc) => (
@@ -160,21 +161,20 @@ export default function StudentDocumentsPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold">{doc.name}</p>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  {DOCUMENT_TYPE_LABELS[doc.type]} · Ajouté le{' '}
-                  {new Date(doc.uploadedAt).toLocaleDateString('fr-FR')}
+                  {DOCUMENT_TYPE_LABELS[doc.type]} · {t('addedOn', { date: new Date(doc.uploadedAt).toLocaleDateString('fr-FR') })}
                 </p>
               </div>
               <a
                 href={doc.fileUrl}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`Télécharger ${doc.name}`}
+                aria-label={t('download', { name: doc.name })}
                 className="min-h-11 min-w-11 rounded p-2 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:bg-indigo-500/15"
               >
                 <Download className="size-4" />
               </a>
               <button
-                aria-label={`Supprimer ${doc.name}`}
+                aria-label={t('delete', { name: doc.name })}
                 className="min-h-11 min-w-11 rounded p-2 text-muted-foreground hover:bg-rose-50 dark:bg-rose-500/15 hover:text-rose-600 dark:text-rose-300"
                 onClick={() => setDocumentToDelete(doc)}
               >
@@ -189,14 +189,14 @@ export default function StudentDocumentsPage() {
         <DialogContent>
           <form onSubmit={submitUpload}>
             <DialogHeader>
-              <DialogTitle>Ajouter un document</DialogTitle>
+              <DialogTitle>{t('addDocument')}</DialogTitle>
               <DialogDescription>
-                Formats acceptés : PDF, JPG, PNG, DOC, DOCX (5 Mo max).
+                {t('acceptedFormats')}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="text-xs font-bold text-[#34406b]">
-                Type de document
+                {t('documentType')}
                 <Select
                   items={Object.entries(DOCUMENT_TYPE_LABELS).map(
                     ([value, label]) => ({ value, label }),
@@ -219,7 +219,7 @@ export default function StudentDocumentsPage() {
                 </Select>
               </div>
               <label className="text-xs font-bold text-[#34406b]">
-                Nom (facultatif)
+                {t('nameOptional')}
                 <input
                   className="mt-1 h-10 w-full rounded-lg border border-border px-3 font-normal outline-none focus:border-indigo-500"
                   value={uploadName}
@@ -229,13 +229,13 @@ export default function StudentDocumentsPage() {
                 />
               </label>
               <label className="text-xs font-bold text-[#34406b]">
-                Fichier <span className="text-rose-500">*</span>
+                {t('fileLabel')} <span className="text-rose-500">*</span>
                 <div className="mt-1 flex flex-wrap items-center gap-3">
                   <span className="inline-flex cursor-pointer items-center rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold text-[#34406b] hover:bg-slate-50">
-                    Choisir un fichier
+                    {t('chooseFile')}
                   </span>
                   <span className="text-[11px] font-normal italic text-muted-foreground">
-                    {uploadFile?.name ?? 'Aucun fichier choisi'}
+                    {uploadFile?.name ?? t('noFileChosen')}
                   </span>
                 </div>
                 <input
@@ -255,7 +255,7 @@ export default function StudentDocumentsPage() {
                 className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 disabled={uploading}
               >
-                {uploading ? 'Ajout…' : 'Ajouter'}
+                {uploading ? t('adding') : t('add')}
               </button>
             </DialogFooter>
           </form>
@@ -270,10 +270,9 @@ export default function StudentDocumentsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer le document</DialogTitle>
+            <DialogTitle>{t('deleteTitle')}</DialogTitle>
             <DialogDescription>
-              Le document « {documentToDelete?.name} » sera supprimé
-              définitivement. Cette action est irréversible.
+              {t('deleteDescription', { name: documentToDelete?.name ?? '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -283,7 +282,7 @@ export default function StudentDocumentsPage() {
               disabled={deleting}
               onClick={() => setDocumentToDelete(null)}
             >
-              Annuler
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -291,7 +290,7 @@ export default function StudentDocumentsPage() {
               disabled={deleting}
               onClick={() => void deleteDocument()}
             >
-              {deleting ? 'Suppression…' : 'Supprimer'}
+              {deleting ? t('deleting') : t('confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>
