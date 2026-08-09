@@ -1,8 +1,10 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import * as sgMail from '@sendgrid/mail';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   SendNotificationDto,
@@ -13,6 +15,8 @@ import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getPlatformStats() {
@@ -20,7 +24,9 @@ export class NotificationService {
     const [total, unread, sentLast7Days, recentByTitle] = await Promise.all([
       this.prisma.notification.count(),
       this.prisma.notification.count({ where: { isRead: false } }),
-      this.prisma.notification.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.notification.count({
+        where: { createdAt: { gte: sevenDaysAgo } },
+      }),
       this.prisma.notification.groupBy({
         by: ['title'],
         where: { createdAt: { gte: sevenDaysAgo } },
@@ -141,22 +147,77 @@ export class NotificationService {
   // ============================================================
 
   /**
-   * Envoie un email.
-   * (Simulé pour l'instant)
+   * Envoie un email à un utilisateur existant.
    */
   private async sendEmail(dto: SendNotificationDto, user: any) {
-    // Dans la vraie vie : SendGrid, AWS SES, etc.
-    console.log(`📧 Sending email to ${user.email}: ${dto.title}`);
-    console.log(`   Body: ${dto.body}`);
+    return this.dispatchEmail(user.email, dto.title, dto.body);
+  }
 
-    // Simuler un délai d'envoi
-    await this.delay(500);
+  /**
+   * Envoie un email directement, sans passer par le système de notification
+   * (qui exige un User existant en base). Utilisé pour les emails envoyés
+   * avant qu'un compte n'existe, ex. la vérification d'adresse email à
+   * l'inscription (voir AuthService.register / PendingRegistration).
+   */
+  async sendRawEmail(params: {
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+  }) {
+    return this.dispatchEmail(
+      params.to,
+      params.subject,
+      params.text,
+      params.html,
+    );
+  }
 
-    return {
-      provider: 'EMAIL',
-      status: 'SENT',
-      providerId: `email-${Date.now()}`,
-    };
+  /**
+   * Envoie réellement l'email via SendGrid. Si SENDGRID_API_KEY n'est pas
+   * configuré (dev local, CI), on se contente de logger le contenu — même
+   * filet de sécurité que les autres providers "simulés" du projet
+   * (voir mock-payment.provider.ts).
+   */
+  private async dispatchEmail(
+    to: string,
+    subject: string,
+    text: string,
+    html?: string,
+  ) {
+    const apiKey = process.env.SENDGRID_API_KEY;
+    if (!apiKey) {
+      console.log(`📧 [dev] Email à ${to} : ${subject}`);
+      console.log(`   ${text}`);
+      return {
+        provider: 'EMAIL',
+        status: 'SIMULATED',
+        providerId: `email-${Date.now()}`,
+      };
+    }
+
+    sgMail.setApiKey(apiKey);
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'no-reply@get.mg';
+    const fromName = process.env.SENDGRID_FROM_NAME || 'GET';
+
+    try {
+      const [response] = await sgMail.send({
+        to,
+        from: { email: fromEmail, name: fromName },
+        subject,
+        text,
+        html: html || text,
+      });
+      const headers = response.headers as Record<string, string> | undefined;
+      return {
+        provider: 'SENDGRID',
+        status: 'SENT',
+        providerId: headers?.['x-message-id'] || `sg-${Date.now()}`,
+      };
+    } catch (error) {
+      this.logger.error(`Échec envoi email SendGrid à ${to}`, error as Error);
+      throw error;
+    }
   }
 
   /**

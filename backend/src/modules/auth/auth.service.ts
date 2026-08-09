@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt, createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -19,6 +19,9 @@ import {
 } from '../notification/dto/send-notification.dto';
 
 const MFA_CHALLENGE_EXPIRATION = '5m';
+const EMAIL_VERIFICATION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24h
+const EMAIL_VERIFICATION_JWT_EXPIRATION = '24h';
+const MAX_VERIFICATION_CODE_ATTEMPTS = 8;
 
 @Injectable()
 export class AuthService {
@@ -35,6 +38,14 @@ export class AuthService {
 
   // ========== REGISTER ==========
 
+  /**
+   * N'écrit aucun User tant que l'email n'est pas vérifié : la demande
+   * d'inscription est mise en attente (PendingRegistration) et un email
+   * envoyé avec un lien + un code de secours. Le compte réel n'est créé
+   * qu'à la vérification (voir completeEmailVerification). Un email déjà
+   * utilisé par une inscription en attente peut se réinscrire (upsert) —
+   * ça redonne simplement un nouveau code, pratique si le premier a expiré.
+   */
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -43,26 +54,175 @@ export class AuthService {
       throw new ConflictException('Cet email est déjà utilisé');
     }
 
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const code = this.generateVerificationCode();
+    const codeHash = this.hashVerificationCode(code);
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MS);
+
+    const pending = await this.prisma.pendingRegistration.upsert({
+      where: { email: dto.email },
+      create: {
+        email: dto.email,
+        passwordHash: hashedPassword,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        codeHash,
+        expiresAt,
+      },
+      update: {
+        passwordHash: hashedPassword,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        codeHash,
+        codeAttempts: 0,
+        expiresAt,
+      },
+    });
+
+    await this.sendVerificationEmail(
+      pending.id,
+      pending.email,
+      pending.firstName,
+      code,
+    );
+
+    return { pendingVerification: true as const, email: pending.email };
+  }
+
+  // ========== VÉRIFICATION EMAIL ==========
+
+  async verifyEmailByToken(token: string) {
+    let payload: { sub: string; type: string };
+    try {
+      payload = this.jwt.verify<{ sub: string; type: string }>(token);
+    } catch {
+      throw new BadRequestException('Lien de vérification invalide ou expiré');
+    }
+    if (payload?.type !== 'email_verify') {
+      throw new BadRequestException('Lien de vérification invalide');
+    }
+    return this.completeEmailVerification(payload.sub);
+  }
+
+  async verifyEmailByCode(email: string, code: string) {
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { email },
+    });
+    if (!pending) {
+      throw new BadRequestException(
+        'Aucune inscription en attente pour cet email',
+      );
+    }
+    if (pending.expiresAt < new Date()) {
+      await this.prisma.pendingRegistration
+        .delete({ where: { id: pending.id } })
+        .catch(() => undefined);
+      throw new BadRequestException(
+        'Ce code a expiré, redemande un nouveau code.',
+      );
+    }
+    if (pending.codeAttempts >= MAX_VERIFICATION_CODE_ATTEMPTS) {
+      throw new BadRequestException(
+        'Trop de tentatives, redemande un nouveau code.',
+      );
+    }
+    if (this.hashVerificationCode(code) !== pending.codeHash) {
+      await this.prisma.pendingRegistration.update({
+        where: { id: pending.id },
+        data: { codeAttempts: { increment: 1 } },
+      });
+      throw new BadRequestException('Code de vérification invalide');
+    }
+    return this.completeEmailVerification(pending.id);
+  }
+
+  async resendVerification(email: string) {
+    const genericMessage = {
+      message:
+        'Si une inscription est en attente pour cet email, un nouveau code a été envoyé.',
+    };
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { email },
+    });
+    // Ne pas révéler si une inscription en attente existe (même logique que
+    // forgotPassword) — la réponse est identique dans tous les cas.
+    if (!pending) {
+      return genericMessage;
+    }
+
+    const code = this.generateVerificationCode();
+    const codeHash = this.hashVerificationCode(code);
+    const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MS);
+
+    const updated = await this.prisma.pendingRegistration.update({
+      where: { id: pending.id },
+      data: { codeHash, codeAttempts: 0, expiresAt },
+    });
+
+    await this.sendVerificationEmail(
+      updated.id,
+      updated.email,
+      updated.firstName,
+      code,
+    );
+
+    return genericMessage;
+  }
+
+  /**
+   * Crée le vrai User/Student à partir d'une PendingRegistration validée
+   * (par lien ou par code — chemin partagé) et connecte automatiquement
+   * l'utilisateur, comme le faisait l'ancien register() direct.
+   */
+  private async completeEmailVerification(pendingId: string) {
+    const pending = await this.prisma.pendingRegistration.findUnique({
+      where: { id: pendingId },
+    });
+    if (!pending) {
+      throw new BadRequestException(
+        'Cette demande de vérification est introuvable ou a déjà été utilisée.',
+      );
+    }
+    if (pending.expiresAt < new Date()) {
+      await this.prisma.pendingRegistration
+        .delete({ where: { id: pendingId } })
+        .catch(() => undefined);
+      throw new BadRequestException(
+        'Ce lien a expiré, redemande une vérification.',
+      );
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: pending.email },
+    });
+    if (existingUser) {
+      // Double clic sur le lien, ou lien + code utilisés en parallèle.
+      await this.prisma.pendingRegistration
+        .delete({ where: { id: pendingId } })
+        .catch(() => undefined);
+      throw new ConflictException('Cet email est déjà vérifié, connecte-toi.');
+    }
+
     const studentRole = await this.prisma.role.findUnique({
       where: { name: 'STUDENT' },
     });
-
     if (!studentRole) {
       throw new Error("Rôle STUDENT introuvable. Exécutez d'abord le seed.");
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
-        password: hashedPassword,
+        email: pending.email,
+        password: pending.passwordHash,
         roleId: studentRole.id,
+        isVerified: true,
         student: {
           create: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            phone: dto.phone,
+            firstName: pending.firstName,
+            lastName: pending.lastName,
+            phone: pending.phone,
           },
         },
       },
@@ -71,6 +231,8 @@ export class AuthService {
         role: true,
       },
     });
+
+    await this.prisma.pendingRegistration.delete({ where: { id: pendingId } });
 
     this.notifyN8n('student-created', 'student.created', user.id);
 
@@ -88,6 +250,48 @@ export class AuthService {
     };
   }
 
+  private generateVerificationCode(): string {
+    return randomInt(100000, 1000000).toString();
+  }
+
+  private hashVerificationCode(code: string): string {
+    return createHash('sha256').update(code).digest('hex');
+  }
+
+  private async sendVerificationEmail(
+    pendingId: string,
+    email: string,
+    firstName: string,
+    code: string,
+  ) {
+    const verifyToken = this.jwt.sign(
+      { sub: pendingId, type: 'email_verify' },
+      { expiresIn: EMAIL_VERIFICATION_JWT_EXPIRATION },
+    );
+    const frontendUrl = (
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000'
+    ).split(',')[0];
+    const verifyUrl = `${frontendUrl}/auth/verify-email?token=${verifyToken}&email=${encodeURIComponent(email)}`;
+
+    try {
+      await this.notificationService.sendRawEmail({
+        to: email,
+        subject: 'Vérifie ton adresse email — GET',
+        text: `Bonjour ${firstName},\n\nMerci de vérifier ton adresse email pour activer ton compte GET.\n\nClique sur ce lien (valable 24h) pour activer ton compte :\n${verifyUrl}\n\nOu saisis ce code de vérification sur la page d'inscription : ${code}\n\nSi tu n'es pas à l'origine de cette inscription, ignore cet email.`,
+      });
+    } catch {
+      // Échec d'envoi : on retire la demande en attente pour ne pas laisser
+      // l'utilisateur bloqué avec un email jamais reçu et aucun moyen de
+      // redemander (le prochain essai d'inscription en créera une neuve).
+      await this.prisma.pendingRegistration
+        .delete({ where: { id: pendingId } })
+        .catch(() => undefined);
+      throw new BadRequestException(
+        "Impossible d'envoyer l'email de vérification, réessaie dans quelques instants.",
+      );
+    }
+  }
+
   // ========== LOGIN ==========
 
   async login(dto: LoginDto) {
@@ -101,6 +305,14 @@ export class AuthService {
     });
 
     if (!user) {
+      const pending = await this.prisma.pendingRegistration.findUnique({
+        where: { email: dto.email },
+      });
+      if (pending) {
+        throw new UnauthorizedException(
+          'Merci de vérifier ton adresse email avant de te connecter (vérifie ta boîte de réception et tes spams).',
+        );
+      }
       throw new UnauthorizedException('Identifiants invalides');
     }
 
@@ -303,7 +515,11 @@ export class AuthService {
    * d'hébergement — voir docs/n8n/02-preparation-infrastructure.md). Ne doit
    * JAMAIS faire échouer l'appelant : intentionnellement non-awaited.
    */
-  private notifyN8n(webhookPath: string, eventType: string, entityId: string): void {
+  private notifyN8n(
+    webhookPath: string,
+    eventType: string,
+    entityId: string,
+  ): void {
     const baseUrl = this.config.get<string>('N8N_WEBHOOK_BASE_URL');
     if (!baseUrl) return;
 

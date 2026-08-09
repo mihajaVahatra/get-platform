@@ -29,6 +29,9 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MfaLoginVerifyDto } from './dto/mfa-login-verify.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { VerifyEmailCodeDto } from './dto/verify-email-code.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('auth')
@@ -71,22 +74,71 @@ export class AuthController {
   }
 
   // ========== REGISTER ==========
+  // Ne crée pas le compte immédiatement : place l'inscription en attente et
+  // envoie un email de vérification (lien + code). Le compte n'existe qu'une
+  // fois la vérification effectuée via /auth/verify-email(/code).
   @Public()
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Register a new user' })
+  @ApiOperation({ summary: 'Start registration, sends a verification email' })
   @ApiBody({ type: RegisterDto })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiResponse({ status: 201, description: 'Verification email sent' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async register(
-    @Body() dto: RegisterDto,
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  // ========== VÉRIFICATION EMAIL (lien) ==========
+  @Public()
+  @Post('verify-email')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Verify email via link token, creates the account' })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiResponse({ status: 200, description: 'Account created and logged in' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
     @Res({ passthrough: true }) response: Response,
   ) {
     const { accessToken, refreshToken, user } =
-      await this.authService.register(dto);
+      await this.authService.verifyEmailByToken(dto.token);
     this.setSessionCookies(response, accessToken, refreshToken);
     return { user };
+  }
+
+  // ========== VÉRIFICATION EMAIL (code) ==========
+  @Public()
+  @Post('verify-email/code')
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Verify email via 6-digit code, creates the account',
+  })
+  @ApiBody({ type: VerifyEmailCodeDto })
+  @ApiResponse({ status: 200, description: 'Account created and logged in' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired code' })
+  async verifyEmailCode(
+    @Body() dto: VerifyEmailCodeDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { accessToken, refreshToken, user } =
+      await this.authService.verifyEmailByCode(dto.email, dto.code);
+    this.setSessionCookies(response, accessToken, refreshToken);
+    return { user };
+  }
+
+  // ========== RENVOI DU CODE / LIEN DE VÉRIFICATION ==========
+  @Public()
+  @Post('resend-verification')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Resend the email verification link/code' })
+  @ApiBody({ type: ResendVerificationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email resent if pending',
+  })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
   }
 
   // ========== LOGIN ==========

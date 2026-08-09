@@ -7,6 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Inscription en attente de vérification email : aucun User/Student n'est
+// créé tant que le lien ou le code reçu par email n'a pas été validé (voir
+// AuthService.register / completeEmailVerification). Supprimée dès la
+// vérification réussie ou son expiration.
+model PendingRegistration {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String
+  codeHash     String
+  codeAttempts Int      @default(0)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("pending_registrations")
+}
+
 model User {
   id                  String    @id @default(uuid())
   email               String    @unique

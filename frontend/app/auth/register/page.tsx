@@ -115,16 +115,15 @@ export default function RegisterPage() {
   const onSubmit = async (form: RegisterForm) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/register', {
+      await apiClient.post('/auth/register', {
         firstName: form.firstName,
         lastName: form.lastName,
         email: form.email,
         phone: form.phone || undefined,
         password: form.password,
       });
-      const { user } = response.data.data;
-      toast.success(`Bienvenue ${user.firstName} !`);
-      router.replace('/dashboard/student');
+      toast.success('Vérifie ta boîte mail pour activer ton compte !');
+      router.push(`/auth/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch (error: unknown) {
       toast.error(
         axios.isAxiosError(error)
