@@ -417,8 +417,11 @@ export class TeachingService {
     if (!resource) throw new NotFoundException('Ressource introuvable');
     return this.prisma.courseResource.delete({ where: { id: resourceId } });
   }
-  async students(userId: string, courseId: string, page = 1, limit = 25) {
-    await this.course(userId, courseId);
+  private async enrolledStudents(
+    courseId: string,
+    page: number,
+    limit: number,
+  ) {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
     const where = { courseId };
@@ -443,6 +446,10 @@ export class TeachingService {
         totalPages: Math.ceil(total / currentLimit),
       },
     };
+  }
+  async students(userId: string, courseId: string, page = 1, limit = 25) {
+    await this.course(userId, courseId);
+    return this.enrolledStudents(courseId, page, limit);
   }
   async evaluations(userId: string, courseId: string) {
     await this.course(userId, courseId);
@@ -518,21 +525,11 @@ export class TeachingService {
   }
   async grades(userId: string, evaluationId: string, page = 1, limit = 25) {
     const evaluation = await this.evaluation(userId, evaluationId);
-    const currentPage = Math.max(Number(page) || 1, 1);
-    const currentLimit = Math.min(Math.max(Number(limit) || 25, 1), 100);
-    const where = { courseId: evaluation.courseId };
-    const [enrollments, total] = await Promise.all([
-      this.prisma.courseEnrollment.findMany({
-        where,
-        skip: (currentPage - 1) * currentLimit,
-        take: currentLimit,
-        include: {
-          student: { include: { user: { select: { email: true } } } },
-        },
-        orderBy: { student: { lastName: 'asc' } },
-      }),
-      this.prisma.courseEnrollment.count({ where }),
-    ]);
+    const { items: enrollments, meta } = await this.enrolledStudents(
+      evaluation.courseId,
+      page,
+      limit,
+    );
     const grades = await this.prisma.grade.findMany({
       where: {
         evaluationId,
@@ -548,12 +545,7 @@ export class TeachingService {
         student: enrollment.student,
         grade: gradesByStudentId.get(enrollment.studentId) || null,
       })),
-      meta: {
-        page: currentPage,
-        limit: currentLimit,
-        total,
-        totalPages: Math.ceil(total / currentLimit),
-      },
+      meta,
     };
   }
   async saveGrade(

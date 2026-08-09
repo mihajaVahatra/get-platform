@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { SchoolNewsFeed } from '@/components/shared/school-news-feed';
+import { StudentIdentity } from '@/components/teacher-portal/student-identity';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -1443,27 +1444,18 @@ function CourseStudentList({ courseId }: { courseId: string }) {
   return (
     <Card title={`Étudiants inscrits (${totalItems})`}>
       <div className="space-y-2">
-        {enrollments.map(({ id, student }) => {
-          const name = `${student.firstName} ${student.lastName}`;
-          return (
-            <div
-              key={id}
-              className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
-            >
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-xs font-bold text-indigo-600 dark:text-indigo-300">
-                {`${student.firstName[0] || ''}${student.lastName[0] || ''}`.toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-bold text-[#17204e]">
-                  {name}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {student.user.email}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {enrollments.map(({ id, student }) => (
+          <div
+            key={id}
+            className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
+          >
+            <StudentIdentity
+              firstName={student.firstName}
+              lastName={student.lastName}
+              email={student.user.email}
+            />
+          </div>
+        ))}
       </div>
       <ListPagination
         page={page}
@@ -2337,24 +2329,25 @@ function GradeBook({ courseId }: { courseId: string }) {
           />
         ) : (
           <div className="space-y-2">
-            {entries.map((entry) => {
-              const name = `${entry.student.firstName} ${entry.student.lastName}`;
-              return (
-                <div
-                  key={entry.studentId}
-                  className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <StudentName name={name} />
-                  </div>
-                  <GradeInput
-                    key={`${entry.studentId}-${entry.grade?.value ?? 'empty'}`}
-                    value={entry.grade?.value ?? null}
-                    onSave={(value) => saveGrade(entry.studentId, value)}
+            {entries.map((entry) => (
+              <div
+                key={entry.studentId}
+                className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <StudentIdentity
+                    firstName={entry.student.firstName}
+                    lastName={entry.student.lastName}
+                    email={entry.student.user.email}
                   />
                 </div>
-              );
-            })}
+                <GradeInput
+                  key={`${entry.studentId}-${entry.grade?.value ?? 'empty'}`}
+                  value={entry.grade?.value ?? null}
+                  onSave={(value) => saveGrade(entry.studentId, value)}
+                />
+              </div>
+            ))}
           </div>
         )}
         <ListPagination
@@ -3211,20 +3204,6 @@ function MiniStat({ value, label }: { value: string; label: string }) {
       <b className="text-lg text-indigo-700 dark:text-indigo-300">{value}</b>
       <span className="mt-1 block text-[9px] text-muted-foreground">{label}</span>
     </div>
-  );
-}
-function StudentName({ name }: { name: string }) {
-  return (
-    <span className="flex items-center gap-2 font-bold text-[#26305e]">
-      <i className="grid size-7 place-items-center rounded-full bg-indigo-100 dark:bg-indigo-500/15 text-[9px] not-italic text-indigo-600 dark:text-indigo-300">
-        {name
-          .split(' ')
-          .map((part) => part[0])
-          .join('')
-          .slice(0, 2)}
-      </i>
-      {name}
-    </span>
   );
 }
 function Status({ value }: { value: string }) {
