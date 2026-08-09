@@ -41,11 +41,13 @@ import {
   AlertTriangle,
   X,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { apiClient } from '@/lib/api-client';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 import { Logo } from '@/components/Logo';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
@@ -85,6 +87,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const tStudentNav = useTranslations('StudentNav');
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -248,38 +251,38 @@ export default function DashboardLayout({
             items={
               isEnrolled
                 ? [
-                    { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+                    { icon: Home, label: tStudentNav('home'), href: '/dashboard/student' },
                     {
                       icon: BookOpen,
-                      label: 'Cours',
+                      label: tStudentNav('coursesShort'),
                       href: '/dashboard/student/courses',
                     },
                     {
                       icon: Mail,
-                      label: 'Messages',
+                      label: tStudentNav('messages'),
                       href: '/dashboard/student/messages',
                     },
                     {
                       icon: Settings,
-                      label: 'Profil',
+                      label: tStudentNav('profile'),
                       href: '/dashboard/student/settings',
                     },
                   ]
                 : [
-                    { icon: Home, label: 'Accueil', href: '/dashboard/student' },
+                    { icon: Home, label: tStudentNav('home'), href: '/dashboard/student' },
                     {
                       icon: Compass,
-                      label: 'Offres',
+                      label: tStudentNav('offers'),
                       href: '/dashboard/student/offers',
                     },
                     {
                       icon: ClipboardCheck,
-                      label: 'Candidatures',
+                      label: tStudentNav('applicationsShort'),
                       href: '/dashboard/student/applications',
                     },
                     {
                       icon: Settings,
-                      label: 'Profil',
+                      label: tStudentNav('profile'),
                       href: '/dashboard/student/settings',
                     },
                   ]
@@ -1304,110 +1307,112 @@ function StudentSidebar({
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
+  const t = useTranslations('StudentNav');
+
   // Tant qu'aucune école n'a accepté le candidat, le menu ne montre que ce
   // qui le concerne réellement (découvrir, candidater, suivre) : les liens
   // vers cours/emploi du temps/notes/devoirs n'ont aucun contenu avant
   // l'inscription et redirigeraient vers des écrans vides ou trompeurs.
   const items = isEnrolled
     ? [
-        { label: 'Accueil', icon: Home, href: '/dashboard/student' },
+        { label: t('home'), icon: Home, href: '/dashboard/student' },
         {
-          label: 'Mon parcours',
+          label: t('myJourney'),
           icon: Route,
           href: '/dashboard/student/parcours',
         },
         {
-          label: 'Mes cours',
+          label: t('myCourses'),
           icon: BookOpen,
           href: '/dashboard/student/courses',
         },
         {
-          label: 'Emploi du temps',
+          label: t('schedule'),
           icon: CalendarDays,
           href: '/dashboard/student/schedule',
         },
         {
-          label: 'Mes notes',
+          label: t('myGrades'),
           icon: ClipboardList,
           href: '/dashboard/student/grades',
         },
         {
-          label: 'Devoirs',
+          label: t('assignments'),
           icon: FileText,
           href: '/dashboard/student/assignments',
         },
         {
-          label: 'Finances',
+          label: t('finances'),
           icon: WalletCards,
           href: '/dashboard/student/payments',
         },
         {
-          label: 'Documents',
+          label: t('documents'),
           icon: FileText,
           href: '/dashboard/student/documents',
         },
         {
-          label: 'Messages',
+          label: t('messages'),
           icon: Mail,
           href: '/dashboard/student/messages',
           badge: unreadMessages ? String(unreadMessages) : undefined,
         },
         {
-          label: 'Actualités',
+          label: t('news'),
           icon: Newspaper,
           href: '/dashboard/student/news',
         },
         {
-          label: 'Stages & emplois',
+          label: t('opportunities'),
           icon: BriefcaseBusiness,
           href: '/dashboard/student/opportunities',
         },
         {
-          label: 'Bibliothèque',
+          label: t('library'),
           icon: LibraryBig,
           href: '/dashboard/student/library',
         },
         {
-          label: 'Paramètres',
+          label: t('settings'),
           icon: Settings,
           href: '/dashboard/student/settings',
         },
       ]
     : [
-        { label: 'Accueil', icon: Home, href: '/dashboard/student' },
+        { label: t('home'), icon: Home, href: '/dashboard/student' },
         {
-          label: 'Mon dossier',
+          label: t('myFile'),
           icon: FileText,
           href: '/dashboard/student/profile',
         },
         {
-          label: 'Mes documents',
+          label: t('myDocuments'),
           icon: FileText,
           href: '/dashboard/student/documents',
         },
         {
-          label: 'Offres',
+          label: t('offers'),
           icon: Compass,
           href: '/dashboard/student/offers',
         },
         {
-          label: 'Mes candidatures',
+          label: t('myApplications'),
           icon: ClipboardCheck,
           href: '/dashboard/student/applications',
         },
         {
-          label: 'Paiements',
+          label: t('payments'),
           icon: WalletCards,
           href: '/dashboard/student/payments',
         },
         {
-          label: 'Messages',
+          label: t('messages'),
           icon: Mail,
           href: '/dashboard/student/messages',
           badge: unreadMessages ? String(unreadMessages) : undefined,
         },
         {
-          label: 'Paramètres',
+          label: t('settings'),
           icon: Settings,
           href: '/dashboard/student/settings',
         },
@@ -1435,19 +1440,19 @@ function StudentSidebar({
         <div className="min-w-0">
           <p className="truncate text-sm font-bold">{displayName}</p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {year || 'Étudiant inscrit'}
+            {year || t('enrolledStudent')}
           </p>
         </div>
       </div>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         {items.map(({ label, icon: Icon, href, badge }) => {
           const active =
-            label === 'Accueil'
+            href === '/dashboard/student'
               ? pathname === '/dashboard/student'
               : pathname === href.split('?')[0] && !href.includes('?');
           return (
             <Link
-              key={label}
+              key={href}
               href={href}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition ${active ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'text-muted-foreground hover:bg-indigo-50 hover:text-indigo-700'}`}
             >
@@ -1478,7 +1483,7 @@ function StudentSidebar({
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{displayName}</p>
               <p className="truncate text-[11px] text-muted-foreground">
-                {year || 'Candidat'}
+                {year || t('candidate')}
               </p>
             </div>
           </div>
@@ -1486,24 +1491,25 @@ function StudentSidebar({
             href="/dashboard/student/profile"
             className="mt-3 flex items-center justify-between text-xs font-semibold text-indigo-600"
           >
-            Voir mon profil <ChevronRight className="size-4" />
+            {t('viewProfile')} <ChevronRight className="size-4" />
           </Link>
         </div>
         <div className="hidden rounded-xl bg-indigo-50 p-3 text-indigo-700 lg:block">
           <div className="flex items-center gap-2 text-xs font-bold">
             <Headphones className="size-4" />
-            Besoin d’aide ?
+            {t('needHelp')}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Centre d’aide & support
+            {t('helpCenter')}
           </p>
         </div>
+        <LanguageSwitcher variant="sidebar" className="w-full justify-center" />
         <button
           onClick={onLogout}
           className="flex w-full items-center gap-2 px-3 text-xs font-semibold text-muted-foreground hover:text-rose-600"
         >
           <LogOut className="size-4" />
-          Déconnexion
+          {t('logout')}
         </button>
       </div>
     </aside>

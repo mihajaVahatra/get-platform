@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 type Evaluation = {
@@ -43,6 +44,7 @@ function weightedAverage(evaluations: Evaluation[]): number | null {
 }
 
 export default function StudentGradesPage() {
+  const t = useTranslations('StudentGrades');
   const [courses, setCourses] = useState<CourseGrades[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -58,18 +60,18 @@ export default function StudentGradesPage() {
   return (
     <div className="mx-auto max-w-4xl text-foreground">
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold">Mes notes</h1>
+        <h1 className="text-2xl font-extrabold">{t('title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Consultez vos évaluations et devoirs notés par cours.
+          {t('subtitle')}
         </p>
       </header>
 
       {loading ? (
-        <Loading label="Chargement de vos notes…" />
+        <Loading label={t('loading')} />
       ) : failed ? (
-        <Empty label="Vos notes n’ont pas pu être chargées." />
+        <Empty label={t('loadError')} />
       ) : courses.length === 0 ? (
-        <Empty label="Vous n’êtes inscrit à aucun cours pour le moment." />
+        <Empty label={t('empty')} />
       ) : (
         <div className="space-y-4">
           {courses.map((course) => {
@@ -97,7 +99,7 @@ export default function StudentGradesPage() {
 
                 {!hasContent ? (
                   <p className="mt-4 text-xs text-muted-foreground">
-                    Aucune note disponible pour ce cours.
+                    {t('noGrades')}
                   </p>
                 ) : (
                   <div className="mt-4 space-y-2">
@@ -111,13 +113,13 @@ export default function StudentGradesPage() {
                             {evaluation.title}
                           </p>
                           <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            {evaluation.type} · Coef. {evaluation.coefficient}
+                            {evaluation.type} · {t('coefficient', { value: evaluation.coefficient })}
                           </p>
                         </div>
                         <span className="shrink-0 font-bold text-indigo-700 dark:text-indigo-300">
                           {evaluation.value !== null
                             ? `${evaluation.value}/20`
-                            : 'En attente'}
+                            : t('pending')}
                         </span>
                       </div>
                     ))}
@@ -131,13 +133,13 @@ export default function StudentGradesPage() {
                             {assignment.title}
                           </p>
                           <p className="mt-0.5 text-[11px] text-muted-foreground">
-                            Devoir
+                            {t('assignment')}
                           </p>
                         </div>
                         <span className="shrink-0 font-bold text-indigo-700 dark:text-indigo-300">
                           {assignment.grade !== null
                             ? `${assignment.grade}/20`
-                            : 'En attente'}
+                            : t('pending')}
                         </span>
                       </div>
                     ))}
