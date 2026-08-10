@@ -2014,4 +2014,72 @@ export class SchoolService {
       data: { logo: logoUrl },
     });
   }
+
+  // ========== ÉVÉNEMENTS ==========
+
+  /** Liste les événements à venir d'une école, du plus proche au plus lointain. */
+  async listUpcomingEvents(schoolId: string) {
+    return this.prisma.schoolEvent.findMany({
+      where: { schoolId, startAt: { gte: new Date() } },
+      orderBy: { startAt: 'asc' },
+    });
+  }
+
+  private async event(schoolId: string, eventId: string) {
+    const event = await this.prisma.schoolEvent.findFirst({
+      where: { id: eventId, schoolId },
+    });
+    if (!event) throw new NotFoundException('Événement introuvable');
+    return event;
+  }
+
+  async createEvent(
+    schoolId: string,
+    userId: string,
+    dto: {
+      title: string;
+      description?: string;
+      location?: string;
+      startAt: string;
+    },
+  ) {
+    return this.prisma.schoolEvent.create({
+      data: {
+        schoolId,
+        createdBy: userId,
+        title: dto.title,
+        description: dto.description,
+        location: dto.location,
+        startAt: new Date(dto.startAt),
+      },
+    });
+  }
+
+  async updateEvent(
+    schoolId: string,
+    eventId: string,
+    dto: {
+      title?: string;
+      description?: string;
+      location?: string;
+      startAt?: string;
+    },
+  ) {
+    await this.event(schoolId, eventId);
+    return this.prisma.schoolEvent.update({
+      where: { id: eventId },
+      data: {
+        title: dto.title,
+        description: dto.description,
+        location: dto.location,
+        startAt: dto.startAt ? new Date(dto.startAt) : undefined,
+      },
+    });
+  }
+
+  async deleteEvent(schoolId: string, eventId: string) {
+    await this.event(schoolId, eventId);
+    await this.prisma.schoolEvent.delete({ where: { id: eventId } });
+    return { success: true };
+  }
 }

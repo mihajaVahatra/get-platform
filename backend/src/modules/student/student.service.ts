@@ -712,6 +712,31 @@ export class StudentService {
     });
   }
 
+  // ========== ÉVÉNEMENTS ==========
+
+  /**
+   * Événements à venir des écoles où l'étudiant a une inscription ACTIVE
+   * (voir SchoolService.createEvent côté school-admin) — un retrait/
+   * diplomation ne doit pas laisser les événements de l'école visibles
+   * indéfiniment, même raisonnement que courseEnrollment.
+   */
+  async getUpcomingEvents(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const activeSchools = await this.prisma.studentEnrollment.findMany({
+      where: { studentId: student.id, status: 'ACTIVE' },
+      select: { schoolId: true },
+    });
+    const schoolIds = activeSchools.map((enrollment) => enrollment.schoolId);
+    if (schoolIds.length === 0) return [];
+
+    return this.prisma.schoolEvent.findMany({
+      where: { schoolId: { in: schoolIds }, startAt: { gte: new Date() } },
+      include: { school: { select: { name: true } } },
+      orderBy: { startAt: 'asc' },
+      take: 10,
+    });
+  }
+
   // ========== SECURITY & PREFERENCES ==========
 
   /**
