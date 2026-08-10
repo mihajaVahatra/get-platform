@@ -4,6 +4,11 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 
+/**
+ * Famille de composants "Pagination" (navigation entre pages de résultats).
+ * `<nav>` racine accessible ; à composer avec `PaginationContent`,
+ * `PaginationItem`, `PaginationLink`, `PaginationPrevious`, `PaginationNext`, `PaginationEllipsis`.
+ */
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
@@ -16,6 +21,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   )
 }
 
+/** Liste (`<ul>`) contenant les éléments de pagination. */
 function PaginationContent({
   className,
   ...props
@@ -29,6 +35,7 @@ function PaginationContent({
   )
 }
 
+/** Élément de liste (`<li>`) enveloppant un lien de pagination. */
 function PaginationItem({ ...props }: React.ComponentProps<"li">) {
   return <li data-slot="pagination-item" {...props} />
 }
@@ -38,6 +45,11 @@ type PaginationLinkProps = {
 } & Pick<React.ComponentProps<typeof Button>, "size"> &
   React.ComponentProps<"a">
 
+/**
+ * Lien vers une page donnée, stylé comme un `Button` (`outline` si actif, `ghost` sinon).
+ *
+ * @param isActive - Marque le lien comme correspondant à la page courante (`aria-current="page"`).
+ */
 function PaginationLink({
   className,
   isActive,
@@ -62,6 +74,7 @@ function PaginationLink({
   )
 }
 
+/** Lien "Page précédente". */
 function PaginationPrevious({
   className,
   text = "Previous",
@@ -80,6 +93,7 @@ function PaginationPrevious({
   )
 }
 
+/** Lien "Page suivante". */
 function PaginationNext({
   className,
   text = "Next",
@@ -98,6 +112,7 @@ function PaginationNext({
   )
 }
 
+/** Indicateur "..." signalant des pages intermédiaires masquées. */
 function PaginationEllipsis({
   className,
   ...props

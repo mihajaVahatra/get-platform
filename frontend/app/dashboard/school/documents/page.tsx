@@ -22,14 +22,17 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
+/** Document déposé par un étudiant, tel que renvoyé par `GET /schools/me/documents`. */
 type DocumentItem = {
   id: string;
+  /** Type brut du document (clé de `TYPES`). */
   type: string;
   name: string;
   fileUrl: string;
   uploadedAt: string;
   student: { firstName: string; lastName: string; enrolledYear: string | null };
 };
+/** Libellés FR affichés pour chaque type de document. */
 const TYPES: Record<string, string> = {
   CV: 'CV',
   LETTER: 'Lettre',
@@ -38,8 +41,15 @@ const TYPES: Record<string, string> = {
   PHOTO: 'Photo',
   OTHER: 'Autre',
 };
+/** Nombre de documents affichés par page (pagination côté serveur). */
 const PAGE_SIZE = 20;
 
+/**
+ * Page « Documents des étudiants inscrits » du tableau de bord établissement
+ * (route App Router `/dashboard/school/documents`).
+ * Client component (`'use client'`) : enveloppe `SchoolDocumentsContent` dans un `Suspense`
+ * car ce dernier lit les paramètres de recherche via `useSearchParams`.
+ */
 export default function SchoolDocumentsPage() {
   return (
     <Suspense
@@ -54,6 +64,11 @@ export default function SchoolDocumentsPage() {
   );
 }
 
+/**
+ * Contenu principal de la page Documents : recherche, filtrage par classe/type et pagination
+ * de documents étudiants. Les filtres (classe, type, recherche) sont synchronisés dans l'URL
+ * (via `router.replace`) afin de rester partageables/rechargeables.
+ */
 function SchoolDocumentsContent() {
   const pathname = usePathname();
   const router = useRouter();
@@ -69,6 +84,11 @@ function SchoolDocumentsContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Met à jour les paramètres de recherche dans l'URL (type, classe, recherche texte) et
+   * réinitialise la pagination à la page 1. Utilise `router.replace` pour ne pas polluer
+   * l'historique de navigation à chaque changement de filtre.
+   */
   const updateUrl = useCallback(
     (nextType: string, nextClass: string, nextSearch: string) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -86,6 +106,7 @@ function SchoolDocumentsContent() {
     [pathname, router, searchParams],
   );
 
+  // Charge une seule fois la liste des classes disponibles (pour le filtre « Classe »).
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -103,6 +124,8 @@ function SchoolDocumentsContent() {
       cancelled = true;
     };
   }, []);
+  // Debounce de 250ms sur la saisie de recherche avant de répercuter la valeur dans l'URL,
+  // pour éviter de déclencher un appel API à chaque frappe.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       if (searchInput !== querySearch)
@@ -110,6 +133,7 @@ function SchoolDocumentsContent() {
     }, 250);
     return () => window.clearTimeout(timer);
   }, [enrolledYear, querySearch, searchInput, type, updateUrl]);
+  // Recharge la liste des documents à chaque changement de page ou de filtre effectif (URL).
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -142,12 +166,14 @@ function SchoolDocumentsContent() {
     };
   }, [enrolledYear, page, querySearch, type]);
 
+  /** Formate une date ISO au format jj/mm/aaaa. */
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
+  /** Change la page courante et affiche l'état de chargement en attendant la réponse de l'API. */
   const goToPage = (nextPage: number) => {
     setLoading(true);
     setPage(nextPage);

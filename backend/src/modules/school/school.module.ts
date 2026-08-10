@@ -9,6 +9,11 @@ import { NotificationModule } from '../notification/notification.module';
 import { AnnouncementModule } from '../announcement/announcement.module';
 import { TeacherAvailabilityModule } from '../teacher-availability/teacher-availability.module';
 
+/**
+ * Module NestJS de gestion des écoles : regroupe le contrôleur et les services
+ * relatifs aux écoles, à la planification des emplois du temps (scheduling)
+ * et à la génération automatique des emplois du temps.
+ */
 @Module({
   imports: [
     PrismaModule,

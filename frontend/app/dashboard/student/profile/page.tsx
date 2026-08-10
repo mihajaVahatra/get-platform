@@ -14,6 +14,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+/**
+ * Construit le schéma Zod de validation du formulaire de profil étudiant, avec des messages
+ * d'erreur traduits via la fonction `t` fournie (nécessaire car les messages Zod doivent
+ * réagir aux changements de langue).
+ */
 function createProfileSchema(t: (key: string) => string) {
   return z.object({
     firstName: z.string().min(2, t('validation.firstNameShort')).max(50, t('validation.firstNameLong')),
@@ -30,8 +35,18 @@ function createProfileSchema(t: (key: string) => string) {
   });
 }
 
+/** Type des valeurs du formulaire de profil, dérivé du schéma Zod `createProfileSchema`. */
 type ProfileForm = z.infer<ReturnType<typeof createProfileSchema>>;
 
+/**
+ * Route `/dashboard/student/profile` : client component ('use client') affichant le profil
+ * complet de l'étudiant sous deux onglets : "Informations" (formulaire d'édition validé par
+ * react-hook-form + Zod) et "Statistiques" (candidatures, documents, taux de complétion).
+ * Appels API via `apiClient` :
+ * - `GET /students/me` : charge le profil au montage et préremplit le formulaire.
+ * - `GET /students/me/stats` : charge les statistiques affichées dans l'onglet "Statistiques".
+ * - `PUT /students/me` : enregistre les modifications du formulaire.
+ */
 export default function StudentProfilePage() {
   const t = useTranslations('StudentProfile');
   const profileSchema = useMemo(() => createProfileSchema(t), [t]);
@@ -54,6 +69,7 @@ export default function StudentProfilePage() {
     fetchStats();
   }, []);
 
+  /** Charge le profil étudiant et réinitialise le formulaire avec ces valeurs (date de naissance tronquée au format `YYYY-MM-DD` pour l'input `date`). */
   const fetchProfile = async () => {
     try {
       const response = await apiClient.get('/students/me');
@@ -69,6 +85,7 @@ export default function StudentProfilePage() {
     }
   };
 
+  /** Charge les statistiques de l'étudiant (candidatures, documents, complétion du profil) affichées dans l'onglet "Statistiques". */
   const fetchStats = async () => {
     try {
       const response = await apiClient.get('/students/me/stats');
@@ -78,6 +95,7 @@ export default function StudentProfilePage() {
     }
   };
 
+  /** Soumet le formulaire de profil : convertit `bacYear` (saisi en texte) en nombre avant l'envoi à l'API. */
   const onSubmit = async (data: ProfileForm) => {
     setIsLoading(true);
     try {

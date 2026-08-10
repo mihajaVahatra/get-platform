@@ -5,8 +5,10 @@ import { CalendarDaysIcon, LoaderCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
+/** Jours de la semaine représentés dans la grille d'emploi du temps (1 = lundi ... 7 = dimanche). */
 const DAY_VALUES = [1, 2, 3, 4, 5, 6, 7] as const;
 
+/** Créneau de cours tel que retourné par l'API `/students/me/schedule`. */
 type Slot = {
   id: string;
   dayOfWeek: number;
@@ -16,6 +18,12 @@ type Slot = {
   course: { id: string; code: string; title: string };
 };
 
+/**
+ * Route `/dashboard/student/schedule` : client component ('use client') affichant l'emploi du
+ * temps hebdomadaire de l'étudiant sous forme de grille à 7 colonnes (une par jour).
+ * Récupère les créneaux via `apiClient.get('/students/me/schedule')` au montage et gère les
+ * états de chargement, d'échec et de liste vide.
+ */
 export default function StudentSchedulePage() {
   const t = useTranslations('StudentSchedule');
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -80,6 +88,7 @@ export default function StudentSchedulePage() {
   );
 }
 
+/** Indicateur de chargement affiché pendant la récupération de l'emploi du temps. */
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -89,6 +98,7 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+/** État vide/erreur affiché en cas d'échec de l'appel API ou d'absence de créneaux. */
 function Empty({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-muted py-12 text-center text-sm text-muted-foreground">

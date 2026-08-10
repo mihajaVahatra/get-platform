@@ -9,8 +9,14 @@ import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { cn } from '@/lib/utils';
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from 'lucide-react';
 
+/**
+ * Famille de composants "Select" (liste déroulante), basée sur `@base-ui/react/select`.
+ * `Select` est la racine (= `SelectPrimitive.Root`) ; à composer avec
+ * `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem`, etc.
+ */
 const Select = SelectPrimitive.Root;
 
+/** Regroupe visuellement plusieurs `SelectItem` sous un `SelectLabel` commun. */
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
     <SelectPrimitive.Group
@@ -21,6 +27,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   );
 }
 
+/** Affiche la valeur/le libellé actuellement sélectionné dans le `SelectTrigger`. */
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
@@ -31,6 +38,11 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   );
 }
 
+/**
+ * Bouton déclencheur qui ouvre la liste déroulante et affiche la valeur sélectionnée.
+ *
+ * @param size - `"sm"` ou `"default"`.
+ */
 function SelectTrigger({
   className,
   size = 'default',
@@ -59,6 +71,10 @@ function SelectTrigger({
   );
 }
 
+/**
+ * Panneau déroulant contenant les options (`SelectItem`), positionné via un
+ * portail par rapport au `SelectTrigger`. Inclut les boutons de scroll haut/bas.
+ */
 function SelectContent({
   className,
   children,
@@ -101,6 +117,7 @@ function SelectContent({
   );
 }
 
+/** Libellé d'en-tête pour un `SelectGroup`. */
 function SelectLabel({
   className,
   ...props
@@ -114,6 +131,7 @@ function SelectLabel({
   );
 }
 
+/** Option sélectionnable dans la liste, avec coche visible quand elle est active. */
 function SelectItem({
   className,
   children,
@@ -142,6 +160,7 @@ function SelectItem({
   );
 }
 
+/** Séparateur visuel entre deux groupes d'options. */
 function SelectSeparator({
   className,
   ...props
@@ -155,6 +174,7 @@ function SelectSeparator({
   );
 }
 
+/** Bouton affiché en haut de la liste quand elle est scrollable, pour défiler vers le haut. */
 function SelectScrollUpButton({
   className,
   ...props
@@ -173,6 +193,7 @@ function SelectScrollUpButton({
   );
 }
 
+/** Bouton affiché en bas de la liste quand elle est scrollable, pour défiler vers le bas. */
 function SelectScrollDownButton({
   className,
   ...props

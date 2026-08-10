@@ -7,8 +7,10 @@ import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { AvatarUpload } from '@/components/AvatarUpload';
 
+/** Préférence de thème visuel de l'utilisateur : clair, sombre, ou aligné sur les réglages système. */
 type ThemePreference = 'light' | 'dark' | 'system';
 
+/** Profil étudiant minimal utilisé par les onglets de la page réglages (identité, avatar, email, thème). */
 type StudentProfile = {
   id: string;
   firstName: string;
@@ -17,6 +19,11 @@ type StudentProfile = {
   user: { email: string; theme?: ThemePreference };
 };
 
+/**
+ * Applique immédiatement le thème choisi au DOM en (dés)activant la classe `dark` sur
+ * `<html>`, sans attendre la confirmation du serveur (mise à jour optimiste de l'UI).
+ * Pour `'system'`, se base sur la préférence `prefers-color-scheme` du navigateur.
+ */
 function applyTheme(theme: string) {
   const isDark =
     theme === 'dark' ||
@@ -26,6 +33,11 @@ function applyTheme(theme: string) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
+/**
+ * Route `/dashboard/student/settings` : client component ('use client') affichant les réglages
+ * du compte étudiant sous forme d'onglets (profil résumé, sécurité/mot de passe, préférences
+ * d'apparence). Ne charge aucune donnée lui-même : chaque onglet gère ses propres appels API.
+ */
 export default function StudentSettingsPage() {
   const t = useTranslations('StudentSettings');
   const [activeTab, setActiveTab] = useState<
@@ -64,6 +76,11 @@ export default function StudentSettingsPage() {
   );
 }
 
+/**
+ * Onglet "Profil" des réglages : affiche un résumé du profil étudiant (avatar, nom, email)
+ * avec upload d'avatar (via `AvatarUpload`, `POST /students/me/avatar`) et lien vers la page
+ * complète d'édition du profil. Charge le profil via `apiClient.get('/students/me')` au montage.
+ */
 function ProfileTab() {
   const t = useTranslations('StudentSettings');
   const [profile, setProfile] = useState<StudentProfile | null>(null);
@@ -117,6 +134,11 @@ function ProfileTab() {
   );
 }
 
+/**
+ * Onglet "Sécurité" des réglages : formulaire de changement de mot de passe (mot de passe
+ * actuel + nouveau + confirmation). Valide la correspondance des deux saisies du nouveau mot
+ * de passe côté client avant d'appeler `apiClient.patch('/students/me/password', ...)`.
+ */
 function SecurityTab() {
   const t = useTranslations('StudentSettings');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -145,6 +167,8 @@ function SecurityTab() {
         console.error('Erreur changement de mot de passe:', error);
         const status = (error as { response?: { status?: number } }).response
           ?.status;
+        // Le backend renvoie 400 spécifiquement quand le mot de passe actuel est incorrect ;
+        // les autres erreurs sont traitées comme des échecs génériques de mise à jour.
         toast.error(
           status === 400
             ? t('currentPasswordWrong')
@@ -213,6 +237,12 @@ function SecurityTab() {
   );
 }
 
+/**
+ * Onglet "Préférences" des réglages : sélecteur du thème d'apparence (clair/sombre/système).
+ * Charge le thème actuel via `apiClient.get('/students/me')`, puis persiste tout changement
+ * via `apiClient.patch('/students/me/theme', ...)` en appliquant le thème de façon optimiste
+ * (immédiatement au clic) et en revenant en arrière si la requête échoue.
+ */
 function PreferencesTab() {
   const t = useTranslations('StudentSettings');
   const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [

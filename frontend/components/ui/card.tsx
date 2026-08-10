@@ -2,6 +2,13 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Famille de composants "Card" du design system : conteneur (`Card`) et ses
+ * sous-parties (`CardHeader`, `CardTitle`, `CardDescription`, `CardAction`,
+ * `CardContent`, `CardFooter`), à composer librement dans le JSX.
+ *
+ * @param size - `"default"` ou `"sm"` pour un espacement interne plus compact.
+ */
 function Card({
   className,
   size = "default",
@@ -20,6 +27,7 @@ function Card({
   )
 }
 
+/** En-tête de la carte : regroupe titre, description et action optionnelle. */
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -33,6 +41,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Titre de la carte. */
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -46,6 +55,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Texte secondaire descriptif sous le titre de la carte. */
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -56,6 +66,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Zone d'action (bouton, menu, ...) positionnée en haut à droite de l'en-tête. */
 function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -69,6 +80,7 @@ function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Corps principal de la carte. */
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -79,6 +91,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Pied de la carte (actions secondaires, métadonnées, ...). */
 function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

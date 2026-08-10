@@ -13,10 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// Pré-remplissage best-effort de durée/frais par mot-clé plutôt que par
-// correspondance exacte : le diplôme d'une filière est un texte libre saisi
-// dans Paramètres (ex. "Master" sans "1"/"2"), donc un matching insensible
-// à la casse reste utile même quand le libellé ne suit pas une convention fixe.
+/**
+ * Propose des valeurs par défaut (durée, frais de scolarité) selon le diplôme sélectionné.
+ * Pré-remplissage best-effort de durée/frais par mot-clé plutôt que par
+ * correspondance exacte : le diplôme d'une filière est un texte libre saisi
+ * dans Paramètres (ex. "Master" sans "1"/"2"), donc un matching insensible
+ * à la casse reste utile même quand le libellé ne suit pas une convention fixe.
+ * Retourne `null` si aucun mot-clé connu n'est trouvé (aucune valeur pré-remplie).
+ */
 function diplomaDefaults(diploma: string): { duration: number; tuitionFees: number } | null {
   const normalized = diploma.toLowerCase();
   if (normalized.includes('doctorat')) return { duration: 36, tuitionFees: 5000000 };
@@ -37,16 +41,28 @@ const schema = z.object({
   prerequisites: z.string().max(2000, 'Prérequis trop longs').optional(),
   programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
+/** Type inféré du formulaire de création d'offre, dérivé du schéma de validation Zod `schema`. */
 type OfferForm = z.infer<typeof schema>;
 
+/**
+ * Page « Nouvelle offre » du tableau de bord établissement
+ * (route App Router `/dashboard/school/offers/new`).
+ * Client component (`'use client'`) : formulaire de création d'une offre de formation,
+ * validé avec React Hook Form + Zod. Charge l'établissement courant, les pièces/prérequis
+ * du dossier et les filières actives de l'école, puis crée l'offre via `POST /offers`.
+ */
 export default function NewSchoolOfferPage() {
   const router = useRouter();
+  // Identifiant de l'établissement courant, résolu via /schools/me ; requis pour la création de l'offre.
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  // Pièces/prérequis de dossier configurables par l'établissement (case à cocher dans le formulaire).
   const [requirements, setRequirements] = useState<{ id: string; name: string; isRequired: boolean }[]>([]);
   const [selectedRequirements, setSelectedRequirements] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Filières actives de l'établissement, utilisées pour filtrer/associer l'offre à un programme.
   const [programs, setPrograms] = useState<{ id: string; name: string; diploma: string; isActive: boolean }[]>([]);
   const currentYear = new Date().getFullYear();
+  // Génère les 4 prochaines années académiques (ex. "2026-2027") comme options du sélecteur.
   const academicYears = Array.from({ length: 4 }, (_, index) => {
     const year = currentYear + index;
     return `${year}-${year + 1}`;
@@ -57,11 +73,15 @@ export default function NewSchoolOfferPage() {
   });
   const [selectedDiploma, setSelectedDiploma] = useState('');
   const [selectedProgramId, setSelectedProgramId] = useState('');
+  // Liste des diplômes distincts présents dans les filières actives, utilisée pour le premier sélecteur (filtre).
   const diplomaOptions = Array.from(new Set(programs.map((program) => program.diploma).filter(Boolean)));
+  // Filières restreintes au diplôme sélectionné, affichées dans le second sélecteur.
   const filteredPrograms = selectedDiploma
     ? programs.filter((program) => program.diploma === selectedDiploma)
     : programs;
 
+  // Chargement initial : établissement courant (obligatoire), prérequis de dossier et filières actives.
+  // Si l'établissement ne peut pas être résolu, on redirige vers la liste des offres.
   useEffect(() => {
     apiClient.get('/schools/me')
       .then((response) => setSchoolId(response.data.data?.id ?? null))
@@ -73,6 +93,7 @@ export default function NewSchoolOfferPage() {
     apiClient.get('/schools/me/programs').then((response) => setPrograms((response.data.data || []).filter((program: { isActive: boolean }) => program.isActive))).catch(() => toast.error('Impossible de charger les filières'));
   }, [router]);
 
+  /** Soumission du formulaire : crée l'offre via `POST /offers` puis retourne à la liste des offres. */
   const onSubmit = async (data: OfferForm) => {
     if (!schoolId) return toast.error('Établissement introuvable');
     setSaving(true);
@@ -184,6 +205,7 @@ export default function NewSchoolOfferPage() {
   );
 }
 
+/** Regroupement label + champ + message d'erreur, utilisé pour uniformiser chaque champ du formulaire. */
 function Field({ label, required = false, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
   return <div className="space-y-2"><Label>{label}{required && <span className="ml-1 text-red-500">*</span>}</Label>{children}{error && <p className="text-sm text-red-500">{error}</p>}</div>;
 }

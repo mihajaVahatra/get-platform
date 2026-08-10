@@ -7,22 +7,31 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
+/**
+ * Famille de composants "Dialog" (modale), basée sur `@base-ui/react/dialog`.
+ * Racine gérant l'état ouvert/fermé ; à composer avec `DialogTrigger`,
+ * `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`.
+ */
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
+/** Élément déclenchant l'ouverture du dialogue. */
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
 }
 
+/** Portail rendant le contenu du dialogue à la racine du DOM (hors flux normal). */
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
 }
 
+/** Élément déclenchant la fermeture du dialogue. */
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/** Fond semi-opaque affiché derrière le contenu du dialogue. */
 function DialogOverlay({
   className,
   ...props
@@ -39,6 +48,12 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Panneau principal du dialogue (portail + overlay + popup), avec bouton de
+ * fermeture optionnel affiché en haut à droite.
+ *
+ * @param showCloseButton - Si `false`, masque le bouton "X" par défaut (défaut : `true`).
+ */
 function DialogContent({
   className,
   children,
@@ -80,6 +95,7 @@ function DialogContent({
   )
 }
 
+/** En-tête du dialogue (regroupe typiquement `DialogTitle` et `DialogDescription`). */
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -90,6 +106,11 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Pied du dialogue (actions principales), avec bouton "Fermer" optionnel.
+ *
+ * @param showCloseButton - Ajoute un bouton "Close" en plus des `children` (défaut : `false`).
+ */
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -117,6 +138,7 @@ function DialogFooter({
   )
 }
 
+/** Titre accessible du dialogue (lié via `aria-labelledby` par le primitif). */
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
@@ -130,6 +152,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   )
 }
 
+/** Description accessible du dialogue (liée via `aria-describedby` par le primitif). */
 function DialogDescription({
   className,
   ...props

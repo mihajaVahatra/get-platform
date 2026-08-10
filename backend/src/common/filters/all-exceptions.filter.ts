@@ -8,10 +8,21 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+/**
+ * Filtre d'exception global : intercepte toute erreur non gérée (HttpException ou non)
+ * levée pendant le traitement d'une requête, la journalise et renvoie une réponse JSON
+ * uniforme au client au lieu de laisser fuir la stack trace ou un format d'erreur variable.
+ * `@Catch()` sans argument le fait s'appliquer à toutes les exceptions.
+ */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  /**
+   * Point d'entrée appelé par Nest lorsqu'une exception traverse un pipeline de requête.
+   * Détermine le status HTTP (celui de la HttpException, ou 500 par défaut), extrait un
+   * message lisible, journalise l'erreur puis écrit la réponse JSON standardisée.
+   */
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -39,10 +50,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json(responseBody);
   }
 
-  // ValidationPipe (class-validator) renvoie un tableau de messages détaillés
-  // par champ dans le corps de l'exception (`getResponse().message`) ;
-  // `exception.message` seul ne vaut que le texte générique "Bad Request
-  // Exception" et masquait ces détails à l'appelant.
+  /**
+   * Extrait un message d'erreur exploitable depuis une exception quelconque.
+   * ValidationPipe (class-validator) renvoie un tableau de messages détaillés
+   * par champ dans le corps de l'exception (`getResponse().message`) ;
+   * `exception.message` seul ne vaut que le texte générique "Bad Request
+   * Exception" et masquait ces détails à l'appelant.
+   */
   private extractMessage(exception: unknown): string {
     if (!(exception instanceof HttpException)) return 'Internal server error';
     const response = exception.getResponse();

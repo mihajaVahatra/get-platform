@@ -23,8 +23,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Catégories de documents administratifs que l'étudiant peut déposer. */
 type DocumentType = 'CV' | 'LETTER' | 'ID' | 'DIPLOMA' | 'PHOTO' | 'OTHER';
 
+/** Document déposé par l'étudiant, tel que retourné par l'API `/students/me/documents`. */
 type StudentDocument = {
   id: string;
   type: DocumentType;
@@ -33,6 +35,15 @@ type StudentDocument = {
   uploadedAt: string;
 };
 
+/**
+ * Route `/dashboard/student/documents` : client component ('use client') gérant les documents
+ * administratifs de l'étudiant (CV, lettre, pièce d'identité, diplôme, photo, autre) :
+ * liste, ajout via modale d'upload, téléchargement et suppression avec confirmation.
+ * Appels API via `apiClient` :
+ * - `GET /students/me/documents` : chargement de la liste au montage.
+ * - `POST /students/me/documents` (multipart/form-data) : ajout d'un nouveau document.
+ * - `DELETE /students/me/documents/{id}` : suppression d'un document.
+ */
 export default function StudentDocumentsPage() {
   const t = useTranslations('StudentDocuments');
   const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
@@ -55,6 +66,7 @@ export default function StudentDocumentsPage() {
     useState<StudentDocument | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /** Charge la liste des documents de l'étudiant et met à jour les états de chargement/échec. */
   const fetchDocuments = async () => {
     try {
       setLoading(true);
@@ -74,6 +86,7 @@ export default function StudentDocumentsPage() {
     void Promise.resolve().then(() => fetchDocuments());
   }, []);
 
+  /** Soumet le formulaire d'ajout de document (fichier + type + nom optionnel) à l'API. */
   const submitUpload = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!uploadFile) return;
@@ -83,6 +96,7 @@ export default function StudentDocumentsPage() {
         const formData = new FormData();
         formData.append('file', uploadFile);
         formData.append('type', uploadType);
+        // Si aucun nom n'est saisi, on retombe sur le nom du fichier local.
         formData.append('name', uploadName || uploadFile.name);
         const response = await apiClient.post(
           '/students/me/documents',
@@ -109,6 +123,7 @@ export default function StudentDocumentsPage() {
     })();
   };
 
+  /** Supprime le document actuellement ciblé par la modale de confirmation (`documentToDelete`). */
   const deleteDocument = async () => {
     if (!documentToDelete) return;
     setDeleting(true);
@@ -299,6 +314,7 @@ export default function StudentDocumentsPage() {
   );
 }
 
+/** Indicateur de chargement affiché pendant la récupération des documents. */
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -308,6 +324,7 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+/** État vide/erreur affiché en cas d'échec de l'appel API ou d'absence de documents. */
 function Empty({ label }: { label: string }) {
   return (
     <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">

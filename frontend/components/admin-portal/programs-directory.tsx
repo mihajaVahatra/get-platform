@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Filière/programme d'études proposé par une école, tel que renvoyé par l'API. */
 type Program = {
   id: string;
   name: string;
@@ -20,10 +21,17 @@ type Program = {
   isActive: boolean;
   school: { id: string; name: string };
 };
+/** Option simplifiée pour le filtre de sélection d'école. */
 type SchoolOption = { id: string; name: string };
 
+/** Nombre de filières chargées par page. */
 const PAGE_SIZE = 20;
 
+/**
+ * Annuaire en lecture seule de toutes les filières/programmes proposés par
+ * l'ensemble des écoles de la plateforme, avec filtrage par école et
+ * pagination.
+ */
 export function ProgramsDirectory() {
   const [programs, setPrograms] = useState<Program[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -32,6 +40,7 @@ export function ProgramsDirectory() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Charge la liste des écoles une seule fois au montage pour peupler le filtre.
   useEffect(() => {
     void apiClient
       .get('/schools', { params: { limit: 100 } })
@@ -39,6 +48,7 @@ export function ProgramsDirectory() {
       .catch((error) => console.error('Erreur chargement écoles:', error));
   }, []);
 
+  /** Charge une page de filières (`GET /schools/programs`), filtrée par école si sélectionnée. */
   const fetchPrograms = useCallback(async () => {
     try {
       setLoading(true);

@@ -23,8 +23,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Candidature reçue par l'établissement, telle que renvoyée par `GET /applications/school/me`. */
 type Application = {
   id: string;
+  /** Statut brut de la candidature dans le pipeline d'admission (clé de `STATUS_LABELS`/`STATUS_COLORS`). */
   status: string;
   submittedAt: string;
   offer: {
@@ -40,11 +42,13 @@ type Application = {
   };
 };
 
+/** Offre utilisée pour peupler le filtre « offre » (issue de `GET /offers/mine`). */
 type Offer = {
   id: string;
   title: string;
 };
 
+/** Libellés FR pour chaque statut du pipeline d'admission. */
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'En attente',
   PRESELECTED: 'Présélectionné',
@@ -59,6 +63,7 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Annulé',
 };
 
+/** Classes Tailwind de couleur de badge associées à chaque statut du pipeline d'admission. */
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
   PRESELECTED: 'bg-blue-500',
@@ -73,8 +78,15 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-rose-500',
 };
 
+/** Nombre de candidatures affichées par page (pagination côté serveur). */
 const PAGE_SIZE = 10;
 
+/**
+ * Page « Candidatures reçues » du tableau de bord établissement
+ * (route App Router `/dashboard/school/applications`).
+ * Client component (`'use client'`) : enveloppe `SchoolApplicationsContent` dans un `Suspense`
+ * car ce dernier lit les filtres depuis les paramètres de recherche (`useSearchParams`).
+ */
 export default function SchoolApplicationsPage() {
   return (
     <Suspense
@@ -89,6 +101,11 @@ export default function SchoolApplicationsPage() {
   );
 }
 
+/**
+ * Contenu principal de la page Candidatures : liste paginée et filtrable (par offre et statut)
+ * des candidatures reçues par l'établissement. Un clic sur une carte de candidature navigue
+ * vers le détail (`/dashboard/school/applications/[id]`). Les filtres sont reflétés dans l'URL.
+ */
 function SchoolApplicationsContent() {
   const pathname = usePathname();
   const router = useRouter();
@@ -159,6 +176,7 @@ function SchoolApplicationsContent() {
     };
   }, [offerId, page, status]);
 
+  /** Met à jour les filtres offre/statut dans l'URL et réinitialise la pagination à la page 1. */
   const updateFilters = (nextStatus: string, nextOfferId: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (nextStatus === 'ALL') params.delete('status');
@@ -171,6 +189,7 @@ function SchoolApplicationsContent() {
     router.replace(query ? `${pathname}?${query}` : pathname);
   };
 
+  /** Formate une date ISO au format jj/mm/aaaa. */
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',

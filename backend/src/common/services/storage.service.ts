@@ -12,6 +12,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 
+/** Type d'entité propriétaire d'une image stockée (utilisé pour organiser les clés S3 et filtrer les recherches). */
 export enum ImageEntityType {
   STUDENT = 'STUDENT',
   TEACHER = 'TEACHER',
@@ -25,6 +26,7 @@ export enum ImageEntityType {
   FINANCIAL_PARTNER = 'FINANCIAL_PARTNER',
 }
 
+/** Rôle fonctionnel d'une image (détermine notamment le sous-dossier de stockage). */
 export enum ImageType {
   AVATAR = 'AVATAR',
   LOGO = 'LOGO',
@@ -34,6 +36,7 @@ export enum ImageType {
 
 export type MessageAttachmentKind = 'IMAGE' | 'DOCUMENT' | 'VIDEO';
 
+/** Taille maximale (en octets) autorisée pour une pièce jointe de message, par catégorie. */
 const MESSAGE_ATTACHMENT_LIMITS: Record<MessageAttachmentKind, number> = {
   IMAGE: 5 * 1024 * 1024,
   DOCUMENT: 5 * 1024 * 1024,
@@ -68,6 +71,7 @@ export class StorageService {
   private publicBucket: string;
   private publicUrl?: string;
 
+  /** Initialise le client S3 et résout les noms de buckets/URL publique depuis la configuration. */
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
@@ -88,6 +92,11 @@ export class StorageService {
     });
   }
 
+  /**
+   * Valide puis téléverse une image publique (avatar, logo, bannière, illustration)
+   * dans le bucket public, et enregistre l'entrée `Image` correspondante en base.
+   * @throws {BadRequestException} Si le mimetype/contenu ou l'identifiant d'entité sont invalides.
+   */
   async uploadImage(
     file: Express.Multer.File,
     options: {
@@ -123,6 +132,12 @@ export class StorageService {
     return { id: image.id, url: image.url };
   }
 
+  /**
+   * Valide puis téléverse un document d'étudiant dans le bucket privé.
+   * L'URL retournée pointe vers la route protégée (`/uploads/documents/...`), jamais
+   * directement vers S3 : le téléchargement effectif exige une autorisation (voir
+   * `protected-uploads.middleware.ts`).
+   */
   async uploadDocument(
     file: Express.Multer.File,
     studentId: string,
@@ -137,6 +152,10 @@ export class StorageService {
     return { url: this.protectedObjectUrl('documents', studentId, fileName) };
   }
 
+  /**
+   * Valide puis téléverse un support de cours dans le bucket privé (formats supplémentaires
+   * autorisés par rapport à `uploadDocument` : présentations, tableurs, archives zip).
+   */
   async uploadCourseMaterial(
     file: Express.Multer.File,
     courseId: string,
@@ -153,6 +172,10 @@ export class StorageService {
     };
   }
 
+  /**
+   * Valide (type détecté par contenu + taille max selon le type) puis téléverse une
+   * pièce jointe de message dans le bucket privé.
+   */
   async saveMessageAttachment(
     file: Express.Multer.File,
     messageId: string,
@@ -179,6 +202,7 @@ export class StorageService {
     };
   }
 
+  /** Retourne l'URL de l'image la plus récente correspondant aux critères donnés, ou `null`. */
   async getImage(
     entityType: ImageEntityType,
     entityId: string,
@@ -191,6 +215,11 @@ export class StorageService {
     return image?.url || null;
   }
 
+  /**
+   * Supprime l'objet S3 associé à une image (au mieux : échec non bloquant, voir
+   * commentaire ci-dessous) puis supprime son enregistrement en base. Ne fait rien
+   * si l'image n'existe pas.
+   */
   async deleteImage(imageId: string): Promise<void> {
     const image = await this.prisma.image.findUnique({
       where: { id: imageId },
@@ -237,6 +266,7 @@ export class StorageService {
     );
   }
 
+  /** Écrit le buffer du fichier reçu (Multer) dans le bucket/clé S3 donnés. */
   private async putObject(
     bucket: string,
     key: string,
@@ -252,6 +282,7 @@ export class StorageService {
     );
   }
 
+  /** Vérifie l'existence d'un objet S3 sans le télécharger (HEAD). */
   private async headObject(bucket: string, key: string): Promise<boolean> {
     try {
       await this.client.send(
@@ -274,6 +305,7 @@ export class StorageService {
     return segments.join('/');
   }
 
+  /** Construit l'URL publique d'un objet du bucket public (CDN configuré, sinon endpoint S3 direct). */
   private publicObjectUrl(key: string): string {
     if (this.publicUrl) return `${this.publicUrl.replace(/\/$/, '')}/${key}`;
     const endpoint = this.config.get<string>('S3_ENDPOINT') || '';
@@ -314,12 +346,14 @@ export class StorageService {
     return `${baseUrl}/uploads/${segments.join('/')}`;
   }
 
+  /** Génère un nom de fichier aléatoire (32 caractères hex) conservant l'extension d'origine. */
   private generateFileName(originalName: string): string {
     const ext = path.extname(originalName);
     const base = crypto.randomBytes(16).toString('hex');
     return `${base}${ext.toLowerCase()}`;
   }
 
+  /** Vérifie que l'identifiant d'entité utilisé dans le chemin de stockage est bien un UUID. */
   private assertSafeEntityId(entityId?: string) {
     if (!entityId) return;
 
@@ -330,6 +364,11 @@ export class StorageService {
     }
   }
 
+  /**
+   * Valide qu'un fichier image est bien conforme : mimetype dans la liste blanche ET
+   * signature binaire (magic bytes PNG/JPEG/WEBP) cohérente — un simple contrôle du
+   * mimetype déclaré par le client serait trivialement contournable.
+   */
   private assertSafeImage(file: Express.Multer.File) {
     const supported = new Set(['image/jpeg', 'image/png', 'image/webp']);
     if (!supported.has(file.mimetype))
@@ -355,6 +394,11 @@ export class StorageService {
       );
   }
 
+  /**
+   * Valide un document : mimetype autorisé (liste étendue si `allowCourseMaterials`)
+   * et contenu binaire cohérent avec le mimetype déclaré (signature PDF/DOC/DOCX,
+   * ou délégation à `assertSafeImage` pour les documents scannés en image).
+   */
   private assertSafeDocument(
     file: Express.Multer.File,
     options: { allowCourseMaterials?: boolean } = {},
@@ -416,6 +460,7 @@ export class StorageService {
     }
   }
 
+  /** Valide qu'un fichier vidéo est bien conforme : mimetype autorisé et signature binaire cohérente. */
   private assertSafeVideo(file: Express.Multer.File) {
     const supported = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
     if (!supported.has(file.mimetype))
@@ -437,6 +482,12 @@ export class StorageService {
       );
   }
 
+  /**
+   * Détermine la catégorie (image/document/vidéo) d'une pièce jointe de message d'après
+   * son mimetype, valide son contenu via l'assertion correspondante, puis vérifie que
+   * sa taille ne dépasse pas la limite propre à sa catégorie.
+   * @throws {BadRequestException} Type non supporté ou taille excessive.
+   */
   private assertSafeMessageAttachment(
     file: Express.Multer.File,
   ): MessageAttachmentKind {

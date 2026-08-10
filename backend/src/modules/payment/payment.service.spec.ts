@@ -39,6 +39,7 @@ describe('PaymentService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
     schoolProgram: { findFirst: jest.Mock };
     schoolAcademicYear: { findFirst: jest.Mock };
@@ -57,6 +58,7 @@ describe('PaymentService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       schoolProgram: { findFirst: jest.fn() },
       schoolAcademicYear: { findFirst: jest.fn() },

@@ -18,6 +18,13 @@ import {
   APPLICATION_STATUS_TRANSITIONS,
 } from './dto/update-application-status.dto';
 
+/**
+ * Contient toute la logique métier des candidatures : soumission par les
+ * étudiants, consultation par les étudiants/écoles/admin, et surtout la
+ * gestion du workflow de statut (machine à états `ApplicationStatus`), y
+ * compris ses effets de bord (inscription automatique de l'étudiant,
+ * promotion depuis la liste d'attente, notifications, audit).
+ */
 @Injectable()
 export class ApplicationService {
   constructor(
@@ -27,8 +34,11 @@ export class ApplicationService {
     private auditService: AuditService,
   ) {}
 
-  // Ne doit jamais faire échouer l'action métier appelante : l'envoi de
-  // notification est un effet secondaire, pas une condition de succès.
+  /**
+   * Envoie une notification de changement de statut à un utilisateur.
+   * Ne doit jamais faire échouer l'action métier appelante : l'envoi de
+   * notification est un effet secondaire, pas une condition de succès.
+   */
   private async notifyStatusChange(
     userId: string,
     applicationId: string,
@@ -50,6 +60,16 @@ export class ApplicationService {
 
   // ========== STUDENT ==========
 
+  /**
+   * Soumet des candidatures pour un étudiant sur une liste d'offres.
+   * Pour chaque offre : ignore (et classe en "failed") les offres fermées,
+   * supprimées ou dont la deadline est dépassée ; classe en "alreadyApplied"
+   * si une candidature existe déjà pour ce couple (étudiant, offre) ;
+   * sinon crée la candidature avec le statut PENDING dans une transaction
+   * (candidature + entrée de timeline) et notifie l'étudiant.
+   * Retourne le détail par offre : submitted / failed / alreadyApplied.
+   * Lève NotFoundException si l'étudiant n'existe pas.
+   */
   async submitApplications(studentId: string, offerIds: string[]) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
@@ -118,6 +138,11 @@ export class ApplicationService {
     return results;
   }
 
+  /**
+   * Retourne les candidatures d'un étudiant, paginées et filtrables par
+   * statut, avec l'offre/école associée et les 10 dernières entrées de
+   * timeline pour chaque candidature.
+   */
   async getStudentApplications(
     studentId: string,
     options?: { status?: ApplicationStatus; page?: number; limit?: number },
@@ -164,6 +189,11 @@ export class ApplicationService {
 
   // ========== SCHOOL ADMIN ==========
 
+  /**
+   * Retourne les candidatures reçues par l'établissement de l'administrateur
+   * authentifié, paginées et filtrables par statut/offre.
+   * Lève ForbiddenException si l'utilisateur n'est pas un administrateur d'école.
+   */
   async getSchoolApplications(
     schoolAdminId: string,
     options?: {
@@ -230,6 +260,12 @@ export class ApplicationService {
     };
   }
 
+  /**
+   * Liste paginée de toutes les candidatures de la plateforme (vue admin),
+   * avec recherche texte insensible à la casse sur le nom/prénom/e-mail de
+   * l'étudiant, et projection allégée (pas de timeline) pour l'affichage en
+   * liste. `limit` est borné à 100 pour éviter les requêtes trop coûteuses.
+   */
   async getAllApplications(options?: {
     status?: ApplicationStatus;
     schoolId?: string;
@@ -301,6 +337,13 @@ export class ApplicationService {
     };
   }
 
+  /**
+   * Retourne le détail complet d'une candidature (offre, école, timeline)
+   * après vérification des droits d'accès de l'appelant.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant n'est pas autorisé à la consulter (voir
+   * `ensureCanAccessApplication`).
+   */
   async getApplicationById(
     applicationId: string,
     userId: string,
@@ -332,6 +375,12 @@ export class ApplicationService {
     return application;
   }
 
+  /**
+   * Retourne les documents (non supprimés) du dossier étudiant lié à une
+   * candidature, après vérification des droits d'accès de l'appelant.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant n'est pas autorisé à la consulter.
+   */
   async getApplicationDocuments(
     applicationId: string,
     userId: string,
@@ -359,6 +408,28 @@ export class ApplicationService {
 
   // ========== STATUS MANAGEMENT ==========
 
+  /**
+   * Fait transitionner le statut d'une candidature et applique les effets de
+   * bord associés, le tout dans une transaction unique :
+   *  1. valide la transition demandée contre `APPLICATION_STATUS_TRANSITIONS`
+   *     (REJECTED/CANCELLED sont des états terminaux) ;
+   *  2. si le nouveau statut est ACCEPTED, vérifie que la capacité de l'offre
+   *     n'est pas déjà atteinte (candidatures ACCEPTED + ENROLLED) ;
+   *  3. si le nouveau statut est ACCEPTED/ENROLLED, inscrit automatiquement
+   *     l'étudiant (`StudentEnrollment` + synchronisation des cours) — un
+   *     étudiant peut avoir plusieurs inscriptions actives (une par école) ;
+   *     si l'offre n'a pas de programme actif/année académique en cours,
+   *     l'inscription automatique échoue silencieusement côté transaction
+   *     mais est tracée dans la timeline et journalisée en erreur serveur ;
+   *  4. si la transition libère une place (ACCEPTED/ENROLLED → CANCELLED/
+   *     REJECTED) et que l'offre a une liste d'attente, promeut
+   *     automatiquement le candidat WAITLISTED le plus ancien vers ACCEPTED.
+   * Notifie l'étudiant concerné (et le candidat promu le cas échéant) et
+   * journalise le changement via `AuditService`.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas l'école de l'offre, BadRequestException si la
+   * transition est invalide ou si la capacité de l'offre est atteinte.
+   */
   async updateStatus(
     applicationId: string,
     dto: UpdateApplicationStatusDto,
@@ -601,6 +672,14 @@ export class ApplicationService {
     return updated;
   }
 
+  /**
+   * Planifie un test pour une candidature : fixe le statut à
+   * TEST_SCHEDULED et enregistre les modalités (type, date, lieu, documents
+   * requis) dans `testResults`, ajoute une entrée de timeline et notifie
+   * l'étudiant.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas l'école de l'offre.
+   */
   async scheduleTest(
     applicationId: string,
     dto: ScheduleTestDto,
@@ -647,6 +726,13 @@ export class ApplicationService {
     return application;
   }
 
+  /**
+   * Planifie un entretien pour une candidature : fixe le statut à
+   * INTERVIEW_SCHEDULED et enregistre la date/le lien, ajoute une entrée de
+   * timeline et notifie l'étudiant.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas l'école de l'offre.
+   */
   async scheduleInterview(
     applicationId: string,
     dto: ScheduleInterviewDto,
@@ -688,6 +774,14 @@ export class ApplicationService {
     return application;
   }
 
+  /**
+   * Enregistre le score obtenu par le candidat au test : fixe le statut à
+   * TEST_COMPLETED et fusionne les commentaires avec le `testResults`
+   * existant (type/date/lieu déjà enregistrés par `scheduleTest`) au lieu de
+   * l'écraser, ajoute une entrée de timeline et notifie l'étudiant.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas l'école de l'offre.
+   */
   async recordScore(
     applicationId: string,
     data: { score: number; comments?: string },
@@ -742,6 +836,10 @@ export class ApplicationService {
 
   // ========== STATISTICS (for Ministry) ==========
 
+  /**
+   * Retourne le nombre total de candidatures et leur répartition par statut,
+   * filtrable par période et par établissement.
+   */
   async getStats(filters?: { from?: Date; to?: Date; schoolId?: string }) {
     const where: any = {};
     if (filters?.from) where.submittedAt = { gte: filters.from };
@@ -764,6 +862,12 @@ export class ApplicationService {
     };
   }
 
+  /**
+   * Vérifie que l'appelant a le droit de consulter (lecture seule) une
+   * candidature : ADMIN_GET a toujours accès, un STUDENT ne peut consulter
+   * que son propre dossier, un SCHOOL_ADMIN que les dossiers de son école.
+   * Lève ForbiddenException dans tous les autres cas.
+   */
   private async ensureCanAccessApplication(
     application: any,
     userId: string,
@@ -782,6 +886,12 @@ export class ApplicationService {
     );
   }
 
+  /**
+   * Vérifie que l'appelant a le droit de modifier (statut, planification,
+   * score) une candidature : ADMIN_GET a toujours accès, un SCHOOL_ADMIN
+   * uniquement s'il gère l'école propriétaire de l'offre.
+   * Lève ForbiddenException dans tous les autres cas.
+   */
   private async ensureCanManageApplication(application: any, userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

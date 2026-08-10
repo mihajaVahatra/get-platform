@@ -20,6 +20,11 @@ import { StudentsDirectory } from '@/components/admin-portal/students-directory'
 import { ProgramsDirectory } from '@/components/admin-portal/programs-directory';
 import { NotificationsOverview } from '@/components/admin-portal/notifications-overview';
 
+/**
+ * Point d'entrée de la page d'accueil du dashboard admin.
+ * Englobe le contenu dans un `Suspense` car `AdminDashboardContent` utilise
+ * `useSearchParams`, qui nécessite une frontière de suspension en App Router.
+ */
 export default function AdminDashboardPage() {
   return (
     <Suspense fallback={null}>
@@ -28,6 +33,13 @@ export default function AdminDashboardPage() {
   );
 }
 
+/**
+ * Sélectionne la section du portail admin à afficher en fonction du
+ * paramètre d'URL `section`. Ce routage par query param permet de garder
+ * une seule page tout en donnant une URL partageable/bookmarkable à chaque
+ * sous-vue (messages, activité, annonces, etc.). Sans paramètre reconnu,
+ * affiche le résumé chiffré du tableau de bord (`DashboardSummary`).
+ */
 function AdminDashboardContent() {
   const searchParams = useSearchParams();
   if (searchParams.get('section') === 'messages') {
@@ -66,6 +78,7 @@ function AdminDashboardContent() {
   return <DashboardSummary />;
 }
 
+/** Indicateurs clés agrégés affichés sur le résumé du tableau de bord admin. */
 type Summary = {
   activeSchools: number;
   enrolledStudents: number;
@@ -75,10 +88,16 @@ type Summary = {
   totalRevenue: number;
 };
 
+/**
+ * Vue par défaut du dashboard admin : charge et affiche les KPI globaux de
+ * la plateforme (étudiants inscrits, établissements actifs, candidatures,
+ * revenus, taux d'acceptation) via `GET /admin/dashboard-summary`.
+ */
 function DashboardSummary() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /** Récupère le résumé chiffré du tableau de bord admin depuis l'API. */
   const fetchSummary = useCallback(async () => {
     try {
       setLoading(true);
@@ -94,6 +113,9 @@ function DashboardSummary() {
 
   useEffect(() => {
     let active = true;
+    // Déféré via une microtâche pour laisser le rendu initial se produire
+    // avant de déclencher l'appel réseau ; `active` évite de mettre à jour
+    // l'état si le composant est démonté entre-temps.
     void Promise.resolve().then(() => {
       if (active) return fetchSummary();
     });
@@ -148,6 +170,7 @@ function DashboardSummary() {
   );
 }
 
+/** Carte affichant un indicateur clé (icône + libellé + valeur) avec une teinte de couleur donnée. */
 function Kpi({ icon: Icon, tone, label, value }: { icon: LucideIcon; tone: 'indigo' | 'green' | 'blue' | 'orange'; label: string; value: string }) {
   const tones = { indigo: 'bg-indigo-100 text-indigo-600', green: 'bg-emerald-100 text-emerald-600', blue: 'bg-blue-100 text-blue-500', orange: 'bg-orange-100 text-orange-500' };
   return (

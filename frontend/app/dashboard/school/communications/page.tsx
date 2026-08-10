@@ -16,11 +16,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Annonce diffusée par l'établissement, telle que renvoyée par `GET /schools/me/announcements`. */
 type Announcement = {
   id: string;
   title: string;
   body: string;
+  /** Type de ciblage de l'annonce (clé de `TARGETS`). */
   targetType: string;
+  /** Classes ciblées lorsque `targetType === 'CLASSES'`. */
   targetClasses: string[];
   imageUrl?: string | null;
   createdAt: string;
@@ -40,8 +43,10 @@ type TeacherAssignment = {
   specialty?: string | null;
   teacher: { user: { email: string } };
 };
+/** Métadonnées de pagination de l'historique des annonces. */
 type Meta = { page: number; totalPages: number };
 
+/** Libellés FR des modes de ciblage disponibles pour une annonce. */
 const TARGETS: Record<string, string> = {
   ALL_STUDENTS: 'Tous les étudiants',
   CLASSES: 'Classes spécifiques',
@@ -50,6 +55,14 @@ const TARGETS: Record<string, string> = {
   EVERYONE: 'Tout le monde (étudiants et professeurs)',
 };
 
+/**
+ * Page « Communications » du tableau de bord établissement
+ * (route App Router `/dashboard/school/communications`).
+ * Client component (`'use client'`) : formulaire de diffusion d'annonces (destinataires
+ * ciblés par classe, étudiants ou professeurs, avec photo facultative) via
+ * `POST /schools/me/announcements`, et historique paginé des annonces déjà envoyées
+ * avec leur taux de lecture.
+ */
 export default function SchoolCommunicationsPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -70,6 +83,7 @@ export default function SchoolCommunicationsPage() {
   });
   const [sending, setSending] = useState(false);
 
+  /** Charge une page de l'historique des annonces déjà envoyées via `GET /schools/me/announcements`. */
   const loadHistory = useCallback(async (page = 1) => {
     try {
       const response = await apiClient.get(
@@ -83,6 +97,8 @@ export default function SchoolCommunicationsPage() {
     }
   }, []);
 
+  // Charge une seule fois les listes de destinataires possibles (classes, professeurs)
+  // puis l'historique des annonces déjà envoyées.
   useEffect(() => {
     let active = true;
     void Promise.resolve().then(async () => {
@@ -105,6 +121,8 @@ export default function SchoolCommunicationsPage() {
     };
   }, [loadHistory]);
 
+  // Recherche d'étudiants avec debounce de 250ms pour limiter les appels API pendant la frappe
+  // (utilisé uniquement quand le ciblage « Étudiants spécifiques » est actif).
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
@@ -125,6 +143,8 @@ export default function SchoolCommunicationsPage() {
     };
   }, [studentSearch]);
 
+  // Filtrage des professeurs côté client (liste déjà chargée), contrairement à la recherche
+  // d'étudiants qui interroge l'API : le nombre de professeurs est jugé assez faible pour cela.
   const filteredTeachers = useMemo(() => {
     const query = teacherSearch.trim().toLowerCase();
     if (!query) return teachers;
@@ -137,6 +157,7 @@ export default function SchoolCommunicationsPage() {
     );
   }, [teacherSearch, teachers]);
 
+  /** Ajoute/retire une valeur d'une liste de sélection (classes, étudiants ou professeurs). */
   const toggle = (
     value: string,
     setter: React.Dispatch<React.SetStateAction<string[]>>,
@@ -147,6 +168,11 @@ export default function SchoolCommunicationsPage() {
         : [...current, value],
     );
 
+  /**
+   * Valide qu'au moins un destinataire est sélectionné selon le mode de ciblage choisi,
+   * puis envoie l'annonce (`POST /schools/me/announcements`) et, si une photo a été fournie,
+   * l'upload séparément vers l'annonce créée. Réinitialise le formulaire en cas de succès.
+   */
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (targetType === 'CLASSES' && selectedClasses.length === 0)
@@ -418,6 +444,10 @@ export default function SchoolCommunicationsPage() {
   );
 }
 
+/**
+ * Liste de sélection multiple (classes, étudiants ou professeurs) pour le ciblage d'une annonce,
+ * avec recherche optionnelle et compteur d'éléments sélectionnés.
+ */
 function TargetList({
   label,
   search,
@@ -481,6 +511,7 @@ function TargetList({
   );
 }
 
+/** Nom affichable d'un étudiant (prénom + nom), avec repli sur son email si absents. */
 function studentName(student: Student) {
   return (
     [student.firstName, student.lastName].filter(Boolean).join(' ') ||
@@ -488,6 +519,7 @@ function studentName(student: Student) {
   );
 }
 
+/** Résumé textuel des destinataires d'une annonce, affiché dans l'historique. */
 function targetSummary(announcement: Announcement) {
   if (announcement.targetType === 'CLASSES')
     return `Classe${announcement.targetClasses.length > 1 ? 's' : ''} : ${announcement.targetClasses.join(', ')}`;

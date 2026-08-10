@@ -9,6 +9,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
+/** Catégories de partenaires financiers proposées sur la plateforme. */
 export const FINANCIAL_PARTNER_TYPES = [
   'BANK',
   'MOBILE_MONEY',
@@ -17,6 +18,7 @@ export const FINANCIAL_PARTNER_TYPES = [
   'OTHER',
 ] as const;
 
+/** Données requises pour créer un partenaire financier. */
 export class CreateFinancialPartnerDto {
   @ApiProperty({ example: 'BNI Madagascar' })
   @IsString()

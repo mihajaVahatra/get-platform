@@ -4,10 +4,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCompetitionDto } from './dto/create-competition.dto';
 import { UpdateCompetitionDto } from './dto/update-competition.dto';
 
+/** Gère les concours d'admission : liste paginée/filtrée, création, mise à jour et suppression logique. */
 @Injectable()
 export class CompetitionService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Retourne une page de concours (non supprimés) avec le nombre total et le nombre de
+   * pages, filtrables par école, statut et recherche insensible à la casse sur le nom.
+   * `page`/`limit` sont bornés (page >= 1, limit entre 1 et 100) pour éviter les requêtes abusives.
+   */
   async findAll(
     page = 1,
     limit = 20,
@@ -47,6 +53,7 @@ export class CompetitionService {
     };
   }
 
+  /** Crée un concours ; le statut par défaut est `PLANNED` si non fourni. */
   async create(dto: CreateCompetitionDto) {
     return this.prisma.competition.create({
       data: {
@@ -68,6 +75,10 @@ export class CompetitionService {
     });
   }
 
+  /**
+   * Met à jour un concours existant.
+   * @throws {NotFoundException} Si le concours n'existe pas (ou est supprimé).
+   */
   async update(id: string, dto: UpdateCompetitionDto) {
     await this.ensureExists(id);
     return this.prisma.competition.update({
@@ -91,6 +102,11 @@ export class CompetitionService {
     });
   }
 
+  /**
+   * Supprime logiquement un concours (marque `deletedAt` et désactive `isActive`) plutôt
+   * que de le supprimer physiquement, afin de conserver l'historique.
+   * @throws {NotFoundException} Si le concours n'existe pas (ou est déjà supprimé).
+   */
   async delete(id: string) {
     await this.ensureExists(id);
     return this.prisma.competition.update({
@@ -99,6 +115,10 @@ export class CompetitionService {
     });
   }
 
+  /**
+   * Vérifie qu'un concours existe et n'est pas supprimé logiquement.
+   * @throws {NotFoundException} Sinon.
+   */
   private async ensureExists(id: string) {
     const competition = await this.prisma.competition.findFirst({
       where: { id, deletedAt: null },

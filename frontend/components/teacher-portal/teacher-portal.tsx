@@ -51,6 +51,7 @@ import { TeacherDashboard } from './teacher-dashboard';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 
+/** Vue principale du portail professeur, pilotée par le paramètre d'URL `?view=`. */
 type View =
   | 'dashboard'
   | 'courses'
@@ -66,6 +67,7 @@ type View =
   | 'announcements'
   | 'settings';
 
+/** Onglet actif dans la vue "Détail d'un cours", piloté par le paramètre d'URL `?tab=`. */
 type CourseTab =
   | 'overview'
   | 'content'
@@ -75,6 +77,7 @@ type CourseTab =
   | 'grades'
   | 'settings';
 
+/** Cours enseigné par le professeur, tel que listé dans la vue "Mes cours". */
 type CourseSummary = {
   id: string;
   code: string;
@@ -95,10 +98,12 @@ type CourseSummary = {
   };
 };
 
+/** Établissement dans lequel le professeur intervient. */
 type TeacherSchool = {
   school: { id: string; name: string; slug: string };
 };
 
+/** Ressource pédagogique attachée à un chapitre de cours (lien, fichier, etc.). */
 type CourseResource = {
   id: string;
   title: string;
@@ -106,11 +111,13 @@ type CourseResource = {
   type: string;
 };
 
+/** Ressource enrichie du contexte de son chapitre et de son cours, utilisée dans la vue globale "Ressources". */
 type TeacherResource = CourseResource & {
   createdAt: string;
   chapter: { title: string; course: { id: string; title: string } };
 };
 
+/** Chapitre d'un cours ; `isPublished` détermine s'il est visible par les étudiants. */
 type CourseChapter = {
   id: string;
   title: string;
@@ -121,6 +128,7 @@ type CourseChapter = {
   resources: CourseResource[];
 };
 
+/** Détail complet d'un cours (fiche affichée dans la vue "Détail d'un cours"), incluant chapitres, évaluations, devoirs et réglages pédagogiques. */
 type CourseDetailData = Omit<CourseSummary, 'school' | '_count'> & {
   schoolId: string;
   chapters: CourseChapter[];
@@ -132,6 +140,7 @@ type CourseDetailData = Omit<CourseSummary, 'school' | '_count'> & {
   notifyOnPublish: boolean;
 };
 
+/** Inscription d'un étudiant à un cours, avec ses informations d'identité minimales. */
 type CourseEnrollment = {
   id: string;
   student: {
@@ -142,6 +151,7 @@ type CourseEnrollment = {
   };
 };
 
+/** Évaluation programmée pour un cours (contrôle, examen, etc.), avec son coefficient dans le calcul de moyenne. */
 type Evaluation = {
   id: string;
   courseId: string;
@@ -151,6 +161,7 @@ type Evaluation = {
   coefficient: number;
 };
 
+/** Note attribuée à un étudiant pour une évaluation donnée. */
 type EvaluationGrade = {
   id: string;
   studentId: string;
@@ -158,12 +169,14 @@ type EvaluationGrade = {
   comment?: string | null;
 };
 
+/** Ligne du carnet de notes associant un étudiant à sa note pour l'évaluation sélectionnée (note absente si non encore saisie). */
 type EvaluationGradeEntry = {
   studentId: string;
   student: CourseEnrollment['student'];
   grade: EvaluationGrade | null;
 };
 
+/** Annonce envoyée par le professeur aux étudiants d'un cours, avec le suivi de lecture. */
 type TeacherAnnouncement = {
   id: string;
   title: string;
@@ -173,6 +186,7 @@ type TeacherAnnouncement = {
   readCount: number;
 };
 
+/** Profil du professeur connecté (identité, coordonnées, préférences liées au compte utilisateur). */
 type TeacherProfile = {
   id: string;
   firstName?: string | null;
@@ -182,8 +196,10 @@ type TeacherProfile = {
   user: { email: string; theme?: string };
 };
 
+/** Préférence d'apparence de l'application choisie par le professeur. */
 type ThemePreference = 'light' | 'dark' | 'system';
 
+/** Applique le thème clair/sombre au document en fonction de la préférence choisie (ou de la préférence système si `theme === 'system'`). */
 function applyTheme(theme: string) {
   const isDark =
     theme === 'dark' ||
@@ -193,8 +209,20 @@ function applyTheme(theme: string) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
+/** Taille de page utilisée par toutes les listes paginées du portail professeur (étudiants, notes, ressources...). */
 const LIST_PAGE_SIZE = 25;
 
+/**
+ * Point d'entrée du portail professeur.
+ *
+ * Aiguille vers la vue à afficher en fonction du paramètre d'URL `?view=`
+ * (dashboard, cours, étudiants, évaluations, notes, planning, disponibilités,
+ * devoirs, ressources, messages, annonces, réglages), et vers l'onglet actif
+ * (`?tab=`) et le cours consulté (`?courseId=`) pour la vue "Détail d'un cours".
+ *
+ * Au montage, récupère le profil du professeur (`GET /teacher/profile`) pour
+ * appliquer sa préférence de thème clair/sombre à l'ensemble de la page.
+ */
 export function TeacherPortal() {
   const params = useSearchParams();
   const view = (params.get('view') || 'dashboard') as View;
@@ -232,6 +260,7 @@ export function TeacherPortal() {
   return <Dashboard />;
 }
 
+/** Vue "Tableau de bord" : délègue l'affichage à `TeacherDashboard` dans le gabarit de page standard. */
 function Dashboard() {
   return (
     <Page
@@ -243,6 +272,13 @@ function Dashboard() {
   );
 }
 
+/**
+ * Vue "Mes cours" : liste les cours du professeur avec filtre par
+ * établissement, recherche texte et bascule entre cours actifs et archivés
+ * (`isPublished`). Charge en parallèle les cours (`GET /teacher/courses`) et
+ * les établissements (`GET /teacher/courses/schools`) au montage. Chaque
+ * cours mène vers sa fiche détaillée (`CourseDetail`).
+ */
 function Courses() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [schools, setSchools] = useState<TeacherSchool[]>([]);
@@ -402,6 +438,13 @@ function Courses() {
   );
 }
 
+/**
+ * Vue "Détail d'un cours" : charge la fiche complète du cours
+ * (`GET /teacher/courses/:id`) et affiche l'onglet demandé (`tab`) parmi
+ * aperçu, contenu, étudiants, évaluations, devoirs, notes et réglages.
+ * Gère les états de chargement et d'échec (cours introuvable ou non
+ * accessible avec le compte courant).
+ */
 function CourseDetail({
   tab,
   courseId,
@@ -491,6 +534,7 @@ function CourseDetail({
   );
 }
 
+/** Barre d'onglets de navigation entre les sous-vues de la fiche d'un cours (aperçu, contenu, étudiants, etc.). */
 function CourseTabs({
   active,
   courseId,
@@ -522,6 +566,7 @@ function CourseTabs({
   );
 }
 
+/** Onglet "Aperçu" d'un cours : informations générales, statistiques (inscrits, chapitres, évaluations, devoirs) et dernières ressources publiées. */
 function CourseOverview({ course }: { course: CourseDetailData }) {
   const resources = course.chapters.flatMap((chapter) => chapter.resources);
 
@@ -584,6 +629,18 @@ function CourseOverview({ course }: { course: CourseDetailData }) {
   );
 }
 
+/**
+ * Onglet "Contenu" d'un cours : gestion complète des chapitres et de leurs
+ * ressources pédagogiques (CRUD). Chaque mutation appelle l'API puis met à
+ * jour l'objet `course` via `onCourseChange` pour garder l'état du parent
+ * synchronisé (pas de rechargement complet de la fiche).
+ *
+ * Endpoints utilisés : création/modification/suppression de chapitre
+ * (`POST|PATCH|DELETE /teacher/courses/:id/chapters[/:chapterId]`),
+ * publication de chapitre (`PATCH .../chapters/:chapterId/publish`), et
+ * création/modification/suppression de ressource
+ * (`POST|PATCH|DELETE .../chapters/:chapterId/resources[/:resourceId]`).
+ */
 function CourseContent({
   course,
   onCourseChange,
@@ -698,6 +755,8 @@ function CourseContent({
       try {
         setSaving(true);
         const endpoint = `/teacher/courses/${course.id}/chapters/${resourceChapter.id}/resources`;
+        // Deux modes d'ajout de ressource : upload de fichier (multipart/form-data) ou
+        // simple lien externe (JSON) — l'URL n'est envoyée que dans ce second cas.
         const response = resourceFile
           ? await (() => {
               const formData = new FormData();
@@ -1327,10 +1386,18 @@ function CourseContent({
   );
 }
 
+/** Onglet "Étudiants" d'un cours : délègue à `CourseStudentList` pour afficher la liste paginée des inscrits. */
 function CourseStudents({ courseId }: { courseId: string }) {
   return <CourseStudentList courseId={courseId} />;
 }
 
+/**
+ * Composant de pagination générique pour les listes du portail professeur.
+ * Ne s'affiche que si `totalItems` dépasse `LIST_PAGE_SIZE` (une seule page
+ * ne nécessite pas de contrôle de pagination). `page` est borné à
+ * `totalPages` pour éviter un état incohérent si la page courante devient
+ * invalide après un changement de filtre.
+ */
 function ListPagination({
   page,
   totalItems,
@@ -1393,6 +1460,12 @@ function ListPagination({
   );
 }
 
+/**
+ * Liste paginée des étudiants inscrits à un cours donné
+ * (`GET /teacher/courses/:id/students`, paginé côté serveur avec
+ * `LIST_PAGE_SIZE`). Utilisée à la fois par l'onglet "Étudiants" d'un cours
+ * et par la vue globale "Étudiants" une fois un cours sélectionné.
+ */
 function CourseStudentList({ courseId }: { courseId: string }) {
   const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
   const [page, setPage] = useState(1);
@@ -1474,18 +1547,29 @@ function CourseStudentList({ courseId }: { courseId: string }) {
   );
 }
 
+/** Onglet "Évaluations" d'un cours : délègue à `EvaluationPanel`. */
 function CourseEvaluations({ courseId }: { courseId: string }) {
   return <EvaluationPanel courseId={courseId} />;
 }
 
+/** Onglet "Devoirs" d'un cours : réutilise le composant partagé `TeacherAssignments` verrouillé sur ce cours. */
 function CourseAssignments({ courseId }: { courseId: string }) {
   return <TeacherAssignments courseId={courseId} />;
 }
 
+/** Onglet "Notes" d'un cours : délègue à `GradeBook`. */
 function CourseGrades({ courseId }: { courseId: string }) {
   return <GradeBook courseId={courseId} />;
 }
 
+/**
+ * Onglet "Réglages" d'un cours : permet de modifier le message d'accueil et
+ * deux options pédagogiques (autorisation des messages de groupe,
+ * notification des étudiants à la publication de contenu) via
+ * `PATCH /teacher/courses/:id/settings`. Le nom du cours est affiché en
+ * lecture seule : sa modification est réservée à l'administration de
+ * l'établissement (changement structurel).
+ */
 function CourseSettings({
   course,
   onCourseChange,
@@ -1596,6 +1680,11 @@ function CourseSettings({
   );
 }
 
+/**
+ * Vue "Étudiants" : sélecteur de cours parmi ceux du professeur
+ * (`GET /teacher/courses`) puis affichage de la liste paginée des inscrits
+ * via `CourseStudentList`, avec un raccourci vers la fiche complète du cours.
+ */
 function Students() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -1690,6 +1779,15 @@ function Students() {
   );
 }
 
+/**
+ * Hook partagé par les vues "Évaluations" et "Notes" : charge la liste des
+ * cours du professeur (`GET /teacher/courses`) et gère la sélection du cours
+ * actif, en conservant la sélection courante si elle reste valide après un
+ * rechargement (sinon retombe sur le premier cours de la liste).
+ *
+ * @returns `courses`, `selectedCourseId`/`setSelectedCourseId`, `loading`,
+ * `failed` et `fetchCourses` (pour relancer le chargement, ex. bouton "Réessayer").
+ */
 function useTeacherCourses() {
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');

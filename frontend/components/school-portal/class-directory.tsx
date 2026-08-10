@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
@@ -32,11 +33,13 @@ function axiosMessage(error: unknown): string | undefined {
 type AcademicYear = { id: string; label: string };
 type Program = { id: string; name: string };
 type Subject = { id: string; name: string };
+/** Enseignant éligible à une affectation, avec la liste des matières qu'il est qualifié à enseigner. */
 type TeacherOption = {
   teacherId: string;
   teacher: { user: { email: string } };
   subjects: { subject: { id: string } }[];
 };
+/** Besoin horaire d'une classe pour une matière donnée, avec l'éventuelle affectation d'un professeur. */
 type Requirement = {
   id: string;
   hoursPerWeek: number;
@@ -61,6 +64,19 @@ type SchoolClass = {
   requirements: Requirement[];
 };
 
+/**
+ * Page de gestion des classes de l'établissement.
+ *
+ * Charge en parallèle les classes, années scolaires, filières, matières et
+ * enseignants de l'établissement (via `apiClient`), puis affiche la liste
+ * des classes sous forme de cartes repliables (`ClassCard`). Permet de créer
+ * une nouvelle classe via `CreateClassDialog`.
+ *
+ * États clés :
+ * - `loading` : indique le chargement initial des données.
+ * - `createOpen` : contrôle l'ouverture du dialogue de création de classe.
+ * - `expanded` : id de la classe actuellement dépliée (une seule à la fois).
+ */
 export function ClassDirectory() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [years, setYears] = useState<AcademicYear[]>([]);
@@ -71,6 +87,9 @@ export function ClassDirectory() {
   const [createOpen, setCreateOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // Charge en une seule passe toutes les données nécessaires à l'écran (classes, années,
+  // filières, matières actives et enseignants), utilisée à la fois au montage et après
+  // toute mutation (création de classe, ajout/retrait de matière, affectation de prof...).
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
@@ -96,6 +115,9 @@ export function ClassDirectory() {
 
   useEffect(() => {
     let active = true;
+    // Différer l'appel via une microtask (plutôt qu'un appel direct) évite un warning
+    // React lors du double montage en mode strict/dev, tout en gardant l'annulation
+    // possible via le flag `active` si le composant est démonté entre-temps.
     void Promise.resolve().then(() => {
       if (active) return loadAll();
     });
@@ -161,6 +183,17 @@ export function ClassDirectory() {
   );
 }
 
+/**
+ * Dialogue de création d'une nouvelle classe.
+ *
+ * @param years - Années scolaires disponibles (la première est présélectionnée).
+ * @param programs - Filières disponibles pour un rattachement facultatif.
+ * @param onClose - Appelé pour fermer le dialogue sans créer de classe.
+ * @param onCreated - Appelé après une création réussie (déclenche le rechargement des classes côté parent).
+ *
+ * Envoie `POST /schools/me/classes` avec le nom, l'année scolaire, et
+ * éventuellement la filière, le niveau et l'effectif.
+ */
 function CreateClassDialog({
   years,
   programs,
@@ -281,6 +314,20 @@ function CreateClassDialog({
   );
 }
 
+/**
+ * Carte repliable d'une classe : en-tête résumant nom/année/effectif/filière,
+ * et section dépliée permettant de gérer la filière rattachée, les besoins
+ * horaires par matière (ajout/retrait) et l'affectation d'un enseignant
+ * qualifié à chaque matière.
+ *
+ * @param schoolClass - Classe affichée.
+ * @param subjects - Toutes les matières de l'établissement (sert à proposer celles non encore requises).
+ * @param teachers - Tous les enseignants, filtrés localement par matière pour ne proposer que ceux qualifiés.
+ * @param programs - Filières disponibles pour le rattachement de la classe.
+ * @param expanded - Indique si la carte est actuellement dépliée.
+ * @param onToggle - Bascule l'état déplié/replié (géré par le parent, une seule carte ouverte à la fois).
+ * @param onChanged - Appelé après toute mutation réussie pour recharger les données côté parent.
+ */
 function ClassCard({
   schoolClass,
   subjects,
@@ -302,6 +349,7 @@ function ClassCard({
   const [hoursPerWeek, setHoursPerWeek] = useState('4');
   const [adding, setAdding] = useState(false);
 
+  // Modifie la filière rattachée à la classe (PATCH partiel), `programId` vide = dissociation.
   const updateProgram = async (programId: string) => {
     try {
       await apiClient.patch(`/schools/me/classes/${schoolClass.id}`, {
@@ -314,11 +362,13 @@ function ClassCard({
     }
   };
 
+  // Matières encore libres pour cette classe (pas déjà associées à un besoin horaire).
   const availableSubjects = useMemo(
     () => subjects.filter((subject) => !schoolClass.requirements.some((req) => req.subject.id === subject.id)),
     [subjects, schoolClass.requirements],
   );
 
+  // Ajoute un besoin horaire (matière + heures/semaine) à la classe pour son année scolaire courante.
   const addRequirement = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -341,6 +391,7 @@ function ClassCard({
     })();
   };
 
+  // Retire un besoin horaire (et donc l'affectation de professeur associée) de la classe.
   const removeRequirement = async (requirementId: string) => {
     try {
       await apiClient.delete(`/schools/me/classes/${schoolClass.id}/requirements/${requirementId}`);
@@ -351,6 +402,7 @@ function ClassCard({
     }
   };
 
+  // Affecte un enseignant qualifié à un besoin horaire de la classe.
   const assignTeacher = async (requirementId: string, teacherId: string) => {
     if (!teacherId) return;
     try {
@@ -364,6 +416,7 @@ function ClassCard({
     }
   };
 
+  // Retire l'enseignant actuellement affecté à un besoin horaire, sans supprimer le besoin lui-même.
   const unassignTeacher = async (requirementId: string) => {
     try {
       await apiClient.delete(`/schools/me/classes/${schoolClass.id}/requirements/${requirementId}/teacher`);

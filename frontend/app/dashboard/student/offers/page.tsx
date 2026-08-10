@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import toast from 'react-hot-toast';
 
+/** Offre de formation publiée par une école, telle que retournée par l'API `/offers`. */
 type Offer = {
   id: string;
   title: string;
@@ -28,6 +29,16 @@ type Offer = {
   };
 };
 
+/**
+ * Route `/dashboard/student/offers` : client component ('use client') permettant à l'étudiant
+ * de parcourir et filtrer les offres de formation ouvertes (par diplôme, tranche de frais,
+ * ville), puis de postuler à une offre via une modale de confirmation.
+ * Appels API via `apiClient` :
+ * - `GET /offers/diplomas`, `/platform-cities`, `/fee-brackets` : options des filtres.
+ * - `GET /offers` (avec filtres en query params, `isOpen=true`) : liste des offres.
+ * - `GET /applications/me` : détermine les offres auxquelles l'étudiant a déjà postulé.
+ * - `POST /applications` : soumet une candidature pour une offre.
+ */
 export default function StudentOffersPage() {
   const t = useTranslations('StudentOffers');
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -52,6 +63,7 @@ export default function StudentOffersPage() {
     { id: string; label: string; minFees: number; maxFees: number | null; isActive: boolean }[]
   >([]);
 
+  /** Charge les options de filtrage (diplômes disponibles, villes actives, tranches de frais actives). */
   const fetchFilterOptions = async () => {
     try {
       const [diplomasRes, citiesRes, bracketsRes] = await Promise.all([
@@ -101,6 +113,7 @@ export default function StudentOffersPage() {
     }
   };
 
+  /** Charge les candidatures existantes de l'étudiant pour marquer les offres déjà postulées (`appliedOffers`). */
   const fetchMyApplications = async () => {
     try {
       const response = await apiClient.get('/applications/me');
@@ -124,6 +137,11 @@ export default function StudentOffersPage() {
     });
   }, []);
 
+  /**
+   * Soumet une candidature pour l'offre donnée. Le backend traite `offerIds` comme un tableau
+   * (candidature multiple potentielle) mais un seul ID est envoyé ici ; le succès est vérifié
+   * via la présence de l'offre dans `submitted` plutôt que via le seul statut HTTP.
+   */
   const handleApply = async (offerId: string) => {
     setIsSubmitting(true);
     try {

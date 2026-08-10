@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Concours d'entrée organisé par un établissement, tel que renvoyé par l'API. */
 type CompetitionItem = {
   id: string;
   name: string;
@@ -34,8 +35,10 @@ type CompetitionItem = {
   isActive: boolean;
 };
 
+/** Option simplifiée pour le filtre/formulaire de sélection d'école. */
 type SchoolOption = { id: string; name: string };
 
+/** Libellés français des statuts de concours. */
 const STATUS_LABELS: Record<string, string> = {
   PLANNED: 'Planifié',
   OPEN: 'Inscriptions ouvertes',
@@ -44,6 +47,7 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Annulé',
 };
 
+/** Classes Tailwind (fond/texte) associées à chaque statut de concours pour le badge. */
 const STATUS_STYLES: Record<string, string> = {
   PLANNED: 'bg-slate-100 text-slate-600',
   OPEN: 'bg-emerald-50 text-emerald-600',
@@ -52,6 +56,7 @@ const STATUS_STYLES: Record<string, string> = {
   CANCELLED: 'bg-rose-50 text-rose-600',
 };
 
+/** Formate une date ISO en date longue localisée en français, ou `null` si absente. */
 const dateOf = (date?: string | null) =>
   date
     ? new Intl.DateTimeFormat('fr-FR', {
@@ -61,13 +66,20 @@ const dateOf = (date?: string | null) =>
       }).format(new Date(date))
     : null;
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/** Nombre de concours chargés par page. */
 const PAGE_SIZE = 20;
 
+/**
+ * Écran d'administration des concours d'entrée organisés par les
+ * établissements : liste paginée avec recherche, création, édition et
+ * suppression.
+ */
 export function CompetitionsManager() {
   const [competitions, setCompetitions] = useState<CompetitionItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -80,6 +92,7 @@ export function CompetitionsManager() {
   const [toDelete, setToDelete] = useState<CompetitionItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /** Charge une page de concours (`GET /competitions`), filtrée par recherche texte si renseignée. */
   const fetchCompetitions = useCallback(async () => {
     try {
       setLoading(true);
@@ -106,6 +119,7 @@ export function CompetitionsManager() {
     };
   }, [fetchCompetitions]);
 
+  // Charge la liste des écoles une seule fois au montage pour alimenter le formulaire.
   useEffect(() => {
     let active = true;
     apiClient
@@ -119,6 +133,7 @@ export function CompetitionsManager() {
     };
   }, []);
 
+  /** Supprime le concours sélectionné (`toDelete`) puis rafraîchit la liste. */
   const removeCompetition = async () => {
     if (!toDelete) return;
     try {
@@ -297,6 +312,13 @@ export function CompetitionsManager() {
   );
 }
 
+/**
+ * Modale de création/édition d'un concours.
+ * @param competition Concours à éditer, ou `null` pour créer un nouveau concours.
+ * @param schools Liste des écoles disponibles pour le sélecteur d'établissement.
+ * @param onClose Ferme la modale sans sauvegarder.
+ * @param onSaved Appelé après une création/mise à jour réussie (déclenche le rechargement de la liste côté parent).
+ */
 function CompetitionForm({
   competition,
   schools,
@@ -329,6 +351,7 @@ function CompetitionForm({
   const [status, setStatus] = useState(competition?.status || 'PLANNED');
   const [saving, setSaving] = useState(false);
 
+  /** Valide et envoie le formulaire : création (`POST`) ou mise à jour (`PATCH`) selon la présence de `competition`. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim() || !schoolId) return;

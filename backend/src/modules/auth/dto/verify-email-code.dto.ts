@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, Length } from 'class-validator';
 
+/** Vérification d'email par code à 6 chiffres (alternative au lien). */
 export class VerifyEmailCodeDto {
   @ApiProperty({ example: 'jean.rakoto@email.com' })
   @IsEmail()

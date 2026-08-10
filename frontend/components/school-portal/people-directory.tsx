@@ -51,6 +51,7 @@ type AssignmentForm = {
   specialty: string;
   subjectIds: string[];
 };
+/** Affectation inactive (professeur déjà connu de l'établissement mais retiré), proposée pour une réaffectation rapide. */
 type InactiveTeacherAssignment = {
   teacherId: string;
   teacher: { id: string; user: { email: string } };
@@ -63,6 +64,20 @@ const EMPTY_FORM: AssignmentForm = {
   subjectIds: [],
 };
 
+/**
+ * Page de gestion des professeurs affectés à l'établissement.
+ *
+ * Charge les affectations actives et inactives (`/schools/me/teachers` et
+ * `/schools/me/teachers/inactive`), ainsi que les matières actives, et
+ * permet :
+ * - d'affecter un professeur déjà inactif (réaffectation) ou recherché par e-mail,
+ * - de modifier le département/la spécialité/les matières d'une affectation existante,
+ * - de retirer (désactiver) une affectation.
+ *
+ * États clés :
+ * - `activeDialog` : `'assign' | 'edit' | null`, pilote le contenu du dialogue partagé.
+ * - `teacherEmail` / `selectedTeacherEmail` : recherche d'un professeur par e-mail non encore affecté.
+ */
 export function TeacherDirectory() {
   const [teachers, setTeachers] = useState<TeacherAssignment[]>([]);
   const [inactiveTeachers, setInactiveTeachers] = useState<
@@ -82,6 +97,7 @@ export function TeacherDirectory() {
     { id: string; name: string; isActive: boolean }[]
   >([]);
 
+  // Charge en parallèle les affectations actives et inactives de l'établissement.
   const fetchTeachers = useCallback(async () => {
     try {
       const [teachersResponse, inactiveTeachersResponse] = await Promise.all([
@@ -100,6 +116,8 @@ export function TeacherDirectory() {
 
   useEffect(() => {
     let active = true;
+    // Microtask différée pour éviter un warning React en double-montage strict/dev ;
+    // le flag `active` empêche toute mise à jour d'état après démontage.
     void Promise.resolve().then(() => {
       if (active) return fetchTeachers();
     });
@@ -107,6 +125,7 @@ export function TeacherDirectory() {
       active = false;
     };
   }, [fetchTeachers]);
+  // Charge séparément les matières actives, utilisées pour les cases à cocher du formulaire d'affectation.
   useEffect(() => {
     void apiClient
       .get('/schools/me/subjects')
@@ -119,6 +138,7 @@ export function TeacherDirectory() {
       );
   }, []);
 
+  // Filtre insensible à la casse sur l'e-mail, le département ou la spécialité.
   const filteredTeachers = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return teachers;
@@ -131,6 +151,7 @@ export function TeacherDirectory() {
     );
   }, [search, teachers]);
 
+  /** Réinitialise le formulaire et ouvre le dialogue en mode « nouvelle affectation ». */
   const openAssignDialog = () => {
     setForm(EMPTY_FORM);
     setSelected(null);
@@ -138,6 +159,8 @@ export function TeacherDirectory() {
     setSelectedTeacherEmail('');
     setActiveDialog('assign');
   };
+  // Recherche un compte professeur existant par e-mail exact (pour affecter un professeur
+  // qui n'apparaît pas encore dans la liste des affectations inactives de l'établissement).
   const searchTeacher = async () => {
     try {
       const response = await apiClient.get(
@@ -154,6 +177,7 @@ export function TeacherDirectory() {
     }
   };
 
+  /** Ouvre le dialogue en mode édition, pré-rempli avec les valeurs de l'affectation sélectionnée. */
   const openEditDialog = (assignment: TeacherAssignment) => {
     setSelected(assignment);
     setForm({
@@ -165,6 +189,8 @@ export function TeacherDirectory() {
     setActiveDialog('edit');
   };
 
+  // Crée une nouvelle affectation (POST) ou met à jour l'affectation sélectionnée (PATCH),
+  // selon le mode courant du dialogue.
   const submitAssignment = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -192,6 +218,8 @@ export function TeacherDirectory() {
     })();
   };
 
+  // Retire le professeur de l'établissement en désactivant son affectation (isActive: false),
+  // sans supprimer son compte ni son historique.
   const deactivateAssignment = (assignment: TeacherAssignment) => {
     void (async () => {
       try {
@@ -471,6 +499,7 @@ export function TeacherDirectory() {
   );
 }
 
+/** Badge visuel indiquant qu'une affectation professeur est active (liste filtrée en amont, donc toujours « Actif »). */
 function Status() {
   return (
     <span className="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-600">

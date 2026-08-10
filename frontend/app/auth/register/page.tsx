@@ -23,6 +23,7 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { Logo } from '@/components/Logo';
 
+/** Schéma de validation du formulaire d'inscription (identité, contact, mot de passe, conditions). */
 const registerSchema = z
   .object({
     firstName: z
@@ -64,6 +65,13 @@ type RegisterForm = z.infer<typeof registerSchema>;
 // changement de code nécessaire) une fois la phase de test terminée.
 const AUTO_EMAIL_ENABLED = process.env.NEXT_PUBLIC_ALLOW_AUTO_EMAIL === 'true';
 
+/**
+ * Génère un email jetable de test à partir du prénom/nom saisis (usage QA uniquement).
+ *
+ * @param firstName - Prénom saisi dans le formulaire.
+ * @param lastName - Nom saisi dans le formulaire.
+ * @returns Un email de la forme `prenom.nom1234@get.mg` (accents supprimés, minuscules).
+ */
 function generateQaEmail(firstName: string, lastName: string): string {
   const slugPart = (value: string) =>
     value

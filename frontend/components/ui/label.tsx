@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/** Libellé de champ de formulaire, stylé pour refléter l'état désactivé du champ associé (via `peer-disabled`). */
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
     <label

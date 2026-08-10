@@ -41,8 +41,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Détail complet d'une candidature, tel que renvoyé par `GET /applications/:id`. */
 type Application = {
   id: string;
+  /** Statut courant dans le pipeline d'admission (clé de `STATUS_LABELS`/`STATUS_COLORS`). */
   status: string;
   score?: number | null;
   submittedAt: string;
@@ -63,6 +65,7 @@ type Application = {
       name: string;
     };
   };
+  /** Historique chronologique des changements de statut du dossier (non trié côté API, voir `timeline` mémoïsé). */
   timeline: {
     id: string;
     status: string;
@@ -71,8 +74,10 @@ type Application = {
   }[];
 };
 
+/** Boîte de dialogue actuellement ouverte pour une action sur le dossier (`null` = aucune). */
 type DialogName = 'test' | 'interview' | 'score' | 'status' | null;
 
+/** Document déposé par le candidat, tel que renvoyé par `GET /applications/:id/documents`. */
 type Document = {
   id: string;
   type: string;
@@ -83,6 +88,7 @@ type Document = {
   uploadedAt: string;
 };
 
+/** Libellés FR pour chaque statut du pipeline d'admission. */
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'En attente',
   PRESELECTED: 'Présélectionné',
@@ -97,6 +103,7 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Annulé',
 };
 
+/** Classes Tailwind de couleur de badge associées à chaque statut du pipeline d'admission. */
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
   PRESELECTED: 'bg-blue-500',
@@ -111,6 +118,12 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-rose-500',
 };
 
+/**
+ * Page « Détail d'une candidature » du tableau de bord établissement
+ * (route App Router `/dashboard/school/applications/[id]`).
+ * Client component (`'use client'`) : enveloppe `SchoolApplicationDetailContent` dans un
+ * `Suspense` car ce dernier lit l'identifiant de route via `useParams`.
+ */
 export default function SchoolApplicationDetailPage() {
   return (
     <Suspense
@@ -123,6 +136,12 @@ export default function SchoolApplicationDetailPage() {
   );
 }
 
+/**
+ * Contenu principal du détail de candidature : affiche les informations du dossier,
+ * son historique de statuts et ses documents, et permet à l'établissement de faire
+ * progresser le dossier (planifier un test/entretien, noter, changer le statut)
+ * via des boîtes de dialogue dédiées.
+ */
 function SchoolApplicationDetailContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -142,6 +161,11 @@ function SchoolApplicationDetailContent() {
     score: '',
   });
 
+  /**
+   * Gestion centralisée des erreurs API pour ce dossier : redirige vers la liste en cas
+   * de 403 (accès refusé), affiche un état « introuvable » en cas de 404, sinon affiche
+   * le message renvoyé par l'API ou un message de repli.
+   */
   const handleApiError = useCallback(
     (error: unknown, fallbackMessage: string) => {
       if (isAxiosError(error)) {
@@ -170,6 +194,7 @@ function SchoolApplicationDetailContent() {
     [router],
   );
 
+  /** Charge le détail de la candidature via `GET /applications/:id`. */
   const fetchApplication = useCallback(async () => {
     try {
       const response = await apiClient.get(`/applications/${id}`);
@@ -182,6 +207,7 @@ function SchoolApplicationDetailContent() {
     }
   }, [handleApiError, id]);
 
+  /** Charge les documents déposés par le candidat via `GET /applications/:id/documents`. */
   const fetchDocuments = useCallback(async () => {
     try {
       const response = await apiClient.get(`/applications/${id}/documents`);
@@ -213,6 +239,8 @@ function SchoolApplicationDetailContent() {
     };
   }, [fetchDocuments]);
 
+  // Tri chronologique croissant de l'historique du dossier (l'API ne garantit pas l'ordre),
+  // pour un affichage fidèle de la progression du candidat.
   const timeline = useMemo(
     () =>
       [...(application?.timeline || [])].sort(
@@ -222,6 +250,7 @@ function SchoolApplicationDetailContent() {
     [application?.timeline],
   );
 
+  /** Formate une date ISO au format jj/mm/aaaa hh:mm. */
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
@@ -231,11 +260,16 @@ function SchoolApplicationDetailContent() {
       minute: '2-digit',
     });
 
+  /** Formate une taille de fichier en Ko (arrondi supérieur) ou en Mo au-delà de 1 Mo. */
   const formatFileSize = (fileSize: number) => {
     if (fileSize < 1024 * 1024) return `${Math.ceil(fileSize / 1024)} Ko`;
     return `${(fileSize / (1024 * 1024)).toFixed(1)} Mo`;
   };
 
+  /**
+   * Exécute une action de mise à jour du dossier (requête API), affiche un toast de succès,
+   * ferme la boîte de dialogue active puis recharge la candidature pour refléter le nouvel état.
+   */
   const runAction = async (
     request: () => Promise<unknown>,
     successMessage: string,
@@ -253,6 +287,7 @@ function SchoolApplicationDetailContent() {
     }
   };
 
+  /** Planifie un test pour le candidat via `POST /applications/:id/schedule-test`. */
   const submitTest = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void runAction(
@@ -261,6 +296,7 @@ function SchoolApplicationDetailContent() {
     );
   };
 
+  /** Planifie un entretien pour le candidat via `POST /applications/:id/schedule-interview`. */
   const submitInterview = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void runAction(
@@ -270,6 +306,7 @@ function SchoolApplicationDetailContent() {
     );
   };
 
+  /** Enregistre une note pour le candidat via `POST /applications/:id/score`. */
   const submitScore = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void runAction(
@@ -282,6 +319,7 @@ function SchoolApplicationDetailContent() {
     );
   };
 
+  /** Change le statut du dossier via `PUT /applications/:id/status`, avec motif/note optionnels. */
   const submitStatus = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void runAction(
@@ -295,6 +333,7 @@ function SchoolApplicationDetailContent() {
     );
   };
 
+  /** Pré-remplit le formulaire de changement de statut avec les valeurs actuelles du dossier avant ouverture. */
   const openStatusDialog = () => {
     setStatusForm({
       status: application?.status || 'PENDING',

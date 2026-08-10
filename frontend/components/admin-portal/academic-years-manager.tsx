@@ -5,19 +5,27 @@ import { CalendarRange, Edit3, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Représente une année scolaire configurée par l'administrateur. */
 type AcademicYear = {
   id: string;
   label: string;
   startDate: string;
   endDate: string;
+  /** Indique si c'est l'année scolaire actuellement active sur la plateforme. */
   isCurrent: boolean;
 };
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/**
+ * Écran d'administration des années scolaires : liste, création, édition et
+ * suppression. Sert de référentiel de périodes que les écoles utilisent pour
+ * organiser leurs classes et emplois du temps.
+ */
 export function AcademicYearsManager() {
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +34,7 @@ export function AcademicYearsManager() {
   const [toDelete, setToDelete] = useState<AcademicYear | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /** Charge la liste des années scolaires depuis l'API (`GET /academic-years`). */
   const fetchYears = useCallback(async () => {
     try {
       setLoading(true);
@@ -49,6 +58,7 @@ export function AcademicYearsManager() {
     };
   }, [fetchYears]);
 
+  /** Supprime l'année scolaire sélectionnée (`toDelete`) puis rafraîchit la liste. */
   const removeYear = async () => {
     if (!toDelete) return;
     try {
@@ -185,6 +195,12 @@ export function AcademicYearsManager() {
   );
 }
 
+/**
+ * Modale de création/édition d'une année scolaire.
+ * @param year Année à éditer, ou `null` pour créer une nouvelle année scolaire.
+ * @param onClose Ferme la modale sans sauvegarder.
+ * @param onSaved Appelé après une création/mise à jour réussie (déclenche le rechargement de la liste côté parent).
+ */
 function AcademicYearForm({
   year,
   onClose,
@@ -202,6 +218,7 @@ function AcademicYearForm({
   const [isCurrent, setIsCurrent] = useState(year?.isCurrent ?? false);
   const [saving, setSaving] = useState(false);
 
+  /** Valide et envoie le formulaire : création (`POST`) ou mise à jour (`PATCH`) selon la présence de `year`. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!label.trim() || !startDate || !endDate) return;

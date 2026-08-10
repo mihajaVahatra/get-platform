@@ -1,5 +1,6 @@
 import { IsString, Matches, MinLength } from 'class-validator';
 
+/** Réinitialisation de mot de passe via token reçu par email. */
 export class ResetPasswordDto {
   @IsString()
   token: string;

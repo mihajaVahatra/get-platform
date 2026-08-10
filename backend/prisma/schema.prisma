@@ -47,6 +47,11 @@ model User {
   // (un JWT stateless ne peut normalement pas être invalidé avant son
   // expiration naturelle).
   sessionVersion      Int       @default(0)
+  // Réinitialisation de mot de passe : token opaque à usage unique (le hash
+  // seul est stocké, jamais le token en clair). Effacés après consommation
+  // ou expiration — voir AuthService.forgotPassword / resetPassword.
+  resetTokenHash      String?   @unique
+  resetTokenExpiresAt DateTime?
   gender              String    @default("MALE") // MALE, FEMALE
   theme               String    @default("system") // light, dark, system
   createdAt           DateTime  @default(now())

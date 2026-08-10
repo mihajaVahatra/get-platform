@@ -16,6 +16,12 @@ import * as crypto from 'crypto';
 export class ServiceApiKeyGuard implements CanActivate {
   constructor(private config: ConfigService) {}
 
+  /**
+   * Vérifie que l'en-tête `x-api-key` de la requête correspond à `INTEGRATION_API_KEY`.
+   * Utilise une comparaison à temps constant (`crypto.timingSafeEqual`) pour éviter
+   * qu'une attaque par mesure de timing ne permette de deviner la clé caractère par
+   * caractère. Lève une `UnauthorizedException` dans tous les cas d'échec.
+   */
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const provided = request.headers['x-api-key'];

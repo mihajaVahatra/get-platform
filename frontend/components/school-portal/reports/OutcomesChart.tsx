@@ -6,12 +6,18 @@ import { apiClient } from '@/lib/api-client';
 import styles from './reports.module.css';
 
 type Outcomes = { accepted: number; rejected: number; waitlisted: number };
+// Configuration statique des trois catégories de décisions finales (ordre d'affichage, couleur, icône).
 const rows = [
   { key: 'accepted' as const, label: 'Acceptées', color: 'var(--outcome-accepted)', Icon: CheckCircle2 },
   { key: 'rejected' as const, label: 'Refusées', color: 'var(--outcome-rejected)', Icon: XCircle },
   { key: 'waitlisted' as const, label: 'Liste d’attente', color: 'var(--outcome-waitlisted)', Icon: Clock3 },
 ];
 
+/**
+ * Graphique en barres résumant les décisions finales prises sur les
+ * candidatures de l'établissement (acceptées / refusées / liste d'attente).
+ * Récupère les compteurs via `GET /schools/me/reports/outcomes` au montage.
+ */
 export function OutcomesChart() {
   const [data, setData] = useState<Outcomes | null>(null);
   const [failed, setFailed] = useState(false);

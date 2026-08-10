@@ -83,6 +83,24 @@ type SchoolAdminSession = {
   };
 };
 
+/**
+ * Contrôleur de gestion des écoles.
+ *
+ * Regroupe les routes publiques de consultation des écoles ainsi que
+ * l'ensemble des opérations d'administration d'une école : profil et logo,
+ * programmes, années académiques, matières, prérequis d'admission,
+ * inscriptions et suivi des élèves, enseignants et affectations,
+ * annonces (individuelles ou diffusées), rapports/statistiques et export CSV,
+ * paiements, et le moteur de planification (salles, créneaux horaires,
+ * classes, besoins horaires par matière et génération automatique
+ * d'emploi du temps).
+ *
+ * La plupart des routes d'administration d'école utilisent le préfixe
+ * `me/...` et résolvent l'école ciblée à partir de l'admin d'école
+ * authentifié (`user.schoolAdmin.schoolId`), plutôt que depuis un
+ * paramètre d'URL — ce qui garantit qu'un administrateur ne peut agir
+ * que sur sa propre école.
+ */
 @ApiTags('schools')
 @Controller('schools')
 export class SchoolController {
@@ -96,6 +114,19 @@ export class SchoolController {
 
   // ========== PUBLIC ROUTES ==========
 
+  /**
+   * Liste les écoles, avec pagination et filtres optionnels (ville, type
+   * d'établissement, recherche textuelle).
+   *
+   * Route publique (`@Public()`), aucune authentification requise.
+   *
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @param city Filtre optionnel par ville.
+   * @param type Filtre optionnel par type d'école (`PUBLIC` ou `PRIVATE`).
+   * @param search Filtre optionnel de recherche textuelle.
+   * @returns La liste paginée des écoles.
+   */
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get list of schools' })
@@ -127,6 +158,18 @@ export class SchoolController {
 
   // ========== ADMIN ROUTES ==========
 
+  /**
+   * Liste les élèves inscrits toutes écoles confondues, avec pagination,
+   * recherche et filtre optionnel par école.
+   *
+   * Réservé au rôle `ADMIN_GET` (guards `JwtAuthGuard`, `RolesGuard`).
+   *
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @param search Filtre de recherche optionnel.
+   * @param schoolId Filtre optionnel par identifiant d'école.
+   * @returns La liste paginée des élèves inscrits.
+   */
   @Get('students')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -151,6 +194,17 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Liste les programmes de formation toutes écoles confondues, avec
+   * pagination et filtre optionnel par école.
+   *
+   * Réservé au rôle `ADMIN_GET` (guards `JwtAuthGuard`, `RolesGuard`).
+   *
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @param schoolId Filtre optionnel par identifiant d'école.
+   * @returns La liste paginée des programmes.
+   */
   @Get('programs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -168,6 +222,15 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Crée une nouvelle école.
+   *
+   * Réservé au rôle `ADMIN_GET` (guards `JwtAuthGuard`, `RolesGuard`).
+   *
+   * @param dto Données de création de l'école.
+   * @param user Utilisateur authentifié, utilisé comme créateur.
+   * @returns L'école créée.
+   */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -192,6 +255,21 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Met à jour une école.
+   *
+   * Authentification requise (`JwtAuthGuard`) mais pas de `RolesGuard` :
+   * l'autorisation est vérifiée manuellement dans le corps de la méthode
+   * (admin plateforme `ADMIN_GET`, ou administrateur de cette école
+   * précise). Toute autre situation lève une `ForbiddenException`.
+   *
+   * @param id Identifiant de l'école à modifier.
+   * @param dto Champs à mettre à jour.
+   * @param user Utilisateur authentifié.
+   * @returns L'école mise à jour.
+   * @throws ForbiddenException Si l'utilisateur n'est ni admin plateforme
+   *   ni administrateur de cette école.
+   */
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -226,6 +304,15 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Supprime une école.
+   *
+   * Réservé au rôle `ADMIN_GET` (guards `JwtAuthGuard`, `RolesGuard`).
+   *
+   * @param id Identifiant de l'école à supprimer.
+   * @param user Utilisateur authentifié effectuant la suppression.
+   * @throws NotFoundException Si l'école n'existe pas (levée par le service).
+   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -247,6 +334,24 @@ export class SchoolController {
 
   // ========== LOGO UPLOAD ==========
 
+  /**
+   * Téléverse (ou remplace) le logo d'une école.
+   *
+   * Authentification requise (`JwtAuthGuard`) ; autorisation vérifiée
+   * manuellement (admin plateforme `ADMIN_GET` ou administrateur de cette
+   * école). Le fichier est limité à 5 Mo et doit être une image
+   * (jpeg/png/webp), sinon rejeté par le filtre de l'intercepteur ou par
+   * une `BadRequestException` explicite si aucun fichier n'est fourni.
+   *
+   * @param schoolId Identifiant de l'école cible.
+   * @param user Utilisateur authentifié.
+   * @param file Fichier image envoyé en `multipart/form-data`.
+   * @returns L'URL du logo téléversé.
+   * @throws ForbiddenException Si l'utilisateur n'est pas autorisé.
+   * @throws BadRequestException Si aucun fichier n'est fourni ou si le
+   *   format n'est pas une image supportée.
+   * @throws NotFoundException Si l'école n'existe pas (via `findOne`).
+   */
   @Post(':id/logo')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -317,6 +422,15 @@ export class SchoolController {
 
   // ========== SCHOOL ADMIN ROUTES ==========
 
+  /**
+   * Récupère les informations de l'école de l'administrateur connecté.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié (doit avoir un profil `schoolAdmin`).
+   * @returns Les détails de l'école.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -341,6 +455,15 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste les classes utilisées par les élèves inscrits de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié (doit avoir un profil `schoolAdmin`).
+   * @returns La liste des classes.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/students/classes')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -358,17 +481,62 @@ export class SchoolController {
     return { success: true, data: classes };
   }
 
+  /**
+   * Liste les matières de mon école. Réservé au rôle `SCHOOL_ADMIN`.
+   * @param user Utilisateur authentifié.
+   * @returns La liste des matières.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async getMySubjects(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getSubjects(user.schoolAdmin.schoolId) }; }
+  /**
+   * Liste les affectations d'enseignants inactives de mon école.
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   * @param user Utilisateur authentifié.
+   * @returns La liste des affectations inactives.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/teachers/inactive') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async getMyInactiveTeachers(@GetUser() user: SchoolAdminSession) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.getInactiveTeacherAssignments(user.schoolAdmin.schoolId) }; }
+  /**
+   * Recherche un enseignant par adresse email (pour affectation ultérieure).
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   * @param user Utilisateur authentifié.
+   * @param email Adresse email de l'enseignant recherché.
+   * @returns L'enseignant trouvé, le cas échéant.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/teachers/search') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async searchMyTeacher(@GetUser() user: SchoolAdminSession, @Query('email') email: string) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.findTeacherByEmail(email) }; }
+  /**
+   * Crée une nouvelle matière pour mon école. Réservé au rôle `SCHOOL_ADMIN`.
+   * @param user Utilisateur authentifié.
+   * @param body Nom de la matière à créer.
+   * @returns La matière créée.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/subjects') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async createMySubject(@GetUser() user: SchoolAdminSession, @Body() body: CreateSubjectDto) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.createSubject(user.schoolAdmin.schoolId, body.name) }; }
+  /**
+   * Active/désactive une matière de mon école. Réservé au rôle `SCHOOL_ADMIN`.
+   * @param user Utilisateur authentifié.
+   * @param id Identifiant de la matière.
+   * @param body Nouvel état `isActive`.
+   * @returns La matière mise à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/subjects/:id') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async updateMySubject(@GetUser() user: SchoolAdminSession, @Param('id') id: string, @Body() body: UpdateSubjectDto) { if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable'); return { success: true, data: await this.schoolService.updateSubject(user.schoolAdmin.schoolId, id, body.isActive) }; }
 
+  /**
+   * Liste les programmes de formation de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des programmes.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/programs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -379,6 +547,16 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getPrograms(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Crée un programme de formation pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Données du programme à créer.
+   * @returns Le programme créé.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/programs')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -389,6 +567,17 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.createProgram(user.schoolAdmin.schoolId, dto) };
   }
 
+  /**
+   * Met à jour un programme de formation de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param id Identifiant du programme.
+   * @param dto Champs à mettre à jour.
+   * @returns Le programme mis à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/programs/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -399,6 +588,15 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.updateProgram(user.schoolAdmin.schoolId, id, dto) };
   }
 
+  /**
+   * Liste les années académiques de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des années académiques.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/academic-years')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -409,6 +607,16 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getAcademicYears(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Crée une année académique pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Données de l'année académique à créer.
+   * @returns L'année académique créée.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/academic-years')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -419,6 +627,17 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.createAcademicYear(user.schoolAdmin.schoolId, dto) };
   }
 
+  /**
+   * Met à jour une année académique de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param id Identifiant de l'année académique.
+   * @param dto Champs à mettre à jour.
+   * @returns L'année académique mise à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/academic-years/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -429,6 +648,21 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.updateAcademicYear(user.schoolAdmin.schoolId, id, dto) };
   }
 
+  /**
+   * Liste les documents des élèves inscrits dans mon école, avec pagination
+   * et filtres (année d'inscription, type de document, recherche).
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @param enrolledYear Filtre optionnel par année d'inscription.
+   * @param type Filtre optionnel par type de document.
+   * @param search Filtre de recherche optionnel.
+   * @returns La liste paginée des documents.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -463,6 +697,18 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Liste les élèves inscrits dans mon école, avec recherche et pagination.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param search Filtre de recherche optionnel.
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @returns La liste paginée des élèves inscrits.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/students')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -505,6 +751,18 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Récupère le détail d'un élève inscrit dans mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param studentId Identifiant de l'élève.
+   * @returns Le détail de l'élève.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   * @throws NotFoundException Si l'élève n'existe pas ou n'est pas inscrit
+   *   dans cette école (levée par le service).
+   */
   @Get('me/students/:studentId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -528,6 +786,16 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Inscrit un élève existant (déjà présent dans le système) dans mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Données d'inscription (élève, programme, classe, etc.).
+   * @returns L'inscription créée.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/students/enroll')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -553,18 +821,52 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Met à jour l'inscription d'un élève dans mon école (programme, classe,
+   * année académique, statut, etc.).
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param studentId Identifiant de l'élève.
+   * @param body Champs d'inscription à mettre à jour.
+   * @returns L'inscription mise à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/students/:studentId') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async updateMySchoolStudentEnrollment(@GetUser() user: SchoolAdminSession, @Param('studentId') studentId: string, @Body() body: UpdateSchoolStudentEnrollmentDto) {
     if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
     return { success: true, data: await this.schoolService.updateEnrollment(user.schoolAdmin.schoolId, studentId, body) };
   }
 
+  /**
+   * Inscrit plusieurs élèves en une seule opération (import en masse), à
+   * partir d'une liste de lignes (email, programme, niveau, année).
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param rows Lignes d'inscription à traiter ; si `rows` n'est pas un
+   *   tableau, une liste vide est utilisée à la place (pas d'erreur levée).
+   * @returns Le résultat de l'inscription en masse (créées/échecs selon le service).
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/students/enroll/bulk') @UseGuards(JwtAuthGuard, RolesGuard) @Roles('SCHOOL_ADMIN')
   async bulkEnrollMySchoolStudents(@GetUser() user: SchoolAdminSession, @Body('rows') rows: Array<{ email: string; programName: string; level: number; academicYearLabel: string }>) {
     if (!user.schoolAdmin) throw new ForbiddenException('Profil administrateur introuvable');
     return { success: true, data: await this.schoolService.bulkEnrollStudents(user.schoolAdmin.schoolId, Array.isArray(rows) ? rows : []) };
   }
 
+  /**
+   * Envoie une annonce aux élèves inscrits de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié (identifiant utilisé comme expéditeur).
+   * @param dto Contenu de l'annonce à envoyer.
+   * @returns Le résultat de l'envoi de l'annonce.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/announcements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -591,6 +893,17 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste l'historique des annonces envoyées par mon école, avec pagination.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @returns La liste paginée des annonces.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/announcements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -616,6 +929,22 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Attache une photo/illustration à une annonce existante de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`. Le fichier est limité à 5 Mo et doit
+   * être une image (jpeg/png/webp), sinon rejeté par le filtre de
+   * l'intercepteur ou par une `BadRequestException` explicite si aucun
+   * fichier n'est fourni.
+   *
+   * @param id Identifiant de l'annonce.
+   * @param user Utilisateur authentifié.
+   * @param file Fichier image envoyé en `multipart/form-data`.
+   * @returns L'URL de l'image attachée.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   * @throws BadRequestException Si aucun fichier n'est fourni ou si le
+   *   format n'est pas une image supportée.
+   */
   @Post('me/announcements/:id/photo')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -665,6 +994,16 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste les annonces reçues par l'utilisateur connecté, avec pagination.
+   *
+   * Réservé aux rôles `STUDENT` et `TEACHER`.
+   *
+   * @param userId Identifiant de l'utilisateur connecté (destinataire).
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 20).
+   * @returns La liste paginée des annonces reçues.
+   */
   @Get('announcements/mine')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT', 'TEACHER')
@@ -685,6 +1024,15 @@ export class SchoolController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Diffuse une annonce aux élèves de toutes les écoles actives.
+   *
+   * Réservé au rôle `ADMIN_GET`.
+   *
+   * @param user Utilisateur authentifié (identifiant utilisé comme expéditeur).
+   * @param dto Contenu de l'annonce à diffuser.
+   * @returns Le résultat de la diffusion.
+   */
   @Post('announcements/broadcast')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -705,6 +1053,14 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste l'historique des annonces diffusées par l'admin plateforme connecté.
+   *
+   * Réservé au rôle `ADMIN_GET`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des diffusions passées.
+   */
   @Get('announcements/broadcast')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -717,6 +1073,15 @@ export class SchoolController {
     return { success: true, data: items };
   }
 
+  /**
+   * Récupère les agrégats du pipeline de candidatures (par statut) pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns Les agrégats du pipeline de candidatures.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/reports/pipeline')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -729,6 +1094,16 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getReportPipeline(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Récupère les agrégats des résultats de candidatures (acceptées/rejetées, etc.)
+   * pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns Les agrégats des résultats de candidatures.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/reports/outcomes')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -741,6 +1116,17 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getReportOutcomes(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Récupère la tendance mensuelle des candidatures pour mon école, sur
+   * les N derniers mois.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param months Nombre de mois à couvrir (défaut 6).
+   * @returns La série de tendance mensuelle.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/reports/trend')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -757,6 +1143,15 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getReportTrend(user.schoolAdmin.schoolId, months) };
   }
 
+  /**
+   * Récupère le nombre d'élèves inscrits par classe pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns Les effectifs par classe.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/reports/by-class')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -769,6 +1164,16 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getReportByClass(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Récupère le classement des offres par nombre de candidatures reçues,
+   * pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns Le classement des offres.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/reports/by-offer')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -781,6 +1186,18 @@ export class SchoolController {
     return { success: true, data: await this.schoolService.getReportByOffer(user.schoolAdmin.schoolId) };
   }
 
+  /**
+   * Exporte au format CSV les candidatures ou les élèves inscrits de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`. Le paramètre `type` est obligatoire et
+   * validé explicitement (`applications` ou `students`) avant l'export.
+   *
+   * @param user Utilisateur authentifié.
+   * @param type Type de rapport à exporter (`applications` ou `students`).
+   * @returns Un fichier CSV téléchargeable (`StreamableFile`).
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   * @throws BadRequestException Si `type` n'est ni `applications` ni `students`.
+   */
   @Get('me/reports/export')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -809,6 +1226,15 @@ export class SchoolController {
     });
   }
 
+  /**
+   * Liste les affectations d'enseignants actives de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des affectations d'enseignants actives.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/teachers')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -831,6 +1257,16 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Affecte un enseignant existant à mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Données de l'affectation (enseignant, matière, etc.).
+   * @returns L'affectation créée.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/teachers')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -857,6 +1293,17 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Met à jour une affectation d'enseignant de mon école (statut, matières, etc.).
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param teacherSchoolId Identifiant de l'affectation enseignant-école.
+   * @param dto Champs à mettre à jour.
+   * @returns L'affectation mise à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/teachers/:teacherSchoolId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -885,6 +1332,15 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste les cours de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des cours.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/courses')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -900,6 +1356,16 @@ export class SchoolController {
     return { success: true, data: courses, message: 'Courses retrieved successfully' };
   }
 
+  /**
+   * Crée un cours pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Données du cours à créer.
+   * @returns Le cours créé.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/courses')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -921,6 +1387,17 @@ export class SchoolController {
     return { success: true, data: course, message: 'Course created successfully' };
   }
 
+  /**
+   * Met à jour un cours de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param id Identifiant du cours.
+   * @param dto Champs à mettre à jour.
+   * @returns Le cours mis à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Put('me/courses/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -944,6 +1421,15 @@ export class SchoolController {
     return { success: true, data: course, message: 'Course updated successfully' };
   }
 
+  /**
+   * Liste les créneaux d'emploi du temps structurés de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @returns La liste des créneaux d'emploi du temps.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/schedule')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -959,6 +1445,18 @@ export class SchoolController {
     return { success: true, data: slots, message: 'Schedule retrieved successfully' };
   }
 
+  /**
+   * Génère automatiquement l'emploi du temps de mon école (ou d'une seule
+   * classe si précisé dans le DTO), en s'appuyant sur les salles, créneaux
+   * horaires, classes et besoins horaires par matière déjà configurés.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param dto Paramètres de génération (portée, contraintes, etc.).
+   * @returns Le résultat de la génération de l'emploi du temps.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/schedule/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -980,6 +1478,17 @@ export class SchoolController {
     return { success: true, data: result, message: 'Schedule generation completed' };
   }
 
+  /**
+   * Crée un créneau structuré (jour/heure/salle) pour un cours de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param courseId Identifiant du cours concerné.
+   * @param dto Données du créneau à créer.
+   * @returns Le créneau créé.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/courses/:courseId/slots')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1003,6 +1512,18 @@ export class SchoolController {
     return { success: true, data: slot, message: 'Course slot created successfully' };
   }
 
+  /**
+   * Met à jour un créneau structuré d'un cours de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param courseId Identifiant du cours concerné.
+   * @param slotId Identifiant du créneau à modifier.
+   * @param dto Champs à mettre à jour.
+   * @returns Le créneau mis à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Patch('me/courses/:courseId/slots/:slotId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1028,6 +1549,16 @@ export class SchoolController {
     return { success: true, data: slot, message: 'Course slot updated successfully' };
   }
 
+  /**
+   * Supprime un créneau structuré d'un cours de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param courseId Identifiant du cours concerné.
+   * @param slotId Identifiant du créneau à supprimer.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Delete('me/courses/:courseId/slots/:slotId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1051,6 +1582,19 @@ export class SchoolController {
     return { success: true, message: 'Course slot deleted successfully' };
   }
 
+  /**
+   * Récupère le résumé des paiements et le détail des transactions de mon
+   * école, avec pagination et filtre optionnel par statut.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`.
+   *
+   * @param user Utilisateur authentifié.
+   * @param page Numéro de page (défaut 1).
+   * @param limit Taille de page (défaut 5).
+   * @param status Filtre optionnel par statut de paiement.
+   * @returns Le résumé des paiements et la liste paginée des transactions.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/payments')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1086,6 +1630,20 @@ export class SchoolController {
     };
   }
 
+  /**
+   * Liste les prérequis d'admission actifs de mon école, avec filtre
+   * optionnel par diplôme (inclut aussi les prérequis génériques sans
+   * diplôme associé lorsque `diploma` est fourni).
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`. Accède directement à Prisma plutôt que
+   * de passer par `schoolService`, contrairement à la plupart des autres
+   * routes de ce contrôleur.
+   *
+   * @param userId Identifiant de l'utilisateur connecté.
+   * @param diploma Filtre optionnel par type de diplôme.
+   * @returns La liste des prérequis actifs, triée par nom.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Get('me/requirements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1095,6 +1653,18 @@ export class SchoolController {
     return this.prisma.schoolRequirement.findMany({ where: { schoolId: admin.schoolId, isActive: true, ...(diploma ? { OR: [{ diploma }, { diploma: null }] } : {}) }, orderBy: { name: 'asc' } });
   }
 
+  /**
+   * Crée un prérequis d'admission pour mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`. Accède directement à Prisma. Le type
+   * du prérequis vaut `DOCUMENT` par défaut, et `isRequired` vaut `true`
+   * par défaut si non précisé.
+   *
+   * @param userId Identifiant de l'utilisateur connecté.
+   * @param body Données du prérequis à créer.
+   * @returns Le prérequis créé.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin d'école.
+   */
   @Post('me/requirements')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -1104,6 +1674,21 @@ export class SchoolController {
     return this.prisma.schoolRequirement.create({ data: { schoolId: admin.schoolId, name: body.name, description: body.description, type: body.type || 'DOCUMENT', diploma: body.diploma, isRequired: body.isRequired ?? true } });
   }
 
+  /**
+   * Met à jour un prérequis d'admission de mon école.
+   *
+   * Réservé au rôle `SCHOOL_ADMIN`. Accède directement à Prisma. Vérifie
+   * explicitement que le prérequis appartient bien à l'école de
+   * l'administrateur avant modification.
+   *
+   * @param userId Identifiant de l'utilisateur connecté.
+   * @param id Identifiant du prérequis à modifier.
+   * @param body Champs à mettre à jour.
+   * @returns Le prérequis mis à jour.
+   * @throws ForbiddenException Si l'utilisateur n'a pas de profil admin
+   *   d'école, ou si le prérequis n'appartient pas à son école (message
+   *   "Prérequis introuvable").
+   */
   @Patch('me/requirements/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')

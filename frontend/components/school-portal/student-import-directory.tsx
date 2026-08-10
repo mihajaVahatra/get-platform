@@ -31,6 +31,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
+/** Étudiant tel qu'affiché dans la liste paginée (informations sommaires). */
 type Student = {
   id: string;
   firstName: string;
@@ -43,6 +44,7 @@ type Student = {
   };
 };
 
+/** Fiche complète d'un étudiant, chargée à la demande à l'ouverture de la fiche détaillée. */
 type StudentDetail = Student & {
   birthDate?: string | null;
   cin?: string | null;
@@ -67,6 +69,7 @@ type Program = {
   durationYears: number;
   isActive: boolean;
 };
+/** Année académique avec sa période d'inscription (bornes utilisées pour valider si l'inscription est ouverte). */
 type AcademicYear = {
   id: string;
   label: string;
@@ -75,6 +78,25 @@ type AcademicYear = {
   isCurrent: boolean;
 };
 
+/**
+ * Page de gestion des étudiants inscrits dans l'établissement.
+ *
+ * Affiche une liste paginée et recherchable (par nom/e-mail) des étudiants,
+ * avec les actions : inscrire un étudiant existant (par e-mail), importer un
+ * lot d'étudiants via CSV, consulter/modifier la fiche d'inscription d'un
+ * étudiant (filière/niveau/année) et clôturer une inscription.
+ *
+ * L'inscription individuelle et l'affichage de la fiche détaillée sont
+ * soumis à la période d'inscription de l'année académique choisie
+ * (`periodOpen`, dérivé de `enrollmentOpensAt`/`enrollmentClosesAt`).
+ *
+ * États clés :
+ * - `search` / `page` / `refreshKey` : pilotent le rechargement (débattu) de la liste paginée.
+ * - `enrollOpen` / `email` / `programId` / `level` / `academicYearId` : dialogue d'inscription individuelle.
+ * - `viewingStudentId` / `studentDetail` / `detail*` : dialogue de consultation/édition de la fiche étudiant.
+ * - `studentToWithdraw` : étudiant ciblé par la confirmation de clôture d'inscription.
+ * - `bulkReport` : résultat (succès/échecs par ligne) du dernier import CSV.
+ */
 export function StudentImportDirectory() {
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState('');
@@ -105,6 +127,9 @@ export function StudentImportDirectory() {
     failed: { row: { email?: string }; reason: string }[];
   } | null>(null);
 
+  // Recharge la liste des étudiants avec un anti-rebond (debounce) de 250 ms sur la recherche
+  // texte, afin d'éviter une requête API à chaque frappe clavier ; se redéclenche aussi sur
+  // changement de page ou après une mutation (via `refreshKey`).
   useEffect(() => {
     let cancelled = false;
     const timer = window.setTimeout(() => {
@@ -142,6 +167,8 @@ export function StudentImportDirectory() {
       window.clearTimeout(timer);
     };
   }, [page, refreshKey, search]);
+  // Recharge les filières actives et années académiques à chaque ouverture d'un dialogue
+  // d'inscription (individuelle ou fiche détaillée), afin d'avoir des options à jour.
   useEffect(() => {
     void Promise.all([
       apiClient.get('/schools/me/programs'),
@@ -166,6 +193,8 @@ export function StudentImportDirectory() {
   const selectedProgram = programs.find((program) => program.id === programId);
   const selectedYear = academicYears.find((year) => year.id === academicYearId);
   const now = new Date();
+  // Règle métier : une inscription individuelle n'est autorisée que si la date du jour est
+  // comprise dans la période d'inscription de l'année académique choisie.
   const notYetOpen =
     !!selectedYear && new Date(selectedYear.enrollmentOpensAt) > now;
   const alreadyClosed =
@@ -178,6 +207,7 @@ export function StudentImportDirectory() {
     setLoading(true);
   };
 
+  // Clôture (WITHDRAWN) l'inscription de l'étudiant ciblé, sans supprimer son compte.
   const withdrawStudent = async () => {
     if (!studentToWithdraw) return;
     setWithdrawingStudent(true);
@@ -195,11 +225,14 @@ export function StudentImportDirectory() {
     }
   };
 
+  /** Ferme le dialogue de fiche étudiant et réinitialise l'état de détail associé. */
   const closeDetailDialog = () => {
     setViewingStudentId(null);
     setStudentDetail(null);
   };
 
+  // Charge la fiche complète de l'étudiant sélectionné (`viewingStudentId`) et initialise
+  // les champs éditables (programme/niveau/année) à partir de l'inscription actuelle.
   useEffect(() => {
     if (!viewingStudentId) return;
     let cancelled = false;
@@ -230,6 +263,8 @@ export function StudentImportDirectory() {
     };
   }, [viewingStudentId]);
 
+  // Met à jour la filière/le niveau/l'année académique de l'inscription de l'étudiant,
+  // en conservant son statut d'inscription actuel (`enrollmentStatus`) inchangé.
   const saveStudentEnrollment = async () => {
     if (!studentDetail) return;
     setSavingDetail(true);
@@ -255,6 +290,8 @@ export function StudentImportDirectory() {
     setPage(nextPage);
   };
 
+  // Inscrit un étudiant existant (identifié par e-mail) dans une filière/niveau/année donnés ;
+  // réinitialise la recherche et revient à la première page pour que le nouvel inscrit soit visible.
   const submitEnrollment = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -286,6 +323,9 @@ export function StudentImportDirectory() {
       }
     })();
   };
+  // Importe un lot d'étudiants depuis un fichier CSV : ignore la ligne d'en-tête (`.slice(1)`)
+  // et attend un ordre de colonnes fixe (email, filière, niveau, année académique) séparées
+  // par des virgules. Le détail des échecs par ligne est renvoyé par l'API et affiché ensuite.
   const importCsv = async (file?: File) => {
     if (!file) return;
     const text = await file.text();
@@ -829,6 +869,7 @@ export function StudentImportDirectory() {
   );
 }
 
+/** Badge visuel indiquant qu'un étudiant listé est actuellement inscrit (liste déjà filtrée en amont). */
 function Status() {
   return (
     <span className="inline-block rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">

@@ -97,6 +97,11 @@ export const APPLICATION_STATUS_TRANSITIONS: Record<
   [ApplicationStatus.CANCELLED]: [],
 };
 
+/**
+ * Payload de changement de statut d'une candidature. Le statut cible doit
+ * respecter la machine à états `APPLICATION_STATUS_TRANSITIONS` (validé côté
+ * service, pas ici).
+ */
 export class UpdateApplicationStatusDto {
   @ApiProperty({ enum: ApplicationStatus })
   @IsEnum(ApplicationStatus)
@@ -113,6 +118,7 @@ export class UpdateApplicationStatusDto {
   score?: number;
 }
 
+/** Payload de planification d'un entretien pour une candidature. */
 export class ScheduleInterviewDto {
   @ApiProperty({ example: '2024-02-15T14:30:00Z' })
   @IsString()
@@ -129,6 +135,7 @@ export class ScheduleInterviewDto {
   notes?: string;
 }
 
+/** Payload de planification d'un test/examen pour une candidature. */
 export class ScheduleTestDto {
   @ApiProperty({ example: '2024-02-10T10:00:00Z' })
   @IsDateString()
