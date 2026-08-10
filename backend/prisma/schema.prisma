@@ -66,8 +66,29 @@ model User {
   sentMessages             Message[]                 @relation("SentMessages")
   receivedMessages         Message[]                 @relation("ReceivedMessages")
   conversationParticipants ConversationParticipant[]
+  refreshSessions          RefreshSession[]
 
   @@map("users")
+}
+
+// Une ligne par chaîne de rotation de refresh token (typiquement un
+// login/appareil). `currentJti` est le seul jti actuellement valide pour
+// cette chaîne : AuthService.refreshTokens ne fait avancer cette valeur que
+// si le jti présenté matche exactement (mise à jour conditionnelle
+// atomique), ce qui permet la rotation à usage unique. Un jti qui ne matche
+// plus (refresh token déjà tourné, rejoué après coup) signale une
+// réutilisation — traité comme une compromission potentielle de CETTE
+// chaîne, sans affecter les autres appareils connectés du même utilisateur.
+model RefreshSession {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentJti String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@map("refresh_sessions")
 }
 
 model Role {
