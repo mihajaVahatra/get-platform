@@ -38,6 +38,12 @@ import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-resp
 import { PrismaService } from '../prisma/prisma.service';
 import { NotFoundException } from '@nestjs/common';
 
+/**
+ * Expose les endpoints de gestion des candidatures (soumission par les
+ * étudiants, consultation/traitement par les écoles, supervision par le
+ * ministère et les administrateurs). Toutes les routes exigent un JWT valide ;
+ * l'accès fin par rôle est ensuite contrôlé via `@Roles`/`RolesGuard`.
+ */
 @ApiTags('applications')
 @Controller('applications')
 @UseGuards(JwtAuthGuard)
@@ -50,6 +56,14 @@ export class ApplicationController {
 
   // ========== STUDENT ==========
 
+  /**
+   * Soumet une ou plusieurs candidatures pour l'étudiant authentifié, une par
+   * offre indiquée dans `dto.offerIds`.
+   * Rôle requis : STUDENT.
+   * Retourne le détail des offres traitées avec succès, échouées (offre
+   * fermée/inexistante/deadline dépassée) et déjà candidatées.
+   * Lève NotFoundException si le profil étudiant lié à l'utilisateur est introuvable.
+   */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT')
@@ -82,6 +96,12 @@ export class ApplicationController {
     };
   }
 
+  /**
+   * Liste paginée des candidatures de l'étudiant authentifié, filtrable par
+   * statut.
+   * Rôle requis : STUDENT.
+   * Lève NotFoundException si le profil étudiant est introuvable.
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT')
@@ -116,6 +136,12 @@ export class ApplicationController {
 
   // ========== SCHOOL ADMIN ==========
 
+  /**
+   * Liste paginée des candidatures reçues par l'établissement de
+   * l'administrateur authentifié, filtrable par statut et par offre.
+   * Rôle requis : SCHOOL_ADMIN.
+   * Lève ForbiddenException si l'utilisateur n'est pas rattaché à un établissement.
+   */
   @Get('school/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN')
@@ -153,6 +179,13 @@ export class ApplicationController {
 
   // ========== DETAIL (Authorized) ==========
 
+  /**
+   * Retourne les documents liés au dossier étudiant de la candidature.
+   * Rôles autorisés : STUDENT (son propre dossier), SCHOOL_ADMIN (son école),
+   * ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant n'a pas le droit de la consulter.
+   */
   @Get(':id/documents')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
@@ -186,6 +219,11 @@ export class ApplicationController {
 
   // ========== STATISTICS (Ministry/Admin only) ==========
 
+  /**
+   * Statistiques globales des candidatures (total + répartition par statut),
+   * filtrables par période et par établissement.
+   * Rôles autorisés : MINISTRY, ADMIN_GET.
+   */
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('MINISTRY', 'ADMIN_GET')
@@ -211,6 +249,12 @@ export class ApplicationController {
     };
   }
 
+  /**
+   * Liste paginée de toutes les candidatures de la plateforme, tous
+   * établissements confondus, avec recherche texte sur le nom/e-mail de
+   * l'étudiant.
+   * Rôle requis : ADMIN_GET.
+   */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -239,6 +283,13 @@ export class ApplicationController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Retourne le détail complet d'une candidature (offre, école, timeline).
+   * Rôles autorisés : STUDENT (son propre dossier), SCHOOL_ADMIN (son école),
+   * ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant n'a pas le droit de la consulter.
+   */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT', 'SCHOOL_ADMIN', 'ADMIN_GET')
@@ -269,6 +320,17 @@ export class ApplicationController {
 
   // ========== STATUS UPDATE (School Admin) ==========
 
+  /**
+   * Fait transitionner le statut d'une candidature (voir la machine à états
+   * `APPLICATION_STATUS_TRANSITIONS`). Peut déclencher une inscription
+   * automatique de l'étudiant si le nouveau statut est ACCEPTED/ENROLLED, ou
+   * la promotion automatique du candidat suivant sur liste d'attente si une
+   * place se libère.
+   * Rôles autorisés : SCHOOL_ADMIN (son école), ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas cette école, BadRequestException si la
+   * transition demandée est invalide ou si la capacité de l'offre est atteinte.
+   */
   @Put(':id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
@@ -299,6 +361,13 @@ export class ApplicationController {
 
   // ========== SCHEDULE TEST / INTERVIEW ==========
 
+  /**
+   * Planifie un test/examen pour la candidature (fait passer le statut à
+   * TEST_SCHEDULED) et notifie l'étudiant.
+   * Rôles autorisés : SCHOOL_ADMIN (son école), ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas cette école.
+   */
   @Post(':id/schedule-test')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
@@ -323,6 +392,13 @@ export class ApplicationController {
     };
   }
 
+  /**
+   * Planifie un entretien pour la candidature (fait passer le statut à
+   * INTERVIEW_SCHEDULED) et notifie l'étudiant.
+   * Rôles autorisés : SCHOOL_ADMIN (son école), ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas cette école.
+   */
   @Post(':id/schedule-interview')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
@@ -347,6 +423,15 @@ export class ApplicationController {
     };
   }
 
+  /**
+   * Enregistre le score obtenu par le candidat au test (fait passer le
+   * statut à TEST_COMPLETED). Fusionne les commentaires avec les
+   * informations de planification déjà stockées dans `testResults` au lieu
+   * de les écraser.
+   * Rôles autorisés : SCHOOL_ADMIN (son école), ADMIN_GET.
+   * Lève NotFoundException si la candidature n'existe pas, ForbiddenException
+   * si l'appelant ne gère pas cette école.
+   */
   @Post(':id/score')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SCHOOL_ADMIN', 'ADMIN_GET')
@@ -380,6 +465,10 @@ export class ApplicationController {
   }
 
   // ========== HELPER ==========
+  /**
+   * Résout le profil étudiant associé à un utilisateur authentifié.
+   * Lève NotFoundException si aucun profil étudiant n'est lié à cet utilisateur.
+   */
   private async getStudentIdFromUser(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },

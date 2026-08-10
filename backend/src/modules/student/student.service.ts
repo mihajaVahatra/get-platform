@@ -13,6 +13,13 @@ import { OrientationQuestionnaireDto } from './dto/orientation-questionnaire.dto
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { StorageService } from '../../common/services/storage.service';
 
+/**
+ * Logique métier de l'espace étudiant : profil (avec chiffrement des
+ * données sensibles), documents, cours/devoirs, orientation, statistiques,
+ * notes, emploi du temps et préférences de compte. Toutes les méthodes
+ * publiques prennent un `userId` (identifiant du compte User) et résolvent
+ * elles-mêmes l'entité Student correspondante.
+ */
 @Injectable()
 export class StudentService {
   constructor(
@@ -21,6 +28,10 @@ export class StudentService {
     private storageService: StorageService,
   ) {}
 
+  /**
+   * Résout l'entité Student liée à un compte utilisateur.
+   * @throws NotFoundException si l'utilisateur n'a pas de profil étudiant.
+   */
   private async enrolledStudent(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -29,6 +40,10 @@ export class StudentService {
     return student;
   }
 
+  /**
+   * Vérifie qu'un étudiant est bien inscrit à un cours donné.
+   * @throws NotFoundException si l'inscription n'existe pas.
+   */
   private async courseEnrollment(studentId: string, courseId: string) {
     const enrollment = await this.prisma.courseEnrollment.findUnique({
       where: { courseId_studentId: { courseId, studentId } },
@@ -37,6 +52,7 @@ export class StudentService {
     return enrollment;
   }
 
+  /** Liste les cours (avec leur école) auxquels l'étudiant est inscrit. */
   async getCourses(userId: string) {
     const student = await this.enrolledStudent(userId);
     const enrollments = await this.prisma.courseEnrollment.findMany({
@@ -46,6 +62,11 @@ export class StudentService {
     return enrollments.map(({ course }) => course);
   }
 
+  /**
+   * Liste les devoirs publiés d'un cours et rattache, pour chacun, l'unique
+   * soumission de l'étudiant (s'il en a fait une). Vérifie l'inscription au
+   * cours au préalable.
+   */
   async getCourseAssignments(userId: string, courseId: string) {
     const student = await this.enrolledStudent(userId);
     await this.courseEnrollment(student.id, courseId);
@@ -67,6 +88,15 @@ export class StudentService {
     }));
   }
 
+  /**
+   * Dépose ou remplace la soumission d'un étudiant pour un devoir publié.
+   * Le fichier est uploadé vers le stockage (S3) puis l'enregistrement en
+   * base est fait via upsert (une soumission par couple devoir/étudiant).
+   * @throws NotFoundException si le devoir n'existe pas, n'est pas publié,
+   *   ou si l'étudiant n'est pas inscrit au cours correspondant.
+   * @throws ConflictException si une soumission existante a déjà été notée
+   *   (règle métier : une note verrouille la soumission).
+   */
   async submitAssignment(
     userId: string,
     assignmentId: string,
@@ -113,6 +143,14 @@ export class StudentService {
 
   // ========== PROFILE ==========
 
+  /**
+   * Récupère le profil complet de l'étudiant (utilisateur lié, documents
+   * non supprimés, 10 dernières candidatures, inscriptions actives) et
+   * déchiffre `phone`/`cin`. En cas d'échec de déchiffrement (ex. donnée
+   * chiffrée avec une ancienne clé), la valeur brute est renvoyée en
+   * fallback plutôt que de faire échouer toute la requête.
+   * @throws NotFoundException si le profil étudiant n'existe pas.
+   */
   async getProfile(userId: string) {
     try {
       const student = await this.prisma.student.findUnique({
@@ -195,6 +233,15 @@ export class StudentService {
     }
   }
 
+  /**
+   * Met à jour les champs modifiables du profil étudiant. Recalcule
+   * `profileCompleted` à partir des données fusionnées (existantes + DTO).
+   * `phone` et `cin`, s'ils sont fournis, sont chiffrés avant écriture ;
+   * si le chiffrement échoue, l'opération est refusée entièrement (voir
+   * commentaire inline) plutôt que d'écrire la donnée en clair.
+   * @throws NotFoundException si le profil étudiant n'existe pas.
+   * @throws BadRequestException si le chiffrement de phone/cin échoue.
+   */
   async updateProfile(userId: string, dto: UpdateStudentProfileDto) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -255,6 +302,11 @@ export class StudentService {
     return updatedStudent;
   }
 
+  /**
+   * Détermine si le profil est considéré comme "complet" : vrai dès que
+   * 70% ou plus des champs clés (identité, contact, bac, ville, bio) sont
+   * renseignés. Seuil arbitraire, pas une contrainte technique.
+   */
   private calculateProfileCompletion(student: any): boolean {
     const fields = [
       student.firstName,
@@ -274,6 +326,7 @@ export class StudentService {
 
   // ========== DOCUMENTS ==========
 
+  /** Liste les documents non supprimés de l'étudiant, du plus récent au plus ancien. */
   async getDocuments(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -292,6 +345,10 @@ export class StudentService {
     });
   }
 
+  /**
+   * Upload un document vers le stockage puis crée l'enregistrement en
+   * base. Utilise le nom de fichier d'origine si `dto.name` est absent.
+   */
   async uploadDocument(
     userId: string,
     file: Express.Multer.File,
@@ -322,6 +379,12 @@ export class StudentService {
     });
   }
 
+  /**
+   * Supprime un document de manière logique (`deletedAt` renseigné, le
+   * fichier n'est pas retiré du stockage). Vérifie que le document
+   * appartient bien à l'étudiant demandeur.
+   * @throws NotFoundException si le profil ou le document est introuvable.
+   */
   async deleteDocument(userId: string, documentId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -353,6 +416,11 @@ export class StudentService {
 
   // ========== ORIENTATION ==========
 
+  /**
+   * Enregistre les réponses du questionnaire d'orientation sur le profil
+   * étudiant (intérêts, compétences, objectifs de carrière) puis calcule
+   * et retourne des suggestions de formations à partir de ces réponses.
+   */
   async submitOrientationQuestionnaire(
     userId: string,
     dto: OrientationQuestionnaireDto,
@@ -379,6 +447,12 @@ export class StudentService {
     return suggestions;
   }
 
+  /**
+   * Recalcule les suggestions d'orientation à partir des réponses déjà
+   * stockées sur le profil (pas besoin de resoumettre le questionnaire).
+   * @throws BadRequestException si aucun intérêt n'a encore été enregistré
+   *   (le questionnaire n'a jamais été complété).
+   */
   async getOrientationSuggestions(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -403,6 +477,13 @@ export class StudentService {
     return this.generateOrientationSuggestions(dto);
   }
 
+  /**
+   * Calcule un score de correspondance simple (0-100) entre les réponses du
+   * questionnaire et jusqu'à 10 offres de formation ouvertes, puis retourne
+   * les 5 meilleures. Le scoring est une heuristique par mots-clés
+   * (intitulé de l'offre contenant un intérêt/domaine, diplôme préféré,
+   * mention "international"), pas un algorithme de matching sophistiqué.
+   */
   private async generateOrientationSuggestions(
     dto: OrientationQuestionnaireDto,
   ) {
@@ -462,6 +543,11 @@ export class StudentService {
       .slice(0, 5);
   }
 
+  /**
+   * Construit la liste des raisons textuelles justifiant le score d'une
+   * offre (utilisée pour l'affichage). Retourne un message générique si
+   * aucune raison spécifique n'a été trouvée.
+   */
   private generateMatchReasons(
     offer: any,
     dto: OrientationQuestionnaireDto,
@@ -496,6 +582,10 @@ export class StudentService {
 
   // ========== STATISTICS ==========
 
+  /**
+   * Agrège des statistiques personnelles : répartition des candidatures par
+   * statut, nombre de documents et taux de complétion du profil.
+   */
   async getStudentStats(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -531,6 +621,7 @@ export class StudentService {
 
   // ========== AVATAR ==========
 
+  /** Enregistre l'URL de l'avatar déjà uploadé (l'upload lui-même est géré par le contrôleur/StorageService). */
   async updateAvatar(userId: string, avatarUrl: string) {
     const student = await this.prisma.student.findUnique({
       where: { userId },
@@ -546,6 +637,11 @@ export class StudentService {
 
   // ========== GRADES ==========
 
+  /**
+   * Construit, pour chaque cours inscrit, la liste des évaluations (avec
+   * la note de l'étudiant si elle existe) et des devoirs (avec la note de
+   * la soumission de l'étudiant, uniquement les devoirs publiés).
+   */
   async getGrades(userId: string) {
     const student = await this.enrolledStudent(userId);
     const enrollments = await this.prisma.courseEnrollment.findMany({
@@ -597,6 +693,11 @@ export class StudentService {
 
   // ========== SCHEDULE ==========
 
+  /**
+   * Retourne les créneaux de cours (courseSlot) de tous les cours inscrits,
+   * triés par jour puis heure de début. Retourne un tableau vide si
+   * l'étudiant n'a aucune inscription (évite une requête inutile).
+   */
   async getSchedule(userId: string) {
     const student = await this.enrolledStudent(userId);
     const enrollments = await this.prisma.courseEnrollment.findMany({
@@ -617,6 +718,13 @@ export class StudentService {
 
   // ========== SECURITY & PREFERENCES ==========
 
+  /**
+   * Change le mot de passe de l'utilisateur après vérification du mot de
+   * passe actuel via bcrypt. Le nouveau mot de passe est haché (bcrypt,
+   * 10 rounds) avant écriture.
+   * @throws NotFoundException si l'utilisateur n'existe pas.
+   * @throws BadRequestException si le mot de passe actuel est incorrect.
+   */
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -636,6 +744,7 @@ export class StudentService {
     return { success: true };
   }
 
+  /** Met à jour la préférence de thème de l'utilisateur. */
   async updateTheme(userId: string, theme: string) {
     return this.prisma.user.update({
       where: { id: userId },

@@ -5,6 +5,18 @@ import { apiClient } from '@/lib/api-client';
 import styles from './reports.module.css';
 
 type Item = { label: string; count: number };
+/**
+ * Graphique générique en barres horizontales, utilisé pour afficher des
+ * répartitions (ex. par année d'inscription, par intitulé de formation).
+ *
+ * @param endpoint - URL de l'API (relative, via `apiClient`) à interroger pour récupérer les données.
+ * @param label - Intitulé affiché en en-tête (aria-label + colonne du tableau).
+ * @param empty - Message affiché lorsque la liste de résultats est vide.
+ *
+ * Charge les données au montage (et à chaque changement d'`endpoint`), puis
+ * normalise chaque entrée en `{ label, count }` en repliant `enrolledYear`
+ * ou `title` sur `label` (avec un libellé par défaut si absent).
+ */
 export function MagnitudeBarChart({ endpoint, label, empty }: { endpoint: string; label: string; empty: string }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [failed, setFailed] = useState(false);

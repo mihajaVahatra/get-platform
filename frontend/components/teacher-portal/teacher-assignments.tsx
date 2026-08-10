@@ -21,12 +21,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Cours affecté au professeur, tel que listé dans le sélecteur de cours. */
 type Course = {
   id: string;
   title: string;
   school: { name: string };
 };
 
+/** Devoir d'un cours ; `publishedAt` non renseigné signifie que le devoir est encore à l'état brouillon. */
 type Assignment = {
   id: string;
   title: string;
@@ -35,6 +37,7 @@ type Assignment = {
   publishedAt?: string | null;
 };
 
+/** Rendu d'un étudiant pour un devoir donné, avec sa note et son commentaire éventuels. */
 type Submission = {
   id: string;
   contentUrl?: string | null;
@@ -48,6 +51,19 @@ type Submission = {
   };
 };
 
+/**
+ * Vue "Devoirs" du portail professeur.
+ *
+ * Si `courseId` est fourni, la vue est verrouillée sur ce cours (pas de
+ * sélecteur) ; sinon elle liste les cours du professeur et permet d'en
+ * choisir un. Pour le cours actif, affiche la liste des devoirs (brouillon
+ * ou publié), permet d'en créer un nouveau (`POST /teacher/courses/:id/assignments`),
+ * de le publier (`PATCH /teacher/assignments/:id/publish`), et d'ouvrir la
+ * boîte de dialogue des soumissions pour les noter
+ * (`GET /teacher/assignments/:id/submissions`, `PATCH /teacher/submissions/:id/grade`).
+ *
+ * @param courseId - Identifiant du cours à afficher ; si omis, un sélecteur de cours est affiché.
+ */
 export function TeacherAssignments({ courseId }: { courseId?: string }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -70,6 +86,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
 
   const activeCourseId = courseId || selectedCourseId;
 
+  /** Charge les cours du professeur (ignoré si `courseId` est imposé par le parent) et sélectionne le premier par défaut. */
   const fetchCourses = useCallback(async () => {
     if (courseId) return;
     try {
@@ -92,6 +109,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
     }
   }, [courseId]);
 
+  /** Charge les devoirs du cours actif ; réinitialise la liste si aucun cours n'est sélectionné. */
   const fetchAssignments = useCallback(async () => {
     if (!activeCourseId) {
       setAssignments([]);
@@ -114,6 +132,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
     }
   }, [activeCourseId]);
 
+  /** Charge les soumissions d'un devoir donné (utilisé à l'ouverture de la boîte de dialogue de notation). */
   const fetchSubmissions = useCallback(async (assignmentId: string) => {
     try {
       setLoadingSubmissions(true);
@@ -151,6 +170,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
     };
   }, [fetchAssignments]);
 
+  /** Crée un nouveau devoir en brouillon pour le cours actif et l'ajoute à la liste locale. */
   const createAssignment = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!activeCourseId) return;
@@ -183,6 +203,7 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
     })();
   };
 
+  /** Publie un devoir en brouillon, le rendant visible et soumissible par les étudiants. */
   const publishAssignment = (assignmentId: string) => {
     void (async () => {
       try {
@@ -204,12 +225,14 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
     })();
   };
 
+  /** Ouvre la boîte de dialogue de notation pour un devoir et charge ses soumissions. */
   const openSubmissions = (assignment: Assignment) => {
     setSelectedAssignment(assignment);
     setSubmissions([]);
     void fetchSubmissions(assignment.id);
   };
 
+  /** Enregistre la note et le commentaire d'une soumission, puis met à jour la liste locale avec la réponse serveur. */
   const saveSubmission = (
     submissionId: string,
     grade: number,
@@ -446,6 +469,8 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
           ) : (
             <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
               {submissions.map((submission) => (
+                // La clé inclut note et feedback pour forcer un remount du formulaire (et donc
+                // la réinitialisation de son état local) quand la soumission est mise à jour côté serveur.
                 <SubmissionGradingForm
                   key={`${submission.id}-${submission.grade ?? 'empty'}-${submission.feedback ?? ''}`}
                   submission={submission}
@@ -462,6 +487,12 @@ export function TeacherAssignments({ courseId }: { courseId?: string }) {
   );
 }
 
+/**
+ * Formulaire de notation d'une soumission d'étudiant : saisie de la note
+ * (0-20) et d'un commentaire, avec validation locale du format numérique
+ * avant l'appel à `onSave` (délégué au composant parent, qui effectue la
+ * requête `PATCH /teacher/submissions/:id/grade`).
+ */
 function SubmissionGradingForm({
   submission,
   onSave,
@@ -478,6 +509,8 @@ function SubmissionGradingForm({
   const [saving, setSaving] = useState(false);
   const studentName = `${submission.student.firstName} ${submission.student.lastName}`;
 
+  // Valide que la note saisie est bien un nombre exploitable avant d'appeler l'API,
+  // pour éviter d'envoyer une valeur invalide (ex. champ vide ou non numérique).
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const numericGrade = Number(grade);

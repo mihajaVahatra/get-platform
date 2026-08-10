@@ -33,6 +33,23 @@ import { AnnouncementService } from '../announcement/announcement.service';
 import { TeacherAvailabilityService } from '../teacher-availability/teacher-availability.service';
 import slugify from 'slugify';
 
+/**
+ * Service métier de gestion des écoles partenaires.
+ *
+ * Regroupe l'ensemble de la logique applicative liée aux écoles :
+ * - CRUD des établissements, filières (programs) et années académiques ;
+ * - inscription des étudiants (avec synchronisation automatique de leurs
+ *   inscriptions aux cours) et suivi de leur parcours (documents, classes) ;
+ * - gestion des enseignants (affectations, matières) ainsi que des cours et
+ *   de l'emploi du temps (créneaux horaires, détection de conflits de salle
+ *   et de disponibilité enseignant) ;
+ * - annonces ciblées ou diffusées à l'ensemble des écoles, avec envoi des
+ *   notifications associées ;
+ * - paiements, rapports statistiques et exports CSV.
+ *
+ * La quasi-totalité des méthodes est isolée par `schoolId` afin de garantir
+ * l'étanchéité des données entre établissements.
+ */
 @Injectable()
 export class SchoolService {
   constructor(
@@ -42,6 +59,16 @@ export class SchoolService {
     private teacherAvailabilityService: TeacherAvailabilityService,
   ) {}
 
+  /**
+   * Aligne les inscriptions aux cours (`CourseEnrollment`) d'un étudiant sur
+   * les cours publiés du programme/niveau courant : supprime les inscriptions
+   * aux cours qui ne correspondent plus, puis crée (upsert) celles manquantes.
+   * Appelée après toute création/modification d'inscription à une école.
+   * Si un client de transaction `tx` est fourni (ex: webhook de paiement déjà
+   * dans une transaction), les opérations sont exécutées séquentiellement sur
+   * ce client au lieu d'ouvrir une nouvelle transaction imbriquée (non
+   * supporté par Prisma).
+   */
   async syncCourseEnrollments(
     studentId: string,
     schoolId: string,
@@ -86,6 +113,12 @@ export class SchoolService {
     }
   }
 
+  /**
+   * Crée un nouvel établissement scolaire, actif par défaut.
+   * Le `slug` est dérivé automatiquement du nom (utile pour les URLs
+   * publiques). Les champs optionnels du DTO ne sont inclus dans les données
+   * insérées que s'ils sont renseignés.
+   */
   async create(dto: CreateSchoolDto, userId: string) {
     const slug = slugify(dto.name, { lower: true, strict: true });
     const data: any = {
@@ -105,6 +138,12 @@ export class SchoolService {
     return school;
   }
 
+  /**
+   * Liste paginée des écoles non supprimées, avec un aperçu de leurs offres
+   * ouvertes (5 max) et le nombre d'étudiants inscrits. Filtrable par ville,
+   * type d'établissement, et recherche textuelle (nom/description).
+   * `page`/`limit` sont bornés (page >= 1, 1 <= limit <= 100).
+   */
   async findAll(
     page = 1,
     limit = 20,
@@ -155,6 +194,10 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Récupère une école par son identifiant (avec ses offres non supprimées).
+   * @throws NotFoundException si l'école n'existe pas ou a été supprimée.
+   */
   async findOne(id: string) {
     const school = await this.prisma.school.findFirst({
       where: { id, deletedAt: null },
@@ -169,6 +212,13 @@ export class SchoolService {
     return school;
   }
 
+  /**
+   * Vue transversale (multi-écoles) des étudiants activement inscrits,
+   * paginée, avec recherche par prénom/nom/e-mail (tous les termes doivent
+   * matcher, un terme par mot de la recherche). `schoolId` optionnel permet
+   * de restreindre à une seule école ; sans lui la liste couvre toutes les
+   * écoles.
+   */
   async getAllEnrolledStudents(
     page = 1,
     limit = 20,
@@ -225,6 +275,11 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Variante de {@link getAllEnrolledStudents} restreinte à une seule école
+   * (équivalent fonctionnel avec `schoolId` obligatoire). Mêmes règles de
+   * pagination et de recherche multi-critères.
+   */
   async getEnrolledStudents(
     schoolId: string,
     page = 1,
@@ -297,6 +352,12 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Détail complet d'un étudiant inscrit dans une école donnée (profil,
+   * filière, année académique, niveau et statut d'inscription).
+   * @throws NotFoundException si l'inscription n'existe pas ou si le compte
+   * étudiant a été supprimé (soft delete).
+   */
   async getStudentDetail(schoolId: string, studentId: string) {
     const enrollment = await this.prisma.studentEnrollment.findUnique({
       where: { studentId_schoolId: { studentId, schoolId } },
@@ -318,6 +379,11 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Liste distincte des libellés de classe (`enrolledYear`) des étudiants
+   * actifs d'une école, triée par ordre alphabétique. Sert à peupler les
+   * filtres/sélecteurs de classe côté front.
+   */
   async getStudentClasses(schoolId: string) {
     const rows = await this.prisma.studentEnrollment.findMany({
       where: { schoolId, status: 'ACTIVE' },
@@ -328,6 +394,7 @@ export class SchoolService {
     return rows.map((row) => row.enrolledYear);
   }
 
+  /** Liste (non paginée) des filières d'une école, actives en premier. */
   async getPrograms(schoolId: string) {
     return this.prisma.schoolProgram.findMany({
       where: { schoolId },
@@ -335,6 +402,11 @@ export class SchoolService {
     });
   }
 
+  /**
+   * Vue transversale paginée des filières, toutes écoles confondues par
+   * défaut (ou restreinte via `schoolId`). Différent de {@link getPrograms}
+   * qui retourne la liste complète et non paginée d'une seule école.
+   */
   async getAllPrograms(page = 1, limit = 20, schoolId?: string) {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
@@ -360,6 +432,7 @@ export class SchoolService {
     };
   }
 
+  /** Crée une filière (programme) pour une école donnée. */
   async createProgram(schoolId: string, dto: CreateSchoolProgramDto) {
     return this.prisma.schoolProgram.create({
       data: {
@@ -371,6 +444,16 @@ export class SchoolService {
     });
   }
 
+  /**
+   * Met à jour une filière. Si la durée (`durationYears`) est réduite,
+   * vérifie qu'aucun étudiant activement inscrit n'a déjà un niveau
+   * supérieur à la nouvelle durée avant d'autoriser le changement.
+   * Si le nom change, régénère le libellé d'inscription
+   * (`enrolledYear`) de tous les étudiants concernés.
+   * @throws NotFoundException si la filière n'existe pas dans cette école.
+   * @throws BadRequestException si la nouvelle durée est incompatible avec
+   * le niveau d'un étudiant déjà inscrit.
+   */
   async updateProgram(
     schoolId: string,
     id: string,
@@ -410,6 +493,7 @@ export class SchoolService {
     return updated;
   }
 
+  /** Liste des années académiques d'une école, l'année courante en tête. */
   async getAcademicYears(schoolId: string) {
     return this.prisma.schoolAcademicYear.findMany({
       where: { schoolId },
@@ -417,6 +501,13 @@ export class SchoolService {
     });
   }
 
+  /**
+   * Crée une année académique après validation de la période d'inscription
+   * (ouverture < fermeture). Si `isCurrent` est demandé, désactive d'abord
+   * le flag `isCurrent` sur toutes les autres années de l'école (une seule
+   * année courante à la fois), le tout dans une transaction.
+   * @throws BadRequestException si la période d'inscription est invalide.
+   */
   async createAcademicYear(schoolId: string, dto: CreateSchoolAcademicYearDto) {
     this.assertEnrollmentPeriod(dto.enrollmentOpensAt, dto.enrollmentClosesAt);
     return this.prisma.$transaction(async (tx) => {
@@ -437,6 +528,15 @@ export class SchoolService {
     });
   }
 
+  /**
+   * Met à jour une année académique. Revalide la période d'inscription
+   * complète (en combinant les nouvelles dates avec les existantes si
+   * partiellement fournies) et, comme pour la création, garantit qu'une
+   * seule année reste `isCurrent` par école. Si le libellé change, régénère
+   * le libellé d'inscription des étudiants concernés.
+   * @throws NotFoundException si l'année académique n'existe pas.
+   * @throws BadRequestException si la période d'inscription est invalide.
+   */
   async updateAcademicYear(
     schoolId: string,
     id: string,
@@ -477,6 +577,11 @@ export class SchoolService {
     return updated;
   }
 
+  /**
+   * Garde-fou : vérifie que la date de fermeture des inscriptions n'est pas
+   * antérieure à la date d'ouverture.
+   * @throws BadRequestException si la période est incohérente.
+   */
   private assertEnrollmentPeriod(opensAt: string, closesAt: string) {
     if (new Date(closesAt).getTime() < new Date(opensAt).getTime())
       throw new BadRequestException(
@@ -484,6 +589,11 @@ export class SchoolService {
       );
   }
 
+  /**
+   * Régénère le libellé `enrolledYear` de toutes les inscriptions actives
+   * d'une filière après un changement de nom de celle-ci, afin de garder ce
+   * champ dénormalisé cohérent avec les données sources.
+   */
   private async refreshProgramEnrollmentLabels(
     programId: string,
     programName: string,
@@ -512,6 +622,11 @@ export class SchoolService {
     );
   }
 
+  /**
+   * Équivalent de {@link refreshProgramEnrollmentLabels} côté année
+   * académique : régénère `enrolledYear` pour toutes les inscriptions
+   * actives rattachées à une année académique dont le libellé a changé.
+   */
   private async refreshAcademicYearEnrollmentLabels(
     academicYearId: string,
     academicYearLabel: string,
@@ -540,6 +655,10 @@ export class SchoolService {
     );
   }
 
+  /**
+   * Construit le libellé humain d'inscription (`enrolledYear`) affiché aux
+   * étudiants, ex. "Année 2 · Informatique · 2024-2025".
+   */
   private enrollmentLabel(
     programName: string,
     level: number,
@@ -548,6 +667,13 @@ export class SchoolService {
     return `Année ${level} · ${programName} · ${academicYearLabel}`;
   }
 
+  /**
+   * Liste paginée des documents (CV, lettre, pièce d'identité, diplôme,
+   * photo, etc.) des étudiants d'une école, avec filtres par classe, type de
+   * document et recherche par nom/prénom.
+   * @throws BadRequestException si `type` ne fait pas partie des types
+   * autorisés.
+   */
   async getStudentDocuments(
     schoolId: string,
     page = 1,
@@ -632,6 +758,20 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Inscrit (ou réinscrit) un étudiant dans une école, pour une filière, un
+   * niveau et une année académique donnés. Résout le compte étudiant par
+   * e-mail, vérifie que la période d'inscription de l'année académique est
+   * bien ouverte à la date courante, que la filière est active, et que le
+   * niveau demandé ne dépasse pas la durée de la filière. Crée ou met à jour
+   * (upsert) l'inscription (statut ACTIVE), puis synchronise les inscriptions
+   * aux cours via {@link syncCourseEnrollments}.
+   * @throws NotFoundException si aucun compte étudiant ne correspond à
+   * l'e-mail, si l'année académique ou la filière est introuvable.
+   * @throws ForbiddenException si la période d'inscription n'est pas ouverte.
+   * @throws BadRequestException si le niveau demandé dépasse la durée de la
+   * filière.
+   */
   async enrollStudent(schoolId: string, dto: EnrollStudentDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.trim().toLowerCase() },
@@ -710,6 +850,18 @@ export class SchoolService {
     });
   }
 
+  /**
+   * Met à jour l'inscription d'un étudiant à une école. Si le nouveau statut
+   * n'est pas ACTIVE (retrait, diplômé), se contente de changer le statut
+   * sans revalider ni resynchroniser filière/niveau/cours. Si le statut
+   * reste (ou redevient) ACTIVE, revalide filière/année académique/niveau
+   * (en reprenant les valeurs actuelles pour les champs non fournis) puis
+   * resynchronise les inscriptions aux cours.
+   * @throws NotFoundException si l'inscription n'existe pas ou si l'étudiant
+   * a été supprimé.
+   * @throws BadRequestException si la filière, l'année académique ou le
+   * niveau résultants sont invalides.
+   */
   async updateEnrollment(
     schoolId: string,
     studentId: string,
@@ -727,6 +879,8 @@ export class SchoolService {
     if (!enrollment || enrollment.student.deletedAt)
       throw new NotFoundException('Étudiant inscrit introuvable');
     if (data.status !== 'ACTIVE')
+      // Retrait/diplomation : on ne touche pas aux CourseEnrollment existants,
+      // le statut de StudentEnrollment sert de source de vérité côté élève.
       return this.prisma.studentEnrollment.update({
         where: { id: enrollment.id },
         data: { status: data.status },
@@ -760,6 +914,16 @@ export class SchoolService {
     return updatedEnrollment;
   }
 
+  /**
+   * Inscrit un lot d'étudiants (ex: import CSV) via {@link enrollStudent}.
+   * Précharge une seule fois les filières/années académiques de l'école pour
+   * résoudre les noms fournis en identifiants, au lieu de refaire ces
+   * requêtes pour chaque ligne. Chaque ligne est traitée indépendamment : une
+   * erreur sur une ligne (filière/année introuvable, etc.) est capturée et
+   * n'interrompt pas le traitement des lignes suivantes.
+   * @returns la liste des e-mails inscrits avec succès et la liste des
+   * lignes en échec avec leur raison.
+   */
   async bulkEnrollStudents(
     schoolId: string,
     rows: Array<{
@@ -815,6 +979,18 @@ export class SchoolService {
     return { succeeded, failed };
   }
 
+  /**
+   * Crée une annonce ciblée dans une école et déclenche les notifications
+   * correspondantes via {@link AnnouncementService.createAndNotify}. La
+   * résolution des destinataires dépend de `dto.targetType` :
+   * - CLASSES : étudiants actifs des classes sélectionnées ;
+   * - STUDENTS : étudiants explicitement listés ;
+   * - TEACHERS : enseignants explicitement listés (affectation active) ;
+   * - EVERYONE : tous les enseignants actifs et étudiants actifs de l'école ;
+   * - tout autre type : traité comme un ciblage étudiants standard.
+   * @throws BadRequestException si le type de ciblage exige une sélection
+   * (classes/étudiants/enseignants) qui est vide.
+   */
   async createAnnouncement(
     schoolId: string,
     senderId: string,
@@ -897,6 +1073,14 @@ export class SchoolService {
     );
   }
 
+  /**
+   * Diffuse une annonce (type ALL_STUDENTS) à tous les étudiants actifs de
+   * toutes les écoles actives et non supprimées. Traite les écoles une par
+   * une (une annonce distincte est créée par école) et notifie leurs
+   * étudiants inscrits actifs.
+   * @returns le nombre d'écoles touchées et le total de destinataires
+   * notifiés.
+   */
   async broadcastAnnouncement(
     adminUserId: string,
     dto: { title: string; body: string },
@@ -907,6 +1091,9 @@ export class SchoolService {
     });
 
     let recipientCount = 0;
+    // Traitement séquentiel école par école (pas de préchargement global
+    // comme dans bulkEnrollStudents) : à surveiller si le nombre d'écoles
+    // devient important.
     for (const school of schools) {
       const students = await this.prisma.student.findMany({
         where: {
@@ -931,6 +1118,14 @@ export class SchoolService {
     return { schoolsCount: schools.length, recipientCount };
   }
 
+  /**
+   * Reconstitue l'historique des diffusions ({@link broadcastAnnouncement})
+   * à partir des annonces individuelles ALL_STUDENTS créées par écoles (une
+   * par école lors d'une diffusion). Les 300 annonces les plus récentes de
+   * l'auteur sont regroupées par titre + corps + horodatage arrondi à la
+   * minute, afin de reformer une seule entrée de diffusion multi-écoles ;
+   * seules les 20 diffusions les plus récentes sont retournées.
+   */
   async getBroadcastHistory(adminUserId: string) {
     const announcements = await this.prisma.announcement.findMany({
       where: { authorId: adminUserId, targetType: 'ALL_STUDENTS' },
@@ -943,6 +1138,9 @@ export class SchoolService {
       string,
       { title: string; body: string; createdAt: Date; schoolIds: Set<string> }
     >();
+    // Clé de regroupement heuristique : titre + corps + minute de création.
+    // Deux diffusions distinctes avec un texte identique dans la même minute
+    // seraient fusionnées à tort ; ce compromis est jugé acceptable ici.
     for (const item of announcements) {
       const key = `${item.title} ${item.body} ${Math.floor(item.createdAt.getTime() / 60000)}`;
       const existing = groups.get(key);
@@ -968,6 +1166,11 @@ export class SchoolService {
       }));
   }
 
+  /**
+   * Liste paginée des annonces d'une école (les plus récentes en premier),
+   * enrichies du nombre de destinataires et du nombre de lectures pour
+   * chaque annonce.
+   */
   async getAnnouncements(schoolId: string, page = 1, limit = 20) {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
@@ -1008,6 +1211,13 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Associe une image à une annonce existante de l'école (upload de photo
+   * d'illustration). Utilise `updateMany` scopé par école pour vérifier
+   * l'appartenance en un seul aller-retour DB.
+   * @throws NotFoundException si aucune annonce ne correspond dans cette
+   * école.
+   */
   async setAnnouncementPhoto(
     schoolId: string,
     announcementId: string,
@@ -1023,6 +1233,11 @@ export class SchoolService {
     return { imageUrl };
   }
 
+  /**
+   * Liste paginée des annonces reçues par un utilisateur (étudiant ou
+   * enseignant), triées par date de notification décroissante, avec l'état
+   * de lecture de chacune.
+   */
   async getMyAnnouncements(userId: string, page = 1, limit = 20) {
     const currentPage = Math.max(Number(page) || 1, 1);
     const currentLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
@@ -1056,6 +1271,11 @@ export class SchoolService {
     };
   }
 
+  /**
+   * Répartition des candidatures (applications) d'une école par étape du
+   * pipeline de recrutement. Retourne toutes les étapes définies même à 0
+   * pour permettre un affichage stable en entonnoir côté front.
+   */
   async getReportPipeline(schoolId: string) {
     const stages = [
       'PENDING',
@@ -1074,6 +1294,10 @@ export class SchoolService {
     return stages.map((status) => ({ status, count: counts.get(status) || 0 }));
   }
 
+  /**
+   * Répartition des candidatures d'une école par issue finale (acceptée,
+   * refusée, en liste d'attente).
+   */
   async getReportOutcomes(schoolId: string) {
     const grouped = await this.prisma.application.groupBy({
       by: ['status'],

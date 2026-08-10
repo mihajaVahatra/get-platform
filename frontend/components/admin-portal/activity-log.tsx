@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Entrée du journal d'audit (traçabilité des actions effectuées sur la plateforme). */
 type AuditLog = {
   id: string;
   action: string;
@@ -23,6 +24,7 @@ type AuditLog = {
   user?: { email: string; role?: { name: string } | null } | null;
 };
 
+/** Libellés français des types d'action bruts renvoyés par l'API d'audit. */
 const ACTION_LABELS: Record<string, string> = {
   LOGIN: 'Connexion',
   LOGOUT: 'Déconnexion',
@@ -36,6 +38,7 @@ const ACTION_LABELS: Record<string, string> = {
   IMPORT: 'Import',
 };
 
+/** Libellés français des types de ressource bruts renvoyés par l'API d'audit. */
 const RESOURCE_LABELS: Record<string, string> = {
   user: 'Utilisateur',
   student: 'Étudiant',
@@ -48,6 +51,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   system: 'Système',
 };
 
+/** Formate une date ISO en date/heure courte localisée en français (ex. « 9 août, 14:32 »). */
 const dateOf = (date: string) =>
   new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',
@@ -56,8 +60,13 @@ const dateOf = (date: string) =>
     minute: '2-digit',
   }).format(new Date(date));
 
+/** Nombre d'entrées du journal chargées par page. */
 const PAGE_SIZE = 30;
 
+/**
+ * Journal d'activité admin : liste paginée et filtrable (par ressource et
+ * par type d'action) des entrées d'audit de la plateforme.
+ */
 export function ActivityLog() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -66,6 +75,7 @@ export function ActivityLog() {
   const [action, setAction] = useState('');
   const [loading, setLoading] = useState(true);
 
+  /** Charge une page du journal d'audit (`GET /audit`) en tenant compte des filtres actifs. */
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);

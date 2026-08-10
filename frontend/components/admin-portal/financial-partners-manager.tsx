@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Partenaire financier (banque, opérateur mobile money, assurance, etc.) tel que renvoyé par l'API. */
 type PartnerItem = {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ type PartnerItem = {
   isActive: boolean;
 };
 
+/** Libellés français des types de partenaire financier. */
 const TYPE_LABELS: Record<string, string> = {
   BANK: 'Banque',
   MOBILE_MONEY: 'Mobile Money',
@@ -39,13 +41,20 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: 'Autre',
 };
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/** Nombre de partenaires chargés par page. */
 const PAGE_SIZE = 20;
 
+/**
+ * Écran d'administration des partenaires financiers (banques, mobile money,
+ * assurances, bourses) affichés côté plateforme : liste paginée avec
+ * recherche, création, édition et suppression.
+ */
 export function FinancialPartnersManager() {
   const [partners, setPartners] = useState<PartnerItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -57,6 +66,7 @@ export function FinancialPartnersManager() {
   const [toDelete, setToDelete] = useState<PartnerItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /** Charge une page de partenaires financiers (`GET /financial-partners`), filtrée par recherche texte si renseignée. */
   const fetchPartners = useCallback(async () => {
     try {
       setLoading(true);
@@ -83,6 +93,7 @@ export function FinancialPartnersManager() {
     };
   }, [fetchPartners]);
 
+  /** Supprime le partenaire sélectionné (`toDelete`) puis rafraîchit la liste. */
   const removePartner = async () => {
     if (!toDelete) return;
     try {
@@ -267,6 +278,12 @@ export function FinancialPartnersManager() {
   );
 }
 
+/**
+ * Modale de création/édition d'un partenaire financier.
+ * @param partner Partenaire à éditer, ou `null` pour créer un nouveau partenaire.
+ * @param onClose Ferme la modale sans sauvegarder.
+ * @param onSaved Appelé après une création/mise à jour réussie (déclenche le rechargement de la liste côté parent).
+ */
 function PartnerForm({
   partner,
   onClose,
@@ -286,6 +303,8 @@ function PartnerForm({
   const [logo, setLogo] = useState(partner?.logo || '');
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
+  // Le logo se téléverse uniquement en édition : un partenaire non encore créé n'a pas d'id à cibler.
+  /** Téléverse un nouveau logo pour le partenaire existant (`POST /financial-partners/:id/logo`). */
   const uploadLogo = async (file: File) => {
     if (!partner) return;
     try {
@@ -306,6 +325,7 @@ function PartnerForm({
     }
   };
 
+  /** Valide et envoie le formulaire : création (`POST`) ou mise à jour (`PATCH`) selon la présence de `partner`. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!name.trim()) return;

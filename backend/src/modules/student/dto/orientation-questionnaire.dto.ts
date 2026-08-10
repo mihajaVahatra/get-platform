@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsString, IsOptional, IsBoolean } from 'class-validator';
 
+/**
+ * Réponses au questionnaire d'orientation utilisées pour générer des
+ * suggestions de formations/écoles (voir StudentService.generateOrientationSuggestions).
+ */
 export class OrientationQuestionnaireDto {
   @ApiProperty({ example: ['finance', 'management', 'marketing'] })
   @IsArray()

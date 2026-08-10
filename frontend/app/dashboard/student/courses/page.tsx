@@ -5,6 +5,7 @@ import { BookOpen, LoaderCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
+/** Cours inscrit tel que retourné par l'API `/students/me/courses`. `room`/`schedule` sont optionnels selon la matière. */
 type Course = {
   id: string;
   code: string;
@@ -16,6 +17,12 @@ type Course = {
   school: { id: string; name: string };
 };
 
+/**
+ * Route `/dashboard/student/courses` : client component ('use client') listant les cours
+ * auxquels l'étudiant est inscrit, sous forme de cartes (code, niveau, crédits, salle, horaire).
+ * Récupère les cours via `apiClient.get('/students/me/courses')` au montage et gère les
+ * états de chargement, d'échec et de liste vide.
+ */
 export default function StudentCoursesPage() {
   const t = useTranslations('StudentCourses');
   const [courses, setCourses] = useState<Course[]>([]);
@@ -89,6 +96,7 @@ export default function StudentCoursesPage() {
   );
 }
 
+/** Indicateur de chargement affiché pendant la récupération des cours. */
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -98,6 +106,7 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+/** État vide/erreur affiché en cas d'échec de l'appel API ou d'absence de cours. */
 function Empty({ label }: { label: string }) {
   return (
     <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">

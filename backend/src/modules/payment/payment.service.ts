@@ -14,6 +14,13 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Service des paiements : initiation, confirmation via webhook signé,
+ * inscription automatique de l'étudiant après paiement réussi, consultation,
+ * historique, génération de reçu PDF et statistiques. Le fournisseur de
+ * paiement réel (`PaymentProvider`, injecté sous le token 'PaymentProvider')
+ * est interchangeable — voir payment.module.ts pour le choix mock/réel.
+ */
 @Injectable()
 export class PaymentService {
   constructor(
@@ -23,6 +30,18 @@ export class PaymentService {
     private schoolService: SchoolService,
   ) {}
 
+  /**
+   * Initie un paiement pour une candidature acceptée de l'étudiant. Le
+   * montant provient exclusivement de `application.offer.tuitionFees`
+   * (jamais du client). Crée un `Payment` en base (statut PENDING puis
+   * PROCESSING) et appelle le fournisseur de paiement externe.
+   * @returns id du paiement, référence, URL de redirection fournisseur, montant, statut.
+   * @throws NotFoundException si l'étudiant ou la candidature n'existe pas.
+   * @throws ForbiddenException si la candidature n'appartient pas à cet étudiant.
+   * @throws BadRequestException si la candidature n'est pas ACCEPTED, si le
+   * montant est invalide, ou si un paiement est déjà en cours/terminé pour
+   * cette candidature (empêche le double paiement).
+   */
   async initiatePayment(studentId: string, dto: InitiatePaymentDto) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
@@ -105,6 +124,18 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Traite la notification asynchrone du fournisseur de paiement. Vérifie
+   * la signature HMAC, confirme le statut réel auprès du fournisseur
+   * (`confirmPayment`, ne fait jamais confiance au seul contenu du webhook),
+   * puis effectue en une transaction : mise à jour du paiement, inscription
+   * automatique de l'étudiant (StudentEnrollment + synchronisation des
+   * cours) et journalisation. Idempotent : un paiement déjà COMPLETED est
+   * retourné tel quel sans retraitement.
+   * @throws ForbiddenException si la signature webhook est absente/invalide.
+   * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
+   * @throws BadRequestException si le montant du webhook diffère du paiement enregistré.
+   */
   async handleWebhook(
     dto: PaymentWebhookDto,
     rawBody?: Buffer,
@@ -250,6 +281,13 @@ export class PaymentService {
     });
   }
 
+  /**
+   * Récupère un paiement avec ses relations (étudiant, transaction,
+   * remboursement, candidature/offre/école).
+   * @throws NotFoundException si le paiement n'existe pas.
+   * @throws ForbiddenException si l'appelant n'est ni le propriétaire du
+   * paiement, ni ADMIN_GET.
+   */
   async getPayment(paymentId: string, userId: string, role: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
@@ -287,6 +325,7 @@ export class PaymentService {
     return payment;
   }
 
+  /** Historique paginé des paiements d'un étudiant, du plus récent au plus ancien. */
   async getHistory(studentId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
@@ -317,6 +356,11 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Génère un reçu PDF pour un paiement (réutilise getPayment pour le
+   * contrôle d'accès). Le PDF est construit manuellement sans bibliothèque
+   * externe (voir buildReceiptPdf en bas de fichier).
+   */
   async generateReceipt(
     paymentId: string,
     userId: string,
@@ -341,6 +385,12 @@ export class PaymentService {
     ]);
   }
 
+  /**
+   * Simule l'ouverture d'un compte bancaire pour l'étudiant. Implémentation
+   * actuelle : aucune intégration bancaire réelle — `studentId`/`bankId` ne
+   * sont pas persistés ni utilisés, le numéro de compte est généré
+   * localement. À remplacer par un vrai appel fournisseur avant production.
+   */
   async openBankAccount(studentId: string, bankId: string) {
     return {
       accountNumber: `MG-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`,
@@ -349,6 +399,11 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Liste paginée (bornée à 100 éléments max par page) de tous les
+   * paiements de la plateforme, avec un résumé condensé par ligne
+   * (nom étudiant, école) plutôt que les entités complètes.
+   */
   async findAllAdmin(
     page = 1,
     limit = 20,

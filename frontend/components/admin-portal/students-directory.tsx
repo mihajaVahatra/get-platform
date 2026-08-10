@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Étudiant tel que renvoyé par l'annuaire admin (toutes écoles confondues). */
 type Student = {
   id: string;
   firstName: string;
@@ -20,10 +21,16 @@ type Student = {
   user: { email: string };
   enrolledSchool: { id: string; name: string } | null;
 };
+/** Option simplifiée pour le filtre de sélection d'école. */
 type SchoolOption = { id: string; name: string };
 
+/** Nombre d'étudiants chargés par page. */
 const PAGE_SIZE = 20;
 
+/**
+ * Annuaire en lecture seule des étudiants inscrits, toutes écoles
+ * confondues, avec recherche texte et filtrage par école.
+ */
 export function StudentsDirectory() {
   const [students, setStudents] = useState<Student[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -33,6 +40,7 @@ export function StudentsDirectory() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Charge la liste des écoles une seule fois au montage pour peupler le filtre.
   useEffect(() => {
     void apiClient
       .get('/schools', { params: { limit: 100 } })
@@ -40,6 +48,8 @@ export function StudentsDirectory() {
       .catch((error) => console.error('Erreur chargement écoles:', error));
   }, []);
 
+  // Note : aucun debounce sur `search` — chaque frappe déclenche un nouvel appel API.
+  /** Charge une page d'étudiants (`GET /schools/students`), filtrée par recherche texte et/ou école. */
   const fetchStudents = useCallback(async () => {
     try {
       setLoading(true);

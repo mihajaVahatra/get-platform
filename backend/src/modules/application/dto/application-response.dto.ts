@@ -1,6 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ApplicationStatus } from './update-application-status.dto';
 
+/**
+ * Forme de réponse API d'une candidature, incluant l'offre/école associées
+ * et les dernières entrées de sa timeline de statuts.
+ */
 export class ApplicationResponseDto {
   @ApiProperty()
   id: string;

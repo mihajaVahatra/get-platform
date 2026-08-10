@@ -17,6 +17,7 @@ import { apiClient } from '@/lib/api-client';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { MessageIconLink } from '@/components/messages/message-icon-link';
 
+/** Statistiques d'admission de l'établissement, telles que renvoyées par `GET /schools/me/stats`. */
 type SchoolStats = {
   totalOffers: number;
   openOffers: number;
@@ -26,6 +27,7 @@ type SchoolStats = {
   rejectedApplications: number;
 };
 
+/** Résumé chiffré des paiements de l'établissement (compteurs par statut, montant encaissé). */
 type PaymentSummary = {
   totalPayments: number;
   completedPayments: number;
@@ -46,17 +48,26 @@ type SchoolPayment = {
   application: { offer: { title: string } } | null;
 };
 
+/** Réponse de `GET /schools/me/payments` : résumé + derniers paiements. */
 type PaymentsResponse = {
   summary: PaymentSummary;
   payments: SchoolPayment[];
 };
 
+/** Indicateurs opérationnels de l'établissement, calculés côté client à partir de plusieurs appels API. */
 type OperationalStats = {
   totalStudents: number;
   totalCourses: number;
   totalTeachers: number;
 };
 
+/**
+ * Page d'accueil du tableau de bord établissement (route App Router `/dashboard/school`).
+ * Client component (`'use client'`) : agrège en une vue synthétique les KPI d'admission
+ * (offres, candidatures, taux d'acceptation), les paiements récents et des indicateurs
+ * opérationnels (étudiants, cours, professeurs), en combinant plusieurs appels `apiClient`
+ * exécutés en parallèle (`Promise.all`).
+ */
 export default function SchoolDashboardPage() {
   const [stats, setStats] = useState<SchoolStats | null>(null);
   const [payments, setPayments] = useState<PaymentsResponse | null>(null);
@@ -64,6 +75,8 @@ export default function SchoolDashboardPage() {
     useState<OperationalStats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Charge en parallèle les statistiques d'admission, les 5 derniers paiements et les
+  // indicateurs opérationnels (étudiants/cours/professeurs), pour un seul écran de synthèse.
   useEffect(() => {
     let cancelled = false;
 
@@ -133,6 +146,8 @@ export default function SchoolDashboardPage() {
     );
   }
 
+  // Taux d'acceptation calculé côté client pour éviter un endpoint dédié ; évite la division par
+  // zéro lorsque l'établissement n'a encore reçu aucune candidature.
   const acceptanceRate = stats.totalApplications
     ? Math.round((stats.acceptedApplications / stats.totalApplications) * 100)
     : 0;
@@ -314,6 +329,7 @@ export default function SchoolDashboardPage() {
   );
 }
 
+/** Formate un montant selon la devise donnée (MGA par défaut) avec le format monétaire malgache (fr-MG). */
 function formatCurrency(amount: number, currency = 'MGA') {
   return new Intl.NumberFormat('fr-MG', {
     style: 'currency',
@@ -322,6 +338,7 @@ function formatCurrency(amount: number, currency = 'MGA') {
   }).format(amount);
 }
 
+/** Badge coloré affichant le statut FR d'un paiement (payé, en attente, en cours, échoué). */
 function PaymentStatus({ status }: { status: string }) {
   const labels: Record<string, string> = {
     COMPLETED: 'Payé',
@@ -344,6 +361,7 @@ function PaymentStatus({ status }: { status: string }) {
   );
 }
 
+/** Carte indicateur (icône, libellé, valeur chiffrée et détail) utilisée pour les sections KPI du tableau de bord. */
 function Kpi({
   icon: Icon,
   tone,

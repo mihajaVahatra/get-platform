@@ -8,6 +8,7 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+/** Forme de la réponse JSON standardisée renvoyée par l'API après passage dans l'interceptor. */
 export interface Response<T> {
   success: boolean;
   data: T;
@@ -16,11 +17,21 @@ export interface Response<T> {
   statusCode: number;
 }
 
+/**
+ * Interceptor global qui enveloppe toute réponse de contrôleur dans le format standard
+ * `{ success, data, message, timestamp, statusCode }` (voir `BaseResponseDto`), sauf
+ * pour les fichiers (`StreamableFile`) et les réponses déjà enveloppées, qui sont
+ * transmis sans modification.
+ */
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<
   T,
   Response<T> | StreamableFile
 > {
+  /**
+   * Transforme la valeur retournée par le handler de route en réponse enveloppée,
+   * en réutilisant le statusCode déjà positionné sur la réponse HTTP.
+   */
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,
@@ -55,6 +66,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<
   }
 }
 
+/** Détermine si `value` a déjà la forme d'une réponse enveloppée (champ `success` booléen). */
 function isEnvelopedResponse<T>(value: unknown): value is Response<T> {
   return (
     typeof value === 'object' &&
@@ -64,6 +76,7 @@ function isEnvelopedResponse<T>(value: unknown): value is Response<T> {
   );
 }
 
+/** Récupère le message métier porté par `value.message` s'il existe, sinon un message générique. */
 function responseMessage(value: unknown): string {
   if (
     typeof value === 'object' &&

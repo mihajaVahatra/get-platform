@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Indicateurs agrégés de l'activité du professeur, renvoyés par `/teacher/dashboard/summary`. */
 type DashboardStats = {
   courses: number;
   students: number;
@@ -21,6 +22,7 @@ type DashboardStats = {
   unreadMessages: number;
 };
 
+/** Créneau de l'emploi du temps, tel qu'utilisé pour la liste des cours du jour. */
 type ScheduleSlot = {
   id: string;
   dayOfWeek: number;
@@ -30,6 +32,7 @@ type ScheduleSlot = {
   course: { id: string; title: string; group?: string | null };
 };
 
+/** Configuration des 4 cartes de métriques affichées en haut du tableau de bord (icône, libellé, sous-texte calculé, couleur). */
 const METRICS = [
   {
     key: 'courses',
@@ -64,6 +67,7 @@ const METRICS = [
   },
 ] as const;
 
+/** Classes Tailwind associées à chaque couleur de métrique déclarée dans `METRICS`. */
 const TONES = {
   indigo: 'bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
   blue: 'bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
@@ -71,8 +75,13 @@ const TONES = {
   green: 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
 };
 
+// Index 0 volontairement vide : `dayOfWeek` de l'API est 1-indexé (1 = Lundi), aligné sur l'index du tableau.
 const DAY_LABELS = ['', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
+/**
+ * Détermine si un créneau de cours est "En cours", "À venir" ou "Terminé"
+ * en comparant l'heure actuelle à l'intervalle [startTime, endTime[.
+ */
 function currentStatus(startTime: string, endTime: string) {
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
@@ -85,12 +94,23 @@ function currentStatus(startTime: string, endTime: string) {
   return 'Terminé';
 }
 
+/**
+ * Vue d'accueil du portail professeur : affiche les métriques clés de
+ * l'activité (cours, étudiants, évaluations à venir, devoirs à corriger),
+ * un raccourci vers les messages non lus, et la liste des cours du jour
+ * avec leur statut (en cours / à venir / terminé).
+ *
+ * Charge en parallèle le résumé (`GET /teacher/dashboard/summary`) et
+ * l'emploi du temps (`GET /teacher/courses/schedule`, filtré sur le jour
+ * courant) au montage du composant.
+ */
 export function TeacherDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [todaySlots, setTodaySlots] = useState<ScheduleSlot[]>([]);
 
+  /** Récupère les indicateurs agrégés du tableau de bord. */
   const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
@@ -106,10 +126,12 @@ export function TeacherDashboard() {
     }
   }, []);
 
+  /** Récupère l'emploi du temps complet et ne conserve que les créneaux du jour courant, triés par heure de début. */
   const loadTodaySchedule = useCallback(async () => {
     try {
       const response = await apiClient.get('/teacher/courses/schedule');
       const slots = (response.data.data ?? []) as ScheduleSlot[];
+      // `Date.getDay()` renvoie 0 pour dimanche ; on le convertit vers la convention ISO (1 = lundi ... 7 = dimanche) utilisée par l'API.
       const isoWeekday = new Date().getDay() === 0 ? 7 : new Date().getDay();
       setTodaySlots(
         slots

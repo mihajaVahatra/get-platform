@@ -35,6 +35,13 @@ import { VerifyEmailCodeDto } from './dto/verify-email-code.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { Throttle } from '@nestjs/throttler';
 
+/**
+ * Contrôleur d'authentification : inscription (avec vérification d'email),
+ * connexion (avec étape MFA optionnelle), rafraîchissement de session,
+ * déconnexion, réinitialisation de mot de passe et gestion du MFA (TOTP).
+ * Les tokens d'accès/rafraîchissement sont transmis via des cookies
+ * httpOnly plutôt que dans le corps de la réponse (voir setSessionCookies).
+ */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -44,6 +51,13 @@ export class AuthController {
     private readonly jwt: JwtService,
   ) {}
 
+  /**
+   * Pose les cookies de session (access + refresh token) sur la réponse.
+   * Toujours httpOnly (inaccessibles en JS côté client, protection XSS).
+   * `sameSite` vaut 'lax' par défaut, ou 'none' si CROSS_SITE_COOKIES=true
+   * (déploiements avec frontend/backend sur des domaines différents) — voir
+   * le commentaire ci-dessous pour le détail de cet arbitrage sécurité.
+   */
   private setSessionCookies(
     response: Response,
     accessToken: string,
@@ -86,6 +100,14 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Verification email sent' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
+  /**
+   * Démarre une inscription étudiante. Public, limité à 5 requêtes/min/IP.
+   * Ne crée pas le compte : place la demande en attente et envoie un email
+   * de vérification (voir AuthService.register).
+   * @param dto email, mot de passe, nom/prénom, téléphone.
+   * @returns confirmation que l'email de vérification a été envoyé.
+   * @throws ConflictException si l'email est déjà utilisé par un compte existant.
+   */
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -98,6 +120,15 @@ export class AuthController {
   @ApiBody({ type: VerifyEmailDto })
   @ApiResponse({ status: 200, description: 'Account created and logged in' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  /**
+   * Finalise l'inscription via le token JWT reçu par lien dans l'email de
+   * vérification. Crée réellement le compte User/Student et connecte
+   * l'utilisateur (pose les cookies de session).
+   * @param dto token de vérification signé (type `email_verify`).
+   * @returns les infos publiques de l'utilisateur nouvellement créé.
+   * @throws BadRequestException si le token est invalide/expiré, ou si
+   * l'email a déjà été vérifié par ailleurs (double clic, code+lien concurrents).
+   */
   async verifyEmail(
     @Body() dto: VerifyEmailDto,
     @Res({ passthrough: true }) response: Response,
@@ -118,6 +149,15 @@ export class AuthController {
   @ApiBody({ type: VerifyEmailCodeDto })
   @ApiResponse({ status: 200, description: 'Account created and logged in' })
   @ApiResponse({ status: 400, description: 'Invalid or expired code' })
+  /**
+   * Finalise l'inscription via le code à 6 chiffres envoyé par email
+   * (alternative au lien, pratique si le lien ne fonctionne pas). Crée le
+   * compte et connecte l'utilisateur.
+   * @param dto email + code de vérification.
+   * @returns les infos publiques de l'utilisateur nouvellement créé.
+   * @throws BadRequestException si aucune inscription en attente n'existe,
+   * si le code a expiré, trop de tentatives ont été faites, ou le code est invalide.
+   */
   async verifyEmailCode(
     @Body() dto: VerifyEmailCodeDto,
     @Res({ passthrough: true }) response: Response,
@@ -138,6 +178,13 @@ export class AuthController {
     status: 200,
     description: 'Verification email resent if pending',
   })
+  /**
+   * Renvoie un nouveau code/lien de vérification pour une inscription en
+   * attente. Limité à 3 requêtes/min pour limiter l'abus d'envoi d'emails.
+   * @param dto email de l'inscription en attente.
+   * @returns un message générique, que l'inscription existe ou non
+   * (évite de révéler si un email est déjà en cours d'inscription).
+   */
   async resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto.email);
   }
@@ -151,6 +198,17 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  /**
+   * Authentifie un utilisateur par email/mot de passe. Public, limité à
+   * 5 requêtes/min/IP (protection brute-force en complément du verrouillage
+   * de compte côté service).
+   * @param dto email + mot de passe.
+   * @returns soit les infos utilisateur (cookies de session posés), soit
+   * `{ mfaRequired: true, challengeToken }` si le MFA est activé pour ce
+   * compte — aucun cookie n'est posé dans ce dernier cas.
+   * @throws UnauthorizedException si les identifiants sont invalides, si le
+   * compte est verrouillé (5 échecs, 15 min), ou si l'email n'est pas encore vérifié.
+   */
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) response: Response,
@@ -173,6 +231,14 @@ export class AuthController {
   @ApiBody({ type: MfaLoginVerifyDto })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid or expired challenge' })
+  /**
+   * Complète la connexion pour un compte avec MFA activé, en validant le
+   * code TOTP contre le challenge émis par /auth/login.
+   * @param dto challengeToken (5 min de validité) + code TOTP à 6 chiffres.
+   * @returns les infos utilisateur, cookies de session posés.
+   * @throws UnauthorizedException si le challenge est expiré/invalide.
+   * @throws BadRequestException si le code TOTP est invalide.
+   */
   async loginMfaVerify(
     @Body() dto: MfaLoginVerifyDto,
     @Res({ passthrough: true }) response: Response,
@@ -197,6 +263,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh the access token using the refresh token cookie' })
   @ApiResponse({ status: 200, description: 'Access token refreshed' })
   @ApiResponse({ status: 401, description: 'Missing, invalid or expired refresh token' })
+  /**
+   * Émet un nouveau couple access/refresh token à partir du refresh token
+   * présent dans le cookie `refresh_token` (lu manuellement depuis l'en-tête
+   * `Cookie`, pas via un décorateur, pour rester indépendant du parsing
+   * de cookies configuré globalement). Public par nécessité : c'est cet
+   * endpoint qui redonne un access token une fois celui-ci expiré.
+   * @returns les infos utilisateur, nouveaux cookies de session posés.
+   * @throws UnauthorizedException si le cookie refresh_token est absent,
+   * invalide, expiré, ou si la session a été révoquée (sessionVersion).
+   */
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -214,6 +290,11 @@ export class AuthController {
     return { user };
   }
 
+  /**
+   * Retourne le profil de l'utilisateur actuellement authentifié, à partir
+   * du `request.user` peuplé par JwtStrategy (aucun accès direct à la base
+   * ici). Protégé par JwtAuthGuard : nécessite un access token valide.
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -231,6 +312,12 @@ export class AuthController {
     };
   }
 
+  /**
+   * Déconnecte l'utilisateur : révoque la session (incrémente
+   * sessionVersion, invalidant tout access/refresh token existant) puis
+   * efface les cookies. Voir le commentaire ci-dessous pour la raison de
+   * @Public() sur cet endpoint.
+   */
   @Public()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -271,6 +358,12 @@ export class AuthController {
   @ApiBody({ schema: { properties: { email: { type: 'string' } } } })
   @ApiResponse({ status: 200, description: 'Reset email sent' })
   @ApiResponse({ status: 404, description: 'User not found' })
+  /**
+   * Déclenche l'envoi d'un email de réinitialisation de mot de passe.
+   * Limité à 3 requêtes/min pour limiter l'énumération/spam d'emails.
+   * @returns toujours un message générique, que le compte existe ou non
+   * (ne révèle jamais l'existence d'un email en base).
+   */
   async forgotPassword(@Body('email') email: string) {
     return this.authService.forgotPassword(email);
   }
@@ -290,11 +383,27 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: 'Password reset successful' })
   @ApiResponse({ status: 400, description: 'Invalid token or password' })
+  /**
+   * Applique un nouveau mot de passe à partir du token reçu par email
+   * (valable 1h, type `reset`).
+   * @throws BadRequestException si le token est invalide, expiré, ou d'un
+   * autre type que `reset`.
+   */
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   // ========== MFA ==========
+  // Réservé aux rôles à privilèges élevés (admins, ministère) : ce sont les
+  // comptes les plus sensibles de la plateforme, d'où le MFA en option
+  // renforcée plutôt qu'obligatoire pour tous les utilisateurs.
+
+  /**
+   * Démarre l'activation du MFA : génère un secret TOTP et un QR code à
+   * scanner dans une app d'authentification. Le MFA n'est pas encore actif
+   * à ce stade (voir verifyMfa).
+   * @returns `{ qrCode, secret }` (secret en clair pour saisie manuelle).
+   */
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
@@ -305,6 +414,11 @@ export class AuthController {
     return this.authService.enableMfa(userId);
   }
 
+  /**
+   * Confirme la possession du secret TOTP généré par mfa/enable et active
+   * effectivement le MFA sur le compte. Limité à 5 requêtes/min.
+   * @throws BadRequestException si aucun secret n'a été généré ou si le code est invalide.
+   */
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
@@ -318,6 +432,12 @@ export class AuthController {
     return this.authService.verifyMfa(userId, code);
   }
 
+  /**
+   * Désactive le MFA sur le compte, après re-vérification du code TOTP
+   * courant (empêche la désactivation par un tiers ayant seulement le
+   * cookie de session, sans le secret TOTP). Limité à 5 requêtes/min.
+   * @throws BadRequestException si le code TOTP est invalide.
+   */
   @Post('mfa/disable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')

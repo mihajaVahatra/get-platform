@@ -12,12 +12,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
+/** Schéma de validation du formulaire "mot de passe oublié" (email uniquement). */
 const forgotSchema = z.object({
   email: z.string().email('Email invalide').max(254),
 });
 
 type ForgotForm = z.infer<typeof forgotSchema>;
 
+/**
+ * Page `/auth/forgot-password` : formulaire de demande de réinitialisation de mot de passe.
+ *
+ * Envoie l'email saisi à `POST /auth/forgot-password`. Par sécurité (ne pas
+ * révéler quels emails existent en base), l'API répond en général de façon
+ * identique que l'email existe ou non ; côté UI on affiche simplement une
+ * confirmation d'envoi (`isSent`) sans distinguer les cas.
+ *
+ * États locaux :
+ * - `isLoading` : requête en cours (désactive le bouton de soumission).
+ * - `isSent` : bascule l'affichage vers l'écran de confirmation.
+ */
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);

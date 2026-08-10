@@ -26,11 +26,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Extrait le message d'erreur métier renvoyé par l'API dans une réponse Axios, si présent. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/** Établissement scolaire, tel que renvoyé par `GET /schools/me`. */
 type School = {
   id: string;
   name: string;
@@ -43,6 +45,7 @@ type School = {
   logo?: string | null;
 };
 
+/** Champs éditables du formulaire de profil de l'établissement (sous-ensemble de `School`, tous en string pour les inputs contrôlés). */
 type SchoolForm = {
   name: string;
   description: string;
@@ -53,12 +56,14 @@ type SchoolForm = {
   website: string;
 };
 
+/** Pièce/prérequis de dossier exigé pour un diplôme donné. */
 type Requirement = {
   id: string;
   name: string;
   diploma?: string;
   isRequired: boolean;
 };
+/** Filière (programme d'études) proposée par l'établissement. */
 type Program = {
   id: string;
   name: string;
@@ -66,14 +71,17 @@ type Program = {
   durationYears: number;
   isActive: boolean;
 };
+/** Année académique et sa fenêtre d'ouverture des inscriptions. */
 type AcademicYear = {
   id: string;
   label: string;
   enrollmentOpensAt: string;
   enrollmentClosesAt: string;
+  /** Une seule année peut être « courante » à la fois pour l'établissement. */
   isCurrent: boolean;
 };
 
+/** Valeurs initiales du formulaire de profil avant chargement des données de l'établissement. */
 const EMPTY_FORM: SchoolForm = {
   name: '',
   description: '',
@@ -84,8 +92,17 @@ const EMPTY_FORM: SchoolForm = {
   website: '',
 };
 
+/** Diplômes proposés comme options pour le filtre de prérequis d'admission. */
 const diplomas = ['Licence', 'Master 1', 'Master 2', 'Doctorat'];
 
+/**
+ * Page « Paramètres de l'établissement » du tableau de bord établissement
+ * (route App Router `/dashboard/school/settings`).
+ * Client component (`'use client'`) : centralise la configuration de l'établissement —
+ * profil (logo, coordonnées), filières, matières, années académiques (fenêtre d'inscription),
+ * prérequis d'admission par diplôme, salles (`RoomsManager`) et authentification multifacteur
+ * (`MfaSettingsCard`). Chaque section gère indépendamment son propre état et ses appels API.
+ */
 export default function SchoolSettingsPage() {
   const [school, setSchool] = useState<School | null>(null);
   const [form, setForm] = useState<SchoolForm>(EMPTY_FORM);
@@ -113,6 +130,8 @@ export default function SchoolSettingsPage() {
   const [subjectName, setSubjectName] = useState('');
   const [platformCities, setPlatformCities] = useState<string[]>([]);
 
+  // Charge la liste des villes actives de la plateforme, utilisée comme options du sélecteur
+  // « Ville » du profil (liste contrôlée côté plateforme plutôt que saisie libre).
   useEffect(() => {
     apiClient
       .get('/platform-cities')
@@ -126,6 +145,7 @@ export default function SchoolSettingsPage() {
       .catch(() => setPlatformCities([]));
   }, []);
 
+  // Charge le profil de l'établissement courant et initialise le formulaire d'édition.
   useEffect(() => {
     let cancelled = false;
 
@@ -163,6 +183,8 @@ export default function SchoolSettingsPage() {
     };
   }, []);
 
+  // Recharge les prérequis d'admission à chaque changement du diplôme sélectionné
+  // (les prérequis sont propres à chaque diplôme).
   useEffect(() => {
     let cancelled = false;
 
@@ -184,10 +206,12 @@ export default function SchoolSettingsPage() {
     };
   }, [diploma]);
 
+  /** Recharge la liste des filières de l'établissement via `GET /schools/me/programs`. */
   const refreshPrograms = async () => {
     const response = await apiClient.get('/schools/me/programs');
     setPrograms(response.data.data || []);
   };
+  /** Recharge la liste des années académiques via `GET /schools/me/academic-years`. */
   const refreshAcademicYears = async () => {
     const response = await apiClient.get('/schools/me/academic-years');
     setAcademicYears(response.data.data || []);
@@ -197,6 +221,7 @@ export default function SchoolSettingsPage() {
       toast.error('Impossible de charger les filières et années académiques'),
     );
   }, []);
+  /** Recharge la liste des matières via `GET /schools/me/subjects`. */
   const refreshSubjects = async () => {
     const response = await apiClient.get('/schools/me/subjects');
     setSubjects(response.data.data || []);
@@ -207,10 +232,12 @@ export default function SchoolSettingsPage() {
     );
   }, []);
 
+  /** Met à jour un champ du formulaire de profil de l'établissement. */
   const updateField = (field: keyof SchoolForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  /** Enregistre les modifications du profil de l'établissement via `PUT /schools/:id`. */
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!school) return;
@@ -237,6 +264,7 @@ export default function SchoolSettingsPage() {
     }
   };
 
+  /** Recharge les prérequis d'admission pour le diplôme actuellement sélectionné. */
   const refreshRequirements = async () => {
     const response = await apiClient.get(
       `/schools/me/requirements?diploma=${encodeURIComponent(diploma)}`,
@@ -244,6 +272,7 @@ export default function SchoolSettingsPage() {
     setRequirements(response.data.data ?? response.data ?? []);
   };
 
+  /** Ajoute un nouveau prérequis d'admission pour le diplôme sélectionné. */
   const addRequirement = async () => {
     if (!requirementName.trim()) {
       toast.error('Le nom du prérequis est obligatoire');
@@ -264,6 +293,10 @@ export default function SchoolSettingsPage() {
     }
   };
 
+  /**
+   * Archive un prérequis (désactivation logique, `isActive: false`) plutôt que de le supprimer,
+   * afin de préserver l'historique des dossiers déjà évalués avec ce prérequis.
+   */
   const archiveRequirement = async (id: string) => {
     try {
       await apiClient.patch(`/schools/me/requirements/${id}`, {
@@ -275,6 +308,7 @@ export default function SchoolSettingsPage() {
       toast.error('Impossible d’archiver le prérequis');
     }
   };
+  /** Ajoute une nouvelle filière (programme d'études) à l'établissement. */
   const addProgram = async () => {
     if (!programForm.name.trim())
       return toast.error('Le nom de la filière est obligatoire');
@@ -290,6 +324,7 @@ export default function SchoolSettingsPage() {
       toast.error("Impossible d'ajouter la filière");
     }
   };
+  /** Archive ou réactive une filière (bascule de `isActive`). */
   const toggleProgram = async (program: Program) => {
     try {
       await apiClient.patch(`/schools/me/programs/${program.id}`, {
@@ -303,6 +338,10 @@ export default function SchoolSettingsPage() {
       toast.error('Impossible de modifier la filière');
     }
   };
+  /**
+   * Ajoute une nouvelle année académique après validation métier : les trois champs sont
+   * obligatoires et la date de fermeture des inscriptions doit être postérieure à l'ouverture.
+   */
   const addAcademicYear = async () => {
     if (
       !academicForm.label ||
@@ -325,6 +364,7 @@ export default function SchoolSettingsPage() {
       toast.error("Impossible d'ajouter l'année académique");
     }
   };
+  /** Définit une année académique comme « courante » (une seule à la fois côté API). */
   const setCurrentAcademicYear = async (id: string) => {
     try {
       await apiClient.patch(`/schools/me/academic-years/${id}`, {
@@ -336,6 +376,7 @@ export default function SchoolSettingsPage() {
       toast.error("Impossible de définir l'année courante");
     }
   };
+  /** Ajoute une nouvelle matière enseignable dans l'établissement. */
   const addSubject = async () => {
     if (!subjectName.trim())
       return toast.error('Le nom de la matière est obligatoire');
@@ -350,6 +391,7 @@ export default function SchoolSettingsPage() {
       toast.error("Impossible d'ajouter la matière");
     }
   };
+  /** Archive ou réactive une matière (bascule de `isActive`). */
   const toggleSubject = async (subject: { id: string; isActive: boolean }) => {
     try {
       await apiClient.patch(`/schools/me/subjects/${subject.id}`, {
@@ -360,6 +402,8 @@ export default function SchoolSettingsPage() {
       toast.error('Impossible de modifier la matière');
     }
   };
+  // Les inscriptions pour une année sont considérées ouvertes uniquement si la date courante
+  // se situe dans la fenêtre [enrollmentOpensAt, enrollmentClosesAt] de cette année.
   const enrollmentOpen = (year?: AcademicYear) =>
     !!year &&
     new Date(year.enrollmentOpensAt) <= new Date() &&
@@ -810,6 +854,7 @@ export default function SchoolSettingsPage() {
   );
 }
 
+/** Types de salle disponibles, sous forme de paires [valeur API, libellé FR]. */
 const ROOM_TYPES = [
   ['STANDARD', 'Standard'],
   ['LAB', 'Laboratoire'],
@@ -817,6 +862,7 @@ const ROOM_TYPES = [
   ['SPORT', 'Sport'],
 ] as const;
 
+/** Salle physique de l'établissement, utilisée pour la planification des cours. */
 type Room = {
   id: string;
   name: string;
@@ -825,6 +871,11 @@ type Room = {
   isActive: boolean;
 };
 
+/**
+ * Sous-section « Salles » de la page Paramètres : liste les salles de l'établissement et
+ * permet d'en ajouter (via une boîte de dialogue) ou d'en supprimer. Affiche également
+ * la carte de configuration MFA (`MfaSettingsCard`) en bas de la page paramètres.
+ */
 function RoomsManager() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
@@ -834,6 +885,7 @@ function RoomsManager() {
   const [type, setType] = useState('STANDARD');
   const [saving, setSaving] = useState(false);
 
+  /** Charge la liste des salles de l'établissement via `GET /schools/me/rooms`. */
   const loadRooms = useCallback(async () => {
     try {
       const response = await apiClient.get('/schools/me/rooms');
@@ -856,6 +908,7 @@ function RoomsManager() {
     };
   }, [loadRooms]);
 
+  /** Crée une nouvelle salle via `POST /schools/me/rooms` puis ferme la boîte de dialogue. */
   const createRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -880,6 +933,7 @@ function RoomsManager() {
     })();
   };
 
+  /** Supprime définitivement une salle via `DELETE /schools/me/rooms/:id`. */
   const deleteRoom = async (room: Room) => {
     try {
       await apiClient.delete(`/schools/me/rooms/${room.id}`);

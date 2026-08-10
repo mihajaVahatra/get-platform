@@ -34,6 +34,7 @@ import {
 
 type ComplianceStatus = 'PASSED' | 'FAILED' | 'PENDING';
 
+/** Dernier contrôle de conformité connu pour un établissement (chaque mise à jour crée une nouvelle entrée dans l'historique côté API). */
 type ComplianceCheck = {
   id: string;
   status: ComplianceStatus;
@@ -82,6 +83,11 @@ const statusColors: Record<ComplianceStatus, string> = {
   PENDING: 'bg-yellow-500',
 };
 
+/**
+ * Normalise les métadonnées de pagination renvoyées par l'API en repli sûr
+ * (valeurs par défaut si absentes/invalides), pour éviter tout NaN ou page
+ * totale à zéro dans l'interface.
+ */
 function normalizeMeta(
   meta: Partial<PaginationMeta> | undefined,
   page: number,
@@ -94,6 +100,18 @@ function normalizeMeta(
   };
 }
 
+/**
+ * Page de suivi de la conformité des établissements pour le ministère.
+ *
+ * Liste paginée (`GET /ministry/compliance`, `latestOnly: true` pour ne
+ * récupérer que le dernier contrôle par établissement) filtrable par statut
+ * (conforme / non conforme / en attente). Permet d'enregistrer un nouveau
+ * contrôle via `PUT /ministry/compliance/:schoolId`, qui ajoute une entrée à
+ * l'historique côté API plutôt que d'écraser le contrôle précédent.
+ *
+ * Volontairement, aucune donnée élève n'est affichée sur cette page
+ * (uniquement des informations agrégées au niveau établissement).
+ */
 export default function CompliancePage() {
   const [checks, setChecks] = useState<ComplianceCheck[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>(emptyMeta);
@@ -115,6 +133,8 @@ export default function CompliancePage() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Recharge la liste à chaque changement de page, de filtre de statut, ou après une mise
+  // à jour réussie (via `reloadKey`, incrémenté par `refreshCompliance`).
   useEffect(() => {
     let cancelled = false;
 
@@ -150,6 +170,7 @@ export default function CompliancePage() {
     };
   }, [page, reloadKey, statusFilter]);
 
+  /** Force un rechargement de la liste (ex. après une mise à jour), avec retour optionnel à la première page. */
   const refreshCompliance = (resetToFirstPage = false) => {
     setLoading(true);
     setLoadError(null);
@@ -172,6 +193,7 @@ export default function CompliancePage() {
     setStatusFilter(nextStatus);
   };
 
+  /** Ouvre le dialogue de mise à jour, pré-rempli avec les valeurs du contrôle sélectionné. */
   const openUpdateDialog = (check: ComplianceCheck) => {
     setEditingCheck(check);
     setUpdateError(null);
@@ -188,12 +210,17 @@ export default function CompliancePage() {
     setUpdateError(null);
   };
 
+  // Valide et envoie le nouveau contrôle de conformité ; réinitialise le filtre de statut
+  // à « Tous » après succès pour que l'établissement mis à jour reste visible même si son
+  // nouveau statut ne correspond plus au filtre actif.
   const handleUpdate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editingCheck) return;
 
     const score = updateForm.score.trim();
     const numericScore = score === '' ? undefined : Number(score);
+    // Le score est facultatif (champ vide accepté), mais s'il est renseigné il doit être
+    // un nombre compris entre 0 et 100 — validé côté client avant l'appel API.
     if (
       numericScore !== undefined &&
       (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100)

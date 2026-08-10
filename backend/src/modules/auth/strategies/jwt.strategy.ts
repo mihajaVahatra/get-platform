@@ -4,6 +4,13 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/**
+ * Stratégie Passport JWT utilisée par JwtAuthGuard. Extrait l'access token
+ * soit d'un en-tête `Authorization: Bearer`, soit du cookie httpOnly
+ * `access_token` (deux sources acceptées pour couvrir à la fois les clients
+ * API classiques et le frontend web basé sur cookies). Le token doit être
+ * signé avec JWT_SECRET et non expiré (`ignoreExpiration: false`).
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -24,6 +31,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /**
+   * Appelé par Passport une fois la signature/expiration du JWT validées.
+   * Recharge l'utilisateur depuis la base (plutôt que de faire confiance
+   * au seul payload) pour vérifier qu'il est toujours actif et que la
+   * session n'a pas été révoquée depuis l'émission du token.
+   * @returns l'objet qui devient `request.user` dans tous les contrôleurs
+   * (jamais le mot de passe ni les secrets — voir le `select` explicite).
+   * @throws UnauthorizedException si le payload porte un `type` (jeton à
+   * usage unique comme un reset ou un challenge MFA, pas un access token),
+   * si l'utilisateur est introuvable/inactif, ou si `sessionVersion` ne
+   * correspond plus à celle en base (session révoquée par un logout).
+   */
   async validate(payload: any) {
     // Les jetons à usage unique (reset de mot de passe, challenge MFA) portent
     // un champ `type` et ne doivent jamais être acceptés comme jeton d'accès,

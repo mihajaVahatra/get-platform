@@ -74,6 +74,7 @@ export function createReportExport(
   }
 }
 
+/** Métadonnées d'un rapport (hors `data`) sérialisables telles quelles dans l'export JSON. */
 function reportMetadata(report: ReportForExport) {
   return {
     name: report.name,
@@ -86,6 +87,11 @@ function reportMetadata(report: ReportForExport) {
   };
 }
 
+/**
+ * Convertit un rapport (métadonnées + instantané JSON `data` arbitrairement
+ * imbriqué) en lignes tabulaires plates (section / indicateur / dimension /
+ * valeur), format commun aux exports CSV, Excel et PDF.
+ */
 function toReportRows(report: ReportForExport): ReportRow[] {
   const rows: ReportRow[] = [
     ['Rapport', 'Nom', '', report.name],
@@ -105,6 +111,12 @@ function toReportRows(report: ReportForExport): ReportRow[] {
   return rows;
 }
 
+/**
+ * Parcourt récursivement l'instantané JSON du rapport et pousse une ligne
+ * par valeur scalaire rencontrée. Les tableaux d'objets (listes d'agrégats)
+ * sont traités ligne par ligne via `appendAggregateRow` plutôt que d'être
+ * aplatis champ par champ.
+ */
 function flatten(value: unknown, path: string[], rows: ReportRow[]) {
   if (value === null || value === undefined) return;
 
@@ -143,6 +155,12 @@ function flatten(value: unknown, path: string[], rows: ReportRow[]) {
   ]);
 }
 
+/**
+ * Transforme un objet d'agrégat (ex. `{ school, region, count,
+ * acceptedCount }`) en une ou plusieurs lignes : les champs numériques
+ * deviennent des mesures (une ligne par mesure), les champs texte/booléens
+ * sont regroupés comme dimensions descriptives communes à ces lignes.
+ */
 function appendAggregateRow(
   row: Record<string, unknown>,
   path: string[],
@@ -175,11 +193,13 @@ function appendAggregateRow(
   }
 }
 
+/** S\u00E9rialise les lignes en CSV (s\u00E9parateur `;`), avec BOM UTF-8 pour un affichage correct des accents dans Excel. */
 function toCsv(rows: ReportRow[]) {
   const header = ['Section', 'Indicateur', 'Dimension', 'Valeur'];
   return `\uFEFF${[header, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\n')}\n`;
 }
 
+/** S\u00E9rialise les lignes en XML SpreadsheetML (feuille de calcul Excel), sans d\u00E9pendance externe. */
 function toSpreadsheetMl(rows: ReportRow[]) {
   const allRows = [['Section', 'Indicateur', 'Dimension', 'Valeur'], ...rows];
   const cells = allRows
@@ -202,6 +222,13 @@ function toSpreadsheetMl(rows: ReportRow[]) {
 </Workbook>`;
 }
 
+/**
+ * Génère un PDF minimal fait à la main (sans dépendance externe), limité aux
+ * ~31 premières lignes de contenu (au-delà de l'en-tête) sur une seule page
+ * A4, avec les caractères non-ASCII translittérés (voir `toAscii`) car
+ * l'encodage utilisé (WinAnsi/Helvetica de base) ne gère pas correctement
+ * tous les accents.
+ */
 function createPdf(report: ReportForExport, rows: ReportRow[]) {
   const lines = [
     report.name,
@@ -249,6 +276,7 @@ function createPdf(report: ReportForExport, rows: ReportRow[]) {
   return Buffer.from(output, 'latin1');
 }
 
+/** Découpe une ligne de texte en plusieurs lignes ne dépassant pas `width` caractères, sans jamais couper un mot. */
 function wrapPdfLine(line: string, width: number) {
   const words = toAscii(line).split(/\s+/).filter(Boolean);
   if (words.length === 0) return [''];
@@ -267,10 +295,12 @@ function wrapPdfLine(line: string, width: number) {
   return lines;
 }
 
+/** Échappe une valeur pour l'inclure entre guillemets dans une cellule CSV. */
 function escapeCsv(value: string) {
   return `"${value.replaceAll('"', '""')}"`;
 }
 
+/** Échappe les caractères spéciaux XML pour une insertion sûre dans le SpreadsheetML. */
 function escapeXml(value: string) {
   return value
     .replaceAll('&', '&amp;')

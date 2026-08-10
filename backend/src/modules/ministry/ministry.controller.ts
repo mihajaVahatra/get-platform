@@ -41,6 +41,13 @@ import {
 import { ExportFormat, GenerateReportDto } from './dto/report-request.dto';
 import { MinistryService } from './ministry.service';
 
+/**
+ * Expose les endpoints de supervision nationale du ministère : tableaux de
+ * bord et statistiques agrégées, suivi de conformité des établissements et
+ * génération/export de rapports. Toutes les routes sont réservées aux rôles
+ * MINISTRY et ADMIN_GET (sauf `public/stats`, volontairement publique) et
+ * ne renvoient jamais de données nominatives sur les étudiants.
+ */
 @ApiTags('ministry')
 @Controller('ministry')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -49,6 +56,11 @@ import { MinistryService } from './ministry.service';
 export class MinistryController {
   constructor(private readonly ministryService: MinistryService) {}
 
+  /**
+   * Vue nationale agrégée (candidatures, inscriptions, écoles, offres, taux
+   * d'acceptation, alertes), filtrable par période.
+   * Lève BadRequestException si la date de début est postérieure à la date de fin.
+   */
   @Get('dashboard')
   @ApiOperation({
     summary: 'Vue nationale agrégée, sans données personnelles étudiantes',
@@ -69,6 +81,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Statistiques de candidatures agrégées par établissement/filière/région/
+   * période, filtrables et limitables via la query.
+   * Lève BadRequestException si la date de début est postérieure à la date de fin.
+   */
   @Get('stats/applications')
   @ApiOperation({
     summary:
@@ -94,6 +111,7 @@ export class MinistryController {
     };
   }
 
+  /** Statistiques agrégées des établissements (répartition public/privé, par région, moyennes). */
   @Get('stats/schools')
   @ApiOperation({ summary: 'Statistiques agrégées des établissements' })
   @ApiResponse({
@@ -110,6 +128,7 @@ export class MinistryController {
     };
   }
 
+  /** Répartition géographique agrégée des étudiants par région et par ville, sans identité. */
   @Get('stats/geographic')
   @ApiOperation({
     summary: 'Répartition géographique agrégée des étudiants, sans identité',
@@ -123,6 +142,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Liste paginée des contrôles de conformité par établissement. Par défaut
+   * (`latestOnly` non explicitement `false`), ne retourne que le dernier
+   * contrôle de chaque école plutôt que tout l'historique.
+   */
   @Get('compliance')
   @ApiOperation({
     summary: 'Liste paginée des contrôles de conformité par établissement',
@@ -142,6 +166,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Enregistre un nouveau contrôle de conformité pour un établissement
+   * (crée une entrée d'historique, ne modifie pas les contrôles précédents).
+   * Lève NotFoundException si l'établissement n'existe pas.
+   */
   @Put('compliance/:schoolId')
   @ApiOperation({ summary: 'Enregistrer un contrôle de conformité' })
   @ApiParam({ name: 'schoolId', description: "Identifiant de l'établissement" })
@@ -164,6 +193,7 @@ export class MinistryController {
     };
   }
 
+  /** Liste paginée des rapports agrégés déjà générés, filtrable par type. */
   @Get('reports')
   @ApiOperation({ summary: 'Liste paginée des rapports agrégés générés' })
   async getReports(@Query() query: ReportsQueryDto) {
@@ -176,6 +206,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Génère un nouveau rapport agrégé sur la période demandée : calcule un
+   * instantané (dashboard, statistiques, conformité...) et le persiste.
+   * Lève BadRequestException si la date de début est postérieure à la date de fin.
+   */
   @Post('reports/generate')
   @ApiOperation({
     summary: 'Générer un rapport agrégé ne contenant aucune donnée nominative',
@@ -197,6 +232,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Retourne le détail d'un rapport agrégé, y compris son instantané de
+   * données.
+   * Lève NotFoundException si le rapport n'existe pas.
+   */
   @Get('reports/:id')
   @ApiOperation({ summary: "Détail d'un rapport agrégé" })
   @ApiParam({ name: 'id', description: 'Identifiant du rapport' })
@@ -209,6 +249,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Télécharge un rapport agrégé dans le format demandé (PDF par défaut,
+   * EXCEL, CSV ou JSON) sous forme de fichier joint.
+   * Lève NotFoundException si le rapport n'existe pas.
+   */
   @Get('reports/:id/export')
   @ApiOperation({ summary: 'Télécharger un rapport agrégé' })
   @ApiParam({ name: 'id', description: 'Identifiant du rapport' })
@@ -227,6 +272,11 @@ export class MinistryController {
     });
   }
 
+  /**
+   * Endpoint public (aucune authentification requise, `@Public()`) exposant
+   * un sous-ensemble volontairement restreint des statistiques nationales
+   * (totaux et taux d'acceptation), sans aucune donnée sensible.
+   */
   @Public()
   @Get('public/stats')
   @ApiOperation({
@@ -246,6 +296,11 @@ export class MinistryController {
     };
   }
 
+  /**
+   * Convertit une query `from`/`to` (chaînes ISO ou YYYY-MM-DD) en bornes de
+   * dates exploitables par le service.
+   * Lève BadRequestException si `from` est postérieure à `to`.
+   */
   private toDateRange(query: DateRangeQueryDto): {
     from?: Date;
     to?: Date;
@@ -262,6 +317,12 @@ export class MinistryController {
     return { from, to };
   }
 
+  /**
+   * Convertit une valeur de date en `Date`, en positionnant l'heure à
+   * minuit ou 23:59:59.999 UTC lorsque la valeur est un simple jour
+   * (YYYY-MM-DD), afin d'inclure toute la journée pour la borne haute.
+   * Lève BadRequestException si la valeur n'est pas une date valide.
+   */
   private toBoundary(value: string, endOfDay: boolean): Date {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {

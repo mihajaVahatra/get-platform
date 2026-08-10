@@ -5,6 +5,11 @@ import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Famille de composants "Avatar" (image de profil), basée sur `@base-ui/react/avatar`.
+ *
+ * @param size - `"default"`, `"sm"` ou `"lg"`.
+ */
 function Avatar({
   className,
   size = "default",
@@ -25,6 +30,7 @@ function Avatar({
   )
 }
 
+/** Image de l'avatar ; bascule automatiquement sur `AvatarFallback` en cas d'échec de chargement. */
 function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
   return (
     <AvatarPrimitive.Image
@@ -38,6 +44,7 @@ function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
   )
 }
 
+/** Contenu de repli (ex. initiales) affiché quand `AvatarImage` ne charge pas. */
 function AvatarFallback({
   className,
   ...props
@@ -54,6 +61,7 @@ function AvatarFallback({
   )
 }
 
+/** Petit badge superposé en bas à droite de l'avatar (ex. indicateur de statut en ligne). */
 function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
@@ -70,6 +78,7 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
+/** Regroupe plusieurs `Avatar` avec un léger chevauchement (empilement horizontal). */
 function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -83,6 +92,7 @@ function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Pastille "+N" indiquant le nombre d'avatars supplémentaires non affichés dans un `AvatarGroup`. */
 function AvatarGroupCount({
   className,
   ...props

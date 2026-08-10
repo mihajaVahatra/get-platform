@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Cours de l'étudiant, utilisé pour peupler le sélecteur de cours de la page devoirs. */
 type Course = {
   id: string;
   code: string;
@@ -20,6 +21,7 @@ type Course = {
   school: { name: string };
 };
 
+/** Devoir d'un cours, avec sa soumission éventuelle (`submission`, `null` tant que rien n'a été rendu). */
 type Assignment = {
   id: string;
   title: string;
@@ -28,6 +30,15 @@ type Assignment = {
   submission: { id: string; submittedAt: string; grade: number | null } | null;
 };
 
+/**
+ * Route `/dashboard/student/assignments` : client component ('use client') permettant à
+ * l'étudiant de choisir un cours, consulter ses devoirs et déposer/remplacer un fichier de
+ * rendu tant que le devoir n'a pas été noté.
+ * Effectue trois catégories d'appels via `apiClient` :
+ * - `GET /students/me/courses` : charge la liste des cours au montage et présélectionne le premier.
+ * - `GET /students/me/courses/{courseId}/assignments` : recharge les devoirs à chaque changement de cours sélectionné.
+ * - `POST /students/me/assignments/{assignmentId}/submit` : envoie le fichier de soumission (multipart/form-data).
+ */
 export default function AssignmentsPage() {
   const t = useTranslations('StudentAssignments');
   const [courses, setCourses] = useState<Course[]>([]);
@@ -68,15 +79,23 @@ export default function AssignmentsPage() {
       });
   }, [selectedCourseId]);
 
+  // Un cours est en cours de chargement de ses devoirs tant que l'ID du cours sélectionné
+  // diffère de celui pour lequel la dernière réponse d'API a été reçue.
   const loadingAssignments =
     Boolean(selectedCourseId) && selectedCourseId !== loadedAssignmentsCourseId;
 
+  /**
+   * Envoie le fichier choisi comme soumission pour un devoir donné.
+   * Met à jour l'état local de manière optimiste (soumission marquée comme envoyée, sans note)
+   * dès que l'upload réussit, sans attendre un rechargement complet de la liste.
+   */
   const uploadSubmission = async (
     assignment: Assignment,
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     event.target.value = '';
+    // Règle métier : un devoir déjà noté ne peut plus être re-soumis.
     if (!file || assignment.submission?.grade != null) return;
 
     setUploadingId(assignment.id);
@@ -166,6 +185,8 @@ export default function AssignmentsPage() {
             <div className="space-y-3">
               {assignments.map((assignment) => {
                 const isGraded = assignment.submission?.grade != null;
+                // Un devoir en retard reste soumissible : ce booléen ne sert qu'à l'affichage
+                // d'un avertissement visuel, pas à bloquer l'upload.
                 const isLate = Boolean(
                   assignment.dueAt && new Date(assignment.dueAt) < new Date(),
                 );
@@ -239,6 +260,7 @@ export default function AssignmentsPage() {
   );
 }
 
+/** Indicateur de chargement générique utilisé pour les cours et les devoirs. */
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -248,6 +270,7 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+/** État vide affiché en l'absence de cours ou de devoirs. */
 function Empty({ label }: { label: string }) {
   return <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">{label}</p>;
 }

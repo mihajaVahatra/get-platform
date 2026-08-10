@@ -21,18 +21,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Paiement lié à une candidature/inscription, tel que renvoyé par `GET /schools/me/payments`. */
 type Payment = {
   id: string;
   amount: number;
   currency: string;
   method: string;
+  /** Statut brut du paiement (clé de `STATUS_LABELS`/`STATUS_STYLES`). */
   status: string;
   paidAt: string | null;
   createdAt: string;
   student: { firstName: string; lastName: string; user: { email: string } };
+  /** Candidature d'origine du paiement ; `null` si le paiement n'est pas rattaché à une offre. */
   application: { offer: { title: string } } | null;
 };
 
+/** Statistiques agrégées des paiements de l'établissement, affichées dans les cartes « Metric ». */
 type Summary = {
   totalPayments: number;
   completedPayments: number;
@@ -40,7 +44,9 @@ type Summary = {
   failedPayments: number;
   completedAmount: number;
 };
+/** Nombre de paiements affichés par page (pagination côté serveur). */
 const PAGE_SIZE = 10;
+/** Libellés FR affichés pour chaque statut de paiement (inclut la valeur virtuelle « ALL » pour le filtre). */
 const STATUS_LABELS: Record<string, string> = {
   ALL: 'Tous les statuts',
   PENDING: 'En attente',
@@ -48,6 +54,7 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Payé',
   FAILED: 'Échoué',
 };
+/** Classes Tailwind de badge (couleur) associées à chaque statut de paiement. */
 const STATUS_STYLES: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-800',
   PROCESSING: 'bg-blue-100 text-blue-800',
@@ -55,6 +62,14 @@ const STATUS_STYLES: Record<string, string> = {
   FAILED: 'bg-rose-100 text-rose-800',
 };
 
+/**
+ * Page « Paiements des candidatures » du tableau de bord établissement
+ * (route App Router `/dashboard/school/payments`).
+ * Client component (`'use client'`) : liste paginée et filtrable par statut des paiements
+ * des candidats de l'établissement, avec un résumé chiffré (`Summary`). Les données
+ * proviennent de `GET /schools/me/payments`. Les identifiants techniques du fournisseur
+ * de paiement ne sont volontairement pas affichés (portée limitée à l'établissement).
+ */
 export default function SchoolPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -64,6 +79,8 @@ export default function SchoolPaymentsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Charge la page de paiements courante depuis l'API à chaque changement de page ou de filtre de statut.
+  // Le drapeau `cancelled` évite d'appliquer une réponse obsolète si l'effet est relancé avant la fin de la requête.
   useEffect(() => {
     let cancelled = false;
     const loadPayments = async () => {
@@ -96,17 +113,20 @@ export default function SchoolPaymentsPage() {
     };
   }, [page, status]);
 
+  /** Change le filtre de statut et réinitialise la pagination à la première page. */
   const selectStatus = (value: string) => {
     setLoading(true);
     setPage(1);
     setStatus(value);
   };
+  /** Formate un montant selon la devise donnée avec le format monétaire malgache (fr-MG). */
   const formatAmount = (amount: number, currency: string) =>
     new Intl.NumberFormat('fr-MG', {
       style: 'currency',
       currency,
       maximumFractionDigits: 0,
     }).format(amount);
+  /** Formate une date ISO au format jj/mm/aaaa, ou un tiret si absente. */
   const formatDate = (date: string | null) =>
     date
       ? new Date(date).toLocaleDateString('fr-FR', {
@@ -275,6 +295,7 @@ export default function SchoolPaymentsPage() {
   );
 }
 
+/** Petite carte affichant un indicateur chiffré du résumé des paiements (ex. total, montant encaissé). */
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <Card>

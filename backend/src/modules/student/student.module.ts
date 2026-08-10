@@ -5,6 +5,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { EncryptionService } from '../../common/services/encryption.service';
 import { StorageService } from '../../common/services/storage.service';
 
+/**
+ * Regroupe tout ce qui concerne l'espace étudiant : profil, documents,
+ * cours/devoirs, notes, emploi du temps et orientation.
+ */
 @Module({
   imports: [PrismaModule],
   controllers: [StudentController],

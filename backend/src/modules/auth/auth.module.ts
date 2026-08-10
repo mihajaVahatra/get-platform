@@ -10,6 +10,12 @@ import { EncryptionService } from '../../common/services/encryption.service';
 import { MfaService } from './mfa/mfa.service';
 import { NotificationModule } from '../notification/notification.module';
 
+/**
+ * Module d'authentification : câble AuthController/AuthService avec la
+ * stratégie JWT (Passport), la configuration du JwtModule (secret + durée
+ * de vie des access tokens, lus depuis la config), le service MFA et le
+ * chiffrement (EncryptionService, utilisé pour stocker le secret TOTP).
+ */
 @Module({
   imports: [
     PassportModule,

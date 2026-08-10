@@ -5,6 +5,7 @@ import { Megaphone, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Entrée de l'historique des annonces diffusées à l'ensemble des établissements. */
 type BroadcastHistoryItem = {
   title: string;
   body: string;
@@ -12,6 +13,7 @@ type BroadcastHistoryItem = {
   schoolsReached: number;
 };
 
+/** Formate une date ISO en date/heure courte localisée en français. */
 const dateOf = (date: string) =>
   new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',
@@ -20,6 +22,11 @@ const dateOf = (date: string) =>
     minute: '2-digit',
   }).format(new Date(date));
 
+/**
+ * Écran de diffusion d'annonces globales : permet à l'admin d'envoyer un
+ * message à tous les étudiants de tous les établissements actifs, et affiche
+ * l'historique des diffusions précédentes.
+ */
 export function AnnouncementsBroadcast() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -27,6 +34,7 @@ export function AnnouncementsBroadcast() {
   const [history, setHistory] = useState<BroadcastHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /** Charge l'historique des annonces diffusées (`GET /schools/announcements/broadcast`). */
   const loadHistory = useCallback(async () => {
     try {
       setLoading(true);
@@ -49,6 +57,10 @@ export function AnnouncementsBroadcast() {
     };
   }, [loadHistory]);
 
+  /**
+   * Diffuse l'annonce à tous les étudiants des établissements actifs
+   * (`POST /schools/announcements/broadcast`), puis recharge l'historique.
+   */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!title.trim() || !body.trim()) return;

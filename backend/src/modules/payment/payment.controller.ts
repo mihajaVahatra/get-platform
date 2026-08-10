@@ -33,6 +33,13 @@ import { Public } from '../../common/decorators/public.decorator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * Contrôleur des paiements de frais de scolarité : initiation, webhook de
+ * confirmation du fournisseur de paiement, consultation, historique, reçu
+ * PDF et statistiques admin. La plupart des routes exigent un rôle STUDENT
+ * (paiement de sa propre candidature) ou ADMIN_GET (vue plateforme) ; le
+ * webhook est public mais protégé par signature HMAC (voir PaymentService).
+ */
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentController {
@@ -41,6 +48,12 @@ export class PaymentController {
     private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * Démarre un paiement pour une candidature acceptée de l'étudiant
+   * authentifié. Le montant n'est jamais fourni par le client : il est
+   * dérivé de l'offre liée à la candidature (voir PaymentService.initiatePayment).
+   * @throws NotFoundException si aucun profil étudiant n'existe pour l'utilisateur.
+   */
   @Post('initiate')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT')
@@ -58,6 +71,10 @@ export class PaymentController {
     return { success: true, data: result };
   }
 
+  /**
+   * Statistiques agrégées des paiements (total, montants, répartition par
+   * statut/méthode), filtrables par plage de dates. Réservé aux admins.
+   */
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -73,6 +90,11 @@ export class PaymentController {
     return { success: true, data: stats };
   }
 
+  /**
+   * Liste paginée de tous les paiements de la plateforme (toutes écoles/
+   * étudiants confondus), filtrable par statut et plage de dates. Réservé
+   * aux admins.
+   */
   @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -100,6 +122,12 @@ export class PaymentController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Détail d'un paiement. L'accès est vérifié en service (PaymentService.getPayment) :
+   * un STUDENT ne peut consulter que ses propres paiements, ADMIN_GET peut
+   * tout consulter.
+   * @throws NotFoundException si le paiement n'existe pas.
+   */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT', 'ADMIN_GET')
@@ -120,6 +148,7 @@ export class PaymentController {
     return { success: true, data: payment };
   }
 
+  /** Historique paginé des paiements de l'étudiant authentifié. */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT')
@@ -142,6 +171,13 @@ export class PaymentController {
     return { success: true, data: result.items, meta: result.meta };
   }
 
+  /**
+   * Webhook appelé par le fournisseur de paiement pour confirmer/rejeter un
+   * paiement. Marqué `@Public()` (pas de JWT possible côté fournisseur
+   * externe) mais protégé par une signature HMAC vérifiée en service
+   * (PaymentService.assertValidWebhookSignature) — jamais faire confiance
+   * à ce endpoint sans cette vérification.
+   */
   @Public()
   @Post('webhook')
   @ApiOperation({ summary: 'Webhook for payment confirmation' })
@@ -160,6 +196,10 @@ export class PaymentController {
     return { success: true, data: result };
   }
 
+  /**
+   * Télécharge le reçu PDF d'un paiement (même contrôle d'accès que
+   * getPayment, délégué au service). Génère un PDF minimal à la volée.
+   */
   @Get(':id/receipt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT', 'ADMIN_GET')
@@ -179,6 +219,12 @@ export class PaymentController {
     });
   }
 
+  /**
+   * Ouvre un compte bancaire pour l'étudiant auprès d'une banque
+   * partenaire. Implémentation actuelle simulée côté service (numéro de
+   * compte généré localement, aucun appel à une vraie banque) — voir
+   * PaymentService.openBankAccount.
+   */
   @Post('bank-account')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('STUDENT')
