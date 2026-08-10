@@ -411,7 +411,8 @@
     "welcomeTo": "Bienvenue à {school}",
     "searchPlaceholder": "Rechercher...",
     "statAverage": "Moyenne générale",
-    "statAverageHint": "↑ +1,3 vs semestre précédent",
+    "statAverageHint": "Sur les évaluations notées",
+    "statAverageHintEmpty": "Aucune évaluation notée pour l’instant",
     "statCredits": "Crédits validés",
     "statCreditsHint": "{percent}% du programme",
     "statAbsences": "Absences",
@@ -420,6 +421,7 @@
     "statMeritHint": "Bravo ! Continue comme ça 💪",
     "scheduleTitle": "Emploi du temps",
     "scheduleTodaySuffix": "– Aujourd’hui",
+    "scheduleEmpty": "Aucun cours programmé aujourd’hui.",
     "viewAll": "Voir tout",
     "viewAllFem": "Voir toutes",
     "scheduleStates": {
@@ -427,6 +429,10 @@
       "upcoming": "À venir"
     },
     "tasksTitle": "Mes tâches",
+    "tasksEmpty": "Aucun devoir en attente.",
+    "taskDueBy": "À rendre le {date}",
+    "coursesEmpty": "Aucun cours pour le moment.",
+    "noTeacherAssigned": "Enseignant non assigné",
     "taskBadges": {
       "urgent": "Urgent",
       "important": "Important",

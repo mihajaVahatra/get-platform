@@ -411,7 +411,8 @@
     "welcomeTo": "Welcome to {school}",
     "searchPlaceholder": "Search...",
     "statAverage": "Overall average",
-    "statAverageHint": "↑ +1.3 vs previous semester",
+    "statAverageHint": "Based on graded evaluations",
+    "statAverageHintEmpty": "No graded evaluations yet",
     "statCredits": "Credits earned",
     "statCreditsHint": "{percent}% of the program",
     "statAbsences": "Absences",
@@ -420,6 +421,7 @@
     "statMeritHint": "Well done! Keep it up 💪",
     "scheduleTitle": "Schedule",
     "scheduleTodaySuffix": "– Today",
+    "scheduleEmpty": "No classes scheduled today.",
     "viewAll": "View all",
     "viewAllFem": "View all",
     "scheduleStates": {
@@ -427,6 +429,10 @@
       "upcoming": "Upcoming"
     },
     "tasksTitle": "My tasks",
+    "tasksEmpty": "No pending assignments.",
+    "taskDueBy": "Due {date}",
+    "coursesEmpty": "No courses yet.",
+    "noTeacherAssigned": "No teacher assigned",
     "taskBadges": {
       "urgent": "Urgent",
       "important": "Important",

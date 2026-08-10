@@ -57,6 +57,64 @@ type CandidateOffer = {
   school: { name: string; city: string };
 };
 
+type EnrolledCourse = {
+  id: string;
+  title: string;
+  credits: number;
+  teacher?: { firstName: string; lastName: string } | null;
+};
+
+/** Cible ECTS conventionnelle par semestre (norme du système, pas une valeur propre à un programme donné). */
+const CREDITS_TARGET_PER_SEMESTER = 30;
+
+type ScheduleSlot = {
+  id: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  room: string;
+  course: { id: string; title: string; code: string };
+};
+
+type CourseGrades = {
+  courseId: string;
+  title: string;
+  evaluations: Array<{ value: number | null; coefficient: number }>;
+};
+
+type AssignmentTask = {
+  id: string;
+  title: string;
+  dueAt: string | null;
+  courseTitle: string;
+  submission: { id: string } | null;
+};
+
+/** Jour ISO (1=lundi..7=dimanche, voir CreateCourseSlotDto) pour "aujourd'hui". */
+function isoDayOfWeek(date: Date): number {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+/** Moyenne pondérée par coefficient des évaluations notées d'un cours, ou null si aucune note. */
+function weightedAverage(
+  evaluations: Array<{ value: number | null; coefficient: number }>,
+): number | null {
+  const graded = evaluations.filter((e) => e.value !== null);
+  if (graded.length === 0) return null;
+  const totalCoef = graded.reduce((sum, e) => sum + (e.coefficient || 1), 0);
+  if (totalCoef === 0) return null;
+  const weighted = graded.reduce(
+    (sum, e) => sum + (e.value as number) * (e.coefficient || 1),
+    0,
+  );
+  return weighted / totalCoef;
+}
+
+function formatGrade(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+}
+
 const DECIDED_STATUSES = new Set([
   'ACCEPTED',
   'REJECTED',
@@ -64,80 +122,11 @@ const DECIDED_STATUSES = new Set([
   'ENROLLED',
 ]);
 
-const schedule = [
-  {
-    time: '08:00 – 10:00',
-    course: 'Algorithmique Avancée',
-    room: 'Salle B204',
-    state: 'inProgress' as const,
-    active: true,
-  },
-  {
-    time: '10:15 – 12:15',
-    course: 'Bases de Données',
-    room: 'Salle B205',
-    state: 'upcoming' as const,
-  },
-  {
-    time: '14:00 – 16:00',
-    course: 'Anglais Technique',
-    room: 'Salle A102',
-    state: 'upcoming' as const,
-  },
-  {
-    time: '16:15 – 18:15',
-    course: 'Mathématiques Discrètes',
-    room: 'Salle B203',
-    state: 'upcoming' as const,
-  },
-];
-
-const tasks = [
-  {
-    title: 'Devoir Algorithmique',
-    date: 'À rendre le 15 juin 2025',
-    badge: 'urgent' as const,
-    tone: 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300',
-  },
-  {
-    title: 'Projet Bases de Données',
-    date: 'À rendre le 22 juin 2025',
-    badge: 'important' as const,
-    tone: 'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
-  },
-  {
-    title: 'Préparer présentation Anglais',
-    date: 'À rendre le 30 juin 2025',
-    badge: 'todo' as const,
-    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
-  },
-  {
-    title: 'Réviser pour l’examen',
-    date: 'Algorithmique Avancée',
-    badge: 'todo' as const,
-    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
-  },
-];
-
-const courses = [
-  {
-    title: 'Algorithmique Avancée',
-    teacher: 'Pr. A. Andrianarison',
-    grade: '15,5/20',
-    tone: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
-  },
-  {
-    title: 'Bases de Données',
-    teacher: 'Pr. T. Ravelomanana',
-    grade: '14/20',
-    tone: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
-  },
-  {
-    title: 'Anglais Technique',
-    teacher: 'Dr. L. Rakotomalala',
-    grade: '16/20',
-    tone: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
-  },
+const COURSE_TONES = [
+  'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+  'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+  'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
+  'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
 ];
 
 const events = [
@@ -168,6 +157,10 @@ export default function StudentDashboardPage() {
   const t = useTranslations('StudentDashboard');
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState<EnrolledCourse[]>([]);
+  const [grades, setGrades] = useState<CourseGrades[]>([]);
+  const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
+  const [tasks, setTasks] = useState<AssignmentTask[]>([]);
 
   useEffect(() => {
     apiClient
@@ -176,6 +169,62 @@ export default function StudentDashboardPage() {
       .catch((error) => console.error('Erreur chargement étudiant:', error))
       .finally(() => setLoading(false));
   }, []);
+
+  // Cours/notes/emploi du temps/devoirs : uniquement pour un étudiant
+  // effectivement inscrit (voir le early-return CandidateDashboard
+  // ci-dessous) — la vérification enrollments.length est refaite ici plutôt
+  // que de dépendre du early-return, les hooks devant rester inconditionnels.
+  useEffect(() => {
+    const enrolled = (student?.schoolEnrollments?.length ?? 0) > 0;
+    if (!enrolled) return;
+
+    Promise.all([
+      apiClient.get('/students/me/courses'),
+      apiClient.get('/students/me/grades'),
+      apiClient.get('/students/me/schedule'),
+    ])
+      .then(([coursesRes, gradesRes, scheduleRes]) => {
+        const coursesData: EnrolledCourse[] = coursesRes.data.data;
+        setCourses(coursesData);
+        setGrades(gradesRes.data.data);
+        setScheduleSlots(scheduleRes.data.data);
+
+        // Devoirs : pas d'endpoint agrégé tous cours confondus, un appel par
+        // cours inscrit (peu nombreux — un étudiant suit rarement plus de
+        // 6-8 cours à la fois).
+        return Promise.all(
+          coursesData.map((course) =>
+            apiClient
+              .get(`/students/me/courses/${course.id}/assignments`)
+              .then((res) => ({ course, assignments: res.data.data })),
+          ),
+        );
+      })
+      .then((perCourse) => {
+        if (!perCourse) return;
+        const allTasks: AssignmentTask[] = perCourse.flatMap(
+          ({ course, assignments }) =>
+            assignments
+              .filter((a: { submission: unknown }) => !a.submission)
+              .map((a: { id: string; title: string; dueAt: string | null }) => ({
+                id: a.id,
+                title: a.title,
+                dueAt: a.dueAt,
+                courseTitle: course.title,
+                submission: null,
+              })),
+        );
+        allTasks.sort((a, b) => {
+          if (!a.dueAt) return 1;
+          if (!b.dueAt) return -1;
+          return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+        });
+        setTasks(allTasks.slice(0, 4));
+      })
+      .catch((error) =>
+        console.error('Erreur chargement cours/notes/emploi du temps:', error),
+      );
+  }, [student]);
 
   if (loading) {
     return (
@@ -198,6 +247,38 @@ export default function StudentDashboardPage() {
       : (enrollments[0]?.school?.name ?? 'ESPA');
   const year =
     enrollments.length > 1 ? '' : (enrollments[0]?.enrolledYear ?? t('defaultYear'));
+
+  // Moyenne générale : moyenne des moyennes par cours (pondérées par
+  // coefficient), sur les cours ayant au moins une évaluation notée.
+  const perCourseAverages = grades
+    .map((course) => weightedAverage(course.evaluations))
+    .filter((avg): avg is number => avg !== null);
+  const overallAverage =
+    perCourseAverages.length > 0
+      ? perCourseAverages.reduce((sum, avg) => sum + avg, 0) / perCourseAverages.length
+      : null;
+
+  const totalCredits = courses.reduce((sum, course) => sum + (course.credits || 0), 0);
+  const creditsPercent = Math.min(
+    100,
+    Math.round((totalCredits / CREDITS_TARGET_PER_SEMESTER) * 100),
+  );
+
+  const now = new Date();
+  const today = isoDayOfWeek(now);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const toMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const todaysSchedule = scheduleSlots
+    .filter((slot) => slot.dayOfWeek === today)
+    .map((slot) => ({
+      ...slot,
+      active:
+        nowMinutes >= toMinutes(slot.startTime) &&
+        nowMinutes < toMinutes(slot.endTime),
+    }));
 
   return (
     <div className="mx-auto max-w-[1450px] space-y-4 text-[#111a4b]">
@@ -233,18 +314,20 @@ export default function StudentDashboardPage() {
         <StatWidget
           icon={BookOpen}
           title={t('statAverage')}
-          value="15,2"
+          value={formatGrade(overallAverage)}
           suffix="/20"
-          hint={t('statAverageHint')}
+          hint={
+            overallAverage === null ? t('statAverageHintEmpty') : t('statAverageHint')
+          }
           tone="indigo"
         />
         <StatWidget
           icon={BookOpenCheck}
           title={t('statCredits')}
-          value="18"
-          suffix="/30"
-          hint={t('statCreditsHint', { percent: 60 })}
-          progress="60"
+          value={String(totalCredits)}
+          suffix={`/${CREDITS_TARGET_PER_SEMESTER}`}
+          hint={t('statCreditsHint', { percent: creditsPercent })}
+          progress={String(creditsPercent)}
           tone="green"
         />
         <StatWidget
@@ -277,25 +360,30 @@ export default function StudentDashboardPage() {
           action={t('viewAll')}
         >
           <div className="mt-4 space-y-1">
-            {schedule.map((item) => (
+            {todaysSchedule.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t('scheduleEmpty')}
+              </p>
+            )}
+            {todaysSchedule.map((item) => (
               <div
-                key={item.time}
+                key={item.id}
                 className="grid grid-cols-[108px_1fr_auto] items-center gap-3 py-2.5 text-xs"
               >
                 <div className="relative border-r border-border pr-3 text-indigo-700 dark:text-indigo-300">
                   <span
                     className={`absolute -right-[5px] top-1/2 size-2 rounded-full border-2 border-white ${item.active ? 'bg-indigo-600' : 'bg-slate-300'}`}
                   />
-                  {item.time}
+                  {item.startTime} – {item.endTime}
                 </div>
                 <div>
-                  <p className="font-bold text-foreground">{item.course}</p>
+                  <p className="font-bold text-foreground">{item.course.title}</p>
                   <p className="mt-1 text-muted-foreground">{item.room}</p>
                 </div>
                 <span
                   className={`rounded-full px-2 py-1 text-[10px] font-semibold ${item.active ? 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300' : 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-500 dark:text-indigo-300'}`}
                 >
-                  {t(`scheduleStates.${item.state}`)}
+                  {t(`scheduleStates.${item.active ? 'inProgress' : 'upcoming'}`)}
                 </span>
               </div>
             ))}
@@ -308,25 +396,60 @@ export default function StudentDashboardPage() {
           action={t('viewAllFem')}
         >
           <div className="mt-3 divide-y divide-border">
-            {tasks.map((task) => (
-              <div
-                key={task.title}
-                className="flex items-center gap-3 py-3 first:pt-1"
-              >
-                <CheckSquare className="size-4 shrink-0 text-slate-300" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-foreground">
-                    {task.title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{task.date}</p>
-                </div>
-                <span
-                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${task.tone}`}
+            {tasks.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t('tasksEmpty')}
+              </p>
+            )}
+            {tasks.map((task) => {
+              const daysUntilDue = task.dueAt
+                ? Math.ceil(
+                    (new Date(task.dueAt).getTime() - now.getTime()) /
+                      (1000 * 60 * 60 * 24),
+                  )
+                : null;
+              const badge: 'urgent' | 'important' | 'todo' =
+                daysUntilDue !== null && daysUntilDue <= 3
+                  ? 'urgent'
+                  : daysUntilDue !== null && daysUntilDue <= 7
+                    ? 'important'
+                    : 'todo';
+              const tone = {
+                urgent: 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300',
+                important:
+                  'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
+                todo: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300',
+              }[badge];
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 py-3 first:pt-1"
                 >
-                  {t(`taskBadges.${task.badge}`)}
-                </span>
-              </div>
-            ))}
+                  <CheckSquare className="size-4 shrink-0 text-slate-300" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-foreground">
+                      {task.title}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {task.dueAt
+                        ? t('taskDueBy', {
+                            date: new Intl.DateTimeFormat('fr-FR', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            }).format(new Date(task.dueAt)),
+                          })
+                        : task.courseTitle}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${tone}`}
+                  >
+                    {t(`taskBadges.${badge}`)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </Widget>
 
@@ -429,29 +552,45 @@ export default function StudentDashboardPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Widget title={t('coursesTitle')} action={t('viewAll')}>
               <div className="mt-3 divide-y divide-border">
-                {courses.map((course) => (
-                  <div
-                    key={course.title}
-                    className="flex items-center gap-3 py-3"
-                  >
-                    <span
-                      className={`flex size-9 items-center justify-center rounded-lg ${course.tone}`}
+                {courses.length === 0 && (
+                  <p className="py-4 text-center text-xs text-muted-foreground">
+                    {t('coursesEmpty')}
+                  </p>
+                )}
+                {courses.map((course, index) => {
+                  const courseGrades = grades.find(
+                    (g) => g.courseId === course.id,
+                  );
+                  const average = courseGrades
+                    ? weightedAverage(courseGrades.evaluations)
+                    : null;
+                  const teacherName = course.teacher
+                    ? `${course.teacher.firstName} ${course.teacher.lastName}`.trim()
+                    : t('noTeacherAssigned');
+                  return (
+                    <div
+                      key={course.id}
+                      className="flex items-center gap-3 py-3"
                     >
-                      <BookOpen className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-foreground">
-                        {course.title}
-                      </p>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {course.teacher}
-                      </p>
+                      <span
+                        className={`flex size-9 items-center justify-center rounded-lg ${COURSE_TONES[index % COURSE_TONES.length]}`}
+                      >
+                        <BookOpen className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-foreground">
+                          {course.title}
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {teacherName}
+                        </p>
+                      </div>
+                      <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-300">
+                        {formatGrade(average)}/20
+                      </span>
                     </div>
-                    <span className="text-sm font-extrabold text-indigo-600 dark:text-indigo-300">
-                      {course.grade}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Widget>
             <Widget title={t('financesTitle')} action={t('viewAll')}>
