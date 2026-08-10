@@ -687,6 +687,34 @@ export class StudentService {
     }));
   }
 
+  // ========== PRÉSENCE ==========
+
+  /**
+   * Compte les présences/absences/retards de l'étudiant, tous cours
+   * confondus, marqués par ses enseignants (voir TeachingService.
+   * markAttendance). Historique complet, non filtré sur le statut
+   * d'inscription actif — au même titre que les notes (getGrades), c'est un
+   * fait passé, pas un accès en cours à révoquer.
+   */
+  async getAttendanceStats(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const records = await this.prisma.attendance.groupBy({
+      by: ['status'],
+      where: { studentId: student.id },
+      _count: { status: true },
+    });
+    const counts = { PRESENT: 0, ABSENT: 0, LATE: 0 };
+    for (const record of records) {
+      if (record.status in counts) {
+        counts[record.status as keyof typeof counts] = record._count.status;
+      }
+    }
+    return {
+      ...counts,
+      total: counts.PRESENT + counts.ABSENT + counts.LATE,
+    };
+  }
+
   // ========== SCHEDULE ==========
 
   /**

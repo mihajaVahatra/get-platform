@@ -478,6 +478,104 @@ export class TeachingService {
     await this.course(userId, courseId);
     return this.enrolledStudents(courseId, page, limit);
   }
+
+  // ========== PRÉSENCE ==========
+
+  /**
+   * Retourne le trombinoscope du cours (tous les étudiants inscrits, sans
+   * pagination — une classe est toujours petite) avec, pour chacun, le
+   * statut déjà enregistré à cette date le cas échéant (permet de préremplir
+   * le formulaire d'appel si l'enseignant le rouvre).
+   */
+  async getAttendance(userId: string, courseId: string, date: string) {
+    await this.course(userId, courseId);
+    const day = new Date(date);
+    const [enrollments, existing] = await Promise.all([
+      this.prisma.courseEnrollment.findMany({
+        where: { courseId },
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { student: { lastName: 'asc' } },
+      }),
+      this.prisma.attendance.findMany({
+        where: { courseId, date: day },
+        select: { studentId: true, status: true },
+      }),
+    ]);
+    const statusByStudent = new Map(
+      existing.map((record) => [record.studentId, record.status]),
+    );
+    return enrollments.map(({ student }) => ({
+      studentId: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      status: statusByStudent.get(student.id) ?? null,
+    }));
+  }
+
+  /**
+   * Enregistre l'appel d'une séance (courseId + date précise — un CourseSlot
+   * ne décrit qu'un créneau hebdomadaire récurrent, jamais une occurrence
+   * datée). Idempotent : rappeler avec les mêmes valeurs écrase simplement
+   * le statut existant plutôt que de dupliquer (contrainte unique
+   * courseId+studentId+date, voir schema.prisma).
+   * @throws BadRequestException si un studentId fourni n'est pas inscrit à
+   * ce cours — empêche un enseignant de marquer la présence d'un étudiant
+   * qui n'a jamais mis les pieds dans ce cours.
+   */
+  async markAttendance(
+    userId: string,
+    courseId: string,
+    date: string,
+    records: Array<{ studentId: string; status: string }>,
+  ) {
+    const teacher = await this.teacher(userId);
+    await this.course(userId, courseId);
+    const day = new Date(date);
+
+    const enrolledIds = new Set(
+      (
+        await this.prisma.courseEnrollment.findMany({
+          where: {
+            courseId,
+            studentId: { in: records.map((r) => r.studentId) },
+          },
+          select: { studentId: true },
+        })
+      ).map((e) => e.studentId),
+    );
+    const unknown = records.find((r) => !enrolledIds.has(r.studentId));
+    if (unknown) {
+      throw new BadRequestException(
+        `L'étudiant ${unknown.studentId} n'est pas inscrit à ce cours`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      records.map((record) =>
+        this.prisma.attendance.upsert({
+          where: {
+            courseId_studentId_date: {
+              courseId,
+              studentId: record.studentId,
+              date: day,
+            },
+          },
+          create: {
+            courseId,
+            studentId: record.studentId,
+            date: day,
+            status: record.status,
+            markedBy: teacher.id,
+          },
+          update: { status: record.status, markedBy: teacher.id },
+        }),
+      ),
+    );
+
+    return this.getAttendance(userId, courseId, date);
+  }
   async evaluations(userId: string, courseId: string) {
     await this.course(userId, courseId);
     return this.prisma.evaluation.findMany({
@@ -560,7 +658,9 @@ export class TeachingService {
     const grades = await this.prisma.grade.findMany({
       where: {
         evaluationId,
-        studentId: { in: enrollments.map((enrollment) => enrollment.studentId) },
+        studentId: {
+          in: enrollments.map((enrollment) => enrollment.studentId),
+        },
       },
     });
     const gradesByStudentId = new Map(

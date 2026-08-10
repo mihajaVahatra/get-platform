@@ -576,6 +576,35 @@ export class StudentController {
     return { success: true, data: grades, message: 'Grades retrieved' };
   }
 
+  // ========== ATTENDANCE ==========
+
+  /** Retourne le décompte des présences/absences/retards de l'étudiant, tous cours confondus. */
+  @Get('me/attendance/stats')
+  @ApiOperation({
+    summary: 'Get attendance summary across all enrolled courses',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Attendance stats retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getAttendanceStats(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const stats = await this.studentService.getAttendanceStats(user.id);
+    return {
+      success: true,
+      data: stats,
+      message: 'Attendance stats retrieved',
+    };
+  }
+
   // ========== SCHEDULE ==========
 
   /** Retourne l'emploi du temps hebdomadaire des cours auxquels l'étudiant est inscrit. */
