@@ -120,6 +120,11 @@ export class TeachingService {
       include: { user: { select: { email: true, theme: true } } },
     });
   }
+  /**
+   * `sessionVersion` incrémenté dans la même mise à jour pour révoquer
+   * toutes les sessions existantes (même garantie que
+   * StudentService.changePassword / AuthService.resetPassword).
+   */
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -133,7 +138,7 @@ export class TeachingService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, sessionVersion: { increment: 1 } },
     });
     return { success: true };
   }

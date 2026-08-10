@@ -244,7 +244,10 @@ describe('StudentService — notes, emploi du temps et préférences', () => {
 
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { password: 'hashed-new' },
+      data: {
+        password: 'hashed-new',
+        sessionVersion: { increment: 1 },
+      },
     });
   });
 

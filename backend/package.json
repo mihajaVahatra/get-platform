@@ -30,7 +30,8 @@
     "remediate:link-offers-courses": "ts-node prisma/remediation/2026-08-03-link-offers-and-courses-to-programs.ts",
     "remediate:backfill-student-enrollments": "ts-node prisma/remediation/2026-08-03-backfill-student-enrollments.ts",
     "remediate:encrypt-plaintext-pii": "ts-node prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts",
-    "remediate:purge-expired-pending-registrations": "ts-node prisma/remediation/2026-08-10-purge-expired-pending-registrations.ts"
+    "remediate:purge-expired-pending-registrations": "ts-node prisma/remediation/2026-08-10-purge-expired-pending-registrations.ts",
+    "remediate:redact-reset-link-notifications": "ts-node prisma/remediation/2026-08-10-redact-reset-link-notifications.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
