@@ -129,29 +129,14 @@ const COURSE_TONES = [
   'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300',
 ];
 
-const events = [
-  {
-    month: 'JUIN',
-    day: '20',
-    title: 'Journée des compétences',
-    detail: 'Ateliers et formations',
-    time: '08:00',
-  },
-  {
-    month: 'JUIN',
-    day: '25',
-    title: 'Hackathon ESPA',
-    detail: 'Compétition inter-écoles',
-    time: '09:00',
-  },
-  {
-    month: 'JUIL.',
-    day: '05',
-    title: 'Conférence Tech',
-    detail: 'Invité : Expert du secteur',
-    time: '14:00',
-  },
-];
+type SchoolEventItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  startAt: string;
+  school: { name: string };
+};
 
 export default function StudentDashboardPage() {
   const t = useTranslations('StudentDashboard');
@@ -164,6 +149,7 @@ export default function StudentDashboardPage() {
   const [attendanceStats, setAttendanceStats] = useState<{
     ABSENT: number;
   } | null>(null);
+  const [events, setEvents] = useState<SchoolEventItem[]>([]);
 
   useEffect(() => {
     apiClient
@@ -185,6 +171,11 @@ export default function StudentDashboardPage() {
       .get('/students/me/attendance/stats')
       .then((res) => setAttendanceStats(res.data.data))
       .catch((error) => console.error('Erreur chargement présence:', error));
+
+    apiClient
+      .get('/students/me/events')
+      .then((res) => setEvents(res.data.data))
+      .catch((error) => console.error('Erreur chargement événements:', error));
 
     Promise.all([
       apiClient.get('/students/me/courses'),
@@ -643,27 +634,40 @@ export default function StudentDashboardPage() {
           action={t('viewAll')}
         >
           <div className="mt-3 divide-y divide-border">
-            {events.map((event) => (
-              <div key={event.title} className="flex items-center gap-3 py-3">
-                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
-                  <span className="text-[9px] font-bold">{event.month}</span>
-                  <span className="text-lg font-extrabold leading-4">
-                    {event.day}
+            {events.length === 0 && (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t('eventsEmpty')}
+              </p>
+            )}
+            {events.map((event) => {
+              const date = new Date(event.startAt);
+              return (
+                <div key={event.id} className="flex items-center gap-3 py-3">
+                  <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300">
+                    <span className="text-[9px] font-bold uppercase">
+                      {new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(date)}
+                    </span>
+                    <span className="text-lg font-extrabold leading-4">
+                      {date.getDate()}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-foreground">
+                      {event.title}
+                    </p>
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                      {event.location || event.school.name}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {new Intl.DateTimeFormat('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }).format(date)}
                   </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-foreground">
-                    {event.title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {event.detail}
-                  </p>
-                </div>
-                <span className="text-xs font-semibold text-muted-foreground">
-                  {event.time}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <Link
             href="/dashboard/student?section=events"
