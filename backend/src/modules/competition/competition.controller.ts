@@ -22,6 +22,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 
+/**
+ * Expose les endpoints CRUD des concours d'admission. Tout le contrôleur est réservé
+ * au rôle ADMIN_GET (guard/rôle déclarés au niveau classe, appliqués à toutes les routes).
+ */
 @ApiTags('competitions')
 @ApiBearerAuth()
 @Controller('competitions')
@@ -30,6 +34,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 export class CompetitionController {
   constructor(private readonly competitionService: CompetitionService) {}
 
+  /** Liste paginée des concours, avec filtres optionnels par école, statut et recherche textuelle sur le nom. */
   @Get()
   @ApiOperation({ summary: 'List competitions' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
@@ -57,18 +62,27 @@ export class CompetitionController {
     };
   }
 
+  /** Crée un nouveau concours pour une école (et éventuellement un programme précis). */
   @Post()
   @ApiOperation({ summary: 'Create a competition' })
   create(@Body() dto: CreateCompetitionDto) {
     return this.competitionService.create(dto);
   }
 
+  /**
+   * Met à jour un concours existant.
+   * @throws {NotFoundException} Si le concours n'existe pas (ou a été supprimé).
+   */
   @Patch(':id')
   @ApiOperation({ summary: 'Update a competition' })
   update(@Param('id') id: string, @Body() dto: UpdateCompetitionDto) {
     return this.competitionService.update(id, dto);
   }
 
+  /**
+   * Supprime un concours (suppression logique via `deletedAt`, pas de suppression physique).
+   * @throws {NotFoundException} Si le concours n'existe pas (ou a déjà été supprimé).
+   */
   @Delete(':id')
   @ApiOperation({ summary: 'Soft-delete a competition' })
   remove(@Param('id') id: string) {

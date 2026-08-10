@@ -30,11 +30,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/**
+ * Point d'entrée du module « Emploi du temps » de l'établissement.
+ * Affiche un onglet de navigation entre le planning des cours (`ScheduleBoard`)
+ * et la gestion des créneaux-type de l'établissement (`TimeSlotsManager`).
+ */
 export function SchoolSchedulePortal() {
   const [activeTab, setActiveTab] = useState<'schedule' | 'time-slots'>('schedule');
   return (
@@ -72,6 +78,7 @@ const DAYS = [
   { value: '7', label: 'Dimanche' },
 ];
 type Course = { id: string; code: string; title: string };
+/** Créneau de planning réel, rattaché à un cours (et donc implicitement à un professeur et une salle). */
 type Slot = {
   id: string;
   courseId: string;
@@ -110,6 +117,7 @@ type TeacherOption = {
   teacher: { firstName: string | null; lastName: string | null; user: { email: string } };
   subjects: { subject: { id: string } }[];
 };
+/** Besoin horaire (classe + matière) que la génération automatique n'a pas réussi à placer entièrement, avec le motif. */
 type UnresolvedItem = {
   classId: string;
   className: string;
@@ -122,6 +130,22 @@ type UnresolvedItem = {
   reason: string;
 };
 
+/**
+ * Tableau de bord de l'emploi du temps de l'établissement.
+ *
+ * Affiche les créneaux existants sous forme de grille hebdomadaire (une
+ * colonne par jour), permet d'ajouter un créneau manuellement, et propose
+ * une génération automatique (`POST /schools/me/schedule/generate`) qui
+ * place les séances manquantes en respectant les disponibilités des
+ * professeurs et des salles ; les besoins non résolus par l'algorithme sont
+ * remontés dans un bandeau d'avertissement (`unresolved`).
+ *
+ * États clés :
+ * - `dialogOpen` / `form` : dialogue d'ajout manuel d'un créneau.
+ * - `generateOpen` / `generateForm` : dialogue de génération automatique, avec filtres
+ *   optionnels (classe, matière, professeur, salle) chargés à l'ouverture du dialogue.
+ * - `unresolved` : liste des besoins non couverts après la dernière génération.
+ */
 export function ScheduleBoard() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -144,6 +168,8 @@ export function ScheduleBoard() {
   });
   const [generating, setGenerating] = useState(false);
   const [unresolved, setUnresolved] = useState<UnresolvedItem[] | null>(null);
+  // Charge en parallèle les créneaux planifiés et les cours de l'établissement (nécessaires
+  // pour peupler le sélecteur de cours du formulaire d'ajout manuel).
   const loadSchedule = useCallback(async () => {
     try {
       const [slotsResponse, coursesResponse] = await Promise.all([
@@ -161,6 +187,8 @@ export function ScheduleBoard() {
   }, []);
   useEffect(() => {
     let active = true;
+    // Microtask différée pour éviter un warning React en double-montage strict/dev ;
+    // le flag `active` empêche toute mise à jour d'état après démontage.
     void Promise.resolve().then(() => {
       if (active) return loadSchedule();
     });
@@ -170,6 +198,8 @@ export function ScheduleBoard() {
   }, [loadSchedule]);
   const setField = (field: keyof SlotForm, value: string) =>
     setForm((current) => ({ ...current, [field]: value }));
+  // Crée un créneau manuel pour le cours choisi ; l'API rejette les chevauchements de salle
+  // (message d'erreur générique volontairement non détaillé côté client).
   const createSlot = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -208,6 +238,8 @@ export function ScheduleBoard() {
     }
   };
 
+  // Charge à la volée (à l'ouverture du dialogue plutôt qu'au montage du composant)
+  // toutes les listes de référence nécessaires aux filtres de génération automatique.
   const openGenerateDialog = async () => {
     setGenerateOpen(true);
     try {
@@ -225,6 +257,8 @@ export function ScheduleBoard() {
       setSubjects((subjectsResponse.data.data || []).filter((s: SubjectOption) => s.isActive));
       setRooms(roomsResponse.data.data || []);
       setTeachers(teachersResponse.data.data || []);
+      // Présélectionne l'année scolaire courante par défaut (à défaut, la première disponible),
+      // sans écraser un choix déjà fait par l'utilisateur.
       setGenerateForm((current) => ({
         ...current,
         academicYearId: current.academicYearId || years.find((y) => y.isCurrent)?.id || years[0]?.id || '',
@@ -235,6 +269,9 @@ export function ScheduleBoard() {
     }
   };
 
+  // Lance la génération automatique de l'emploi du temps selon les filtres choisis
+  // (année obligatoire, classe/matière/professeur/salle facultatifs) et stocke les
+  // besoins non résolus pour affichage dans le bandeau d'avertissement.
   const generateSchedule = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -265,6 +302,7 @@ export function ScheduleBoard() {
     })();
   };
 
+  /** Vérifie si un enseignant est qualifié pour une matière donnée. */
   const teacherTeachesSubject = (teacher: TeacherOption, subjectId: string) =>
     teacher.subjects.some((entry) => entry.subject.id === subjectId);
 
@@ -281,6 +319,8 @@ export function ScheduleBoard() {
     ? teachers.filter((teacher) => teacherTeachesSubject(teacher, generateForm.subjectId))
     : teachers;
 
+  // Change la matière sélectionnée ; réinitialise le professeur choisi s'il n'enseigne pas
+  // la nouvelle matière (évite une combinaison filtre incohérente).
   const selectSubject = (subjectId: string) => {
     setGenerateForm((current) => {
       const teacher = teachers.find((t) => t.teacherId === current.teacherId);
@@ -289,6 +329,7 @@ export function ScheduleBoard() {
     });
   };
 
+  // Change le professeur sélectionné ; réinitialise la matière choisie s'il ne l'enseigne pas.
   const selectTeacher = (teacherId: string) => {
     setGenerateForm((current) => {
       const teacher = teachers.find((t) => t.teacherId === teacherId);
@@ -651,6 +692,7 @@ export function ScheduleBoard() {
   );
 }
 
+/** Champ de saisie d'heure (label + input type="time") réutilisé pour les heures de début/fin d'un créneau. */
 function TimeField({
   label,
   id,
@@ -676,6 +718,7 @@ function TimeField({
   );
 }
 
+/** Créneau-type de la grille horaire de l'établissement (gabarit réutilisable, non rattaché à un cours précis). */
 type TimeSlotTemplate = {
   id: string;
   dayOfWeek: number;
@@ -684,6 +727,13 @@ type TimeSlotTemplate = {
   label: string | null;
 };
 
+/**
+ * Gestion des créneaux-type (gabarits horaires) de l'établissement,
+ * indépendants des cours : définit la grille horaire générale (jour,
+ * heure de début/fin, libellé facultatif) utilisée comme référence pour
+ * organiser les emplois du temps. L'API refuse les chevauchements sur un
+ * même jour.
+ */
 function TimeSlotsManager() {
   const [slots, setSlots] = useState<TimeSlotTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -705,6 +755,8 @@ function TimeSlotsManager() {
 
   useEffect(() => {
     let active = true;
+    // Microtask différée pour éviter un warning React en double-montage strict/dev ;
+    // le flag `active` empêche toute mise à jour d'état après démontage.
     void Promise.resolve().then(() => {
       if (active) return loadSlots();
     });

@@ -4,6 +4,7 @@ import { FinancialPartnerController } from './financial-partner.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageService } from '../../common/services/storage.service';
 
+/** Module de gestion des partenaires financiers (banques, mobile money, assurances, bourses...). */
 @Module({
   imports: [PrismaModule],
   controllers: [FinancialPartnerController],

@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Enseignant avec ses matières affectées (utilisées pour filtrer les matières proposables lors de la création/édition d'un cours). */
 type TeacherAssignment = {
   teacherId: string;
   department?: string | null;
@@ -75,6 +76,8 @@ type CourseForm = {
   schedule: string;
   isPublished: string;
 };
+// État initial du formulaire pour la création d'un cours (tous les champs texte vides,
+// crédits à 0, publication activée par défaut).
 const EMPTY_FORM: CourseForm = {
   teacherId: '',
   subjectId: '',
@@ -90,6 +93,20 @@ const EMPTY_FORM: CourseForm = {
 };
 const PAGE_SIZE = 10;
 
+/**
+ * Page de gestion des cours de l'établissement.
+ *
+ * Charge en parallèle les cours, professeurs et filières actives, affiche
+ * une liste paginée et filtrable par recherche texte (code, titre, email du
+ * professeur), et permet de créer, modifier ou désactiver un cours via des
+ * dialogues. La désactivation (`isPublished: false`) est bloquée côté API si
+ * des étudiants ont une inscription active sur le cours.
+ *
+ * États clés :
+ * - `search` / `page` : filtre texte et pagination de la liste.
+ * - `dialogOpen` / `selectedCourse` / `form` : dialogue de création/édition.
+ * - `courseToDeactivate` : cours ciblé par la confirmation de désactivation.
+ */
 export function CourseDirectory() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [search, setSearch] = useState('');
@@ -106,6 +123,8 @@ export function CourseDirectory() {
   const [saving, setSaving] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
+  // Charge cours, professeurs et filières actives en parallèle ; réutilisé au montage
+  // et après chaque création/modification/désactivation de cours.
   const fetchData = useCallback(async () => {
     try {
       const [coursesResponse, teachersResponse, programsResponse] =
@@ -131,6 +150,8 @@ export function CourseDirectory() {
 
   useEffect(() => {
     let active = true;
+    // Microtask différée pour éviter un warning React en double-montage strict/dev ;
+    // le flag `active` empêche toute mise à jour d'état après démontage.
     void Promise.resolve().then(() => {
       if (active) return fetchData();
     });
@@ -139,6 +160,7 @@ export function CourseDirectory() {
     };
   }, [fetchData]);
 
+  // Filtre insensible à la casse sur le code, le titre ou l'email du professeur.
   const filteredCourses = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return courses;
@@ -155,11 +177,13 @@ export function CourseDirectory() {
     currentPage * PAGE_SIZE,
   );
 
+  /** Ouvre le dialogue en mode création avec un formulaire vierge. */
   const openCreate = () => {
     setSelectedCourse(null);
     setForm(EMPTY_FORM);
     setDialogOpen(true);
   };
+  /** Ouvre le dialogue en mode édition, pré-rempli avec les valeurs du cours sélectionné. */
   const openEdit = (course: Course) => {
     setSelectedCourse(course);
     setForm({
@@ -177,6 +201,8 @@ export function CourseDirectory() {
     });
     setDialogOpen(true);
   };
+  // Désactive le cours ciblé (dépublication, pas de suppression) ; l'API refuse l'opération
+  // si des étudiants ont une inscription active sur ce cours, d'où le message d'erreur dédié.
   const deactivateCourse = async () => {
     if (!courseToDeactivate) return;
     setDeactivating(true);
@@ -198,6 +224,7 @@ export function CourseDirectory() {
   };
   const setField = (field: keyof CourseForm, value: string) =>
     setForm((current) => ({ ...current, [field]: value }));
+  // Matières actives que le professeur sélectionné est qualifié à enseigner (dépend du choix du professeur).
   const teacherSubjects =
     teachers
       .find((teacher) => teacher.teacherId === form.teacherId)
@@ -206,6 +233,7 @@ export function CourseDirectory() {
   const selectedProgram = programs.find(
     (program) => program.id === form.programId,
   );
+  // Crée ou met à jour le cours selon la présence de `selectedCourse` (POST vs PUT sur le même formulaire).
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -611,6 +639,11 @@ export function CourseDirectory() {
   );
 }
 
+/**
+ * Champ de formulaire générique (label + input) utilisé dans le dialogue
+ * cours. Pour `type="number"`, tronque la saisie à 8 caractères et applique
+ * `min=0`/`max` ; pour le texte, applique `maxLength`.
+ */
 function Field({
   label,
   id,

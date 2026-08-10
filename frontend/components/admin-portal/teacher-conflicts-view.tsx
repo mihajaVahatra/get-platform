@@ -5,6 +5,7 @@ import { AlertTriangle, Search, UsersRound } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Professeur pouvant être sélectionné pour consulter son rapport de conflits d'emploi du temps. */
 type TeacherOption = {
   id: string;
   firstName: string | null;
@@ -12,19 +13,31 @@ type TeacherOption = {
   user: { email: string };
   assignments: { school: { name: string } }[];
 };
+/** Alerte de conflit : marge de trajet insuffisante entre deux cours dans des écoles différentes le même jour. */
 type ConflictWarning = {
   dayOfWeek: number;
   schoolA: string;
   timeA: string;
   schoolB: string;
   timeB: string;
+  /** Marge réellement disponible entre les deux cours, en minutes. */
   gapMinutes: number;
+  /** Marge minimale requise (temps de trajet estimé), en minutes. */
   requiredMinutes: number;
 };
+/** Rapport de conflits d'emploi du temps pour un professeur intervenant dans plusieurs écoles. */
 type ConflictReport = { teacherId: string; schoolCount: number; warnings: ConflictWarning[] };
 
+/** Libellés des jours de la semaine, indexés sur `dayOfWeek` (1 = Lundi ... 7 = Dimanche, index 0 inutilisé). */
 const DAY_LABELS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
+/**
+ * Écran admin permettant de repérer les professeurs intervenant dans
+ * plusieurs écoles dont les emplois du temps laissent une marge de trajet
+ * insuffisante entre deux cours. Le rapport ne montre que les horaires et
+ * noms d'établissements en conflit, sans exposer le contenu des cours d'une
+ * école aux autres établissements (confidentialité inter-écoles).
+ */
 export function TeacherConflictsView() {
   const [search, setSearch] = useState('');
   const [teachers, setTeachers] = useState<TeacherOption[]>([]);
@@ -32,6 +45,7 @@ export function TeacherConflictsView() {
   const [report, setReport] = useState<ConflictReport | null>(null);
   const [loading, setLoading] = useState(false);
 
+  /** Recherche des professeurs par nom/email (`GET /teachers`). */
   const fetchTeachers = useCallback(async (query: string) => {
     try {
       const response = await apiClient.get('/teachers', { params: { search: query || undefined } });
@@ -41,6 +55,7 @@ export function TeacherConflictsView() {
     }
   }, []);
 
+  // Debounce de 250ms sur la recherche pour éviter une requête à chaque frappe.
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
@@ -54,6 +69,7 @@ export function TeacherConflictsView() {
     };
   }, [search, fetchTeachers]);
 
+  /** Charge le rapport de conflits d'emploi du temps du professeur sélectionné (`GET /teachers/:id/conflicts`). */
   const openReport = async (teacher: TeacherOption) => {
     setSelected(teacher);
     setReport(null);

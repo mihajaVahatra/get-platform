@@ -1,6 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsIn } from 'class-validator';
 
+/**
+ * Métadonnées accompagnant l'upload d'un document étudiant (le fichier
+ * lui-même est envoyé en multipart, hors de ce DTO).
+ */
 export class UploadDocumentDto {
   @ApiProperty({ enum: ['CV', 'LETTER', 'ID', 'DIPLOMA', 'PHOTO', 'OTHER'] })
   @IsIn(['CV', 'LETTER', 'ID', 'DIPLOMA', 'PHOTO', 'OTHER'])
@@ -11,6 +15,7 @@ export class UploadDocumentDto {
   name: string;
 }
 
+/** Forme du document tel que renvoyé par l'API (documentation Swagger). */
 export class DocumentResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   id: string;

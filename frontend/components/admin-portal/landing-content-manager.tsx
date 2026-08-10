@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Noms d'icônes Lucide disponibles pour la section « Chiffres clés » de la landing page. */
 const STAT_ICONS = [
   'ShieldCheck',
   'BadgeCheck',
@@ -20,6 +21,7 @@ const STAT_ICONS = [
   'ClipboardCheck',
 ] as const;
 
+/** Noms d'icônes Lucide disponibles pour la section « Cartes acteurs » de la landing page. */
 const ACTOR_ICONS = ['GraduationCap', 'Building2', 'Landmark', 'ShieldCheck'] as const;
 
 type Hero = { title: string; subtitle: string };
@@ -27,8 +29,10 @@ type StatItem = { icon: string; value: string; label: string };
 type StepItem = { title: string; text: string };
 type ActorCardItem = { icon: string; title: string; text: string };
 type Locale = 'fr' | 'en';
+/** Enveloppe un contenu en deux versions localisées (FR et EN). */
 type Bilingual<T> = { fr: T; en: T };
 
+/** Contenu CMS complet de la landing page publique, en version bilingue FR/EN. */
 type Config = {
   hero: Bilingual<Hero>;
   stats: Bilingual<StatItem[]>;
@@ -36,15 +40,24 @@ type Config = {
   actorCards: Bilingual<ActorCardItem[]>;
 };
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/**
+ * CMS admin pour le contenu bilingue (FR/EN) de la landing page publique :
+ * hero, chiffres clés, étapes du parcours et cartes acteurs. Chaque section
+ * se sauvegarde indépendamment via son propre bouton « Enregistrer ». Les
+ * logos d'établissements et de partenaires financiers sont gérés depuis
+ * leurs écrans dédiés respectifs, pas ici.
+ */
 export function LandingContentManager() {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /** Charge la configuration brute (non traduite à la volée) de la landing page (`GET /landing/config/raw`). */
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -102,6 +115,7 @@ export function LandingContentManager() {
   );
 }
 
+/** Carte encadrant une section du formulaire de contenu (titre + contenu). */
 function SectionCard({
   title,
   children,
@@ -117,6 +131,7 @@ function SectionCard({
   );
 }
 
+/** Bouton de soumission générique pour les formulaires de section, avec état « en cours d'enregistrement ». */
 function SaveButton({ saving }: { saving: boolean }) {
   return (
     <div className="mt-4 flex justify-end">
@@ -131,6 +146,12 @@ function SaveButton({ saving }: { saving: boolean }) {
   );
 }
 
+/**
+ * Paire de champs FR/EN pour un même libellé de contenu. Rend un
+ * `<textarea>` si `rows` est fourni, sinon un `<input>`. Seul le champ FR
+ * est requis : un champ EN vide se rabat sur la version française côté
+ * visiteur anglophone (cf. note d'aide affichée dans l'écran parent).
+ */
 function LocaleField({
   label,
   fr,
@@ -176,6 +197,7 @@ function LocaleField({
   );
 }
 
+/** Section CMS pour le bandeau « hero » (titre + sous-titre) de la landing page, en FR/EN. */
 function HeroSection({ hero }: { hero: Bilingual<Hero> }) {
   const [content, setContent] = useState(hero);
   const [saving, setSaving] = useState(false);
@@ -183,6 +205,7 @@ function HeroSection({ hero }: { hero: Bilingual<Hero> }) {
   const update = (locale: Locale, patch: Partial<Hero>) =>
     setContent((current) => ({ ...current, [locale]: { ...current[locale], ...patch } }));
 
+  /** Sauvegarde le contenu du hero (`PUT /landing/config/hero`). */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
@@ -223,6 +246,11 @@ function HeroSection({ hero }: { hero: Bilingual<Hero> }) {
   );
 }
 
+/**
+ * Section CMS pour les chiffres clés (statistiques) de la landing page.
+ * L'icône n'est pas traduite : la sélectionner met à jour les deux locales
+ * (FR et EN) simultanément, seuls la valeur et le libellé sont bilingues.
+ */
 function StatsSection({ stats }: { stats: Bilingual<StatItem[]> }) {
   const [content, setContent] = useState(stats);
   const [saving, setSaving] = useState(false);
@@ -235,6 +263,7 @@ function StatsSection({ stats }: { stats: Bilingual<StatItem[]> }) {
       ),
     }));
 
+  /** Sauvegarde la liste des chiffres clés (`PUT /landing/config/stats`) pour les deux locales. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
@@ -302,6 +331,7 @@ function StatsSection({ stats }: { stats: Bilingual<StatItem[]> }) {
   );
 }
 
+/** Section CMS pour les 4 étapes du parcours (« Comment ça marche ») affichées sur la landing page, en FR/EN. */
 function StepsSection({ steps }: { steps: Bilingual<StepItem[]> }) {
   const [content, setContent] = useState(steps);
   const [saving, setSaving] = useState(false);
@@ -314,6 +344,7 @@ function StepsSection({ steps }: { steps: Bilingual<StepItem[]> }) {
       ),
     }));
 
+  /** Sauvegarde la liste des étapes (`PUT /landing/config/steps`) pour les deux locales. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
@@ -360,6 +391,11 @@ function StepsSection({ steps }: { steps: Bilingual<StepItem[]> }) {
   );
 }
 
+/**
+ * Section CMS pour les 4 cartes « acteurs » (étudiant, école, banque, État)
+ * de la landing page. Comme pour les chiffres clés, l'icône est partagée
+ * entre les deux locales ; seuls le titre et le texte sont bilingues.
+ */
 function ActorCardsSection({ actorCards }: { actorCards: Bilingual<ActorCardItem[]> }) {
   const [content, setContent] = useState(actorCards);
   const [saving, setSaving] = useState(false);
@@ -372,6 +408,7 @@ function ActorCardsSection({ actorCards }: { actorCards: Bilingual<ActorCardItem
       ),
     }));
 
+  /** Sauvegarde la liste des cartes acteurs (`PUT /landing/config/actor-cards`) pour les deux locales. */
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {

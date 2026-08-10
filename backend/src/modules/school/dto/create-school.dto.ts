@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEmail, IsUrl, IsEnum } from 'class-validator';
 
+/** Statut public/privé d'une école. */
 export enum SchoolType {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
 }
 
+/** Données pour créer une nouvelle école sur la plateforme. */
 export class CreateSchoolDto {
   @ApiProperty({ example: 'ESMIA - École Supérieure de Management' })
   @IsString()

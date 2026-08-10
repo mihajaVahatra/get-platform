@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+/** Représentation publique d'une école telle que renvoyée par l'API (documentation Swagger). */
 export class SchoolResponseDto {
   @ApiProperty()
   id: string;

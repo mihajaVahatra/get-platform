@@ -26,13 +26,22 @@ const offerSchema = z.object({
   programId: z.string().uuid('Sélectionnez la filière correspondante'),
 });
 
+/** Type inféré du formulaire d'édition d'offre, dérivé du schéma de validation Zod `offerSchema`. */
 type OfferForm = z.infer<typeof offerSchema>;
 
+/**
+ * Page « Modifier l'offre » du tableau de bord établissement
+ * (route App Router `/dashboard/school/offers/[id]`).
+ * Client component (`'use client'`) : charge l'offre existante (`GET /offers/:id`) ainsi
+ * que les filières actives de l'établissement, pré-remplit le formulaire (React Hook Form + Zod)
+ * puis persiste les modifications via `PUT /offers/:id`.
+ */
 export default function EditOfferPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   const [isLoading, setIsLoading] = useState(false);
+  // Chargement initial des données de l'offre (distinct de `isLoading`, qui concerne la soumission du formulaire).
   const [loadingData, setLoadingData] = useState(true);
   const [programs, setPrograms] = useState<{ id: string; name: string; diploma: string; isActive: boolean }[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState('');
@@ -53,6 +62,11 @@ export default function EditOfferPage() {
     }
   }, [id]);
 
+  /**
+   * Charge l'offre à modifier et les filières actives de l'établissement, puis
+   * réinitialise le formulaire (`reset`) avec les valeurs existantes de l'offre.
+   * En cas d'échec, redirige vers la liste des offres.
+   */
   const fetchOffer = async () => {
     try {
       const response = await apiClient.get(`/offers/${id}`);
@@ -84,6 +98,7 @@ export default function EditOfferPage() {
     }
   };
 
+  /** Soumission du formulaire : persiste les modifications via `PUT /offers/:id`. */
   const onSubmit = async (data: OfferForm) => {
     setIsLoading(true);
     try {

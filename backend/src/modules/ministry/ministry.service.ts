@@ -212,6 +212,10 @@ export class MinistryService {
     );
   }
 
+  /**
+   * Statistiques agrégées sur les établissements (répartition public/privé,
+   * répartition par région, moyennes d'offres et de candidatures par école).
+   */
   async getSchoolStats() {
     const schoolWhere: Prisma.SchoolWhereInput = { deletedAt: null };
     const applicationWhere = this.buildApplicationWhere(
@@ -263,6 +267,11 @@ export class MinistryService {
     };
   }
 
+  /**
+   * Répartition agrégée du nombre d'étudiants par région et par ville
+   * (limitée à `MAX_BREAKDOWN_LIMIT` entrées pour les villes), sans jamais
+   * exposer d'identité individuelle.
+   */
   async getGeographicStats() {
     const [byRegion, byCity] = await Promise.all([
       this.prisma.student.groupBy({
@@ -366,6 +375,12 @@ export class MinistryService {
     return { items, meta: this.paginationMeta(page, limit, total) };
   }
 
+  /**
+   * Enregistre un nouveau contrôle de conformité pour un établissement. Crée
+   * systématiquement une nouvelle ligne d'historique (ne met jamais à jour
+   * un contrôle existant), afin de conserver une piste d'audit complète.
+   * Lève NotFoundException si l'établissement n'existe pas (ou est supprimé).
+   */
   async updateCompliance(
     schoolId: string,
     dto: ComplianceUpdateDto,
@@ -406,6 +421,7 @@ export class MinistryService {
     });
   }
 
+  /** Liste paginée des rapports déjà générés, filtrable par type, sans leur contenu (`data`). */
   async getReports(options?: {
     type?: ReportType;
     page?: number;
@@ -439,6 +455,13 @@ export class MinistryService {
     return { items, meta: this.paginationMeta(page, limit, total) };
   }
 
+  /**
+   * Génère et persiste un nouveau rapport agrégé : calcule un instantané
+   * (`createAggregateReportSnapshot`) sur la période demandée, restreint aux
+   * sections sélectionnées, et le stocke tel quel (l'export vers PDF/Excel/
+   * CSV/JSON est recalculé à la demande, jamais pré-généré).
+   * Lève BadRequestException si `periodStart` est postérieure à `periodEnd`.
+   */
   async generateReport(dto: GenerateReportDto, userId?: string) {
     const periodStart = this.toReportBoundary(dto.periodStart, false);
     const periodEnd = this.toReportBoundary(dto.periodEnd, true);
@@ -476,6 +499,11 @@ export class MinistryService {
     };
   }
 
+  /**
+   * Retourne le détail d'un rapport, avec son instantané de données validé
+   * via `safeReportSnapshot` (protège contre d'anciens formats de rapport).
+   * Lève NotFoundException si le rapport n'existe pas.
+   */
   async getReport(reportId: string) {
     const report = await this.prisma.ministryReport.findUnique({
       where: { id: reportId },
@@ -496,11 +524,23 @@ export class MinistryService {
     return { ...report, data: this.safeReportSnapshot(report.data) };
   }
 
+  /**
+   * Charge un rapport puis délègue la production du fichier binaire
+   * (PDF/Excel/CSV/JSON) à `createReportExport`.
+   * Lève NotFoundException si le rapport n'existe pas.
+   */
   async exportReport(reportId: string, format: ExportFormat) {
     const report = await this.getReport(reportId);
     return createReportExport(report, format);
   }
 
+  /**
+   * Cœur du calcul des statistiques de candidatures : charge uniquement les
+   * dimensions institutionnelles (statut, date, offre/programme/école) puis
+   * agrège en mémoire par statut, région, filière, école, couple
+   * école/filière et par mois. Chaque répartition (sauf `byStatus`/
+   * `byPeriod`) est tronquée à `filters.limit`.
+   */
   private async collectApplicationAnalytics(
     filters: ResolvedAnalyticsFilters,
   ): Promise<ApplicationAnalyticsResult> {
@@ -625,6 +665,12 @@ export class MinistryService {
     };
   }
 
+  /**
+   * Agrège les inscriptions actives par couple école/programme, et calcule
+   * en parallèle le nombre total de lignes d'inscription et le nombre
+   * d'étudiants distincts réellement inscrits (un étudiant en double cursus
+   * compte 2 lignes mais 1 seul étudiant distinct).
+   */
   private async collectEnrollmentAnalytics(
     filters: ResolvedAnalyticsFilters,
   ): Promise<EnrollmentAnalyticsResult> {
@@ -675,6 +721,7 @@ export class MinistryService {
     };
   }
 
+  /** Construit la clause `where` Prisma des candidatures à partir des filtres institutionnels (région, école, filière, période). */
   private buildApplicationWhere(
     filters: ResolvedAnalyticsFilters,
   ): Prisma.ApplicationWhereInput {
@@ -713,6 +760,7 @@ export class MinistryService {
     };
   }
 
+  /** Construit la clause `where` Prisma des étudiants (non supprimés, créés dans la période) pour le comptage de population du dashboard. */
   private buildStudentPopulationWhere(
     filters: Pick<ResolvedAnalyticsFilters, 'from' | 'to'>,
   ): Prisma.StudentWhereInput {
@@ -725,6 +773,7 @@ export class MinistryService {
     };
   }
 
+  /** Construit la clause `where` Prisma des inscriptions actives (école/étudiant non supprimés, créées dans la période). */
   private buildEnrollmentWhere(
     filters: Pick<ResolvedAnalyticsFilters, 'from' | 'to'>,
   ): Prisma.StudentEnrollmentWhereInput {
@@ -739,6 +788,7 @@ export class MinistryService {
     };
   }
 
+  /** Incrémente en place (ou initialise) le compteur d'un groupe dans une map d'agrégation, en tenant à jour count/acceptedCount/pendingCount. */
   private incrementAggregate<T extends AggregateCounter>(
     map: Map<string, T>,
     key: string,
@@ -753,6 +803,7 @@ export class MinistryService {
     map.set(key, aggregate);
   }
 
+  /** Trie une liste d'agrégats par compteur décroissant (clé `countKey`), avec un tri secondaire déterministe sur le contenu JSON pour stabiliser l'ordre des égalités. */
   private sortByCount<T extends object>(
     items: T[],
     countKey: keyof T = 'count' as keyof T,
@@ -765,6 +816,7 @@ export class MinistryService {
     });
   }
 
+  /** Normalise la limite de répartition demandée (nombre entier, borné entre 1 et `MAX_BREAKDOWN_LIMIT`, avec repli sur la valeur par défaut si invalide). */
   private resolveAnalyticsFilters(
     filters?: MinistryAnalyticsFilters,
   ): ResolvedAnalyticsFilters {
@@ -777,6 +829,7 @@ export class MinistryService {
     };
   }
 
+  /** Normalise page/limit (entiers positifs, limit bornée à `MAX_BREAKDOWN_LIMIT`) et calcule le décalage `skip` correspondant. */
   private resolvePagination(options?: { page?: number; limit?: number }) {
     const rawPage = Number(options?.page ?? 1);
     const rawLimit = Number(options?.limit ?? DEFAULT_BREAKDOWN_LIMIT);
@@ -789,6 +842,7 @@ export class MinistryService {
     return { page, limit, skip: (page - 1) * limit };
   }
 
+  /** Construit le bloc de métadonnées de pagination standard (page, limit, total, totalPages). */
   private paginationMeta(page: number, limit: number, total: number) {
     return {
       page,
@@ -798,6 +852,7 @@ export class MinistryService {
     };
   }
 
+  /** Sérialise la période effective (from/to) en ISO string pour l'inclure dans les réponses, `null` si non bornée. */
   private periodRange(filters: Pick<ResolvedAnalyticsFilters, 'from' | 'to'>) {
     return {
       from: filters.from?.toISOString() || null,
@@ -805,11 +860,19 @@ export class MinistryService {
     };
   }
 
+  /** Formate une date en clé de mois `AAAA-MM` (UTC) utilisée pour regrouper les tendances temporelles. */
   private toMonthKey(value: Date) {
     const month = String(value.getUTCMonth() + 1).padStart(2, '0');
     return `${value.getUTCFullYear()}-${month}`;
   }
 
+  /**
+   * Calcule l'instantané de données qui sera figé dans un `MinistryReport` :
+   * relance en parallèle le dashboard et les différentes statistiques, puis
+   * ne conserve dans le résultat que les sections demandées (toutes par
+   * défaut). Le `schemaVersion` permet à `safeReportSnapshot` de reconnaître
+   * un format valide lors d'une relecture ultérieure.
+   */
   private async createAggregateReportSnapshot(
     range: Pick<MinistryAnalyticsFilters, 'from' | 'to'>,
     requestedSections?: ReportSection[],
@@ -860,6 +923,7 @@ export class MinistryService {
     return snapshot;
   }
 
+  /** Synthèse de conformité utilisée dans les rapports : ne garde que le dernier contrôle de chaque établissement, puis compte par statut. */
   private async getComplianceSummary(): Promise<ComplianceSummary> {
     const checks = await this.prisma.complianceCheck.findMany({
       where: { school: { deletedAt: null } },
@@ -886,6 +950,12 @@ export class MinistryService {
     };
   }
 
+  /**
+   * Équivalent de `MinistryController.toBoundary` côté service : convertit
+   * une date de rapport, en couvrant toute la journée pour la borne haute
+   * lorsque seule une date (sans heure) est fournie.
+   * Lève BadRequestException si la valeur n'est pas une date valide.
+   */
   private toReportBoundary(value: string, endOfDay: boolean) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -902,6 +972,13 @@ export class MinistryService {
     return date;
   }
 
+  /**
+   * Valide qu'un instantané de rapport stocké correspond au schéma agrégé
+   * courant avant de le renvoyer tel quel. Si ce n'est pas le cas (rapport
+   * généré avant la mise à niveau de confidentialité, format inconnu...),
+   * retourne un contenu de repli neutre plutôt que de ré-exposer une
+   * ancienne charge utile potentiellement non conforme.
+   */
   private safeReportSnapshot(data: Prisma.JsonValue) {
     if (
       typeof data === 'object' &&

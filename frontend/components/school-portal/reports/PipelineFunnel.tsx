@@ -5,8 +5,14 @@ import { apiClient } from '@/lib/api-client';
 import styles from './reports.module.css';
 
 type Item = { status: string; count: number };
+// Traduction des statuts techniques du pipeline de candidature en libellés lisibles.
 const labels: Record<string, string> = { PENDING: 'Reçues', PRESELECTED: 'Présélectionnées', TEST_SCHEDULED: 'Test planifié', TEST_COMPLETED: 'Test terminé', INTERVIEW_SCHEDULED: 'Entretien planifié', INTERVIEW_COMPLETED: 'Entretien terminé' };
 
+/**
+ * Entonnoir (funnel) affichant le nombre de candidatures à chaque étape du
+ * processus d'admission (réception, présélection, test, entretien...).
+ * Récupère les données via `GET /schools/me/reports/pipeline` au montage.
+ */
 export function PipelineFunnel() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [failed, setFailed] = useState(false);

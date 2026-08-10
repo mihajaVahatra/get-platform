@@ -44,6 +44,7 @@ type CurrentStudentUser = {
   student?: { id: string } | null;
 };
 
+/** Changement de mot de passe : exige l'ancien mot de passe et une politique de complexité pour le nouveau. */
 class ChangePasswordDto {
   @IsString() currentPassword: string;
   @IsString()
@@ -58,11 +59,23 @@ class ChangePasswordDto {
   newPassword: string;
 }
 
+/** Préférence d'apparence de l'interface, limitée aux trois valeurs supportées. */
 class UpdateThemeDto {
   @IsIn(['light', 'dark', 'system'])
   theme: string;
 }
 
+/**
+ * Expose l'API "espace étudiant" : profil, avatar, cours/devoirs,
+ * documents, orientation, statistiques, notes, emploi du temps et
+ * préférences de sécurité/thème.
+ *
+ * Toutes les routes exigent un utilisateur authentifié avec le rôle
+ * STUDENT (JwtAuthGuard + RolesGuard + @Roles('STUDENT')). En plus de ce
+ * contrôle de rôle global, chaque méthode vérifie explicitement que
+ * `user.student` est bien renseigné (l'utilisateur possède un profil
+ * étudiant lié) et lève une ForbiddenException sinon.
+ */
 @ApiTags('students')
 @Controller('students')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -76,6 +89,12 @@ export class StudentController {
 
   // ========== PROFILE ==========
 
+  /**
+   * Récupère le profil complet de l'étudiant connecté (infos personnelles
+   * déchiffrées, documents, candidatures récentes, inscriptions actives).
+   * Lève ForbiddenException si l'utilisateur n'a pas de profil étudiant,
+   * NotFoundException si le profil est introuvable en base.
+   */
   @Get('me')
   @ApiOperation({ summary: 'Get current student profile' })
   @ApiResponse({
@@ -108,6 +127,13 @@ export class StudentController {
     };
   }
 
+  /**
+   * Met à jour les champs modifiables du profil étudiant (identité,
+   * coordonnées, bio, centres d'intérêt...). `phone` et `cin` sont
+   * rechiffrés côté service avant écriture. Lève BadRequestException si le
+   * chiffrement échoue, ForbiddenException si l'utilisateur n'est pas
+   * étudiant.
+   */
   @Put('me')
   @ApiOperation({ summary: 'Update student profile' })
   @ApiBody({ type: UpdateStudentProfileDto })
@@ -139,6 +165,12 @@ export class StudentController {
 
   // ========== AVATAR ==========
 
+  /**
+   * Upload de l'avatar de l'étudiant (JPEG/PNG/WEBP, 5 Mo max). Stocke
+   * l'image via StorageService puis met à jour l'URL en base. Lève
+   * BadRequestException si le format n'est pas autorisé ou si aucun fichier
+   * n'est fourni.
+   */
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload student avatar' })
   @ApiConsumes('multipart/form-data')
@@ -195,6 +227,7 @@ export class StudentController {
 
   // ========== COURS ET DEVOIRS ==========
 
+  /** Liste les cours auxquels l'étudiant connecté est inscrit. */
   @Get('me/courses')
   @ApiOperation({ summary: 'Get courses the current student is enrolled in' })
   async getCourses(@GetUser() user: CurrentStudentUser) {
@@ -207,6 +240,11 @@ export class StudentController {
     return { success: true, data: courses, message: 'Courses retrieved' };
   }
 
+  /**
+   * Liste les devoirs publiés d'un cours, avec la soumission de l'étudiant
+   * (si elle existe) rattachée à chacun. Vérifie que l'étudiant est bien
+   * inscrit au cours (NotFoundException sinon).
+   */
   @Get('me/courses/:courseId/assignments')
   @ApiOperation({ summary: 'Get published assignments for an enrolled course' })
   async getCourseAssignments(
@@ -229,6 +267,12 @@ export class StudentController {
     };
   }
 
+  /**
+   * Dépose (ou remplace) la soumission d'un devoir publié (PDF/JPG/PNG/
+   * DOC/DOCX, 5 Mo max). Refuse le remplacement si la soumission existante
+   * a déjà été notée (ConflictException, voir StudentService.submitAssignment).
+   * Lève NotFoundException si le devoir n'existe pas ou n'est pas publié.
+   */
   @Post('me/assignments/:assignmentId/submit')
   @ApiOperation({
     summary: 'Submit or replace an ungraded assignment submission',
@@ -282,6 +326,7 @@ export class StudentController {
 
   // ========== DOCUMENTS ==========
 
+  /** Liste les documents (non supprimés) de l'étudiant connecté. */
   @Get('me/documents')
   @ApiOperation({ summary: 'Get all documents' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Documents retrieved' })
@@ -303,6 +348,12 @@ export class StudentController {
     };
   }
 
+  /**
+   * Upload d'un document étudiant (CV, lettre, pièce d'identité, diplôme,
+   * photo, autre). Formats acceptés : PDF, JPG, PNG, DOC, DOCX, 5 Mo max.
+   * Lève BadRequestException si le fichier est manquant, trop volumineux ou
+   * dans un format non supporté.
+   */
   @Post('me/documents')
   @ApiOperation({ summary: 'Upload a document' })
   @ApiConsumes('multipart/form-data')
@@ -377,6 +428,11 @@ export class StudentController {
     };
   }
 
+  /**
+   * Suppression logique d'un document (soft delete via `deletedAt`).
+   * Lève NotFoundException si le document n'existe pas ou n'appartient pas
+   * à l'étudiant connecté.
+   */
   @Delete('me/documents/:id')
   @ApiOperation({ summary: 'Delete a document' })
   @ApiParam({ name: 'id', description: 'Document ID' })
@@ -404,6 +460,12 @@ export class StudentController {
 
   // ========== ORIENTATION ==========
 
+  /**
+   * Enregistre les réponses du questionnaire d'orientation (intérêts,
+   * compétences, objectifs de carrière) sur le profil étudiant, puis
+   * retourne des suggestions de formations calculées à partir de ces
+   * réponses.
+   */
   @Post('me/orientation')
   @ApiOperation({ summary: 'Submit orientation questionnaire' })
   @ApiBody({ type: OrientationQuestionnaireDto })
@@ -433,6 +495,11 @@ export class StudentController {
     };
   }
 
+  /**
+   * Recalcule les suggestions d'orientation à partir des réponses déjà
+   * enregistrées. Lève BadRequestException si l'étudiant n'a pas encore
+   * complété le questionnaire (aucun intérêt enregistré).
+   */
   @Get('me/orientation')
   @ApiOperation({ summary: 'Get orientation suggestions' })
   @ApiResponse({
@@ -461,6 +528,10 @@ export class StudentController {
 
   // ========== STATISTICS ==========
 
+  /**
+   * Retourne des statistiques personnelles agrégées (candidatures par
+   * statut, nombre de documents, taux de complétion du profil).
+   */
   @Get('me/stats')
   @ApiOperation({ summary: 'Get personal statistics' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Statistics retrieved' })
@@ -484,6 +555,10 @@ export class StudentController {
 
   // ========== GRADES ==========
 
+  /**
+   * Liste les notes de l'étudiant pour tous ses cours inscrits : notes
+   * d'évaluations (avec coefficient) et notes de devoirs soumis.
+   */
   @Get('me/grades')
   @ApiOperation({ summary: 'Get grades for all enrolled courses' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Grades retrieved' })
@@ -503,6 +578,7 @@ export class StudentController {
 
   // ========== SCHEDULE ==========
 
+  /** Retourne l'emploi du temps hebdomadaire des cours auxquels l'étudiant est inscrit. */
   @Get('me/schedule')
   @ApiOperation({ summary: 'Get weekly schedule for enrolled courses' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Schedule retrieved' })
@@ -522,6 +598,11 @@ export class StudentController {
 
   // ========== SECURITY & PREFERENCES ==========
 
+  /**
+   * Change le mot de passe de l'étudiant après vérification du mot de
+   * passe actuel. Lève BadRequestException si l'ancien mot de passe est
+   * incorrect.
+   */
   @Patch('me/password')
   @ApiOperation({ summary: 'Change current student password' })
   @ApiBody({ type: ChangePasswordDto })
@@ -544,6 +625,7 @@ export class StudentController {
     return { success: true, data: result, message: 'Password changed' };
   }
 
+  /** Met à jour la préférence de thème (clair/sombre/système) de l'utilisateur. */
   @Patch('me/theme')
   @ApiOperation({ summary: 'Update theme preference' })
   @ApiBody({ type: UpdateThemeDto })

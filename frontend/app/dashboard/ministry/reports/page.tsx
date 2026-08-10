@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Rapport ministère déjà généré, listé et téléchargeable dans différents formats. */
 type Report = {
   id: string;
   name: string;
@@ -51,6 +52,7 @@ type PaginationMeta = {
   totalPages: number;
 };
 
+/** Formulaire de génération d'un nouveau rapport (le `format` choisi ici ne sert qu'à présélectionner l'export initial). */
 type ReportForm = {
   name: string;
   type: 'NATIONAL' | 'REGIONAL' | 'SECTORIAL';
@@ -60,6 +62,7 @@ type ReportForm = {
   format: 'PDF' | 'EXCEL' | 'CSV' | 'JSON';
 };
 
+// Extension de fichier associée à chaque format d'export, utilisée pour nommer le fichier téléchargé.
 const exportExtensions: Record<ReportForm['format'], string> = {
   PDF: 'pdf',
   EXCEL: 'xls',
@@ -76,6 +79,7 @@ const emptyMeta: PaginationMeta = {
   totalPages: 1,
 };
 
+/** Construit un formulaire de génération de rapport vierge (valeurs par défaut : national, mensuel, PDF). */
 const createInitialReportForm = (): ReportForm => ({
   name: '',
   type: 'NATIONAL',
@@ -91,6 +95,11 @@ const reportTypeLabels: Record<string, string> = {
   SECTORIAL: 'Sectoriel',
 };
 
+/**
+ * Normalise les métadonnées de pagination renvoyées par l'API en repli sûr
+ * (valeurs par défaut si absentes/invalides), pour éviter tout NaN ou page
+ * totale à zéro dans l'interface.
+ */
 function normalizeMeta(
   meta: Partial<PaginationMeta> | undefined,
   page: number,
@@ -103,6 +112,16 @@ function normalizeMeta(
   };
 }
 
+/**
+ * Page de gestion des rapports du ministère.
+ *
+ * Liste paginée des rapports déjà générés (`GET /ministry/reports`), permet
+ * d'en générer un nouveau (`POST /ministry/reports/generate`) via un
+ * formulaire (nom, type, période, plage de dates, format d'export), et de
+ * télécharger un rapport existant dans un format donné (PDF/Excel/CSV) via
+ * `GET /ministry/reports/:id/export`, en récupérant la réponse en `Blob`
+ * pour déclencher un téléchargement navigateur.
+ */
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [meta, setMeta] = useState<PaginationMeta>(emptyMeta);
@@ -144,6 +163,7 @@ export default function ReportsPage() {
     };
   }, [page, reloadKey]);
 
+  /** Force un rechargement de la liste (ex. après génération d'un rapport), avec retour optionnel à la première page. */
   const refreshReports = (resetToFirstPage = false) => {
     setLoading(true);
     setLoadError(null);
@@ -158,6 +178,8 @@ export default function ReportsPage() {
     setPage(nextPage);
   };
 
+  // Valide localement le formulaire (champs requis, cohérence des dates) puis déclenche
+  // la génération du rapport côté API.
   const handleGenerate = async () => {
     const name = formData.name.trim();
     if (!name || !formData.periodStart || !formData.periodEnd) {
@@ -189,6 +211,9 @@ export default function ReportsPage() {
     }
   };
 
+  // Télécharge un rapport existant dans le format demandé : récupère la réponse en `Blob`
+  // (garde-fou de conversion si le client HTTP ne renvoie pas déjà un Blob), puis simule un
+  // clic sur un lien `<a download>` éphémère pour déclencher le téléchargement navigateur.
   const handleDownload = async (
     reportId: string,
     format: ReportForm['format'],
@@ -218,6 +243,8 @@ export default function ReportsPage() {
         toast.success('Téléchargement lancé.');
       } finally {
         link.remove();
+        // Libère l'URL objet après le déclenchement du téléchargement (différé au tick suivant
+        // pour laisser le navigateur amorcer le téléchargement avant révocation).
         window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
       }
     } catch (error) {

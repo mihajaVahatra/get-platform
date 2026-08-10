@@ -16,11 +16,13 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 
+/** Expose les endpoints CRUD des années scolaires. Consultation publique, écriture réservée à ADMIN_GET. */
 @ApiTags('academic-years')
 @Controller('academic-years')
 export class AcademicYearController {
   constructor(private readonly academicYearService: AcademicYearService) {}
 
+  /** Liste toutes les années scolaires (triées par date de début décroissante). Accès public. */
   @Public()
   @Get()
   @ApiOperation({ summary: 'List academic years (used by school admins to plan schedules)' })
@@ -28,6 +30,10 @@ export class AcademicYearController {
     return { success: true, data: await this.academicYearService.findAll() };
   }
 
+  /**
+   * Crée une nouvelle année scolaire. Réservé au rôle ADMIN_GET.
+   * @throws {BadRequestException} Si les dates sont incohérentes ou le libellé déjà pris.
+   */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -37,6 +43,11 @@ export class AcademicYearController {
     return { success: true, data: await this.academicYearService.create(dto) };
   }
 
+  /**
+   * Met à jour une année scolaire existante. Réservé au rôle ADMIN_GET.
+   * @throws {NotFoundException} Si l'année scolaire n'existe pas.
+   * @throws {BadRequestException} Si les dates sont incohérentes ou le libellé déjà pris.
+   */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')
@@ -46,6 +57,11 @@ export class AcademicYearController {
     return { success: true, data: await this.academicYearService.update(id, dto) };
   }
 
+  /**
+   * Supprime une année scolaire. Réservé au rôle ADMIN_GET.
+   * @throws {NotFoundException} Si l'année scolaire n'existe pas.
+   * @throws {BadRequestException} Si des classes utilisent encore cette année scolaire.
+   */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET')

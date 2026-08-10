@@ -4,6 +4,12 @@ import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 import { EncryptionService } from '../../../common/services/encryption.service';
 
+/**
+ * Service MFA (TOTP, via speakeasy) : génération/vérification de secret,
+ * activation/désactivation. Le secret TOTP est toujours chiffré au repos
+ * (EncryptionService) et n'est jamais stocké ni comparé en clair, hormis
+ * temporairement en mémoire lors de la vérification d'un code.
+ */
 @Injectable()
 export class MfaService {
   constructor(
@@ -11,7 +17,36 @@ export class MfaService {
     private encryption: EncryptionService,
   ) {}
 
-  async generateSecret(userId: string) {
+  /**
+   * Génère un nouveau secret TOTP pour l'utilisateur et le persiste chiffré
+   * en base, avec `mfaEnabled: false` (le MFA n'est activé qu'après
+   * verifyAndEnable). Écrase tout secret précédent.
+   *
+   * Si le MFA est déjà activé, exige un code TOTP courant valide avant de
+   * ré-enrôler : sans cette vérification, un simple appel à cet endpoint
+   * (ex. via CSRF si le cookie de session est SameSite=None) désactiverait
+   * silencieusement le MFA d'un compte, sans jamais avoir eu besoin du mot
+   * de passe ni du secret existant (cf. audit sécurité 2026-08-10).
+   * @throws BadRequestException si le MFA est déjà actif et qu'aucun code
+   * courant valide n'est fourni.
+   * @returns un QR code (data URL) à scanner et le secret en base32 pour
+   * saisie manuelle dans une app d'authentification.
+   */
+  async generateSecret(userId: string, currentCode?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.mfaEnabled) {
+      const verified = currentCode && (await this.verifyCode(userId, currentCode));
+      if (!verified) {
+        throw new BadRequestException(
+          'Le MFA est déjà activé : le code TOTP actuel est requis pour le ré-enrôler',
+        );
+      }
+    }
+
     const secret = speakeasy.generateSecret({
       name: `GET (${userId})`,
     });
@@ -32,6 +67,13 @@ export class MfaService {
     };
   }
 
+  /**
+   * Vérifie le code TOTP fourni contre le secret généré par generateSecret
+   * et, si valide, active le MFA (`mfaEnabled: true`). Fenêtre de tolérance
+   * de 2 pas (±60s) pour absorber le décalage d'horloge du client.
+   * @throws BadRequestException si l'utilisateur est introuvable, si aucun
+   * secret n'a été généré, ou si le code est invalide.
+   */
   async verifyAndEnable(userId: string, code: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -64,6 +106,13 @@ export class MfaService {
     return { success: true };
   }
 
+  /**
+   * Vérifie un code TOTP sans effet de bord (pas d'activation), utilisé à
+   * la fois pour la connexion MFA (étape 2 du login) et pour confirmer
+   * l'identité avant de désactiver le MFA.
+   * @returns `false` (jamais d'exception) si l'utilisateur n'a pas de
+   * secret MFA configuré ou si le code est invalide.
+   */
   async verifyCode(userId: string, code: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -81,6 +130,11 @@ export class MfaService {
     });
   }
 
+  /**
+   * Désactive le MFA après re-vérification du code TOTP courant et efface
+   * le secret stocké.
+   * @throws BadRequestException si le code TOTP est invalide.
+   */
   async disable(userId: string, code: string) {
     const verified = await this.verifyCode(userId, code);
     if (!verified) {

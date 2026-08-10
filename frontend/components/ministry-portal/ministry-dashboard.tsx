@@ -64,6 +64,7 @@ type Trend = {
   pendingCount: number;
 };
 
+/** Forme complète de la réponse de `GET /ministry/dashboard` (indicateurs agrégés et anonymisés à l'échelle nationale). */
 type DashboardData = {
   period: { from: string | null; to: string | null };
   totalApplications: number;
@@ -110,6 +111,17 @@ const DISTRIBUTION_COLORS = [
   '#dce1ec',
 ];
 
+/**
+ * Tableau de bord national du ministère : indicateurs agrégés et anonymisés
+ * sur les candidatures, établissements et programmes, avec filtre par plage
+ * de dates. Route interne via `?section=` : `messages` affiche la
+ * messagerie, `settings` la carte de sécurité MFA, sinon les indicateurs.
+ *
+ * Charge `GET /ministry/dashboard` (via `apiClient`) au montage puis à
+ * chaque application/réinitialisation de la plage de dates (`from`/`to`).
+ * Délègue l'affichage des indicateurs à `DashboardContent` une fois les
+ * données chargées sans erreur.
+ */
 export function MinistryDashboard() {
   const searchParams = useSearchParams();
   const [data, setData] = useState<DashboardData | null>(null);
@@ -118,6 +130,8 @@ export function MinistryDashboard() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
+  // Recharge les indicateurs pour la plage de dates donnée ; `from`/`to` vides = pas de filtre
+  // (l'API interprète l'absence de paramètre comme « toute la période disponible »).
   const loadDashboard = useCallback(async (range: DateRange) => {
     setLoading(true);
     setError(null);
@@ -148,6 +162,8 @@ export function MinistryDashboard() {
     void Promise.resolve().then(() => loadDashboard({ from: '', to: '' }));
   }, [loadDashboard]);
 
+  // Applique le filtre de dates saisi, après validation locale que la date de début
+  // précède bien la date de fin (comparaison lexicographique valide car format ISO `YYYY-MM-DD`).
   const applyRange = () => {
     if (from && to && from > to) {
       toast.error('La date de début doit précéder la date de fin.');
@@ -282,6 +298,11 @@ export function MinistryDashboard() {
   );
 }
 
+/**
+ * Corps du tableau de bord une fois les données chargées : cartes KPI,
+ * courbe de tendance, répartitions par statut/région, et tableaux
+ * établissement/programme (candidatures et, si disponibles, inscriptions).
+ */
 function DashboardContent({ data }: { data: DashboardData }) {
   return (
     <>
@@ -345,6 +366,7 @@ function DashboardContent({ data }: { data: DashboardData }) {
   );
 }
 
+/** Affiche en toutes lettres la période analysée renvoyée par l'API, ou un message par défaut si aucune borne n'est fixée. */
 function PeriodNote({
   period,
 }: {
@@ -374,6 +396,7 @@ function PeriodNote({
   );
 }
 
+/** Squelette de chargement (placeholders animés) affiché pendant le chargement des indicateurs. */
 function DashboardSkeleton() {
   return (
     <div
@@ -401,6 +424,7 @@ function DashboardSkeleton() {
   );
 }
 
+/** Carte indicateur clé (icône, valeur formatée, libellé et note contextuelle) colorée selon `tone`. */
 function Kpi({
   icon: Icon,
   tone,
@@ -441,6 +465,7 @@ function Kpi({
   );
 }
 
+/** Conteneur visuel générique (titre + contenu) utilisé pour chaque section du tableau de bord. */
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -450,6 +475,12 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/**
+ * Courbe SVG de l'évolution du nombre de candidatures par période (mois),
+ * construite manuellement (pas de librairie de graphiques) : les périodes
+ * sont triées chronologiquement puis projetées sur une grille fixe de
+ * 72 px par point, la hauteur étant proportionnelle au maximum observé.
+ */
 function TrendChart({ trends }: { trends: Trend[] }) {
   const ordered = [...trends].sort((left, right) =>
     left.period.localeCompare(right.period),
@@ -508,6 +539,14 @@ function TrendChart({ trends }: { trends: Trend[] }) {
   );
 }
 
+/**
+ * Donut de répartition (par statut ou autre catégorie) construit avec un
+ * `conic-gradient` CSS calculé manuellement à partir des proportions
+ * cumulées de chaque catégorie, plutôt qu'une librairie de graphiques.
+ *
+ * @param total - Total affiché au centre du donut (peut différer de la somme des `items`, ex. total global de candidatures).
+ * @param items - Catégories à répartir, triées par effectif décroissant.
+ */
 function Distribution({
   title,
   total,
@@ -519,6 +558,8 @@ function Distribution({
 }) {
   const ordered = [...items].sort((left, right) => right.count - left.count);
   const count = ordered.reduce((sum, item) => sum + item.count, 0);
+  // `safeTotal` évite une division par zéro dans le calcul des pourcentages du gradient
+  // lorsque `items` est vide ou que tous les compteurs sont à zéro.
   const safeTotal = count || 1;
   const gradient = ordered.length
     ? `conic-gradient(${ordered
@@ -577,6 +618,7 @@ function Distribution({
   );
 }
 
+/** Liste de barres horizontales montrant le nombre de candidatures par région, triée par effectif décroissant. */
 function RegionalDistribution({ regions }: { regions: CountByRegion[] }) {
   const ordered = [...regions].sort((left, right) => right.count - left.count);
   const max = Math.max(...ordered.map((item) => item.count), 1);
@@ -611,6 +653,7 @@ function RegionalDistribution({ regions }: { regions: CountByRegion[] }) {
   );
 }
 
+/** Tableau détaillé des candidatures par établissement et programme, avec ventilation acceptées/en attente. */
 function SchoolProgrammeTable({ rows }: { rows: SchoolProgrammeCount[] }) {
   const ordered = [...rows].sort((left, right) => right.count - left.count);
 
@@ -671,6 +714,11 @@ function SchoolProgrammeTable({ rows }: { rows: SchoolProgrammeCount[] }) {
   );
 }
 
+/**
+ * Tableau des effectifs réellement inscrits par établissement et programme.
+ * Affiché uniquement si l'API renvoie des données (`enrollmentsBySchoolProgramme`),
+ * en complément de `SchoolProgrammeTable` qui porte sur les candidatures.
+ */
 function EnrollmentSchoolProgrammeTable({
   rows,
 }: {
@@ -718,10 +766,12 @@ function EnrollmentSchoolProgrammeTable({
   );
 }
 
+/** Message centré affiché à la place d'une section de graphique/tableau sans données. */
 function EmptyNote({ text }: { text: string }) {
   return <p className="py-8 text-center text-xs text-slate-400">{text}</p>;
 }
 
+/** Formate une période `YYYY-MM` en libellé court « mois année » localisé en français (ex. « janv. 26 »). */
 function formatMonth(period: string) {
   const date = new Date(`${period}-01T00:00:00`);
   return Number.isNaN(date.getTime())

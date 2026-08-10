@@ -25,24 +25,34 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/** Offre de formation publiée par l'établissement, telle que renvoyée par `GET /offers/mine`. */
 type Offer = {
   id: string;
   title: string;
   diploma: string;
   duration: number;
   tuitionFees: number;
+  /** Indique si l'offre accepte actuellement de nouvelles candidatures. */
   isOpen: boolean;
   applicationDeadline?: string;
   createdAt: string;
+  /** Compteurs associés à l'offre (nombre de candidatures reçues). */
   _count?: {
     applications: number;
   };
 };
 
+/**
+ * Page « Mes offres » du tableau de bord établissement (route App Router `/dashboard/school/offers`).
+ * Client component (`'use client'`) : liste les offres de formation créées par l'établissement,
+ * permet de les ouvrir/fermer aux candidatures, de les modifier, d'accéder à leurs candidatures
+ * et de les supprimer (avec confirmation via une boîte de dialogue).
+ */
 export default function SchoolOffersPage() {
   const router = useRouter();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
+  // Offre ciblée par une suppression en attente de confirmation (null = aucune boîte de dialogue ouverte).
   const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
   const [deletingOffer, setDeletingOffer] = useState(false);
 
@@ -50,6 +60,7 @@ export default function SchoolOffersPage() {
     fetchOffers();
   }, []);
 
+  /** Récupère les offres de l'établissement connecté via `GET /offers/mine`. */
   const fetchOffers = async () => {
     setLoading(true);
     try {
@@ -63,6 +74,7 @@ export default function SchoolOffersPage() {
     }
   };
 
+  /** Confirme et exécute la suppression de l'offre sélectionnée via `DELETE /offers/:id`. */
   const handleDelete = async () => {
     if (!offerToDelete) return;
     setDeletingOffer(true);
@@ -78,6 +90,7 @@ export default function SchoolOffersPage() {
     }
   };
 
+  /** Bascule l'ouverture/fermeture d'une offre aux candidatures via `PATCH /offers/:id/status`. */
   const handleToggleStatus = async (id: string, isOpen: boolean) => {
     try {
       await apiClient.patch(`/offers/${id}/status`, { isOpen: !isOpen });
@@ -88,10 +101,12 @@ export default function SchoolOffersPage() {
     }
   };
 
+  /** Formate un montant en ariary avec les séparateurs de milliers français. */
   const formatAmount = (amount: number) => {
     return amount.toLocaleString('fr-FR') + ' Ar';
   };
 
+  /** Formate une date ISO au format jj/mm/aaaa, ou un libellé par défaut si absente. */
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Non définie';
     return new Date(dateString).toLocaleDateString('fr-FR', {

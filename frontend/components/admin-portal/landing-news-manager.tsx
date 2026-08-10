@@ -5,6 +5,7 @@ import { ChevronRight, Edit3, Newspaper, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Actualité affichée sur la landing page publique, telle que renvoyée par l'API. */
 type NewsItem = {
   id: string;
   type: string;
@@ -16,13 +17,20 @@ type NewsItem = {
   publishedAt: string;
 };
 
+/** Extrait le message d'erreur métier renvoyé par l'API (format axios), s'il existe. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/** Nombre d'actualités chargées par page. */
 const PAGE_SIZE = 20;
 
+/**
+ * Écran d'administration des actualités affichées sur la landing page
+ * publique : liste paginée, création, édition, suppression et gestion du
+ * statut de publication (brouillon/publiée).
+ */
 export function LandingNewsManager() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -33,6 +41,7 @@ export function LandingNewsManager() {
   const [toDelete, setToDelete] = useState<NewsItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  /** Charge une page d'actualités admin (`GET /landing/news/admin`). */
   const fetchNews = useCallback(async () => {
     try {
       setLoading(true);
@@ -59,6 +68,7 @@ export function LandingNewsManager() {
     };
   }, [fetchNews]);
 
+  /** Supprime l'actualité sélectionnée (`toDelete`) puis rafraîchit la liste. */
   const removeNews = async () => {
     if (!toDelete) return;
     try {
@@ -232,6 +242,12 @@ export function LandingNewsManager() {
   );
 }
 
+/**
+ * Modale de création/édition d'une actualité.
+ * @param news Actualité à éditer, ou `null` pour créer une nouvelle actualité.
+ * @param onClose Ferme la modale sans sauvegarder.
+ * @param onSaved Appelé après une création/mise à jour réussie (déclenche le rechargement de la liste côté parent).
+ */
 function NewsForm({
   news,
   onClose,

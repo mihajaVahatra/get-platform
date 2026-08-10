@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+/** États possibles du cycle de vie d'un concours. */
 export const COMPETITION_STATUSES = [
   'PLANNED',
   'OPEN',
@@ -20,6 +21,7 @@ export const COMPETITION_STATUSES = [
   'CANCELLED',
 ] as const;
 
+/** Données requises pour créer un concours d'admission. */
 export class CreateCompetitionDto {
   @ApiProperty({ example: 'Concours ENI 2026' })
   @IsString()

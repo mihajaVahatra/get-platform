@@ -5,6 +5,7 @@ import { LoaderCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
+/** Épreuve évaluée d'un cours (examen, contrôle, etc.). `value` vaut `null` tant que la note n'est pas saisie. */
 type Evaluation = {
   id: string;
   title: string;
@@ -14,12 +15,14 @@ type Evaluation = {
   value: number | null;
 };
 
+/** Devoir noté d'un cours. `grade` vaut `null` tant que la note n'est pas saisie. */
 type GradedAssignment = {
   id: string;
   title: string;
   grade: number | null;
 };
 
+/** Ensemble des notes (évaluations + devoirs) d'un cours, tel que retourné par l'API `/students/me/grades`. */
 type CourseGrades = {
   courseId: string;
   code: string;
@@ -28,6 +31,11 @@ type CourseGrades = {
   assignments: GradedAssignment[];
 };
 
+/**
+ * Calcule la moyenne pondérée par coefficient d'une liste d'évaluations, en ignorant
+ * les évaluations pas encore notées (`value === null`).
+ * @returns La moyenne sur 20, ou `null` si aucune évaluation notée ou si la somme des coefficients est nulle.
+ */
 function weightedAverage(evaluations: Evaluation[]): number | null {
   const graded = evaluations.filter((evaluation) => evaluation.value !== null);
   if (graded.length === 0) return null;
@@ -43,6 +51,12 @@ function weightedAverage(evaluations: Evaluation[]): number | null {
   return weightedSum / totalCoefficient;
 }
 
+/**
+ * Route `/dashboard/student/grades` : client component ('use client') affichant, par cours,
+ * la moyenne pondérée ainsi que le détail des notes d'évaluations et de devoirs.
+ * Récupère les notes via `apiClient.get('/students/me/grades')` au montage et gère les
+ * états de chargement, d'échec et de liste vide.
+ */
 export default function StudentGradesPage() {
   const t = useTranslations('StudentGrades');
   const [courses, setCourses] = useState<CourseGrades[]>([]);
@@ -154,6 +168,7 @@ export default function StudentGradesPage() {
   );
 }
 
+/** Indicateur de chargement affiché pendant la récupération des notes. */
 function Loading({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -163,6 +178,7 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+/** État vide/erreur affiché en cas d'échec de l'appel API ou d'absence de notes. */
 function Empty({ label }: { label: string }) {
   return (
     <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">

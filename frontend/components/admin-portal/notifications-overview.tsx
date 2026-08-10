@@ -5,18 +5,27 @@ import { BellRing, CheckCircle2, MailOpen, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 
+/** Statistiques globales des notifications envoyées sur la plateforme. */
 type PlatformStats = {
   total: number;
   unread: number;
   read: number;
   sentLast7Days: number;
+  /** Titres de notification les plus fréquents sur les 7 derniers jours, avec leur nombre d'occurrences. */
   topRecentTitles: { title: string; count: number }[];
 };
 
+/**
+ * Vue de suivi (lecture seule) des notifications envoyées sur la plateforme :
+ * volumes globaux, taux de lecture et notifications les plus fréquentes de
+ * la semaine. L'envoi effectif d'annonces se fait depuis un autre écran
+ * (« Annonces »).
+ */
 export function NotificationsOverview() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /** Charge les statistiques globales de notifications (`GET /notifications/platform-stats`). */
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
@@ -97,6 +106,7 @@ export function NotificationsOverview() {
   );
 }
 
+/** Carte affichant un indicateur clé (icône + libellé + valeur numérique) avec une teinte de couleur donnée. */
 function Kpi({
   icon: Icon,
   tone,

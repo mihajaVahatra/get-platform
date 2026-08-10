@@ -8,11 +8,14 @@ import {
   Matches,
 } from 'class-validator';
 
+/** Données d'inscription étudiante (POST /auth/register). */
 export class RegisterDto {
   @ApiProperty({ example: 'jean.rakoto@email.com' })
   @IsEmail()
   email: string;
 
+  // Regex exigeant majuscule + minuscule + chiffre + caractère spécial,
+  // en plus des bornes de longueur (8-32).
   @ApiProperty({ example: 'SecurePass123!' })
   @IsString()
   @MinLength(8)

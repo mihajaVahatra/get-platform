@@ -5,6 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Famille de composants "Tabs" (onglets), basée sur `@base-ui/react/tabs`.
+ * Racine gérant l'onglet actif ; à composer avec `TabsList`, `TabsTrigger`, `TabsContent`.
+ *
+ * @param orientation - `"horizontal"` (défaut) ou `"vertical"`.
+ */
 function Tabs({
   className,
   orientation = "horizontal",
@@ -23,6 +29,7 @@ function Tabs({
   )
 }
 
+/** Classes CSS (via `cva`) définissant l'apparence de la liste d'onglets selon `variant`. */
 const tabsListVariants = cva(
   "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
   {
@@ -38,6 +45,11 @@ const tabsListVariants = cva(
   }
 )
 
+/**
+ * Barre contenant les déclencheurs d'onglets (`TabsTrigger`).
+ *
+ * @param variant - `"default"` (fond plein) ou `"line"` (soulignement seul).
+ */
 function TabsList({
   className,
   variant = "default",
@@ -53,6 +65,7 @@ function TabsList({
   )
 }
 
+/** Déclencheur cliquable d'un onglet. */
 function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
@@ -69,6 +82,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   )
 }
 
+/** Panneau de contenu associé à un onglet, affiché uniquement quand cet onglet est actif. */
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel

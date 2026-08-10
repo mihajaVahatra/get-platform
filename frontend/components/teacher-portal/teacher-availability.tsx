@@ -12,11 +12,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** Extrait le message d'erreur métier renvoyé par l'API (payload Axios) s'il existe, pour l'afficher dans un toast. */
 function axiosMessage(error: unknown): string | undefined {
   return (error as { response?: { data?: { message?: string } } }).response
     ?.data?.message;
 }
 
+/** Jours de la semaine proposés dans le sélecteur d'indisponibilité récurrente (valeurs en chaîne pour le composant `Select`). */
 const DAYS = [
   { value: '1', label: 'Lundi' },
   { value: '2', label: 'Mardi' },
@@ -27,6 +29,10 @@ const DAYS = [
   { value: '7', label: 'Dimanche' },
 ];
 
+/**
+ * Créneau d'indisponibilité du professeur : soit récurrent (`dayOfWeek` renseigné),
+ * soit ponctuel (`date` renseignée) — les deux champs sont mutuellement exclusifs.
+ */
 type Unavailability = {
   id: string;
   dayOfWeek: number | null;
@@ -35,7 +41,9 @@ type Unavailability = {
   endTime: string;
   reason: string | null;
 };
+/** Établissement dans lequel le professeur intervient (option de sélection). */
 type SchoolOption = { school: { id: string; name: string } };
+/** Marge de temps de trajet minimale déclarée entre deux établissements. */
 type TravelBuffer = {
   id: string;
   minutesBuffer: number;
@@ -43,12 +51,23 @@ type TravelBuffer = {
   schoolB: { id: string; name: string };
 };
 
+/**
+ * Vue "Disponibilités" du portail professeur : regroupe la gestion des
+ * indisponibilités (récurrentes ou ponctuelles) et des temps de trajet
+ * minimums entre établissements.
+ *
+ * Charge en parallèle les indisponibilités (`/teacher/availability`), les
+ * temps de trajet (`/teacher/travel-buffers`) et la liste des écoles du
+ * professeur (`/teacher/courses/schools`), puis délègue l'affichage et les
+ * mutations aux sous-sections `UnavailabilitySection` et `TravelBufferSection`.
+ */
 export function TeacherAvailabilityManager() {
   const [unavailability, setUnavailability] = useState<Unavailability[]>([]);
   const [buffers, setBuffers] = useState<TravelBuffer[]>([]);
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /** Recharge en une fois les trois ressources de la vue (indisponibilités, temps de trajet, écoles). */
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
@@ -95,6 +114,7 @@ export function TeacherAvailabilityManager() {
   );
 }
 
+/** Carte de section générique (titre + sous-titre + contenu) réutilisée pour chaque bloc de la vue Disponibilités. */
 function SectionCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -105,6 +125,14 @@ function SectionCard({ title, subtitle, children }: { title: string; subtitle: s
   );
 }
 
+/**
+ * Formulaire et liste de gestion des indisponibilités du professeur.
+ * Permet de basculer entre un mode "récurrent" (jour de semaine) et
+ * "date précise" (exception ponctuelle), de déclarer un créneau via
+ * `POST /teacher/availability` et de le supprimer via
+ * `DELETE /teacher/availability/:id`. `onChanged` déclenche un rechargement
+ * de la liste depuis le composant parent après chaque mutation.
+ */
 function UnavailabilitySection({
   items,
   loading,
@@ -122,6 +150,8 @@ function UnavailabilitySection({
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Envoie soit `dayOfWeek` (récurrent) soit `date` (exception ponctuelle), jamais les deux,
+  // conformément à l'exclusivité mutuelle du type `Unavailability`.
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void (async () => {
@@ -145,6 +175,7 @@ function UnavailabilitySection({
     })();
   };
 
+  /** Supprime une indisponibilité déclarée et rafraîchit la liste. */
   const remove = async (id: string) => {
     try {
       await apiClient.delete(`/teacher/availability/${id}`);
@@ -275,6 +306,14 @@ function UnavailabilitySection({
   );
 }
 
+/**
+ * Formulaire et liste de gestion des temps de trajet minimums entre deux
+ * établissements du professeur. N'affiche le formulaire que si le
+ * professeur intervient dans au moins deux écoles ; sinon affiche un
+ * message explicatif. Crée un temps de trajet via
+ * `POST /teacher/travel-buffers` et le supprime via
+ * `DELETE /teacher/travel-buffers/:id`.
+ */
 function TravelBufferSection({
   items,
   schools,
@@ -291,6 +330,8 @@ function TravelBufferSection({
   const [minutesBuffer, setMinutesBuffer] = useState('30');
   const [saving, setSaving] = useState(false);
 
+  // Empêche de sélectionner deux fois la même école : si l'école choisie côté A
+  // est déjà sélectionnée côté B (ou inversement), on réinitialise l'autre champ.
   const selectSchoolA = (value: string) => {
     setSchoolAId(value);
     if (value && value === schoolBId) setSchoolBId('');
@@ -320,6 +361,7 @@ function TravelBufferSection({
     })();
   };
 
+  /** Supprime un temps de trajet déclaré et rafraîchit la liste. */
   const remove = async (id: string) => {
     try {
       await apiClient.delete(`/teacher/travel-buffers/${id}`);
@@ -330,6 +372,8 @@ function TravelBufferSection({
     }
   };
 
+  // Règle métier : un temps de trajet n'a de sens qu'entre deux établissements distincts,
+  // on masque donc le formulaire tant que le professeur n'est affecté qu'à une seule école.
   if (schools.length < 2) {
     return (
       <SectionCard

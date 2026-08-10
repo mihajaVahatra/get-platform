@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 
+/** Jours de la semaine affichés en colonnes, avec leur code numérique attendu par l'API (1 = Lundi ... 7 = Dimanche). */
 const DAYS = [
   { value: 1, label: 'Lundi' },
   { value: 2, label: 'Mardi' },
@@ -16,6 +17,7 @@ const DAYS = [
   { value: 7, label: 'Dimanche' },
 ];
 
+/** Créneau horaire de l'emploi du temps d'un professeur, associé à un cours et à l'établissement qui le dispense. */
 type Slot = {
   id: string;
   dayOfWeek: number;
@@ -30,11 +32,21 @@ type Slot = {
   };
 };
 
+/**
+ * Affiche l'emploi du temps hebdomadaire du professeur connecté sous forme de
+ * grille à 7 colonnes (une par jour), chaque colonne listant les créneaux de
+ * cours de la journée.
+ *
+ * Charge les créneaux via `GET /teacher/courses/schedule` au montage et gère
+ * les états de chargement, d'échec (avec bouton de nouvelle tentative) et de
+ * liste vide.
+ */
 export function TeacherSchedule() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  /** Récupère les créneaux de l'emploi du temps auprès de l'API et met à jour les états de chargement/échec. */
   const loadSchedule = useCallback(async () => {
     try {
       setLoading(true);
@@ -52,6 +64,8 @@ export function TeacherSchedule() {
 
   useEffect(() => {
     let active = true;
+    // Report le chargement au prochain microtask et vérifie `active` pour éviter
+    // un appel réseau après démontage du composant (course entre effets en StrictMode).
     void Promise.resolve().then(() => {
       if (active) return loadSchedule();
     });

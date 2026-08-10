@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/** Candidature d'un étudiant à une offre, telle que retournée par l'API `/applications/me`, incluant son historique de statuts (`timeline`). */
 type Application = {
   id: string;
   status: string;
@@ -67,6 +68,7 @@ type Application = {
   }[];
 };
 
+/** Ensemble des statuts possibles d'une candidature, du dépôt initial jusqu'à l'inscription ou le rejet. */
 const STATUS_KEYS = [
   'PENDING',
   'PRESELECTED',
@@ -81,6 +83,7 @@ const STATUS_KEYS = [
   'CANCELLED',
 ] as const;
 
+/** Couleur de badge associée à chaque statut de candidature (utilisée aussi bien pour le badge principal que pour la timeline). */
 const STATUS_COLORS: Record<string, string> = {
   PENDING: 'bg-yellow-500',
   PRESELECTED: 'bg-blue-400',
@@ -95,6 +98,13 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-rose-400',
 };
 
+/**
+ * Route `/dashboard/student/applications` : client component ('use client') affichant la
+ * liste paginée et filtrable des candidatures de l'étudiant, avec accès aux détails et à
+ * l'historique de chaque candidature.
+ * Enveloppe `StudentApplicationsContent` dans un `Suspense` car le contenu lit le paramètre
+ * d'URL `status` via `useSearchParams`, qui nécessite une frontière Suspense côté client.
+ */
 export default function StudentApplicationsPage() {
   const t = useTranslations('StudentApplications');
   return (
@@ -110,6 +120,12 @@ export default function StudentApplicationsPage() {
   );
 }
 
+/**
+ * Contenu principal de la page candidatures : filtre par statut (synchronisé avec le paramètre
+ * d'URL `status`), pagination côté serveur, et modale de détails avec timeline des changements
+ * de statut. Recharge les candidatures via `apiClient.get('/applications/me', ...)` à chaque
+ * changement de filtre ou de page.
+ */
 function StudentApplicationsContent() {
   const t = useTranslations('StudentApplications');
   const STATUS_LABELS: Record<string, string> = Object.fromEntries(

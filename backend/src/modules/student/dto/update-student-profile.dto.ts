@@ -9,6 +9,12 @@ import {
   MaxLength,
 } from 'class-validator';
 
+/**
+ * Champs modifiables du profil étudiant. Tous les champs sont optionnels
+ * (mise à jour partielle) : seuls les champs fournis sont pris en compte par
+ * StudentService.updateProfile. `phone` et `cin` sont chiffrés avant stockage
+ * côté service, ils ne subissent donc pas de contrainte de format ici.
+ */
 export class UpdateStudentProfileDto {
   @ApiPropertyOptional({ example: 'Jean' })
   @IsOptional()

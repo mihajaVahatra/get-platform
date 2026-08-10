@@ -5,6 +5,11 @@ import { Router, Request, Response } from 'express';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { StorageService } from '../services/storage.service';
 
+/**
+ * Extrait le JWT d'accès depuis la requête : d'abord l'en-tête `Authorization: Bearer`,
+ * puis en repli le cookie `access_token` (cas du navigateur affichant un fichier via <img>/<a>
+ * sans pouvoir positionner d'en-tête personnalisé).
+ */
 function extractToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
@@ -36,6 +41,12 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
   const prisma = app.get(PrismaService);
   const storage = app.get(StorageService);
 
+  /**
+   * Vérifie le JWT de la requête, recharge l'utilisateur en base (avec ses relations
+   * rôle/étudiant/enseignant/admin d'école) et s'assure que sa session n'a pas été
+   * révoquée. Écrit directement une réponse 401 et retourne `null` en cas d'échec ;
+   * retourne l'utilisateur enrichi (rôle normalisé) en cas de succès.
+   */
   async function requireUser(req: Request, res: Response) {
     const token = extractToken(req);
     if (!token) {
@@ -78,6 +89,10 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     }
   }
 
+  /**
+   * Génère une URL S3 présignée à courte durée de vie pour les segments de chemin donnés
+   * et redirige le client vers celle-ci (302), ou répond 404 si le fichier n'existe pas.
+   */
   async function redirectToFile(res: Response, segments: string[]) {
     const url = await storage.createPresignedDownloadUrl(...segments);
     if (!url) {
@@ -87,6 +102,8 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     res.redirect(302, url);
   }
 
+  // Documents d'un étudiant : accessibles à son propriétaire, à ADMIN_GET, et au
+  // SCHOOL_ADMIN de l'école où l'étudiant a candidaté. Interdit à MINISTRY.
   router.get('/documents/:studentId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -122,6 +139,8 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     await redirectToFile(res, ['documents', studentId, fileName]);
   });
 
+  // Supports de cours : accessibles à l'enseignant du cours, aux étudiants inscrits,
+  // à ADMIN_GET, et au SCHOOL_ADMIN de l'école propriétaire du cours. Interdit à MINISTRY.
   router.get('/course-materials/:courseId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;
@@ -162,6 +181,8 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     await redirectToFile(res, ['course-materials', courseId, fileName]);
   });
 
+  // Pièces jointes de messagerie privée : réservées aux participants de la conversation
+  // (expéditeur/destinataire) et à ADMIN_GET. Interdit à MINISTRY.
   router.get('/messages/:messageId/:fileName', async (req, res) => {
     const user = await requireUser(req, res);
     if (!user) return;

@@ -8,6 +8,15 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnnouncementService } from '../announcement/announcement.service';
 import { StorageService } from '../../common/services/storage.service';
+/**
+ * Logique métier de l'espace enseignant : profil, tableau de bord, cours
+ * (chapitres, ressources, paramètres), évaluations/notes, devoirs/
+ * soumissions et annonces. La quasi-totalité des méthodes vérifie que le
+ * cours/l'évaluation/le devoir manipulé appartient bien à l'enseignant
+ * authentifié (via les helpers privés `course`/`evaluation`/`assignment`/
+ * `submission`), ce qui sert de contrôle d'autorisation en plus des guards
+ * de rôle du contrôleur.
+ */
 @Injectable()
 export class TeachingService {
   constructor(
@@ -15,11 +24,16 @@ export class TeachingService {
     private readonly announcementService: AnnouncementService,
     private readonly storageService: StorageService,
   ) {}
+  /**
+   * Résout l'entité Teacher liée à un compte utilisateur.
+   * @throws ForbiddenException si l'utilisateur n'a pas de profil enseignant.
+   */
   private async teacher(userId: string) {
     const teacher = await this.prisma.teacher.findUnique({ where: { userId } });
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
     return teacher;
   }
+  /** Récupère le profil enseignant avec les infos utilisateur associées (email, thème). */
   async profile(userId: string) {
     const teacher = await this.prisma.teacher.findUnique({
       where: { userId },
@@ -28,6 +42,14 @@ export class TeachingService {
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
     return teacher;
   }
+  /**
+   * Calcule les chiffres-clés du tableau de bord enseignant : nombre de
+   * cours, d'étudiants distincts inscrits (toutes sections confondues),
+   * de soumissions non encore notées, d'évaluations à venir et de messages
+   * non lus. Le nombre d'étudiants utilise `distinct: ['studentId']` afin
+   * de ne pas compter deux fois un étudiant inscrit à plusieurs cours du
+   * même enseignant.
+   */
   async dashboardSummary(userId: string) {
     const teacher = await this.teacher(userId);
     const courseWhere = {

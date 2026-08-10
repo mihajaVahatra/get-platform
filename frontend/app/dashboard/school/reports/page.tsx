@@ -12,16 +12,30 @@ import { TrendLine } from '@/components/school-portal/reports/TrendLine';
 import { MagnitudeBarChart } from '@/components/school-portal/reports/MagnitudeBarChart';
 import styles from '@/components/school-portal/reports/reports.module.css';
 
+/** Type de rapport exportable en CSV. */
 type ReportType = 'applications' | 'students';
 
+/**
+ * Page « Rapports & Statistiques » du tableau de bord établissement
+ * (route App Router `/dashboard/school/reports`).
+ * Client component (`'use client'`) : affiche des graphiques d'admissions
+ * (pipeline, décisions, tendance, répartitions) et permet le téléchargement
+ * d'exports CSV (candidatures / étudiants) générés côté API.
+ */
 export default function SchoolReportsPage() {
+  // Type de rapport en cours de téléchargement (null si aucun), utilisé pour l'état de chargement des boutons.
   const [downloading, setDownloading] = useState<ReportType | null>(null);
 
+  /**
+   * Déclenche l'export CSV du rapport demandé via l'API (`GET /schools/me/reports/export`)
+   * puis force le téléchargement du fichier côté navigateur (blob + lien temporaire).
+   */
   const download = async (type: ReportType) => {
     setDownloading(type);
     try {
       const response = await apiClient.get(`/schools/me/reports/export?type=${type}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv;charset=utf-8' }));
+      // Création d'un lien <a> invisible cliqué par programme pour déclencher le téléchargement du blob.
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `${type}-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -39,6 +53,8 @@ export default function SchoolReportsPage() {
   return <div className={`mx-auto max-w-[1100px] space-y-6 ${styles.root}`}><header><h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Rapports & Statistiques</h1><p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>Suivez les admissions et téléchargez des exports CSV compatibles avec Excel et LibreOffice.</p></header><div className="grid gap-4 lg:grid-cols-2"><ChartCard title="Pipeline d’admission"><PipelineFunnel /></ChartCard><ChartCard title="Décisions finales"><OutcomesChart /></ChartCard><ChartCard title="Candidatures par mois"><TrendLine /></ChartCard><ChartCard title="Candidatures par offre"><MagnitudeBarChart endpoint="/schools/me/reports/by-offer" label="Offre" empty="Aucune candidature par offre pour le moment." /></ChartCard><ChartCard title="Étudiants par classe"><MagnitudeBarChart endpoint="/schools/me/reports/by-class" label="Classe" empty="Aucun étudiant inscrit pour le moment." /></ChartCard></div><div className="grid gap-4 md:grid-cols-2"><ReportCard icon={FileSpreadsheetIcon} title="Exporter les candidatures" description="Candidats, offre, statut et date de soumission." loading={downloading === 'applications'} onDownload={() => void download('applications')} /><ReportCard icon={UsersRoundIcon} title="Exporter les étudiants inscrits" description="Étudiants actuellement inscrits dans votre établissement." loading={downloading === 'students'} onDownload={() => void download('students')} /></div><p className="text-xs" style={{ color: 'var(--text-muted)' }}>Les tableaux par offre et par classe restent disponibles sous les graphiques. Les exports sont limités aux données de votre établissement.</p></div>;
 }
 
+/** Carte présentant une action d'export CSV (icône, titre, description, bouton de téléchargement). */
 function ReportCard({ icon: Icon, title, description, loading, onDownload }: { icon: typeof FileSpreadsheetIcon; title: string; description: string; loading: boolean; onDownload: () => void }) { return <Card><CardContent className="p-6"><span className="grid size-12 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><Icon className="size-6" /></span><h2 className="mt-4 font-extrabold text-[#17204e]">{title}</h2><p className="mt-2 min-h-10 text-sm text-slate-500">{description}</p><Button className="mt-5 w-full" onClick={onDownload} disabled={loading}>{loading ? 'Préparation...' : <><DownloadIcon /> Télécharger le CSV</>}</Button></CardContent></Card>; }
 
+/** Conteneur générique (carte + titre) pour un graphique de la page rapports. */
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) { return <Card className={styles.chartCard}><CardContent className="p-6"><h2 className="mb-5 font-extrabold">{title}</h2>{children}</CardContent></Card>; }

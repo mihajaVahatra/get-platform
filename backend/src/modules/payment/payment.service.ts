@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { Prisma, Payment } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
@@ -14,6 +15,13 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Service des paiements : initiation, confirmation via webhook signé,
+ * inscription automatique de l'étudiant après paiement réussi, consultation,
+ * historique, génération de reçu PDF et statistiques. Le fournisseur de
+ * paiement réel (`PaymentProvider`, injecté sous le token 'PaymentProvider')
+ * est interchangeable — voir payment.module.ts pour le choix mock/réel.
+ */
 @Injectable()
 export class PaymentService {
   constructor(
@@ -23,6 +31,18 @@ export class PaymentService {
     private schoolService: SchoolService,
   ) {}
 
+  /**
+   * Initie un paiement pour une candidature acceptée de l'étudiant. Le
+   * montant provient exclusivement de `application.offer.tuitionFees`
+   * (jamais du client). Crée un `Payment` en base (statut PENDING puis
+   * PROCESSING) et appelle le fournisseur de paiement externe.
+   * @returns id du paiement, référence, URL de redirection fournisseur, montant, statut.
+   * @throws NotFoundException si l'étudiant ou la candidature n'existe pas.
+   * @throws ForbiddenException si la candidature n'appartient pas à cet étudiant.
+   * @throws BadRequestException si la candidature n'est pas ACCEPTED, si le
+   * montant est invalide, ou si un paiement est déjà en cours/terminé pour
+   * cette candidature (empêche le double paiement).
+   */
   async initiatePayment(studentId: string, dto: InitiatePaymentDto) {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
@@ -49,62 +69,126 @@ export class PaymentService {
       throw new BadRequestException('Montant de paiement invalide');
     }
 
-    const existingPayment = await this.prisma.payment.findFirst({
-      where: {
-        applicationId: application.id,
-        status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
-      },
-      select: { id: true, status: true },
-    });
-    if (existingPayment) {
-      throw new BadRequestException(
-        existingPayment.status === 'COMPLETED'
-          ? 'Cette candidature a déjà été payée'
-          : 'Un paiement est déjà en cours pour cette candidature',
+    const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
+    const alreadyInProgressMessage = (status: string) =>
+      status === 'COMPLETED'
+        ? 'Cette candidature a déjà été payée'
+        : 'Un paiement est déjà en cours pour cette candidature';
+
+    // Vérifier + créer sous isolation Serializable : sans ça, deux requêtes
+    // d'initiation concurrentes pour la même candidature peuvent toutes les
+    // deux passer le contrôle "pas de paiement en cours" avant qu'aucune
+    // n'ait écrit sa ligne, et créer deux Payment PENDING (cf. audit
+    // sécurité). Sous Serializable, Postgres fait échouer l'une des deux
+    // transactions (voir catch P2034 ci-dessous) plutôt que de laisser
+    // passer l'incohérence.
+    let payment: Payment;
+    try {
+      payment = await this.prisma.$transaction(
+        async (tx) => {
+          // Un paiement PENDING/PROCESSING dont le délai (15 min) est
+          // dépassé n'a pas pu aboutir : le compter comme "en cours"
+          // bloquerait définitivement toute nouvelle tentative pour cette
+          // candidature (cf. audit sécurité — reprise des paiements expirés).
+          await tx.payment.updateMany({
+            where: {
+              applicationId: application.id,
+              status: { in: ['PENDING', 'PROCESSING'] },
+              expiresAt: { lt: new Date() },
+            },
+            data: { status: 'EXPIRED' },
+          });
+
+          const existingPayment = await tx.payment.findFirst({
+            where: {
+              applicationId: application.id,
+              status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+            },
+            select: { id: true, status: true },
+          });
+          if (existingPayment) {
+            throw new BadRequestException(
+              alreadyInProgressMessage(existingPayment.status),
+            );
+          }
+
+          return tx.payment.create({
+            data: {
+              studentId,
+              applicationId: application.id,
+              amount,
+              currency: 'MGA',
+              method: dto.method,
+              reference,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+              commission: amount * 0.05,
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2034'
+      ) {
+        // Conflit de sérialisation Postgres : l'autre initiation concurrente
+        // a gagné la course, celle-ci doit être refusée plutôt que retentée
+        // silencieusement (le client peut relancer une nouvelle requête).
+        throw new BadRequestException(alreadyInProgressMessage('PENDING'));
+      }
+      throw err;
     }
 
-    const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        studentId,
-        applicationId: application.id,
+    try {
+      const provider = await this.paymentProvider.initiatePayment({
         amount,
         currency: 'MGA',
-        method: dto.method,
+        studentId,
         reference,
-        status: 'PENDING',
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        commission: amount * 0.05,
-      },
-    });
+        description: `Paiement pour la candidature ${application.id}`,
+      });
 
-    const provider = await this.paymentProvider.initiatePayment({
-      amount,
-      currency: 'MGA',
-      studentId,
-      reference,
-      description: `Paiement pour la candidature ${application.id}`,
-    });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          providerRef: provider.providerReference,
+          status: 'PROCESSING',
+        },
+      });
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        providerRef: provider.providerReference,
+      return {
+        paymentId: payment.id,
+        reference,
+        redirectUrl: provider.redirectUrl,
+        amount,
         status: 'PROCESSING',
-      },
-    });
-
-    return {
-      paymentId: payment.id,
-      reference,
-      redirectUrl: provider.redirectUrl,
-      amount,
-      status: 'PROCESSING',
-    };
+      };
+    } catch (err) {
+      // Le paiement existe déjà en base mais le prestataire n'a jamais
+      // confirmé la transaction (panne réseau, timeout...) : ne pas le
+      // laisser PENDING indéfiniment, ça bloquerait toute nouvelle
+      // tentative sur cette candidature jusqu'à l'expiration (15 min).
+      await this.prisma.payment
+        .update({ where: { id: payment.id }, data: { status: 'FAILED' } })
+        .catch(() => undefined);
+      throw err;
+    }
   }
 
+  /**
+   * Traite la notification asynchrone du fournisseur de paiement. Vérifie
+   * la signature HMAC, confirme le statut réel auprès du fournisseur
+   * (`confirmPayment`, ne fait jamais confiance au seul contenu du webhook),
+   * puis effectue en une transaction : mise à jour du paiement, inscription
+   * automatique de l'étudiant (StudentEnrollment + synchronisation des
+   * cours) et journalisation. Idempotent : un paiement déjà COMPLETED est
+   * retourné tel quel sans retraitement.
+   * @throws ForbiddenException si la signature webhook est absente/invalide.
+   * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
+   * @throws BadRequestException si le montant du webhook diffère du paiement enregistré.
+   */
   async handleWebhook(
     dto: PaymentWebhookDto,
     rawBody?: Buffer,
@@ -250,6 +334,13 @@ export class PaymentService {
     });
   }
 
+  /**
+   * Récupère un paiement avec ses relations (étudiant, transaction,
+   * remboursement, candidature/offre/école).
+   * @throws NotFoundException si le paiement n'existe pas.
+   * @throws ForbiddenException si l'appelant n'est ni le propriétaire du
+   * paiement, ni ADMIN_GET.
+   */
   async getPayment(paymentId: string, userId: string, role: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
@@ -287,6 +378,7 @@ export class PaymentService {
     return payment;
   }
 
+  /** Historique paginé des paiements d'un étudiant, du plus récent au plus ancien. */
   async getHistory(studentId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
@@ -317,6 +409,11 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Génère un reçu PDF pour un paiement (réutilise getPayment pour le
+   * contrôle d'accès). Le PDF est construit manuellement sans bibliothèque
+   * externe (voir buildReceiptPdf en bas de fichier).
+   */
   async generateReceipt(
     paymentId: string,
     userId: string,
@@ -341,6 +438,12 @@ export class PaymentService {
     ]);
   }
 
+  /**
+   * Simule l'ouverture d'un compte bancaire pour l'étudiant. Implémentation
+   * actuelle : aucune intégration bancaire réelle — `studentId`/`bankId` ne
+   * sont pas persistés ni utilisés, le numéro de compte est généré
+   * localement. À remplacer par un vrai appel fournisseur avant production.
+   */
   async openBankAccount(studentId: string, bankId: string) {
     return {
       accountNumber: `MG-${Date.now()}-${crypto.randomBytes(5).toString('hex')}`,
@@ -349,6 +452,11 @@ export class PaymentService {
     };
   }
 
+  /**
+   * Liste paginée (bornée à 100 éléments max par page) de tous les
+   * paiements de la plateforme, avec un résumé condensé par ligne
+   * (nom étudiant, école) plutôt que les entités complètes.
+   */
   async findAllAdmin(
     page = 1,
     limit = 20,

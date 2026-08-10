@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 
+/** Données pour créer une matière (subject) enseignable au sein d'une école. */
 export class CreateSubjectDto {
   @ApiProperty({ example: 'Mathématiques' })
   @IsString()
@@ -18,12 +19,14 @@ export class CreateSubjectDto {
   name: string;
 }
 
+/** Données pour activer/désactiver une matière. */
 export class UpdateSubjectDto {
   @ApiProperty({ example: true })
   @IsBoolean()
   isActive: boolean;
 }
 
+/** Données pour créer une condition d'admission (pièce justificative ou critère) requise par une école. */
 export class CreateSchoolRequirementDto {
   @ApiProperty({ example: 'Relevé de notes du Baccalauréat' })
   @IsString()
@@ -37,22 +40,26 @@ export class CreateSchoolRequirementDto {
   @MaxLength(500)
   description?: string;
 
+  /** Nature de l'exigence (ex: "DOCUMENT"), texte libre. */
   @ApiPropertyOptional({ example: 'DOCUMENT' })
   @IsOptional()
   @IsString()
   type?: string;
 
+  /** Diplôme concerné par cette exigence, le cas échéant. */
   @ApiPropertyOptional({ example: 'Licence' })
   @IsOptional()
   @IsString()
   diploma?: string;
 
+  /** Indique si l'exigence est obligatoire (true) ou simplement recommandée (false). */
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()
   isRequired?: boolean;
 }
 
+/** Données pour mettre à jour une condition d'admission existante (tous les champs optionnels). */
 export class UpdateSchoolRequirementDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -83,6 +90,7 @@ export class UpdateSchoolRequirementDto {
   isActive?: boolean;
 }
 
+/** Données pour modifier l'inscription d'un étudiant (changement de programme, de niveau ou de statut). */
 export class UpdateSchoolStudentEnrollmentDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -99,6 +107,7 @@ export class UpdateSchoolStudentEnrollmentDto {
   @IsUUID()
   academicYearId?: string;
 
+  /** Statut de l'inscription : active, abandonnée (retrait) ou terminée (diplômé). Champ obligatoire. */
   @ApiProperty({ enum: ['ACTIVE', 'WITHDRAWN', 'GRADUATED'] })
   @IsIn(['ACTIVE', 'WITHDRAWN', 'GRADUATED'])
   status: 'ACTIVE' | 'WITHDRAWN' | 'GRADUATED';
