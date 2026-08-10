@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { FileText, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
+import { StudentIdentity } from '@/components/teacher-portal/student-identity';
 import { Card } from '@/components/ui/card';
 import {
   Dialog,
@@ -507,7 +508,6 @@ function SubmissionGradingForm({
   );
   const [feedback, setFeedback] = useState(submission.feedback || '');
   const [saving, setSaving] = useState(false);
-  const studentName = `${submission.student.firstName} ${submission.student.lastName}`;
 
   // Valide que la note saisie est bien un nombre exploitable avant d'appeler l'API,
   // pour éviter d'envoyer une valeur invalide (ex. champ vide ou non numérique).
@@ -533,13 +533,19 @@ function SubmissionGradingForm({
   };
 
   return (
-    <form className="rounded-lg border border-border p-3" onSubmit={submit}>
+    <form
+      className="rounded-xl border border-slate-50 p-2.5"
+      onSubmit={submit}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-[#26305e]">{studentName}</p>
+          <StudentIdentity
+            firstName={submission.student.firstName}
+            lastName={submission.student.lastName}
+            email={submission.student.user.email}
+          />
           <p className="mt-1 text-[10px] text-muted-foreground">
-            {submission.student.user.email} · remis le{' '}
-            {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
+            Remis le {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
           </p>
           {submission.contentUrl && (
             <a
