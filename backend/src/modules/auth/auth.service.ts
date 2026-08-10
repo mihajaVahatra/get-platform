@@ -14,10 +14,6 @@ import { LoginDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
 import { NotificationService } from '../notification/notification.service';
 import { EncryptionService } from '../../common/services/encryption.service';
-import {
-  NotificationPriority,
-  NotificationType,
-} from '../notification/dto/send-notification.dto';
 
 const MFA_CHALLENGE_EXPIRATION = '5m';
 const EMAIL_VERIFICATION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24h
@@ -591,25 +587,36 @@ export class AuthService {
     ).split(',')[0];
     const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
-    // Envoi via le canal email de NotificationService (simulé en dev/QA,
-    // voir HIGH-03 — même mécanisme que les autres emails transactionnels
-    // de la plateforme). Ne jamais propager une erreur d'envoi au client :
-    // le message reste générique pour ne pas révéler si le compte existe.
-    // Le lien n'est volontairement pas passé dans `data` (persisté tel quel
-    // dans Notification.data) : le token y resterait lisible indéfiniment
-    // par quiconque peut lire cette table, alors que rien n'en a besoin
-    // après l'envoi de l'email.
+    // Envoyé via sendRawEmail (jamais via send()) : ce dernier persiste le
+    // corps du message dans Notification.body, ce qui laisserait le lien —
+    // donc le token — lisible indéfiniment par quiconque peut lire cette
+    // table. redactBody empêche aussi le fallback dev (sans SendGrid) de le
+    // journaliser en clair. Ne jamais propager une erreur d'envoi au
+    // client : le message reste générique pour ne pas révéler l'existence
+    // du compte.
     try {
-      await this.notificationService.send({
-        userId: user.id,
-        type: NotificationType.EMAIL,
-        title: 'Réinitialisation de votre mot de passe GET',
-        body: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur ce lien (valable 1h, usage unique) pour choisir un nouveau mot de passe : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
-        priority: NotificationPriority.HIGH,
+      await this.notificationService.sendRawEmail({
+        to: user.email,
+        subject: 'Réinitialisation de votre mot de passe GET',
+        text: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur ce lien (valable 1h, usage unique) pour choisir un nouveau mot de passe : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+        redactBody: true,
       });
     } catch {
       // Échec d'envoi non bloquant pour la réponse HTTP — évite de révéler
       // l'existence du compte via un comportement différent en cas d'erreur.
+    }
+
+    // Hors production, le lien n'atteint jamais les logs ni la base
+    // (redactBody + sendRawEmail ci-dessus) : sans fournisseur email réel,
+    // le seul moyen de tester le parcours en local est de le renvoyer
+    // directement dans la réponse, plutôt que de contourner cette
+    // suppression en le journalisant ailleurs.
+    if (this.config.get('NODE_ENV') !== 'production') {
+      return {
+        message:
+          'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
+        devResetUrl: resetUrl,
+      };
     }
 
     return {
@@ -620,49 +627,40 @@ export class AuthService {
 
   /**
    * Applique un nouveau mot de passe (haché en bcrypt) après vérification
-   * du token de réinitialisation opaque envoyé par forgotPassword. Dans une
-   * même transaction : consomme le token (effacé, donc non réutilisable),
-   * change le mot de passe et révoque toutes les sessions existantes
-   * (`sessionVersion` incrémenté) — un attaquant ayant obtenu ce lien ne
-   * doit pas hériter d'une session ouverte par ailleurs, et inversement une
-   * session compromise ne doit pas survivre à la reprise de contrôle du
-   * compte par son propriétaire légitime.
+   * du token de réinitialisation opaque envoyé par forgotPassword. Consomme
+   * le token, change le mot de passe et révoque toutes les sessions
+   * existantes (`sessionVersion` incrémenté) en un seul `updateMany`
+   * conditionné sur le hash ET l'expiration : une seule requête SQL, donc
+   * atomique côté Postgres — deux requêtes concurrentes avec le même token
+   * ne peuvent pas toutes les deux le consommer (la seconde ne matche plus
+   * rien, le hash ayant déjà été effacé par la première). Un attaquant
+   * ayant obtenu ce lien ne doit pas hériter d'une session ouverte par
+   * ailleurs, et inversement une session compromise ne doit pas survivre à
+   * la reprise de contrôle du compte par son propriétaire légitime.
    * @throws BadRequestException si le token est invalide ou expiré.
    */
   async resetPassword(token: string, newPassword: string) {
     const resetTokenHash = this.sha256Hex(token);
-    const user = await this.prisma.user.findUnique({
-      where: { resetTokenHash },
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    const { count } = await this.prisma.user.updateMany({
+      where: { resetTokenHash, resetTokenExpiresAt: { gt: new Date() } },
+      data: {
+        password: hashedPassword,
+        resetTokenHash: null,
+        resetTokenExpiresAt: null,
+        sessionVersion: { increment: 1 },
+      },
     });
 
-    if (
-      !user ||
-      !user.resetTokenExpiresAt ||
-      user.resetTokenExpiresAt < new Date()
-    ) {
+    if (count === 0) {
       throw new BadRequestException('Token invalide ou expiré');
     }
 
-    try {
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          resetTokenHash: null,
-          resetTokenExpiresAt: null,
-          sessionVersion: { increment: 1 },
-        },
-      });
-
-      return {
-        success: true,
-        message: 'Mot de passe réinitialisé avec succès',
-      };
-    } catch (error) {
-      throw new BadRequestException('Token invalide ou expiré');
-    }
+    return {
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès',
+    };
   }
 
   // ========== MFA (activation/désactivation, déléguées à MfaService) ==========

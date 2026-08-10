@@ -195,13 +195,18 @@ describe('PaymentService', () => {
     });
 
     it('confirme le paiement et inscrit automatiquement l’étudiant', async () => {
-      prisma.payment.findFirst.mockResolvedValue({
-        id: 'payment-1',
-        status: 'PROCESSING',
-        amount: 5000,
-        method: 'MVOLA',
-        applicationId: 'application-1',
-      });
+      prisma.payment.findFirst
+        .mockResolvedValueOnce({
+          id: 'payment-1',
+          status: 'PROCESSING',
+          amount: 5000,
+          method: 'MVOLA',
+          applicationId: 'application-1',
+          reference: 'PAY-1',
+        })
+        // Second appel : recherche d'un AUTRE paiement déjà COMPLETED pour
+        // la même candidature (détection de webhook tardif) — aucun ici.
+        .mockResolvedValueOnce(null);
       paymentProvider.confirmPayment.mockResolvedValue({
         status: 'COMPLETED',
         providerTransactionId: 'txn-1',
@@ -257,13 +262,16 @@ describe('PaymentService', () => {
       const consoleErrorSpy = jest
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
-      prisma.payment.findFirst.mockResolvedValue({
-        id: 'payment-1',
-        status: 'PROCESSING',
-        amount: 5000,
-        method: 'MVOLA',
-        applicationId: 'application-1',
-      });
+      prisma.payment.findFirst
+        .mockResolvedValueOnce({
+          id: 'payment-1',
+          status: 'PROCESSING',
+          amount: 5000,
+          method: 'MVOLA',
+          applicationId: 'application-1',
+          reference: 'PAY-1',
+        })
+        .mockResolvedValueOnce(null);
       paymentProvider.confirmPayment.mockResolvedValue({
         status: 'COMPLETED',
         providerTransactionId: 'txn-1',
@@ -294,6 +302,66 @@ describe('PaymentService', () => {
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('[ALERTE INSCRIPTION]'),
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('ne fait rien si le prestataire répond encore PENDING (ne le transforme pas en FAILED)', async () => {
+      prisma.payment.findFirst.mockResolvedValueOnce({
+        id: 'payment-1',
+        status: 'PROCESSING',
+        amount: 5000,
+        method: 'MVOLA',
+        applicationId: 'application-1',
+        reference: 'PAY-1',
+      });
+      paymentProvider.confirmPayment.mockResolvedValue({ status: 'PENDING' });
+
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
+
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('signale un webhook tardif sans rejouer l’inscription si un autre paiement est déjà complété', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      prisma.payment.findFirst
+        .mockResolvedValueOnce({
+          id: 'payment-1',
+          status: 'PROCESSING',
+          amount: 5000,
+          method: 'MVOLA',
+          applicationId: 'application-1',
+          reference: 'PAY-1',
+        })
+        // Un autre paiement pour la même candidature est déjà COMPLETED.
+        .mockResolvedValueOnce({ id: 'payment-2' });
+      paymentProvider.confirmPayment.mockResolvedValue({
+        status: 'COMPLETED',
+        providerTransactionId: 'txn-1',
+        rawData: {},
+      });
+      prisma.payment.update.mockResolvedValue({
+        id: 'payment-1',
+        status: 'COMPLETED',
+      });
+
+      await service.handleWebhook(dto, undefined, signWebhook(dto));
+
+      expect(prisma.application.update).not.toHaveBeenCalled();
+      expect(prisma.studentEnrollment.upsert).not.toHaveBeenCalled();
+      expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            applicationId: 'application-1',
+            note: expect.stringContaining('Webhook tardif'),
+          }),
+        }),
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ALERTE RÉCONCILIATION]'),
       );
       consoleErrorSpy.mockRestore();
     });

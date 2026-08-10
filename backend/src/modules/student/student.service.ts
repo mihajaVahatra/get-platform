@@ -717,7 +717,10 @@ export class StudentService {
   /**
    * Change le mot de passe de l'utilisateur après vérification du mot de
    * passe actuel via bcrypt. Le nouveau mot de passe est haché (bcrypt,
-   * 10 rounds) avant écriture.
+   * 10 rounds) avant écriture ; `sessionVersion` est incrémenté dans la
+   * même mise à jour pour révoquer toutes les sessions existantes (même
+   * garantie que AuthService.resetPassword — un changement de mot de passe
+   * ne doit pas laisser une session compromise active).
    * @throws NotFoundException si l'utilisateur n'existe pas.
    * @throws BadRequestException si le mot de passe actuel est incorrect.
    */
@@ -735,7 +738,7 @@ export class StudentService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, sessionVersion: { increment: 1 } },
     });
     return { success: true };
   }

@@ -5,7 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 import {
   SendNotificationDto,
   NotificationType,
@@ -17,7 +19,11 @@ import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+    private encryption: EncryptionService,
+  ) {}
 
   async getPlatformStats() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -155,40 +161,58 @@ export class NotificationService {
 
   /**
    * Envoie un email directement, sans passer par le système de notification
-   * (qui exige un User existant en base). Utilisé pour les emails envoyés
-   * avant qu'un compte n'existe, ex. la vérification d'adresse email à
-   * l'inscription (voir AuthService.register / PendingRegistration).
+   * (qui exige un User existant en base, et persiste le corps du message
+   * dans Notification.body). Utilisé pour les emails porteurs d'un secret
+   * à usage unique (vérification d'adresse email, réinitialisation de mot
+   * de passe) : ni la table de notifications, ni les logs, ne doivent
+   * conserver ce genre de lien indéfiniment.
+   * @param redactBody Si vrai, le corps du message n'est jamais écrit dans
+   * les logs (y compris en simulation dev) — utilisé pour les emails
+   * contenant un secret (voir AuthService.forgotPassword).
    */
   async sendRawEmail(params: {
     to: string;
     subject: string;
     text: string;
     html?: string;
+    redactBody?: boolean;
   }) {
     return this.dispatchEmail(
       params.to,
       params.subject,
       params.text,
       params.html,
+      params.redactBody,
     );
   }
 
   /**
    * Envoie réellement l'email via SendGrid. Si SENDGRID_API_KEY n'est pas
-   * configuré (dev local, CI), on se contente de logger le contenu — même
-   * filet de sécurité que les autres providers "simulés" du projet
-   * (voir mock-payment.provider.ts).
+   * configuré, on ne simule (log local) qu'en dehors de la production — même
+   * filet de sécurité que les autres providers "simulés" du projet (voir
+   * mock-payment.provider.ts) : en production, un email transactionnel non
+   * livré doit être une erreur bruyante, pas un log silencieusement ignoré.
    */
   private async dispatchEmail(
     to: string,
     subject: string,
     text: string,
     html?: string,
+    redactBody?: boolean,
   ) {
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
+      const isProduction = this.config.get('NODE_ENV') === 'production';
+      const allowSimulated =
+        this.config.get('ALLOW_SIMULATED_EMAIL') === 'true';
+      if (isProduction && !allowSimulated) {
+        throw new Error(
+          "SENDGRID_API_KEY manquant en production : impossible d'envoyer un email réel. " +
+            'Configurez SendGrid, ou définissez ALLOW_SIMULATED_EMAIL=true en connaissance de cause (démo/staging uniquement).',
+        );
+      }
       console.log(`📧 [dev] Email à ${to} : ${subject}`);
-      console.log(`   ${text}`);
+      console.log(`   ${redactBody ? '[corps masqué — contient un secret]' : text}`);
       return {
         provider: 'EMAIL',
         status: 'SIMULATED',
@@ -225,13 +249,26 @@ export class NotificationService {
    * (Simulé pour l'instant)
    */
   private async sendSms(dto: SendNotificationDto, user: any) {
-    const phone = user.student?.phone;
-    if (!phone) {
+    const encryptedPhone = user.student?.phone;
+    if (!encryptedPhone) {
       throw new BadRequestException('User has no phone number');
     }
 
-    console.log(`📱 Sending SMS to ${phone}: ${dto.title}`);
-    console.log(`   Body: ${dto.body}`);
+    // Le numéro n'est déchiffré qu'ici, à la frontière de l'envoi réel — ni
+    // lui ni le contenu du SMS ne doivent apparaître en clair dans les logs.
+    let phone: string;
+    try {
+      phone = this.encryption.decrypt(encryptedPhone);
+    } catch (e) {
+      this.logger.error(
+        `Échec déchiffrement du numéro pour l'utilisateur ${user.id}`,
+        e as Error,
+      );
+      throw new BadRequestException('Numéro de téléphone illisible');
+    }
+    void phone; // transmis au prestataire SMS réel une fois intégré
+
+    console.log(`📱 [dev] SMS simulé pour l'utilisateur ${user.id}`);
 
     await this.delay(300);
 
