@@ -1,8 +1,28 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, createCipheriv } from 'crypto';
 
 const prisma = new PrismaClient();
+
+// Même algorithme que EncryptionService (AES-256-GCM) : Student.phone /
+// Teacher.phone sont chiffrés au repos, y compris pour les comptes de démo
+// seedés — voir prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts pour
+// le script de rattrapage des lignes créées avant ce correctif.
+function encryptPii(text: string): string {
+  const configured = process.env.ENCRYPTION_KEY?.trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/^0x/i, '');
+  if (!configured || !/^[a-fA-F0-9]{64}$/.test(configured)) {
+    throw new Error('ENCRYPTION_KEY must be a 32-byte hexadecimal key');
+  }
+  const key = Buffer.from(configured, 'hex');
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
 
 async function main() {
   if (
@@ -491,7 +511,7 @@ async function main() {
         create: {
           firstName: 'Jean',
           lastName: 'Rakoto',
-          phone: '+261341234567',
+          phone: encryptPii('+261341234567'),
           city: 'Antananarivo',
           region: 'Analamanga',
         },
@@ -551,9 +571,9 @@ async function main() {
         create: {
           firstName: 'Toavina',
           lastName: 'Vahatra',
-          phone: '+261 34 234 5678',
+          phone: encryptPii('+261 34 234 5678'),
           birthDate: new Date('2000-01-01'),
-          cin: '1012345678',
+          cin: encryptPii('1012345678'),
           bacYear: 2018,
           bacType: 'Série C',
           city: 'Antananarivo',
@@ -1433,9 +1453,9 @@ async function main() {
       ? `Étudiant(e) en fin de cursus, à la recherche d’un premier emploi ou d’un stage dans son domaine.`
       : `Bachelier(ère) ${bacYear}, motivé(e) à poursuivre des études supérieures.`;
     return {
-      phone: genPhone(seed),
+      phone: encryptPii(genPhone(seed)),
       birthDate: genBirthDate(seed, opts.minAge, opts.maxAge),
-      cin: genCin(seed),
+      cin: encryptPii(genCin(seed)),
       bacYear,
       bacType: pick(BAC_TYPES, seed + 1),
       address: `Lot ${pad((seed * 17) % 900, 3)} ${pick(['Ankorondrano', 'Analakely', 'Isotry', 'Ambohipo', 'Andraharo', 'Tsaralalana'], seed + 6)}`,

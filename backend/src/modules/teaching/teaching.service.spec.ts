@@ -2,12 +2,14 @@ import { NotFoundException } from '@nestjs/common';
 import { AnnouncementService } from '../announcement/announcement.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../../common/services/storage.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 import { TeachingService } from './teaching.service';
 
 describe('TeachingService', () => {
   let service: TeachingService;
   let announcementService: { createAndNotify: jest.Mock };
   let storageService: { uploadCourseMaterial: jest.Mock };
+  let encryptionService: { encrypt: jest.Mock; decrypt: jest.Mock };
   let prisma: {
     teacher: { findUnique: jest.Mock; update: jest.Mock };
     course: { findFirst: jest.Mock; count: jest.Mock };
@@ -101,10 +103,17 @@ describe('TeachingService', () => {
     };
     announcementService = { createAndNotify: jest.fn() };
     storageService = { uploadCourseMaterial: jest.fn() };
+    // Identité par défaut (pas de vrai chiffrement en test) : suffisant tant
+    // qu'aucun test ne vérifie spécifiquement le comportement de chiffrement.
+    encryptionService = {
+      encrypt: jest.fn((v: string) => v),
+      decrypt: jest.fn((v: string) => v),
+    };
     service = new TeachingService(
       prisma as unknown as PrismaService,
       announcementService as unknown as AnnouncementService,
       storageService as unknown as StorageService,
+      encryptionService as unknown as EncryptionService,
     );
   });
 
