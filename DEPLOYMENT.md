@@ -99,7 +99,7 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 1. Ouvrir l'URL Vercel — le tout premier appel peut prendre 30-60s si le backend Render s'était endormi, c'est normal.
 2. Créer un compte candidat, compléter le profil.
 3. Uploader un document (pièce d'identité fictive) → doit réussir (passe par le bucket privé R2).
-4. Se connecter en School Admin (`schooladmin@get.mg` / mot de passe du seed, ou un compte `admin.ecole.XX@demo.get.test` / `DemoNational2026!` si `seed:national` a été lancé), consulter la candidature et son document.
+4. Se connecter en School Admin (`schooladmin@get.mg` / mot de passe du seed, ou un compte `admin.ecole.XX@demo.get.test` / `DemoNational2026!` si `seed:national` a été lancé). Le MFA est obligatoire pour ce rôle (ADMIN_GET/SCHOOL_ADMIN/MINISTRY) : au premier login, tout endpoint hors `/auth/me` et `/auth/mfa/*` renvoie 403 tant qu'il n'est pas activé — scanner le QR code renvoyé par `POST /auth/mfa/enable` dans une app d'authentification (Google Authenticator, Aegis...), puis confirmer avec `POST /auth/mfa/verify`. Ensuite seulement, consulter la candidature et son document.
 5. Uploader un avatar → l'image doit s'afficher immédiatement (bucket public, pas de redirection nécessaire).
 6. `https://<domaine-render>/api/docs` doit afficher Swagger (activé via `ENABLE_SWAGGER=true`).
 
