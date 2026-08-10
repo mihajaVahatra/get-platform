@@ -48,6 +48,18 @@ services:
         sync: false
       - key: PAYMENT_WEBHOOK_SECRET
         sync: false
+      # SendGrid : sans SENDGRID_API_KEY, NotificationService.dispatchEmail
+      # refuse d'envoyer un email dès que NODE_ENV=production (voir ci-dessus)
+      # — inscription et mot de passe oublié échoueraient donc explicitement
+      # sur ce service tant que ces clés ne sont pas renseignées. Listées ici
+      # (plutôt qu'omises) pour que Render les demande explicitement au
+      # moment du déploiement, voir DEPLOYMENT.md.
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: SENDGRID_FROM_NAME
+        sync: false
       # Intégration n8n (voir docs/n8n/) — inutiles tant que ce QA n'est pas
       # utilisé pour tester les workflows n8n contre un backend déployé.
       # INTEGRATION_API_KEY : vérifie les appels n8n → ce backend.

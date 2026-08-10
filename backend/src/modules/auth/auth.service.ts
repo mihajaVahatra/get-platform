@@ -316,10 +316,17 @@ export class AuthService {
     const verifyUrl = `${frontendUrl}/auth/verify-email?token=${verifyToken}&email=${encodeURIComponent(email)}`;
 
     try {
+      // redactBody : ce message porte à la fois un lien de vérification
+      // signé et un code à 6 chiffres — deux secrets à usage unique qui ne
+      // doivent jamais atterrir en clair dans les logs applicatifs (voir le
+      // même choix pour AuthService.forgotPassword). En simulation (aucun
+      // provider réel configuré), seul NotificationService.writeLocalMailSink
+      // permet de récupérer ce lien/code pour un test local.
       await this.notificationService.sendRawEmail({
         to: email,
         subject: 'Vérifie ton adresse email — GET',
         text: `Bonjour ${firstName},\n\nMerci de vérifier ton adresse email pour activer ton compte GET.\n\nClique sur ce lien (valable 24h) pour activer ton compte :\n${verifyUrl}\n\nOu saisis ce code de vérification sur la page d'inscription : ${code}\n\nSi tu n'es pas à l'origine de cette inscription, ignore cet email.`,
+        redactBody: true,
       });
     } catch {
       // Échec d'envoi : on retire la demande en attente pour ne pas laisser
