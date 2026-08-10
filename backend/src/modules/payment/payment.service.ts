@@ -212,12 +212,39 @@ export class PaymentService {
       dto.providerReference,
     );
 
-    const status = confirmation.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED';
+    if (confirmation.status === 'PENDING') {
+      // Toujours en cours côté prestataire : ne rien conclure maintenant, un
+      // webhook ultérieur confirmera COMPLETED ou FAILED. Avant ce correctif,
+      // ce cas retombait dans le ternaire ci-dessous et était traité comme
+      // FAILED — un paiement légitimement en cours était donc tué prématurément
+      // (cf. audit sécurité).
+      return payment;
+    }
+    const status = confirmation.status; // 'COMPLETED' | 'FAILED' à ce stade
 
     // Paiement + candidature + inscription + relevé doivent être atomiques :
     // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
     // sans inscription, ou l'inverse (cf. audit sécurité).
     return this.prisma.$transaction(async (tx) => {
+      // Webhook tardif : un autre paiement pour la même candidature est déjà
+      // COMPLETED (ex. celui-ci a expiré côté app — voir initiatePayment —
+      // puis une nouvelle tentative a abouti avant que le prestataire ne
+      // confirme finalement celui-ci). L'argent de CE paiement est réel : on
+      // l'enregistre fidèlement, mais sans rejouer l'inscription (déjà faite)
+      // et en flaguant pour vérification manuelle plutôt que de laisser
+      // passer un double encaissement en silence.
+      const otherCompleted =
+        status === 'COMPLETED' && payment.applicationId
+          ? await tx.payment.findFirst({
+              where: {
+                applicationId: payment.applicationId,
+                status: 'COMPLETED',
+                id: { not: payment.id },
+              },
+              select: { id: true },
+            })
+          : null;
+
       const updatedPayment = await tx.payment.update({
         where: { id: payment.id },
         data: {
@@ -227,11 +254,18 @@ export class PaymentService {
         },
       });
 
-      if (status === 'COMPLETED' && payment.applicationId) {
-        await tx.application.update({
-          where: { id: payment.applicationId },
-          data: { status: 'ENROLLED' },
+      if (status === 'COMPLETED' && payment.applicationId && otherCompleted) {
+        console.error(
+          `[ALERTE RÉCONCILIATION] Paiement ${payment.id} confirmé tardivement pour la candidature ${payment.applicationId}, mais un autre paiement (${otherCompleted.id}) est déjà COMPLETED pour cette même candidature — double encaissement potentiel, vérification manuelle requise.`,
+        );
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId: payment.applicationId,
+            status: 'ENROLLED',
+            note: `⚠️ Webhook tardif : paiement ${payment.reference} confirmé alors qu'un autre paiement est déjà complété pour cette candidature — vérification manuelle requise (remboursement ?).`,
+          },
         });
+      } else if (status === 'COMPLETED' && payment.applicationId) {
         const application = await tx.application.findUnique({
           where: { id: payment.applicationId },
           include: { offer: true },
@@ -256,6 +290,15 @@ export class PaymentService {
 
         if (application && program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+          // La candidature ne passe ENROLLED que si l'inscription a
+          // effectivement pu être créée (voir branche else ci-dessous) —
+          // avant ce correctif, ce statut était posé inconditionnellement
+          // dès qu'un paiement était confirmé, y compris quand l'inscription
+          // échouait juste après (cf. audit sécurité).
+          await tx.application.update({
+            where: { id: application.id },
+            data: { status: 'ENROLLED' },
+          });
           await tx.studentEnrollment.upsert({
             where: {
               studentId_schoolId: {
@@ -299,6 +342,9 @@ export class PaymentService {
           // n'a pas pu aboutir (offre sans programme lié, ou programme/année
           // académique introuvable). Ne JAMAIS laisser passer ça en silence
           // — un paiement réel sans inscription réelle est le pire des cas.
+          // Le statut de la candidature n'est PAS forcé à ENROLLED ici :
+          // il reflète la réalité (pas d'inscription effective) plutôt que
+          // de mentir sur l'état du dossier.
           const reason = !application.offer.programId
             ? "l'offre n'est liée à aucun programme"
             : 'aucun programme actif ou année académique en cours pour cette école';
@@ -308,7 +354,7 @@ export class PaymentService {
           await tx.applicationTimeline.create({
             data: {
               applicationId: application.id,
-              status: 'ENROLLED',
+              status: application.status,
               note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
             },
           });
