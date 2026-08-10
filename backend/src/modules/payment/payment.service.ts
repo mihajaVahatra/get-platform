@@ -14,6 +14,7 @@ import type { PaymentProvider } from './providers/payment-provider.interface';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { ApplicationStatus } from '../application/dto/update-application-status.dto';
 
 /**
  * Service des paiements : initiation, confirmation via webhook signé,
@@ -226,6 +227,32 @@ export class PaymentService {
     // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
     // sans inscription, ou l'inverse (cf. audit sécurité).
     return this.prisma.$transaction(async (tx) => {
+      // Garde contre les livraisons concurrentes du même webhook (fréquent
+      // chez la plupart des prestataires, qui retentent tant qu'un 200 n'est
+      // pas reçu) : le check `payment.status === 'COMPLETED'` ci-dessus est
+      // fait HORS transaction, donc pas atomique — deux appels quasi
+      // simultanés peuvent tous les deux le franchir avant qu'aucun n'ait
+      // écrit. La mise à jour conditionnée sur `status: { not: 'COMPLETED' }`
+      // ne peut réussir que pour UN SEUL appel ; le perdant (count === 0)
+      // renvoie le paiement déjà finalisé par l'autre sans rejouer
+      // l'inscription ni la création de Transaction (qui échouerait de toute
+      // façon sur la contrainte unique Transaction.paymentId, mais en 500
+      // plutôt qu'en réponse idempotente).
+      const { count: claimed } = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: 'COMPLETED' } },
+        data: {
+          status,
+          paidAt: status === 'COMPLETED' ? new Date() : undefined,
+          providerRef: dto.providerReference,
+        },
+      });
+      if (claimed === 0) {
+        return tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      }
+      const updatedPayment = await tx.payment.findUniqueOrThrow({
+        where: { id: payment.id },
+      });
+
       // Webhook tardif : un autre paiement pour la même candidature est déjà
       // COMPLETED (ex. celui-ci a expiré côté app — voir initiatePayment —
       // puis une nouvelle tentative a abouti avant que le prestataire ne
@@ -244,15 +271,6 @@ export class PaymentService {
               select: { id: true },
             })
           : null;
-
-      const updatedPayment = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status,
-          paidAt: status === 'COMPLETED' ? new Date() : undefined,
-          providerRef: dto.providerReference,
-        },
-      });
 
       if (status === 'COMPLETED' && payment.applicationId && otherCompleted) {
         console.error(
@@ -288,7 +306,33 @@ export class PaymentService {
           ]);
         }
 
-        if (application && program && academicYear) {
+        // Machine à états (voir APPLICATION_STATUS_TRANSITIONS) : ENROLLED
+        // n'est un statut légal que depuis ACCEPTED, ou déjà ENROLLED
+        // (rejeu idempotent d'un webhook déjà traité). Un webhook peut
+        // arriver après qu'un admin a fait transitionner la candidature
+        // ailleurs (CANCELLED, REJECTED...) pendant que le paiement était en
+        // vol — sans cette garde, le paiement confirmé écraserait cet état
+        // terminal et réinscrirait un étudiant dont la candidature a été
+        // explicitement annulée/rejetée entre-temps.
+        const canEnroll =
+          !!application &&
+          ((application.status as ApplicationStatus) ===
+            ApplicationStatus.ACCEPTED ||
+            (application.status as ApplicationStatus) ===
+              ApplicationStatus.ENROLLED);
+
+        if (application && !canEnroll) {
+          console.error(
+            `[ALERTE RÉCONCILIATION] Paiement ${payment.id} confirmé pour la candidature ${application.id}, mais celle-ci est passée au statut "${application.status}" entre-temps — inscription automatique bloquée, vérification manuelle requise (remboursement ?).`,
+          );
+          await tx.applicationTimeline.create({
+            data: {
+              applicationId: application.id,
+              status: application.status,
+              note: `⚠️ Paiement ${payment.reference} confirmé alors que la candidature est passée à "${application.status}" entre-temps — inscription automatique bloquée, vérification manuelle requise (remboursement ?).`,
+            },
+          });
+        } else if (application && program && academicYear) {
           const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
           // La candidature ne passe ENROLLED que si l'inscription a
           // effectivement pu être créée (voir branche else ci-dessous) —

@@ -860,7 +860,12 @@ model Payment {
   method        String
   status        String       @default("PENDING")
   reference     String       @unique
-  providerRef   String?
+  // Unique (mais nullable — PENDING avant l'appel au prestataire) : sans
+  // cette contrainte, handleWebhook() sélectionne un paiement par
+  // providerRef via findFirst, qui choisirait arbitrairement l'un des deux
+  // en cas de collision au lieu de détecter l'incohérence (voir audit
+  // sécurité — paiements).
+  providerRef   String?      @unique
   commission    Float
   receiptUrl    String?
   paidAt        DateTime?
