@@ -416,7 +416,7 @@
     "statCredits": "Crédits validés",
     "statCreditsHint": "{percent}% du programme",
     "statAbsences": "Absences",
-    "statAbsencesHint": "Justifiées",
+    "statAbsencesHint": "Tous cours confondus",
     "statMerit": "Points de mérite",
     "statMeritHint": "Bravo ! Continue comme ça 💪",
     "scheduleTitle": "Emploi du temps",
