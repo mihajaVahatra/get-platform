@@ -61,6 +61,7 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
    ENABLE_SWAGGER=true
    ALLOW_DEMO_SEED=true
    ALLOW_MOCK_PAYMENT=true
+   TRUST_PROXY=true
    S3_ENDPOINT=...
    S3_REGION=auto
    S3_FORCE_PATH_STYLE=false

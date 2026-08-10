@@ -39,8 +39,11 @@ import { IntegrationModule } from './modules/integration/integration.module';
     ThrottlerModule.forRoot({
       throttlers: [
         {
+          // @nestjs/throttler v5+ attend un ttl en millisecondes (avant :
+          // secondes) — `ttl: 60` limitait en réalité à 100 requêtes / 60ms
+          // (~1600 req/s) au lieu des 100/min annoncées.
           name: 'default',
-          ttl: 60,
+          ttl: 60_000,
           limit: 100,
         },
       ],

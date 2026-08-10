@@ -7,12 +7,13 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { randomUUID, randomInt, createHash } from 'crypto';
+import { randomUUID, randomInt, randomBytes, createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
 import { NotificationService } from '../notification/notification.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 import {
   NotificationPriority,
   NotificationType,
@@ -22,6 +23,7 @@ const MFA_CHALLENGE_EXPIRATION = '5m';
 const EMAIL_VERIFICATION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24h
 const EMAIL_VERIFICATION_JWT_EXPIRATION = '24h';
 const MAX_VERIFICATION_CODE_ATTEMPTS = 8;
+const RESET_TOKEN_EXPIRATION_MS = 60 * 60 * 1000; // 1h
 
 /**
  * Service central d'authentification : inscription avec vérification
@@ -40,6 +42,7 @@ export class AuthService {
     private config: ConfigService,
     private mfaService: MfaService,
     private notificationService: NotificationService,
+    private encryption: EncryptionService,
   ) {}
 
   // ========== REGISTER ==========
@@ -62,8 +65,12 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const code = this.generateVerificationCode();
-    const codeHash = this.hashVerificationCode(code);
+    const codeHash = this.sha256Hex(code);
     const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MS);
+    // Chiffré dès la mise en attente : le téléphone est recopié tel quel
+    // dans Student.phone à la vérification (voir completeEmailVerification),
+    // donc c'est ici ou jamais qu'il faut le chiffrer.
+    const encryptedPhone = this.encryption.encrypt(dto.phone);
 
     const pending = await this.prisma.pendingRegistration.upsert({
       where: { email: dto.email },
@@ -72,7 +79,7 @@ export class AuthService {
         passwordHash: hashedPassword,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        phone: dto.phone,
+        phone: encryptedPhone,
         codeHash,
         expiresAt,
       },
@@ -80,7 +87,7 @@ export class AuthService {
         passwordHash: hashedPassword,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        phone: dto.phone,
+        phone: encryptedPhone,
         codeHash,
         codeAttempts: 0,
         expiresAt,
@@ -148,7 +155,7 @@ export class AuthService {
         'Trop de tentatives, redemande un nouveau code.',
       );
     }
-    if (this.hashVerificationCode(code) !== pending.codeHash) {
+    if (this.sha256Hex(code) !== pending.codeHash) {
       await this.prisma.pendingRegistration.update({
         where: { id: pending.id },
         data: { codeAttempts: { increment: 1 } },
@@ -178,7 +185,7 @@ export class AuthService {
     }
 
     const code = this.generateVerificationCode();
-    const codeHash = this.hashVerificationCode(code);
+    const codeHash = this.sha256Hex(code);
     const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_EXPIRATION_MS);
 
     const updated = await this.prisma.pendingRegistration.update({
@@ -280,9 +287,14 @@ export class AuthService {
     return randomInt(100000, 1000000).toString();
   }
 
-  /** Hash SHA-256 du code de vérification : seul le hash est stocké en base. */
-  private hashVerificationCode(code: string): string {
-    return createHash('sha256').update(code).digest('hex');
+  /**
+   * Hash SHA-256 hexadécimal générique : utilisé pour les codes de
+   * vérification d'email et pour les tokens de réinitialisation de mot de
+   * passe — dans les deux cas, seul le hash est stocké en base, jamais la
+   * valeur en clair.
+   */
+  private sha256Hex(value: string): string {
+    return createHash('sha256').update(value).digest('hex');
   }
 
   /**
@@ -539,8 +551,12 @@ export class AuthService {
   // ========== FORGOT PASSWORD ==========
 
   /**
-   * Envoie un email de réinitialisation de mot de passe (token JWT `reset`,
-   * 1h de validité). Répond toujours avec le même message générique, que le
+   * Envoie un email de réinitialisation de mot de passe. Le lien porte un
+   * token opaque à usage unique (32 octets aléatoires) : seul son hash
+   * SHA-256 est stocké en base (`User.resetTokenHash`), jamais le token en
+   * clair — un accès en lecture à la base ne permet donc pas de forger une
+   * réinitialisation. Valable 1h, invalidé après le premier usage (voir
+   * resetPassword). Répond toujours avec le même message générique, que le
    * compte existe ou non, pour ne pas permettre l'énumération d'emails.
    */
   async forgotPassword(email: string) {
@@ -555,10 +571,16 @@ export class AuthService {
       };
     }
 
-    const resetToken = this.jwt.sign(
-      { sub: user.id, type: 'reset' },
-      { expiresIn: '1h' },
+    const resetToken = randomBytes(32).toString('hex');
+    const resetTokenHash = this.sha256Hex(resetToken);
+    const resetTokenExpiresAt = new Date(
+      Date.now() + RESET_TOKEN_EXPIRATION_MS,
     );
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { resetTokenHash, resetTokenExpiresAt },
+    });
 
     // FRONTEND_URL peut contenir plusieurs origines séparées par des
     // virgules (voir main.ts, même convention pour la liste CORS) — la
@@ -573,14 +595,17 @@ export class AuthService {
     // voir HIGH-03 — même mécanisme que les autres emails transactionnels
     // de la plateforme). Ne jamais propager une erreur d'envoi au client :
     // le message reste générique pour ne pas révéler si le compte existe.
+    // Le lien n'est volontairement pas passé dans `data` (persisté tel quel
+    // dans Notification.data) : le token y resterait lisible indéfiniment
+    // par quiconque peut lire cette table, alors que rien n'en a besoin
+    // après l'envoi de l'email.
     try {
       await this.notificationService.send({
         userId: user.id,
         type: NotificationType.EMAIL,
         title: 'Réinitialisation de votre mot de passe GET',
-        body: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur ce lien (valable 1h) pour choisir un nouveau mot de passe : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
+        body: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur ce lien (valable 1h, usage unique) pour choisir un nouveau mot de passe : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
         priority: NotificationPriority.HIGH,
-        data: { resetUrl },
       });
     } catch {
       // Échec d'envoi non bloquant pour la réponse HTTP — évite de révéler
@@ -595,24 +620,40 @@ export class AuthService {
 
   /**
    * Applique un nouveau mot de passe (haché en bcrypt) après vérification
-   * du token de réinitialisation.
-   * @throws BadRequestException si le token est invalide/expiré ou n'est
-   * pas du type `reset` (protège contre la réutilisation d'un access token
-   * ou d'un challenge MFA comme token de reset).
+   * du token de réinitialisation opaque envoyé par forgotPassword. Dans une
+   * même transaction : consomme le token (effacé, donc non réutilisable),
+   * change le mot de passe et révoque toutes les sessions existantes
+   * (`sessionVersion` incrémenté) — un attaquant ayant obtenu ce lien ne
+   * doit pas hériter d'une session ouverte par ailleurs, et inversement une
+   * session compromise ne doit pas survivre à la reprise de contrôle du
+   * compte par son propriétaire légitime.
+   * @throws BadRequestException si le token est invalide ou expiré.
    */
   async resetPassword(token: string, newPassword: string) {
+    const resetTokenHash = this.sha256Hex(token);
+    const user = await this.prisma.user.findUnique({
+      where: { resetTokenHash },
+    });
+
+    if (
+      !user ||
+      !user.resetTokenExpiresAt ||
+      user.resetTokenExpiresAt < new Date()
+    ) {
+      throw new BadRequestException('Token invalide ou expiré');
+    }
+
     try {
-      const payload = this.jwt.verify(token);
-
-      if (payload.type !== 'reset') {
-        throw new BadRequestException('Token invalide');
-      }
-
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       await this.prisma.user.update({
-        where: { id: payload.sub },
-        data: { password: hashedPassword },
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetTokenHash: null,
+          resetTokenExpiresAt: null,
+          sessionVersion: { increment: 1 },
+        },
       });
 
       return {
@@ -629,8 +670,8 @@ export class AuthService {
   // secret vit entièrement dans ce service dédié.
 
   /** Génère le secret TOTP et le QR code d'activation MFA. Voir MfaService.generateSecret. */
-  async enableMfa(userId: string) {
-    return this.mfaService.generateSecret(userId);
+  async enableMfa(userId: string, currentCode?: string) {
+    return this.mfaService.generateSecret(userId, currentCode);
   }
 
   /** Confirme le code TOTP et active le MFA. Voir MfaService.verifyAndEnable. */

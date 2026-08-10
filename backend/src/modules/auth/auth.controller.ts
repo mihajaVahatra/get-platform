@@ -401,17 +401,37 @@ export class AuthController {
   /**
    * Démarre l'activation du MFA : génère un secret TOTP et un QR code à
    * scanner dans une app d'authentification. Le MFA n'est pas encore actif
-   * à ce stade (voir verifyMfa).
+   * à ce stade (voir verifyMfa). Si le MFA est déjà activé sur le compte, un
+   * `code` TOTP courant valide est exigé pour ré-enrôler (empêche un tiers
+   * ayant seulement le cookie de session de désactiver le MFA en appelant
+   * cet endpoint, ex. via CSRF — voir setSessionCookies).
+   * @throws BadRequestException si le MFA est déjà actif sans code valide fourni.
    * @returns `{ qrCode, secret }` (secret en clair pour saisie manuelle).
    */
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Enable MFA for admin' })
+  @ApiBody({
+    required: false,
+    schema: {
+      properties: {
+        code: {
+          type: 'string',
+          example: '123456',
+          description: 'Code TOTP courant, requis uniquement pour ré-enrôler un MFA déjà actif',
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 200, description: 'MFA QR code generated' })
-  async enableMfa(@GetUser('id') userId: string) {
-    return this.authService.enableMfa(userId);
+  async enableMfa(
+    @GetUser('id') userId: string,
+    @Body('code') code?: string,
+  ) {
+    return this.authService.enableMfa(userId, code);
   }
 
   /**

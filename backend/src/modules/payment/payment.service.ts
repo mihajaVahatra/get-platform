@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { Prisma, Payment } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
@@ -68,60 +69,112 @@ export class PaymentService {
       throw new BadRequestException('Montant de paiement invalide');
     }
 
-    const existingPayment = await this.prisma.payment.findFirst({
-      where: {
-        applicationId: application.id,
-        status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
-      },
-      select: { id: true, status: true },
-    });
-    if (existingPayment) {
-      throw new BadRequestException(
-        existingPayment.status === 'COMPLETED'
-          ? 'Cette candidature a déjà été payée'
-          : 'Un paiement est déjà en cours pour cette candidature',
+    const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
+    const alreadyInProgressMessage = (status: string) =>
+      status === 'COMPLETED'
+        ? 'Cette candidature a déjà été payée'
+        : 'Un paiement est déjà en cours pour cette candidature';
+
+    // Vérifier + créer sous isolation Serializable : sans ça, deux requêtes
+    // d'initiation concurrentes pour la même candidature peuvent toutes les
+    // deux passer le contrôle "pas de paiement en cours" avant qu'aucune
+    // n'ait écrit sa ligne, et créer deux Payment PENDING (cf. audit
+    // sécurité). Sous Serializable, Postgres fait échouer l'une des deux
+    // transactions (voir catch P2034 ci-dessous) plutôt que de laisser
+    // passer l'incohérence.
+    let payment: Payment;
+    try {
+      payment = await this.prisma.$transaction(
+        async (tx) => {
+          // Un paiement PENDING/PROCESSING dont le délai (15 min) est
+          // dépassé n'a pas pu aboutir : le compter comme "en cours"
+          // bloquerait définitivement toute nouvelle tentative pour cette
+          // candidature (cf. audit sécurité — reprise des paiements expirés).
+          await tx.payment.updateMany({
+            where: {
+              applicationId: application.id,
+              status: { in: ['PENDING', 'PROCESSING'] },
+              expiresAt: { lt: new Date() },
+            },
+            data: { status: 'EXPIRED' },
+          });
+
+          const existingPayment = await tx.payment.findFirst({
+            where: {
+              applicationId: application.id,
+              status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+            },
+            select: { id: true, status: true },
+          });
+          if (existingPayment) {
+            throw new BadRequestException(
+              alreadyInProgressMessage(existingPayment.status),
+            );
+          }
+
+          return tx.payment.create({
+            data: {
+              studentId,
+              applicationId: application.id,
+              amount,
+              currency: 'MGA',
+              method: dto.method,
+              reference,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+              commission: amount * 0.05,
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2034'
+      ) {
+        // Conflit de sérialisation Postgres : l'autre initiation concurrente
+        // a gagné la course, celle-ci doit être refusée plutôt que retentée
+        // silencieusement (le client peut relancer une nouvelle requête).
+        throw new BadRequestException(alreadyInProgressMessage('PENDING'));
+      }
+      throw err;
     }
 
-    const reference = `PAY-${Date.now()}-${uuidv4().slice(0, 6)}`;
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        studentId,
-        applicationId: application.id,
+    try {
+      const provider = await this.paymentProvider.initiatePayment({
         amount,
         currency: 'MGA',
-        method: dto.method,
+        studentId,
         reference,
-        status: 'PENDING',
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        commission: amount * 0.05,
-      },
-    });
+        description: `Paiement pour la candidature ${application.id}`,
+      });
 
-    const provider = await this.paymentProvider.initiatePayment({
-      amount,
-      currency: 'MGA',
-      studentId,
-      reference,
-      description: `Paiement pour la candidature ${application.id}`,
-    });
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          providerRef: provider.providerReference,
+          status: 'PROCESSING',
+        },
+      });
 
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        providerRef: provider.providerReference,
+      return {
+        paymentId: payment.id,
+        reference,
+        redirectUrl: provider.redirectUrl,
+        amount,
         status: 'PROCESSING',
-      },
-    });
-
-    return {
-      paymentId: payment.id,
-      reference,
-      redirectUrl: provider.redirectUrl,
-      amount,
-      status: 'PROCESSING',
-    };
+      };
+    } catch (err) {
+      // Le paiement existe déjà en base mais le prestataire n'a jamais
+      // confirmé la transaction (panne réseau, timeout...) : ne pas le
+      // laisser PENDING indéfiniment, ça bloquerait toute nouvelle
+      // tentative sur cette candidature jusqu'à l'expiration (15 min).
+      await this.prisma.payment
+        .update({ where: { id: payment.id }, data: { status: 'FAILED' } })
+        .catch(() => undefined);
+      throw err;
+    }
   }
 
   /**

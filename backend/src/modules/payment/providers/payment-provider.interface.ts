@@ -1,4 +1,11 @@
 export interface PaymentProvider {
+  /**
+   * `reference` (généré une seule fois par Payment, voir PaymentService) doit
+   * être transmis au prestataire comme clé d'idempotence lorsque son API en
+   * propose une : un retry réseau côté client (ou une relecture de webhook)
+   * doit retomber sur la même transaction prestataire plutôt que d'en créer
+   * une seconde pour le même paiement.
+   */
   initiatePayment(data: {
     amount: number;
     currency: string;

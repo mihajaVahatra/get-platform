@@ -193,7 +193,11 @@ export class StudentService {
         throw new NotFoundException('Student not found');
       }
 
-      // ✅ Décryptage sécurisé avec fallback
+      // Ne jamais faire retomber une donnée sensible en clair vers le client
+      // en cas d'échec de déchiffrement (ex. ENCRYPTION_KEY changée, donnée
+      // corrompue) : on masque le champ plutôt que d'exposer un potentiel
+      // texte en clair (voir remédiation 2026-08-10 pour les lignes legacy
+      // stockées en clair avant l'ajout du chiffrement à l'inscription).
       let decryptedPhone: string | null = null;
       let decryptedCin: string | null = null;
 
@@ -201,11 +205,7 @@ export class StudentService {
         try {
           decryptedPhone = this.encryption.decrypt(student.phone);
         } catch (e) {
-          console.warn(
-            '⚠️ Erreur décryptage phone, utilisation de la valeur brute:',
-            e.message,
-          );
-          decryptedPhone = student.phone;
+          console.error('❌ Erreur déchiffrement phone:', e.message);
         }
       }
 
@@ -213,11 +213,7 @@ export class StudentService {
         try {
           decryptedCin = this.encryption.decrypt(student.cin);
         } catch (e) {
-          console.warn(
-            '⚠️ Erreur décryptage cin, utilisation de la valeur brute:',
-            e.message,
-          );
-          decryptedCin = student.cin;
+          console.error('❌ Erreur déchiffrement cin:', e.message);
         }
       }
 

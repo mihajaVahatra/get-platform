@@ -345,12 +345,14 @@ function PaymentStatus({ status }: { status: string }) {
     PENDING: 'En attente',
     PROCESSING: 'En cours',
     FAILED: 'Échoué',
+    EXPIRED: 'Expiré',
   };
   const tones: Record<string, string> = {
     COMPLETED: 'bg-emerald-50 text-emerald-700',
     PENDING: 'bg-amber-50 text-amber-700',
     PROCESSING: 'bg-blue-50 text-blue-700',
     FAILED: 'bg-rose-50 text-rose-700',
+    EXPIRED: 'bg-slate-100 text-slate-600',
   };
   return (
     <span

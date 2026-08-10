@@ -21,6 +21,16 @@ async function bootstrap() {
 
   app.disable('x-powered-by');
 
+  // Render (et la plupart des PaaS) placent le service derrière un reverse
+  // proxy : sans ceci, `req.ip` vaut l'IP du proxy pour toutes les requêtes,
+  // ce qui fait retomber le rate limiting (par IP) sur une IP unique
+  // partagée par tout le trafic entrant plutôt que par client réel.
+  // `1` = faire confiance au premier hop devant l'app (le proxy Render),
+  // pas à un X-Forwarded-For arbitraire fourni par le client.
+  if (configService.get('TRUST_PROXY') === 'true') {
+    app.set('trust proxy', 1);
+  }
+
   // Sonde de démarrage de la plateforme d'hébergement (ex: Render fait un
   // HEAD / avant de déclarer le service "Live") — en dehors du préfixe
   // global /api, donc traité en middleware Express brut plutôt que via un
@@ -51,13 +61,60 @@ async function bootstrap() {
   });
 
   // CORS
+  const allowedOrigins = (
+    configService.get('FRONTEND_URL') || 'http://localhost:3000'
+  )
+    .split(',')
+    .map((o) => o.trim());
   app.enableCors({
-    origin: (
-      configService.get('FRONTEND_URL') || 'http://localhost:3000'
-    ).split(','),
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+  });
+
+  // Anti-CSRF : CORS empêche un site tiers de LIRE la réponse d'une requête
+  // cross-site, mais pas de la DÉCLENCHER (un <form> ou une image cross-site
+  // envoie quand même la requête, cookies compris, sans préflight ni lecture
+  // de réponse nécessaires). C'est sans conséquence tant que les cookies de
+  // session sont SameSite=Lax (défaut, voir AuthController.setSessionCookies),
+  // mais devient exploitable dès que CROSS_SITE_COOKIES=true bascule les
+  // cookies en SameSite=None pour les déploiements multi-domaines. On
+  // vérifie donc explicitement Origin (repli sur Referer si absent) contre
+  // FRONTEND_URL pour toute méthode qui modifie l'état ; une requête sans
+  // aucun des deux en-têtes n'est pas un scénario de navigateur exploitable
+  // par CSRF (curl, mobile, server-to-server) et reste autorisée. Le webhook
+  // de paiement est exclu : appelé serveur à serveur par le prestataire,
+  // sans cookie, déjà authentifié par signature HMAC (voir PaymentService).
+  const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  app.use((request, response, next) => {
+    if (
+      !MUTATING_METHODS.has(request.method) ||
+      request.path === '/api/payments/webhook'
+    ) {
+      return next();
+    }
+
+    const originHeader = request.headers.origin;
+    const refererHeader = request.headers.referer;
+    let candidate: string | undefined = originHeader;
+    if (!candidate && refererHeader) {
+      try {
+        candidate = new URL(refererHeader).origin;
+      } catch {
+        candidate = undefined;
+      }
+    }
+
+    if (!candidate) {
+      return next();
+    }
+
+    if (!allowedOrigins.includes(candidate)) {
+      response.status(403).json({ message: 'Origine de la requête refusée' });
+      return;
+    }
+    next();
   });
 
   // Documents/pièces jointes sensibles : servis via un routeur authentifié
