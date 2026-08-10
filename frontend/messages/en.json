@@ -462,6 +462,7 @@
     "payBefore": "Due before {date}",
     "payNow": "Pay now",
     "upcomingEventsTitle": "Upcoming events",
+    "eventsEmpty": "No upcoming events for now.",
     "viewAllEvents": "View all events",
     "tipTitle": "GET tip:",
     "tipText": "Turn on notifications so you never miss your courses and events!",
