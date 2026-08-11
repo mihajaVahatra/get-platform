@@ -376,9 +376,17 @@ export class StudentService {
   }
 
   /**
-   * Supprime un document de manière logique (`deletedAt` renseigné, le
-   * fichier n'est pas retiré du stockage). Vérifie que le document
-   * appartient bien à l'étudiant demandeur.
+   * Supprime un document de manière logique (`deletedAt` renseigné — la
+   * ligne est conservée, jamais purgée physiquement, conformément à la
+   * règle de gestion GET-RG-066) et retire également l'objet S3 sous-jacent.
+   * Le retrait S3 est une défense en profondeur en plus du contrôle
+   * `deletedAt` déjà appliqué par la route protégée de téléchargement (voir
+   * `protected-uploads.middleware.ts`) : avant ce correctif, un document
+   * "supprimé" restait indéfiniment accessible via son ancienne URL, tant
+   * côté base (aucun contrôle `deletedAt` sur la route de téléchargement)
+   * que côté stockage (objet S3 jamais retiré) — faille corrigée suite à
+   * l'audit QA.
+   * Vérifie que le document appartient bien à l'étudiant demandeur.
    * @throws NotFoundException si le profil ou le document est introuvable.
    */
   async deleteDocument(userId: string, documentId: string) {
@@ -406,6 +414,11 @@ export class StudentService {
       where: { id: documentId },
       data: { deletedAt: new Date() },
     });
+
+    const fileName = document.fileUrl.split('/').pop();
+    if (fileName) {
+      await this.storageService.deleteObject('documents', student.id, fileName);
+    }
 
     return { success: true };
   }
