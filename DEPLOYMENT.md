@@ -46,6 +46,8 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
 
 ## 3. Render (backend, plan gratuit)
 
+*Version de Node : Render lit `backend/.nvmrc` automatiquement (comme la CI et le dev local via `nvm use`) — rien à configurer manuellement, ne pas définir `NODE_VERSION` en dur dans le dashboard sous peine de désynchronisation silencieuse avec ce fichier.*
+
 1. Créer un compte sur [render.com](https://render.com), connecter le compte GitHub.
 2. **New** → **Blueprint** → choisir ce dépôt. Render détecte `backend/render.yaml` et propose de créer le service `get-poc-backend` automatiquement (plan Free, build/démarrage déjà configurés).
    - Si tu préfères une création manuelle plutôt que le Blueprint : **New** → **Web Service**, choisir le repo, **Root Directory** = `backend`, **Build Command** = `npm install && npm run build`, **Start Command** = `npx prisma migrate deploy && npm run start:prod`, **Plan** = Free.
@@ -83,6 +85,8 @@ SEED_MODE=national npx ts-node prisma/seed/national.ts
 Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à travailler par erreur sur la base Neon depuis ta machine.
 
 ## 4. Vercel (frontend)
+
+*Version de Node : Vercel lit `frontend/.nvmrc` automatiquement (comme la CI et le dev local) — rien à configurer manuellement dans les réglages du projet.*
 
 1. Créer un compte sur [vercel.com](https://vercel.com), connecter GitHub.
 2. **Add New** → **Project** → choisir ce dépôt.
