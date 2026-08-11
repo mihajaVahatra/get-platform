@@ -335,6 +335,8 @@
     "loadingPayments": "Chargement des paiements...",
     "loadPaymentsError": "Erreur lors du chargement des paiements",
     "loadApplicationsError": "Impossible de charger les candidatures disponibles",
+    "returnFromPaymentSuccess": "Paiement reçu, confirmation en cours (quelques secondes)...",
+    "returnFromPaymentCancelled": "Paiement annulé, aucun montant n'a été débité.",
     "title": "Mes paiements",
     "totalCount": "{count, plural, one {# paiement au total} other {# paiements au total}}",
     "totalPaid": "Total payé",

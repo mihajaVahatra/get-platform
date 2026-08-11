@@ -56,11 +56,12 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
    JWT_REFRESH_SECRET=<autre valeur longue aléatoire>
    ENCRYPTION_KEY=<64 caractères hexadécimaux>
    PAYMENT_WEBHOOK_SECRET=<valeur longue aléatoire>
+   STRIPE_SECRET_KEY=<clé secrète Stripe en mode test, sk_test_...>
+   STRIPE_WEBHOOK_SECRET=<secret de signature de l'endpoint webhook Stripe, whsec_...>
    APP_URL=<URL publique Render du service, ex. https://get-poc-backend.onrender.com>
    FRONTEND_URL=<URL Vercel, complétée à l'étape 4>
    ENABLE_SWAGGER=true
    ALLOW_DEMO_SEED=true
-   ALLOW_MOCK_PAYMENT=true
    TRUST_PROXY=true
    S3_ENDPOINT=...
    S3_REGION=auto
@@ -71,7 +72,17 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
    S3_SECRET_ACCESS_KEY=...
    S3_PUBLIC_URL=...
    ```
-   `PORT` est injecté automatiquement par Render, ne pas le redéfinir. `ENABLE_SWAGGER`/`ALLOW_DEMO_SEED`/`ALLOW_MOCK_PAYMENT` sont volontairement en `sync: false` dans `render.yaml` (pas préremplis à `true`) : ce sont les garde-fous qui bloquent comptes de démo et paiements simulés en production — les saisir manuellement ici à `true` pour ce QA évite qu'ils se retrouvent actifs par défaut si ce fichier est un jour réutilisé comme template pour un vrai déploiement.
+   `PORT` est injecté automatiquement par Render, ne pas le redéfinir. `ENABLE_SWAGGER`/`ALLOW_DEMO_SEED` sont volontairement en `sync: false` dans `render.yaml` (pas préremplis à `true`) : ce sont les garde-fous qui bloquent les comptes de démo en production — les saisir manuellement ici à `true` pour ce QA évite qu'ils se retrouvent actifs par défaut si ce fichier est un jour réutilisé comme template pour un vrai déploiement.
+
+   **Paiements — obtenir les clés Stripe (mode test, gratuit, sans vérification d'entreprise) :**
+   1. Créer un compte sur [dashboard.stripe.com/register](https://dashboard.stripe.com/register).
+   2. Rester en mode **Test** (bascule en haut du dashboard) — **Developers → API keys** : copier la clé **Secret key** (`sk_test_...`), c'est `STRIPE_SECRET_KEY`.
+   3. **Developers → Webhooks → Add endpoint** : URL = `<APP_URL ci-dessus>/api/payments/webhook/stripe`, événements à écouter : `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`. Une fois créé, copier le **Signing secret** (`whsec_...`), c'est `STRIPE_WEBHOOK_SECRET`.
+   4. Cartes de test pour valider les parcours (voir [stripe.com/docs/testing](https://stripe.com/docs/testing)) : `4242 4242 4242 4242` (paiement réussi), `4000 0000 0000 0002` (refusé), n'importe quelle date future/CVC à 3 chiffres.
+
+   *En local (avant tout déploiement), pas besoin de créer un endpoint webhook dans le dashboard : `stripe listen --forward-to localhost:3001/api/payments/webhook/stripe` (CLI Stripe, `stripe login` au préalable) affiche un `whsec_...` temporaire à mettre dans `backend/.env`.*
+
+   `ALLOW_MOCK_PAYMENT` n'a plus besoin d'être défini : dès que `STRIPE_SECRET_KEY` est renseignée, `PaymentModule` utilise `StripePaymentProvider` au lieu du mock (voir `backend/src/modules/payment/payment.module.ts`) — la procédure de déploiement ne demande plus d'activer un mock de paiement.
 4. Déployer. L'URL du service (`https://<nom-du-service>.onrender.com`) apparaît en haut du dashboard — c'est celle à utiliser pour `APP_URL` ci-dessus et pour `NEXT_PUBLIC_API_URL` côté Vercel (avec `/api` en suffixe). Suivre les logs jusqu'à `🚀 Server running on...`.
 
 ### Peupler la base
@@ -102,11 +113,16 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 4. Se connecter en School Admin (`schooladmin@get.mg` / mot de passe du seed, ou un compte `admin.ecole.XX@demo.get.test` / `DemoNational2026!` si `seed:national` a été lancé), consulter la candidature et son document.
 5. Uploader un avatar → l'image doit s'afficher immédiatement (bucket public, pas de redirection nécessaire).
 6. `https://<domaine-render>/api/docs` doit afficher Swagger (activé via `ENABLE_SWAGGER=true`).
+7. **Paiement (Stripe, mode test)** : en tant que candidat avec une candidature `ACCEPTED`, initier un paiement → redirection vers une page Stripe Checkout réelle (`checkout.stripe.com`). Tester au moins :
+   - **Réussi** : carte `4242 4242 4242 4242` → redirection vers `.../payments?status=success`, le paiement passe `COMPLETED` puis la candidature `ENROLLED` (peut prendre quelques secondes, le temps que le webhook Stripe arrive — voir **Developers → Webhooks → (ton endpoint) → Events récents** sur le dashboard Stripe pour vérifier la livraison).
+   - **Refusé** : carte `4000 0000 0000 0002` → le paiement reste `FAILED`, aucune inscription.
+   - **Annulé** : quitter la page Stripe Checkout sans payer → redirection vers `.../payments?status=cancelled`, le paiement reste `PENDING`.
+   - **Webhook tardif sur candidature annulée** : après un paiement réussi mais avant que le webhook n'arrive, annuler la candidature côté admin → le webhook, une fois traité, ne doit jamais repasser la candidature à `ENROLLED` (voir `PaymentService.reconcilePayment` — comportement déjà couvert par les tests unitaires, à revalider ici en conditions réelles si le temps le permet).
 
 ## Limitations connues de cet environnement QA
 
 - **Render (plan free)** met le service en veille après ~15 min d'inactivité — premier appel suivant plus lent (30-60s), c'est le compromis du 100% gratuit. Pas de solution gratuite pour l'éviter ; un plan payant (Render Starter, Railway...) supprime ce comportement.
 - **Redis** n'est provisionné nulle part ici : le code ne l'utilise pas (rate-limiting en mémoire), ce n'est pas un oubli.
-- **Paiements** : `ALLOW_MOCK_PAYMENT=true` active un fournisseur de paiement simulé — aucune vraie transaction n'est possible, c'est voulu pour un QA.
+- **Paiements** : Stripe en **mode test** (voir étape 3) — aucune vraie transaction bancaire, cartes de test uniquement. Passer en mode réel (clés `sk_live_`/`whsec_` live) est un choix produit distinct, hors de portée de ce guide QA.
 - Le filesystem Render étant éphémère, ne pas définir `UPLOAD_DIR` ni retirer les variables `S3_*` : sans elles, les uploads échoueraient silencieusement au premier redéploiement/réveil.
 - `backend/railway.json` est conservé dans le dépôt comme chemin alternatif si un jour la mise en veille Render devient gênante et que tu acceptes de payer — non utilisé par le parcours 100% gratuit ci-dessus.

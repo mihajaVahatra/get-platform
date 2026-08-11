@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import { ConfigService } from '@nestjs/config';
 import type { PaymentProvider } from './providers/payment-provider.interface';
+import { StripePaymentProvider } from './providers/stripe-payment.provider';
 
 const WEBHOOK_SECRET = 'test-secret';
 
@@ -621,6 +622,164 @@ describe('PaymentService', () => {
         expect.stringContaining('[ALERTE RÉCONCILIATION]'),
       );
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('handleStripeWebhook', () => {
+    // `instanceof StripePaymentProvider` doit passer sans exécuter le vrai
+    // constructeur (qui exige STRIPE_SECRET_KEY et instancie un vrai client
+    // Stripe) : on ne veut mocker que ses méthodes, pas sa mécanique interne.
+    // Les mocks sont aussi retournés individuellement : asserter directement
+    // sur `stripeProvider.xxx` (méthode d'une vraie classe, pas une simple
+    // propriété d'objet) déclenche `@typescript-eslint/unbound-method`.
+    function buildStripeProvider() {
+      const mocks = {
+        initiatePayment: jest.fn(),
+        confirmPayment: jest.fn(),
+        refundPayment: jest.fn(),
+        constructWebhookEvent: jest.fn(),
+      };
+      const stripeProvider = Object.assign(
+        Object.create(StripePaymentProvider.prototype),
+        mocks,
+      ) as StripePaymentProvider;
+      return { stripeProvider, ...mocks };
+    }
+
+    it('refuse si Stripe n’est pas le fournisseur de paiement actif', async () => {
+      // `service`/`paymentProvider` du bloc englobant utilisent le mock
+      // générique par défaut, pas un StripePaymentProvider.
+      await expect(
+        service.handleStripeWebhook(Buffer.from('{}'), 'sig'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('refuse si STRIPE_WEBHOOK_SECRET n’est pas configuré côté serveur', async () => {
+      const { stripeProvider, constructWebhookEvent } = buildStripeProvider();
+      const stripeConfig = {
+        get: jest.fn().mockReturnValue(undefined),
+      } as unknown as ConfigService;
+      const stripeService = new PaymentService(
+        prisma as unknown as PrismaService,
+        stripeProvider,
+        stripeConfig,
+        schoolService as unknown as SchoolService,
+      );
+
+      await expect(
+        stripeService.handleStripeWebhook(Buffer.from('{}'), 'sig'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(constructWebhookEvent).not.toHaveBeenCalled();
+    });
+
+    it('refuse si le corps brut de la requête est manquant', async () => {
+      const { stripeProvider, constructWebhookEvent } = buildStripeProvider();
+      const stripeConfig = {
+        get: jest.fn().mockReturnValue('whsec_test'),
+      } as unknown as ConfigService;
+      const stripeService = new PaymentService(
+        prisma as unknown as PrismaService,
+        stripeProvider,
+        stripeConfig,
+        schoolService as unknown as SchoolService,
+      );
+
+      await expect(
+        stripeService.handleStripeWebhook(undefined, 'sig'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(constructWebhookEvent).not.toHaveBeenCalled();
+    });
+
+    it('accuse réception sans traitement pour un type d’événement non pertinent', async () => {
+      const { stripeProvider, constructWebhookEvent } = buildStripeProvider();
+      constructWebhookEvent.mockReturnValue({
+        type: 'customer.created',
+        data: { object: { id: 'cus_123' } },
+      });
+      const stripeConfig = {
+        get: jest.fn().mockReturnValue('whsec_test'),
+      } as unknown as ConfigService;
+      const stripeService = new PaymentService(
+        prisma as unknown as PrismaService,
+        stripeProvider,
+        stripeConfig,
+        schoolService as unknown as SchoolService,
+      );
+
+      const result = await stripeService.handleStripeWebhook(
+        Buffer.from('{}'),
+        'sig',
+      );
+
+      expect(result).toEqual({ received: true, ignored: 'customer.created' });
+      expect(prisma.payment.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('réconcilie le paiement pour un événement checkout.session.completed', async () => {
+      const { stripeProvider, constructWebhookEvent, confirmPayment } =
+        buildStripeProvider();
+      constructWebhookEvent.mockReturnValue({
+        type: 'checkout.session.completed',
+        data: { object: { id: 'cs_test_1' } },
+      });
+      confirmPayment.mockResolvedValue({
+        status: 'COMPLETED',
+        providerTransactionId: 'pi_123',
+        rawData: {},
+      });
+      const stripeConfig = {
+        get: jest.fn().mockReturnValue('whsec_test'),
+      } as unknown as ConfigService;
+      const stripeService = new PaymentService(
+        prisma as unknown as PrismaService,
+        stripeProvider,
+        stripeConfig,
+        schoolService as unknown as SchoolService,
+      );
+
+      prisma.payment.findFirst
+        .mockResolvedValueOnce({
+          id: 'payment-1',
+          status: 'PROCESSING',
+          amount: 5000,
+          method: 'CARD',
+          applicationId: 'application-1',
+          reference: 'PAY-1',
+        })
+        .mockResolvedValueOnce(null);
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
+        id: 'payment-1',
+        status: 'COMPLETED',
+      });
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: 'ACCEPTED',
+        offer: { programId: 'program-1', schoolId: 'school-1' },
+      });
+      prisma.schoolProgram.findFirst.mockResolvedValue({
+        id: 'program-1',
+        name: 'Informatique',
+      });
+      prisma.schoolAcademicYear.findFirst.mockResolvedValue({
+        id: 'year-1',
+        label: '2026-2027',
+      });
+      prisma.studentEnrollment.upsert.mockResolvedValue({ id: 'enrollment-1' });
+
+      await stripeService.handleStripeWebhook(Buffer.from('{}'), 'sig');
+
+      expect(prisma.payment.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { providerRef: 'cs_test_1' },
+        }),
+      );
+      expect(confirmPayment).toHaveBeenCalledWith('cs_test_1');
+      expect(prisma.application.update).toHaveBeenCalledWith({
+        where: { id: 'application-1' },
+        data: { status: 'ENROLLED' },
+      });
     });
   });
 

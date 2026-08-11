@@ -8,9 +8,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { Prisma, Payment } from '@prisma/client';
+import type Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
+import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 import { v4 as uuidv4 } from 'uuid';
@@ -178,19 +180,11 @@ export class PaymentService {
   }
 
   /**
-   * Traite la notification asynchrone du fournisseur de paiement. Vérifie
-   * la signature HMAC, confirme le statut réel auprès du fournisseur
-   * (`confirmPayment`, ne fait jamais confiance au seul contenu du webhook),
-   * puis effectue en une transaction : mise à jour du paiement, inscription
-   * automatique de l'étudiant (StudentEnrollment + synchronisation des
-   * cours) et journalisation. Idempotent : un paiement déjà COMPLETED est
-   * retourné tel quel sans retraitement (couvre notamment la double
-   * réception d'un même webhook).
-   * Si la candidature associée n'est plus ACCEPTED/ENROLLED au moment de la
-   * confirmation (webhook tardif reçu après une annulation), le candidat
-   * n'est jamais inscrit : le paiement reste enregistré fidèlement mais part
-   * en réconciliation (ligne `Refund` PENDING, remboursement fournisseur
-   * déclenché hors transaction).
+   * Traite la notification asynchrone du fournisseur de paiement générique
+   * (`MockPaymentProvider`, signature HMAC maison — voir
+   * `assertValidWebhookSignature`). Pour Stripe, voir `handleStripeWebhook`,
+   * qui vérifie sa propre signature native puis délègue à la même logique
+   * de réconciliation ci-dessous (`reconcilePayment`).
    * @throws ForbiddenException si la signature webhook est absente/invalide.
    * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
    * @throws BadRequestException si le montant du webhook diffère du paiement enregistré.
@@ -201,8 +195,85 @@ export class PaymentService {
     signature?: string,
   ) {
     this.assertValidWebhookSignature(dto, rawBody, signature);
+    return this.reconcilePayment(dto.providerReference, dto.amount);
+  }
+
+  /**
+   * Traite un événement webhook Stripe natif : vérifie sa signature propre
+   * (`Stripe-Signature`, jamais le schéma HMAC maison utilisé par
+   * `handleWebhook`/`MockPaymentProvider`), n'agit que sur les événements de
+   * session de paiement pertinents (les autres sont accusés reçus sans
+   * traitement — Stripe envoie de nombreux types d'événements que ce
+   * backend n'a pas besoin de suivre), puis délègue à la même logique de
+   * réconciliation que le webhook générique.
+   * @throws ForbiddenException si Stripe n'est pas le fournisseur actif ou si le secret webhook n'est pas configuré.
+   * @throws BadRequestException si le corps brut ou la signature Stripe sont absents/invalides.
+   */
+  async handleStripeWebhook(
+    rawBody: Buffer | undefined,
+    signature: string | undefined,
+  ) {
+    if (!(this.paymentProvider instanceof StripePaymentProvider)) {
+      throw new ForbiddenException(
+        'Stripe n’est pas le fournisseur de paiement actif',
+      );
+    }
+    const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      throw new ForbiddenException(
+        'STRIPE_WEBHOOK_SECRET non configuré côté serveur',
+      );
+    }
+    if (!rawBody) {
+      // Contrairement au webhook générique (assertValidWebhookSignature),
+      // pas de repli sur un DTO re-sérialisé possible ici : la vérification
+      // Stripe exige les octets bruts exacts envoyés par Stripe, jamais une
+      // reconstruction.
+      throw new BadRequestException('Corps de requête brut manquant');
+    }
+    const event = this.paymentProvider.constructWebhookEvent(
+      rawBody,
+      signature,
+      webhookSecret,
+    );
+
+    const relevantEventTypes = new Set([
+      'checkout.session.completed',
+      'checkout.session.async_payment_succeeded',
+      'checkout.session.async_payment_failed',
+      'checkout.session.expired',
+    ]);
+    if (!relevantEventTypes.has(event.type)) {
+      return { received: true, ignored: event.type };
+    }
+
+    const session = event.data.object as Stripe.Checkout.Session;
+    return this.reconcilePayment(session.id);
+  }
+
+  /**
+   * Confirme le statut réel d'un paiement auprès du fournisseur
+   * (`confirmPayment`, ne fait jamais confiance au seul contenu d'un
+   * webhook, quel que soit le fournisseur), puis effectue en une
+   * transaction : mise à jour du paiement, inscription automatique de
+   * l'étudiant (StudentEnrollment + synchronisation des cours) et
+   * journalisation. Idempotent : un paiement déjà COMPLETED est retourné
+   * tel quel sans retraitement (couvre notamment la double réception d'un
+   * même webhook, quel qu'en soit le mécanisme de signature).
+   * Si la candidature associée n'est plus ACCEPTED/ENROLLED au moment de la
+   * confirmation (webhook tardif reçu après une annulation), le candidat
+   * n'est jamais inscrit : le paiement reste enregistré fidèlement mais part
+   * en réconciliation (ligne `Refund` PENDING, remboursement fournisseur
+   * déclenché hors transaction).
+   * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
+   * @throws BadRequestException si le montant fourni diffère du paiement enregistré.
+   */
+  private async reconcilePayment(
+    providerReference: string,
+    expectedAmount?: number,
+  ) {
     const payment = await this.prisma.payment.findFirst({
-      where: { providerRef: dto.providerReference },
+      where: { providerRef: providerReference },
     });
     if (!payment) {
       throw new NotFoundException(
@@ -210,13 +281,12 @@ export class PaymentService {
       );
     }
     if (payment.status === 'COMPLETED') return payment;
-    if (dto.amount !== undefined && dto.amount !== payment.amount) {
+    if (expectedAmount !== undefined && expectedAmount !== payment.amount) {
       throw new BadRequestException('Montant de webhook incohérent');
     }
 
-    const confirmation = await this.paymentProvider.confirmPayment(
-      dto.providerReference,
-    );
+    const confirmation =
+      await this.paymentProvider.confirmPayment(providerReference);
 
     if (confirmation.status === 'PENDING') {
       // Toujours en cours côté prestataire : ne rien conclure maintenant, un
@@ -250,7 +320,7 @@ export class PaymentService {
         data: {
           status,
           paidAt: status === 'COMPLETED' ? new Date() : undefined,
-          providerRef: dto.providerReference,
+          providerRef: providerReference,
         },
       });
       if (claimed === 0) {
@@ -341,7 +411,7 @@ export class PaymentService {
           });
           requiresRefund = {
             paymentId: payment.id,
-            providerReference: dto.providerReference,
+            providerReference,
           };
         } else {
           let program: { id: string; name: string } | null = null;
