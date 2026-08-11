@@ -303,6 +303,7 @@
     "decisionReason": "Motif de la décision",
     "interview": "Entretien",
     "interviewLink": "🔗 Lien de l'entretien",
+    "interviewLinkInvalid": "Lien d'entretien invalide — contactez votre école.",
     "history": "📜 Historique",
     "close": "Fermer",
     "payTuition": "Payer les frais de scolarité"

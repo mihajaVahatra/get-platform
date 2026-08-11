@@ -303,6 +303,7 @@
     "decisionReason": "Decision reason",
     "interview": "Interview",
     "interviewLink": "🔗 Interview link",
+    "interviewLinkInvalid": "Invalid interview link — contact your school.",
     "history": "📜 History",
     "close": "Close",
     "payTuition": "Pay tuition fees"
