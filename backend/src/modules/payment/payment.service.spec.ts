@@ -38,6 +38,7 @@ describe('PaymentService', () => {
     payment: {
       findFirst: jest.Mock;
       findUnique: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
@@ -58,6 +59,7 @@ describe('PaymentService', () => {
       payment: {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -219,7 +221,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });
@@ -285,7 +288,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });
@@ -351,7 +355,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });
@@ -424,7 +429,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });
@@ -474,7 +480,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });
@@ -526,6 +533,52 @@ describe('PaymentService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('perd la course d’une livraison webhook concurrente sans rejouer l’inscription ni la Transaction', async () => {
+      // Le check `payment.status === 'COMPLETED'` hors transaction (test
+      // précédent) ne couvre que le cas où la première livraison a déjà
+      // committé avant que la seconde ne lise `payment`. Ici, les deux
+      // livraisons lisent `payment` avec le même statut PROCESSING (quasi
+      // simultané), passent toutes les deux le check initial, et
+      // confirmPayment répond COMPLETED aux deux — seule la réclamation
+      // atomique (`updateMany` conditionné sur `status: { not: 'COMPLETED' }`
+      // à l'intérieur de la transaction) doit départager laquelle "gagne".
+      prisma.payment.findFirst.mockResolvedValueOnce({
+        id: 'payment-1',
+        status: 'PROCESSING',
+        amount: 5000,
+        method: 'MVOLA',
+        applicationId: 'application-1',
+        reference: 'PAY-1',
+      });
+      paymentProvider.confirmPayment.mockResolvedValue({
+        status: 'COMPLETED',
+        providerTransactionId: 'txn-1',
+        rawData: {},
+      });
+      // Cette livraison perd la course : une autre a déjà réclamé le
+      // paiement entre le check initial et l'entrée en transaction.
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
+        id: 'payment-1',
+        status: 'COMPLETED',
+      });
+
+      const result = await service.handleWebhook(
+        dto,
+        undefined,
+        signWebhook(dto),
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({ id: 'payment-1', status: 'COMPLETED' }),
+      );
+      expect(prisma.application.findUnique).not.toHaveBeenCalled();
+      expect(prisma.application.update).not.toHaveBeenCalled();
+      expect(prisma.transaction.create).not.toHaveBeenCalled();
+      expect(prisma.refund.create).not.toHaveBeenCalled();
+      expect(paymentProvider.refundPayment).not.toHaveBeenCalled();
+    });
+
     it('signale un webhook tardif sans rejouer l’inscription si un autre paiement est déjà complété', async () => {
       const consoleErrorSpy = jest
         .spyOn(console, 'error')
@@ -546,7 +599,8 @@ describe('PaymentService', () => {
         providerTransactionId: 'txn-1',
         rawData: {},
       });
-      prisma.payment.update.mockResolvedValue({
+      prisma.payment.updateMany.mockResolvedValueOnce({ count: 1 });
+      prisma.payment.findUniqueOrThrow.mockResolvedValue({
         id: 'payment-1',
         status: 'COMPLETED',
       });

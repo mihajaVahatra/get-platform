@@ -232,6 +232,39 @@ export class PaymentService {
     // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
     // sans inscription, ou l'inverse (cf. audit sécurité).
     const result = await this.prisma.$transaction(async (tx) => {
+      // Garde contre les livraisons concurrentes du même webhook (fréquent
+      // chez la plupart des prestataires, qui retentent tant qu'un 200 n'est
+      // pas reçu) : le check `payment.status === 'COMPLETED'` plus haut est
+      // fait HORS transaction (juste une optimisation pour éviter d'appeler
+      // le prestataire pour un paiement déjà visiblement terminé), donc pas
+      // atomique — deux appels quasi simultanés peuvent tous les deux le
+      // franchir avant qu'aucun n'ait écrit. La mise à jour conditionnée sur
+      // `status: { not: 'COMPLETED' }` ne peut réussir que pour UN SEUL
+      // appel ; le perdant (count === 0) renvoie le paiement déjà finalisé
+      // par l'autre sans rejouer l'inscription, le remboursement ou la
+      // création de Transaction (qui échouerait de toute façon sur la
+      // contrainte unique Transaction.paymentId, mais en erreur plutôt qu'en
+      // réponse idempotente).
+      const { count: claimed } = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: 'COMPLETED' } },
+        data: {
+          status,
+          paidAt: status === 'COMPLETED' ? new Date() : undefined,
+          providerRef: dto.providerReference,
+        },
+      });
+      if (claimed === 0) {
+        return {
+          updatedPayment: await tx.payment.findUniqueOrThrow({
+            where: { id: payment.id },
+          }),
+          refund: null,
+        };
+      }
+      const updatedPayment = await tx.payment.findUniqueOrThrow({
+        where: { id: payment.id },
+      });
+
       // Webhook tardif : un autre paiement pour la même candidature est déjà
       // COMPLETED (ex. celui-ci a expiré côté app — voir initiatePayment —
       // puis une nouvelle tentative a abouti avant que le prestataire ne
@@ -250,15 +283,6 @@ export class PaymentService {
               select: { id: true },
             })
           : null;
-
-      const updatedPayment = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status,
-          paidAt: status === 'COMPLETED' ? new Date() : undefined,
-          providerRef: dto.providerReference,
-        },
-      });
 
       let requiresRefund: {
         paymentId: string;
