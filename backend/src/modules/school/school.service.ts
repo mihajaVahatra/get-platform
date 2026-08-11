@@ -1933,7 +1933,19 @@ export class SchoolService {
     rows: Array<Array<string | null | undefined>>,
   ) {
     const escape = (value: string | null | undefined) => {
-      const normalized = String(value ?? '').replace(/"/g, '""');
+      // Neutralise l'injection de formule (CSV/DDE) : Excel/LibreOffice
+      // interprètent comme une formule toute cellule commençant par
+      // =, +, - ou @, y compris quand la valeur vient d'un champ que
+      // l'étudiant contrôle lui-même (firstName/lastName/city, voir les deux
+      // appelants de toCsv ci-dessus) — un prénom "=cmd|'/c calc'!A1" ouvert
+      // par un school-admin dans son tableur exécuterait la formule. Le
+      // préfixe apostrophe est la neutralisation standard (recommandation
+      // OWASP CSV Injection) : Excel/LibreOffice affichent alors la valeur
+      // comme texte brut, apostrophe non affichée (faille corrigée suite à
+      // l'audit sécurité).
+      const raw = String(value ?? '');
+      const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+      const normalized = safe.replace(/"/g, '""');
       return /[",\r\n]/.test(normalized) ? `"${normalized}"` : normalized;
     };
     return Buffer.from(
