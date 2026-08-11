@@ -51,7 +51,14 @@ const DEFAULT_CONFIGS: Record<string, LandingConfig> = {
 };
 
 async function getLandingData(locale: string) {
-  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  // Cette fonction s'exécute côté serveur (fonction Vercel), pas dans le
+  // navigateur : elle peut donc joindre le backend directement via
+  // `API_ORIGIN` (même variable que le proxy /api de next.config.ts), sans
+  // passer par le proxy ni transporter de cookie — cette route ne lit que
+  // des données publiques.
+  const base = process.env.API_ORIGIN
+    ? `${process.env.API_ORIGIN}/api`
+    : 'http://localhost:3001/api';
   const defaultConfig = DEFAULT_CONFIGS[locale] ?? DEFAULT_CONFIGS.fr;
   try {
     const [configRes, newsRes, partnersRes] = await Promise.all([
