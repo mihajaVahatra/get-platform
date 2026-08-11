@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import { NotificationService } from '../notification/notification.service';
@@ -409,6 +410,29 @@ export class ApplicationService {
   // ========== STATUS MANAGEMENT ==========
 
   /**
+   * Valide une transition de statut contre `APPLICATION_STATUS_TRANSITIONS`.
+   * Utilisée par `updateStatus` ainsi que par `scheduleTest`,
+   * `scheduleInterview` et `recordScore` — ces trois routes écrivent
+   * directement `Application.status` en dehors du flux `updateStatus` et
+   * doivent donc respecter la même machine à états (REJECTED/CANCELLED
+   * restent terminaux, entre autres), sans quoi elles la contournaient
+   * silencieusement.
+   */
+  private assertValidTransition(
+    previousStatus: ApplicationStatus,
+    nextStatus: ApplicationStatus,
+  ) {
+    if (previousStatus === nextStatus) return;
+    const allowedNextStatuses =
+      APPLICATION_STATUS_TRANSITIONS[previousStatus] ?? [];
+    if (!allowedNextStatuses.includes(nextStatus)) {
+      throw new BadRequestException(
+        `Transition de statut invalide : ${previousStatus} → ${nextStatus}`,
+      );
+    }
+  }
+
+  /**
    * Fait transitionner le statut d'une candidature et applique les effets de
    * bord associés, le tout dans une transaction unique :
    *  1. valide la transition demandée contre `APPLICATION_STATUS_TRANSITIONS`
@@ -448,40 +472,7 @@ export class ApplicationService {
     // plus aucune transition — auparavant une candidature rejetée pouvait
     // être renvoyée directement à ACCEPTED et redéclencher une inscription
     // réelle (faille corrigée suite à l'audit QA).
-    const allowedNextStatuses =
-      APPLICATION_STATUS_TRANSITIONS[previousStatus] ?? [];
-    if (
-      previousStatus !== dto.status &&
-      !allowedNextStatuses.includes(dto.status)
-    ) {
-      throw new BadRequestException(
-        `Transition de statut invalide : ${previousStatus} → ${dto.status}`,
-      );
-    }
-
-    // La capacité d'une offre n'a de sens qu'au moment où une candidature
-    // devient effectivement ACCEPTED — sans ce contrôle, une offre à
-    // capacité limitée pouvait accepter un nombre illimité de candidats
-    // (faille corrigée suite à l'audit QA).
-    if (
-      dto.status === ApplicationStatus.ACCEPTED &&
-      previousStatus !== ApplicationStatus.ACCEPTED &&
-      application.offer.capacity
-    ) {
-      const acceptedCount = await this.prisma.application.count({
-        where: {
-          offerId: application.offerId,
-          status: {
-            in: [ApplicationStatus.ACCEPTED, ApplicationStatus.ENROLLED],
-          },
-        },
-      });
-      if (acceptedCount >= application.offer.capacity) {
-        throw new BadRequestException(
-          'La capacité maximale de cette offre est déjà atteinte',
-        );
-      }
-    }
+    this.assertValidTransition(previousStatus, dto.status);
 
     const freesASeat =
       (previousStatus === ApplicationStatus.ACCEPTED ||
@@ -489,156 +480,80 @@ export class ApplicationService {
       (dto.status === ApplicationStatus.CANCELLED ||
         dto.status === ApplicationStatus.REJECTED);
 
-    // Mise à jour de statut + inscription automatique : atomique, pour ne
-    // jamais laisser une candidature "ACCEPTED"/"ENROLLED" sans que l'étudiant
-    // soit réellement inscrit (cf. audit sécurité).
-    const { updated, promoted } = await this.prisma.$transaction(async (tx) => {
-      const updatedApplication = await tx.application.update({
-        where: { id: applicationId },
-        data: {
-          status: dto.status,
-          score: dto.score,
-          decisionReason: dto.reason,
-          decisionDate: new Date(),
-        },
-      });
+    // Une offre à capacité limitée n'est concernée par la concurrence que
+    // lorsque cette transition peut faire varier son décompte de places
+    // occupées (acceptation, ou libération suivie d'une promotion depuis la
+    // liste d'attente) — inutile d'imposer l'isolation Serializable (donc des
+    // retries potentiels) sur les transitions qui ne touchent jamais au
+    // compteur de places.
+    const touchesCapacity =
+      !!application.offer.capacity &&
+      (dto.status === ApplicationStatus.ACCEPTED || freesASeat);
 
-      await tx.applicationTimeline.create({
-        data: {
-          applicationId,
-          status: dto.status,
-          note: dto.reason || `Status changed to ${dto.status}`,
-          createdBy: userId,
-        },
-      });
-
-      if (
-        dto.status === ApplicationStatus.ACCEPTED ||
-        dto.status === ApplicationStatus.ENROLLED
-      ) {
-        // Un étudiant peut être inscrit activement dans plusieurs écoles à
-        // la fois (double diplôme, cursus parallèle) : une ligne
-        // StudentEnrollment par (étudiant, école), jamais un écrasement.
-        let program: { id: string; name: string } | null = null;
-        let academicYear: { id: string; label: string } | null = null;
-        if (application.offer.programId) {
-          [program, academicYear] = await Promise.all([
-            tx.schoolProgram.findFirst({
+    // Vérification de capacité + écriture du statut (+ promotion liste
+    // d'attente) sous isolation Serializable, dans la même transaction : sans
+    // ça, deux décisions concurrentes sur la même offre (ex. deux
+    // acceptations sur une offre de capacité 1) peuvent chacune lire un
+    // compteur de places encore sous la limite avant qu'aucune n'ait écrit,
+    // et accepter plus de candidats que la capacité ne le permet (race
+    // condition TOCTOU corrigée suite à l'audit QA — même pattern que
+    // `payment.service.ts` pour l'initiation de paiement concurrente).
+    let updated: Awaited<
+      ReturnType<ApplicationService['applyStatusTransaction']>
+    >['updated'];
+    let promoted: Awaited<
+      ReturnType<ApplicationService['applyStatusTransaction']>
+    >['promoted'];
+    try {
+      ({ updated, promoted } = await this.prisma.$transaction(
+        async (tx) => {
+          if (
+            dto.status === ApplicationStatus.ACCEPTED &&
+            previousStatus !== ApplicationStatus.ACCEPTED &&
+            application.offer.capacity
+          ) {
+            const acceptedCount = await tx.application.count({
               where: {
-                id: application.offer.programId,
-                schoolId: application.offer.schoolId,
-                isActive: true,
+                offerId: application.offerId,
+                status: {
+                  in: [ApplicationStatus.ACCEPTED, ApplicationStatus.ENROLLED],
+                },
               },
-            }),
-            tx.schoolAcademicYear.findFirst({
-              where: { schoolId: application.offer.schoolId, isCurrent: true },
-            }),
-          ]);
-        }
-
-        if (program && academicYear) {
-          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          await tx.studentEnrollment.upsert({
-            where: {
-              studentId_schoolId: {
-                studentId: application.studentId,
-                schoolId: application.offer.schoolId,
-              },
-            },
-            create: {
-              studentId: application.studentId,
-              schoolId: application.offer.schoolId,
-              programId: program.id,
-              programLevel: 1,
-              academicYearId: academicYear.id,
-              enrolledYear,
-              status: 'ACTIVE',
-            },
-            update: {
-              programId: program.id,
-              programLevel: 1,
-              academicYearId: academicYear.id,
-              enrolledYear,
-              status: 'ACTIVE',
-            },
-          });
-          await this.schoolService.syncCourseEnrollments(
-            application.studentId,
-            application.offer.schoolId,
-            program.id,
-            1,
+            });
+            if (acceptedCount >= application.offer.capacity) {
+              throw new BadRequestException(
+                'La capacité maximale de cette offre est déjà atteinte',
+              );
+            }
+          }
+          return this.applyStatusTransaction(
             tx,
+            applicationId,
+            application,
+            dto,
+            userId,
+            freesASeat,
           );
-          await tx.applicationTimeline.create({
-            data: {
-              applicationId,
-              status: dto.status,
-              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-              createdBy: userId,
-            },
-          });
-        } else {
-          // Statut ACCEPTED/ENROLLED confirmé par un humain, mais
-          // l'inscription automatique n'a pas pu aboutir — jamais silencieux
-          // (cf. audit sécurité / test bout-en-bout).
-          const reason = !application.offer.programId
-            ? "l'offre n'est liée à aucun programme"
-            : "aucun programme actif ou année académique en cours pour cette école";
-          console.error(
-            `[ALERTE INSCRIPTION] Candidature ${applicationId} passée à ${dto.status} mais inscription automatique impossible : ${reason}.`,
-          );
-          await tx.applicationTimeline.create({
-            data: {
-              applicationId,
-              status: dto.status,
-              note: `⚠️ Statut mis à jour mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
-              createdBy: userId,
-            },
-          });
-        }
+        },
+        touchesCapacity
+          ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+          : undefined,
+      ));
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2034'
+      ) {
+        // Conflit de sérialisation Postgres : une autre décision concurrente
+        // sur cette même offre a gagné la course (acceptation ou promotion
+        // liste d'attente) — refuser plutôt que retenter silencieusement,
+        // l'appelant peut relancer la requête avec l'état à jour.
+        throw new BadRequestException(
+          'Cette offre a été modifiée simultanément par une autre décision, veuillez réessayer.',
+        );
       }
-
-      // Une place qui se libère (désistement/refus après acceptation) fait
-      // automatiquement remonter le candidat le plus ancien en liste
-      // d'attente — auparavant cette promotion n'existait pas du tout.
-      let promotedCandidate: { id: string; studentUserId: string } | null =
-        null;
-      if (freesASeat) {
-        const nextWaitlisted = await tx.application.findFirst({
-          where: {
-            offerId: application.offerId,
-            status: ApplicationStatus.WAITLISTED,
-          },
-          orderBy: { submittedAt: 'asc' },
-          include: { student: true },
-        });
-        if (nextWaitlisted) {
-          await tx.application.update({
-            where: { id: nextWaitlisted.id },
-            data: {
-              status: ApplicationStatus.ACCEPTED,
-              decisionDate: new Date(),
-              decisionReason:
-                'Promotion automatique depuis la liste d’attente (place libérée)',
-            },
-          });
-          await tx.applicationTimeline.create({
-            data: {
-              applicationId: nextWaitlisted.id,
-              status: ApplicationStatus.ACCEPTED,
-              note: 'Promu automatiquement depuis la liste d’attente suite à une place libérée.',
-              createdBy: userId,
-            },
-          });
-          promotedCandidate = {
-            id: nextWaitlisted.id,
-            studentUserId: nextWaitlisted.student.userId,
-          };
-        }
-      }
-
-      return { updated: updatedApplication, promoted: promotedCandidate };
-    });
+      throw err;
+    }
 
     if (application.student?.userId) {
       await this.notifyStatusChange(
@@ -673,6 +588,173 @@ export class ApplicationService {
   }
 
   /**
+   * Corps de la transaction de `updateStatus` : écrit le nouveau statut,
+   * applique l'inscription automatique (ACCEPTED/ENROLLED) et la promotion
+   * depuis la liste d'attente (place libérée), le tout dans la transaction
+   * fournie par l'appelant (voir `updateStatus` pour l'isolation utilisée).
+   */
+  private async applyStatusTransaction(
+    tx: Prisma.TransactionClient,
+    applicationId: string,
+    application: {
+      offerId: string;
+      studentId: string;
+      offer: {
+        schoolId: string;
+        programId: string | null;
+      };
+    },
+    dto: UpdateApplicationStatusDto,
+    userId: string,
+    freesASeat: boolean,
+  ) {
+    const updatedApplication = await tx.application.update({
+      where: { id: applicationId },
+      data: {
+        status: dto.status,
+        score: dto.score,
+        decisionReason: dto.reason,
+        decisionDate: new Date(),
+      },
+    });
+
+    await tx.applicationTimeline.create({
+      data: {
+        applicationId,
+        status: dto.status,
+        note: dto.reason || `Status changed to ${dto.status}`,
+        createdBy: userId,
+      },
+    });
+
+    if (
+      dto.status === ApplicationStatus.ACCEPTED ||
+      dto.status === ApplicationStatus.ENROLLED
+    ) {
+      // Un étudiant peut être inscrit activement dans plusieurs écoles à
+      // la fois (double diplôme, cursus parallèle) : une ligne
+      // StudentEnrollment par (étudiant, école), jamais un écrasement.
+      let program: { id: string; name: string } | null = null;
+      let academicYear: { id: string; label: string } | null = null;
+      if (application.offer.programId) {
+        [program, academicYear] = await Promise.all([
+          tx.schoolProgram.findFirst({
+            where: {
+              id: application.offer.programId,
+              schoolId: application.offer.schoolId,
+              isActive: true,
+            },
+          }),
+          tx.schoolAcademicYear.findFirst({
+            where: { schoolId: application.offer.schoolId, isCurrent: true },
+          }),
+        ]);
+      }
+
+      if (program && academicYear) {
+        const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+        await tx.studentEnrollment.upsert({
+          where: {
+            studentId_schoolId: {
+              studentId: application.studentId,
+              schoolId: application.offer.schoolId,
+            },
+          },
+          create: {
+            studentId: application.studentId,
+            schoolId: application.offer.schoolId,
+            programId: program.id,
+            programLevel: 1,
+            academicYearId: academicYear.id,
+            enrolledYear,
+            status: 'ACTIVE',
+          },
+          update: {
+            programId: program.id,
+            programLevel: 1,
+            academicYearId: academicYear.id,
+            enrolledYear,
+            status: 'ACTIVE',
+          },
+        });
+        await this.schoolService.syncCourseEnrollments(
+          application.studentId,
+          application.offer.schoolId,
+          program.id,
+          1,
+          tx,
+        );
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId,
+            status: dto.status,
+            note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+            createdBy: userId,
+          },
+        });
+      } else {
+        // Statut ACCEPTED/ENROLLED confirmé par un humain, mais
+        // l'inscription automatique n'a pas pu aboutir — jamais silencieux
+        // (cf. audit sécurité / test bout-en-bout).
+        const reason = !application.offer.programId
+          ? "l'offre n'est liée à aucun programme"
+          : 'aucun programme actif ou année académique en cours pour cette école';
+        console.error(
+          `[ALERTE INSCRIPTION] Candidature ${applicationId} passée à ${dto.status} mais inscription automatique impossible : ${reason}.`,
+        );
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId,
+            status: dto.status,
+            note: `⚠️ Statut mis à jour mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+            createdBy: userId,
+          },
+        });
+      }
+    }
+
+    // Une place qui se libère (désistement/refus après acceptation) fait
+    // automatiquement remonter le candidat le plus ancien en liste
+    // d'attente — auparavant cette promotion n'existait pas du tout.
+    let promotedCandidate: { id: string; studentUserId: string } | null = null;
+    if (freesASeat) {
+      const nextWaitlisted = await tx.application.findFirst({
+        where: {
+          offerId: application.offerId,
+          status: ApplicationStatus.WAITLISTED,
+        },
+        orderBy: { submittedAt: 'asc' },
+        include: { student: true },
+      });
+      if (nextWaitlisted) {
+        await tx.application.update({
+          where: { id: nextWaitlisted.id },
+          data: {
+            status: ApplicationStatus.ACCEPTED,
+            decisionDate: new Date(),
+            decisionReason:
+              'Promotion automatique depuis la liste d’attente (place libérée)',
+          },
+        });
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId: nextWaitlisted.id,
+            status: ApplicationStatus.ACCEPTED,
+            note: 'Promu automatiquement depuis la liste d’attente suite à une place libérée.',
+            createdBy: userId,
+          },
+        });
+        promotedCandidate = {
+          id: nextWaitlisted.id,
+          studentUserId: nextWaitlisted.student.userId,
+        };
+      }
+    }
+
+    return { updated: updatedApplication, promoted: promotedCandidate };
+  }
+
+  /**
    * Planifie un test pour une candidature : fixe le statut à
    * TEST_SCHEDULED et enregistre les modalités (type, date, lieu, documents
    * requis) dans `testResults`, ajoute une entrée de timeline et notifie
@@ -692,6 +774,14 @@ export class ApplicationService {
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(applicationToManage, userId);
+    // Cette route écrivait le statut sans jamais consulter
+    // `APPLICATION_STATUS_TRANSITIONS` : une candidature REJECTED/CANCELLED
+    // pouvait être renvoyée à TEST_SCHEDULED et rouvrir un dossier clos
+    // (même classe de faille que celle déjà corrigée sur `updateStatus`).
+    this.assertValidTransition(
+      applicationToManage.status as ApplicationStatus,
+      ApplicationStatus.TEST_SCHEDULED,
+    );
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -745,6 +835,12 @@ export class ApplicationService {
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(applicationToManage, userId);
+    // Même garde que `scheduleTest` : sans elle, une candidature
+    // REJECTED/CANCELLED pouvait être renvoyée à INTERVIEW_SCHEDULED.
+    this.assertValidTransition(
+      applicationToManage.status as ApplicationStatus,
+      ApplicationStatus.INTERVIEW_SCHEDULED,
+    );
     const application = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
@@ -794,6 +890,12 @@ export class ApplicationService {
     if (!applicationToManage)
       throw new NotFoundException('Application not found');
     await this.ensureCanManageApplication(applicationToManage, userId);
+    // Même garde que `scheduleTest`/`scheduleInterview` : sans elle, une
+    // candidature REJECTED/CANCELLED pouvait être renvoyée à TEST_COMPLETED.
+    this.assertValidTransition(
+      applicationToManage.status as ApplicationStatus,
+      ApplicationStatus.TEST_COMPLETED,
+    );
 
     // Fusion et non écrasement du JSON `testResults` : on conserve le
     // type/date/lieu du test déjà enregistrés par `scheduleTest` au lieu
