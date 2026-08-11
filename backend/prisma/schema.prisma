@@ -62,6 +62,7 @@ model User {
   teacher                  Teacher?
   schoolAdmin              SchoolAdmin?
   notifications            Notification[]
+  notificationPreference   NotificationPreference?
   auditLogs                AuditLog[]
   sentMessages             Message[]                 @relation("SentMessages")
   receivedMessages         Message[]                 @relation("ReceivedMessages")
@@ -936,11 +937,35 @@ model Notification {
   readAt                DateTime?
   sentAt                DateTime?
   deliveredAt           DateTime?
+  // État réel de la tentative d'envoi côté canal (SENT, SIMULATED — pas de
+  // prestataire réel configuré, STORED pour l'in-app, ou FAILED) — distinct
+  // de isRead qui décrit la lecture par l'utilisateur, pas la livraison.
+  // Voir NotificationService.send.
+  status                String                 @default("SENT")
+  failureReason         String?
   createdAt             DateTime               @default(now())
   announcementRecipient AnnouncementRecipient?
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+// Préférences de notification par utilisateur — une ligne par utilisateur,
+// créée à la demande (voir NotificationService.getUserPreferences) plutôt
+// qu'à l'inscription, pour ne pas complexifier AuthService.register.
+model NotificationPreference {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled Boolean  @default(true)
+  smsEnabled   Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  inAppEnabled Boolean  @default(true)
+  categories   String[] @default(["APPLICATION_SUBMITTED", "PAYMENT_CONFIRMED", "STATUS_CHANGED", "WELCOME"])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("notification_preferences")
 }
 
 model Announcement {

@@ -106,27 +106,55 @@ export class NotificationService {
     // Vérifier si l'utilisateur a activé ce canal
     const isChannelEnabled = this.isChannelEnabled(dto.type, preferences);
     if (!isChannelEnabled) {
-      console.log(`Notification ${dto.type} disabled for user ${dto.userId}`);
+      this.logger.log(
+        `Notification ${dto.type} disabled for user ${dto.userId}`,
+      );
       return { success: false, reason: 'Channel disabled' };
     }
 
-    // Envoyer la notification selon le type
-    let result;
-    switch (dto.type) {
-      case NotificationType.EMAIL:
-        result = await this.sendEmail(dto, user);
-        break;
-      case NotificationType.SMS:
-        result = await this.sendSms(dto, user);
-        break;
-      case NotificationType.PUSH:
-        result = await this.sendPush(dto, user);
-        break;
-      case NotificationType.IN_APP:
-        result = await this.sendInApp(dto, user);
-        break;
-      default:
-        throw new BadRequestException('Unsupported notification type');
+    // Envoyer la notification selon le type. Un échec (garde-fou prod sans
+    // prestataire réel, erreur de déchiffrement du téléphone, etc.) est
+    // tracé en base plutôt que silencieusement perdu — voir traçabilité des
+    // échecs, US-14 — puis relancé tel quel : l'appelant (route admin,
+    // job planifié) doit continuer à voir un échec réel, pas un succès de
+    // façade.
+    let result: { provider: string; status: string; providerId: string };
+    try {
+      switch (dto.type) {
+        case NotificationType.EMAIL:
+          result = await this.sendEmail(dto, user);
+          break;
+        case NotificationType.SMS:
+          result = await this.sendSms(dto, user);
+          break;
+        case NotificationType.PUSH:
+          result = await this.sendPush(dto, user);
+          break;
+        case NotificationType.IN_APP:
+          result = await this.sendInApp(dto, user);
+          break;
+        default:
+          throw new BadRequestException('Unsupported notification type');
+      }
+    } catch (error) {
+      const failureReason =
+        error instanceof Error ? error.message : String(error);
+      await this.prisma.notification.create({
+        data: {
+          userId: dto.userId,
+          type: dto.type,
+          title: dto.title,
+          body: dto.body,
+          data: dto.data,
+          status: 'FAILED',
+          failureReason,
+        },
+      });
+      this.logger.error(
+        `Échec d'envoi de la notification ${dto.type} à l'utilisateur ${dto.userId}`,
+        error as Error,
+      );
+      throw error;
     }
 
     // Enregistrer la notification en base
@@ -138,6 +166,7 @@ export class NotificationService {
         body: dto.body,
         data: dto.data,
         sentAt: new Date(),
+        status: result.status,
       },
     });
 
@@ -245,8 +274,10 @@ export class NotificationService {
   }
 
   /**
-   * Envoie un SMS.
-   * (Simulé pour l'instant)
+   * Envoie un SMS. Aucun prestataire SMS réel n'est intégré à ce jour —
+   * `ensureSimulationAllowed` applique le même garde-fou qu'à l'email
+   * (dispatchEmail) : en production, une notification "simulée" ne doit
+   * jamais se faire passer pour un envoi réel sans opt-in explicite.
    */
   private async sendSms(dto: SendNotificationDto, user: any) {
     const encryptedPhone = user.student?.phone;
@@ -268,34 +299,55 @@ export class NotificationService {
     }
     void phone; // transmis au prestataire SMS réel une fois intégré
 
-    console.log(`📱 [dev] SMS simulé pour l'utilisateur ${user.id}`);
+    this.ensureSimulationAllowed('SMS', 'ALLOW_SIMULATED_SMS');
+    this.logger.log(`📱 [simulé] SMS pour l'utilisateur ${user.id}`);
 
     await this.delay(300);
 
     return {
       provider: 'SMS',
-      status: 'SENT',
+      status: 'SIMULATED',
       providerId: `sms-${Date.now()}`,
     };
   }
 
   /**
-   * Envoie une notification push.
-   * (Simulé pour l'instant)
+   * Envoie une notification push. Aucun prestataire push réel n'est intégré
+   * à ce jour — voir sendSms pour le garde-fou de production partagé.
    */
   private async sendPush(dto: SendNotificationDto, user: any) {
-    console.log(
-      `🔔 Sending push notification to user ${user.id}: ${dto.title}`,
+    this.ensureSimulationAllowed('PUSH', 'ALLOW_SIMULATED_PUSH');
+    this.logger.log(
+      `🔔 [simulé] Push pour l'utilisateur ${user.id} : ${dto.title}`,
     );
-    console.log(`   Body: ${dto.body}`);
 
     await this.delay(200);
 
     return {
       provider: 'PUSH',
-      status: 'SENT',
+      status: 'SIMULATED',
       providerId: `push-${Date.now()}`,
     };
+  }
+
+  /**
+   * Refuse un envoi simulé en production sans opt-in explicite — même
+   * filet de sécurité que dispatchEmail (voir mock-payment.provider.ts) :
+   * un canal sans prestataire réel intégré ne doit jamais renvoyer un faux
+   * succès silencieux en production.
+   */
+  private ensureSimulationAllowed(
+    channel: 'SMS' | 'PUSH',
+    allowFlagName: 'ALLOW_SIMULATED_SMS' | 'ALLOW_SIMULATED_PUSH',
+  ) {
+    const isProduction = this.config.get('NODE_ENV') === 'production';
+    const allowSimulated = this.config.get(allowFlagName) === 'true';
+    if (isProduction && !allowSimulated) {
+      throw new Error(
+        `Aucun prestataire ${channel} réel intégré : impossible d'envoyer un ${channel} réel en production. ` +
+          `Définissez ${allowFlagName}=true en connaissance de cause (démo/staging uniquement) tant qu'aucun prestataire n'est intégré.`,
+      );
+    }
   }
 
   /**
@@ -322,28 +374,19 @@ export class NotificationService {
 
   /**
    * Récupère les préférences de notification d'un utilisateur.
-   * Si elles n'existent pas, crée des préférences par défaut.
+   * Si elles n'existent pas encore (première consultation), une ligne par
+   * défaut est créée — voir NotificationPreference dans schema.prisma.
    */
   async getUserPreferences(
     userId: string,
   ): Promise<NotificationPreferencesDto> {
-    // On peut stocker les préférences dans une table dédiée
-    // Pour l'instant, on retourne des valeurs par défaut
-    // Dans le futur, on pourrait stocker dans SystemConfig ou une table UserPreferences
+    const preferences = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      update: {},
+      create: { userId },
+    });
 
-    // Simuler des préférences par défaut
-    return {
-      emailEnabled: true,
-      smsEnabled: true,
-      pushEnabled: true,
-      inAppEnabled: true,
-      categories: [
-        'APPLICATION_SUBMITTED',
-        'PAYMENT_CONFIRMED',
-        'STATUS_CHANGED',
-        'WELCOME',
-      ],
-    };
+    return this.toPreferencesDto(preferences);
   }
 
   /**
@@ -355,13 +398,44 @@ export class NotificationService {
     });
     if (!user) throw new NotFoundException('User not found');
 
-    // Dans le futur, on stockera dans une table dédiée
-    // Pour l'instant, on simule la mise à jour
-    console.log(`📝 Updated preferences for user ${userId}:`, dto);
+    const preferences = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      update: {
+        emailEnabled: dto.emailEnabled,
+        smsEnabled: dto.smsEnabled,
+        pushEnabled: dto.pushEnabled,
+        inAppEnabled: dto.inAppEnabled,
+        categories: dto.categories,
+      },
+      create: {
+        userId,
+        emailEnabled: dto.emailEnabled,
+        smsEnabled: dto.smsEnabled,
+        pushEnabled: dto.pushEnabled,
+        inAppEnabled: dto.inAppEnabled,
+        categories: dto.categories,
+      },
+    });
 
     return {
       success: true,
-      preferences: dto,
+      preferences: this.toPreferencesDto(preferences),
+    };
+  }
+
+  private toPreferencesDto(preferences: {
+    emailEnabled: boolean;
+    smsEnabled: boolean;
+    pushEnabled: boolean;
+    inAppEnabled: boolean;
+    categories: string[];
+  }): NotificationPreferencesDto {
+    return {
+      emailEnabled: preferences.emailEnabled,
+      smsEnabled: preferences.smsEnabled,
+      pushEnabled: preferences.pushEnabled,
+      inAppEnabled: preferences.inAppEnabled,
+      categories: preferences.categories,
     };
   }
 
