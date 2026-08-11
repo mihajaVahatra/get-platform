@@ -146,7 +146,7 @@ export class StudentService {
   /**
    * Récupère le profil complet de l'étudiant (utilisateur lié, documents
    * non supprimés, 10 dernières candidatures, inscriptions actives) et
-   * déchiffre `phone`/`cin`. En cas d'échec de déchiffrement (ex. donnée
+   * déchiffre `phone`/`cin`/`address`. En cas d'échec de déchiffrement (ex. donnée
    * chiffrée avec une ancienne clé), la valeur brute est renvoyée en
    * fallback plutôt que de faire échouer toute la requête.
    * @throws NotFoundException si le profil étudiant n'existe pas.
@@ -200,6 +200,7 @@ export class StudentService {
       // stockées en clair avant l'ajout du chiffrement à l'inscription).
       let decryptedPhone: string | null = null;
       let decryptedCin: string | null = null;
+      let decryptedAddress: string | null = null;
 
       if (student.phone) {
         try {
@@ -217,10 +218,19 @@ export class StudentService {
         }
       }
 
+      if (student.address) {
+        try {
+          decryptedAddress = this.encryption.decrypt(student.address);
+        } catch (e) {
+          console.error('❌ Erreur déchiffrement address:', e.message);
+        }
+      }
+
       return {
         ...student,
         phone: decryptedPhone,
         cin: decryptedCin,
+        address: decryptedAddress,
         profileCompleted: this.calculateProfileCompletion(student),
       };
     } catch (error) {
@@ -232,11 +242,11 @@ export class StudentService {
   /**
    * Met à jour les champs modifiables du profil étudiant. Recalcule
    * `profileCompleted` à partir des données fusionnées (existantes + DTO).
-   * `phone` et `cin`, s'ils sont fournis, sont chiffrés avant écriture ;
-   * si le chiffrement échoue, l'opération est refusée entièrement (voir
-   * commentaire inline) plutôt que d'écrire la donnée en clair.
+   * `phone`, `cin` et `address`, s'ils sont fournis, sont chiffrés avant
+   * écriture ; si le chiffrement échoue, l'opération est refusée entièrement
+   * (voir commentaire inline) plutôt que d'écrire la donnée en clair.
    * @throws NotFoundException si le profil étudiant n'existe pas.
-   * @throws BadRequestException si le chiffrement de phone/cin échoue.
+   * @throws BadRequestException si le chiffrement de phone/cin/address échoue.
    */
   async updateProfile(userId: string, dto: UpdateStudentProfileDto) {
     const student = await this.prisma.student.findUnique({
@@ -259,7 +269,6 @@ export class StudentService {
       bacYear: dto.bacYear,
       bacType: dto.bacType,
       city: dto.city,
-      address: dto.address,
       region: dto.region,
       bio: dto.bio,
       interests: dto.interests,
@@ -286,6 +295,15 @@ export class StudentService {
       } catch (e) {
         throw new BadRequestException(
           'Impossible de sécuriser le CIN, réessayez plus tard',
+        );
+      }
+    }
+    if (dto.address) {
+      try {
+        data.address = this.encryption.encrypt(dto.address);
+      } catch (e) {
+        throw new BadRequestException(
+          'Impossible de sécuriser l’adresse, réessayez plus tard',
         );
       }
     }
