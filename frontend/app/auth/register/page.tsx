@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { Logo } from '@/components/Logo';
+import { CURRENT_TERMS_VERSION } from '@/lib/terms-version';
 
 /** Schéma de validation du formulaire d'inscription (identité, contact, mot de passe, conditions). */
 const registerSchema = z
@@ -129,6 +130,7 @@ export default function RegisterPage() {
         email: form.email,
         phone: form.phone || undefined,
         password: form.password,
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
       toast.success('Vérifie ta boîte mail pour activer ton compte !');
       router.push(`/auth/verify-email?email=${encodeURIComponent(form.email)}`);
@@ -323,13 +325,23 @@ export default function RegisterPage() {
                 />
                 <span>
                   J’accepte les{' '}
-                  <a href="#" className="font-medium text-indigo-600">
+                  <Link
+                    href="/cgu"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-600 hover:underline"
+                  >
                     Conditions d’utilisation
-                  </a>{' '}
+                  </Link>{' '}
                   et la{' '}
-                  <a href="#" className="font-medium text-indigo-600">
+                  <Link
+                    href="/confidentialite"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-indigo-600 hover:underline"
+                  >
                     Politique de confidentialité
-                  </a>
+                  </Link>
                 </span>
               </label>
               {errors.terms && (

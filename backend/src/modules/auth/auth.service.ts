@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto';
 import { MfaService } from './mfa/mfa.service';
 import { NotificationService } from '../notification/notification.service';
 import { EncryptionService } from '../../common/services/encryption.service';
+import { CURRENT_TERMS_VERSION } from './terms.constant';
 
 const MFA_CHALLENGE_EXPIRATION = '5m';
 const EMAIL_VERIFICATION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24h
@@ -52,6 +53,15 @@ export class AuthService {
    * ça redonne simplement un nouveau code, pratique si le premier a expiré.
    */
   async register(dto: RegisterDto) {
+    // Refuse plutôt que d'enregistrer une acceptation qui ne correspond pas
+    // au texte réellement affiché par le frontend au moment du clic (page
+    // obsolète en cache, appel direct à l'API en contournant l'UI...).
+    if (dto.acceptedTermsVersion !== CURRENT_TERMS_VERSION) {
+      throw new BadRequestException(
+        'La version des CGU a changé : merci de recharger la page et de les accepter à nouveau.',
+      );
+    }
+
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -67,6 +77,7 @@ export class AuthService {
     // dans Student.phone à la vérification (voir completeEmailVerification),
     // donc c'est ici ou jamais qu'il faut le chiffrer.
     const encryptedPhone = this.encryption.encrypt(dto.phone);
+    const acceptedTermsAt = new Date();
 
     const pending = await this.prisma.pendingRegistration.upsert({
       where: { email: dto.email },
@@ -78,6 +89,8 @@ export class AuthService {
         phone: encryptedPhone,
         codeHash,
         expiresAt,
+        acceptedTermsVersion: dto.acceptedTermsVersion,
+        acceptedTermsAt,
       },
       update: {
         passwordHash: hashedPassword,
@@ -87,6 +100,8 @@ export class AuthService {
         codeHash,
         codeAttempts: 0,
         expiresAt,
+        acceptedTermsVersion: dto.acceptedTermsVersion,
+        acceptedTermsAt,
       },
     });
 
@@ -246,6 +261,8 @@ export class AuthService {
         password: pending.passwordHash,
         roleId: studentRole.id,
         isVerified: true,
+        acceptedTermsVersion: pending.acceptedTermsVersion,
+        acceptedTermsAt: pending.acceptedTermsAt,
         student: {
           create: {
             firstName: pending.firstName,
@@ -269,6 +286,7 @@ export class AuthService {
       user.email,
       user.role!.name,
       user.sessionVersion,
+      true,
     );
     const userInfo = this.extractUserInfo(user);
 
@@ -377,11 +395,16 @@ export class AuthService {
 
     await this.resetLoginAttempts(user.id);
 
+    const rememberMe = dto.remember ?? true;
+
     if (user.mfaEnabled) {
       // Le mot de passe est valide mais le MFA est activé : on ne délivre
-      // aucun jeton d'accès tant que le code TOTP n'est pas vérifié.
+      // aucun jeton d'accès tant que le code TOTP n'est pas vérifié. Le choix
+      // "se souvenir de moi" est fait à cette étape (le formulaire de
+      // vérification du code n'a pas cette case) : il voyage dans le
+      // challenge pour être appliqué une fois le code validé.
       const challengeToken = this.jwt.sign(
-        { sub: user.id, type: 'mfa_challenge' },
+        { sub: user.id, type: 'mfa_challenge', rememberMe },
         {
           expiresIn: MFA_CHALLENGE_EXPIRATION,
           secret: this.config.get('JWT_SECRET'),
@@ -400,6 +423,7 @@ export class AuthService {
       user.email,
       user.role!.name,
       user.sessionVersion,
+      rememberMe,
     );
     const userInfo = this.extractUserInfo(user);
 
@@ -407,6 +431,7 @@ export class AuthService {
       mfaRequired: false as const,
       ...tokens,
       user: userInfo,
+      rememberMe,
     };
   }
 
@@ -453,15 +478,18 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
+    const rememberMe: boolean = payload.rememberMe ?? true;
     const tokens = this.generateTokens(
       user.id,
       user.email,
       user.role!.name,
       user.sessionVersion,
+      rememberMe,
     );
     const userInfo = this.extractUserInfo(user);
 
     return {
+      rememberMe,
       ...tokens,
       user: userInfo,
     };
@@ -484,6 +512,7 @@ export class AuthService {
       sub: string;
       sessionVersion: number;
       type?: string;
+      rememberMe?: boolean;
     };
     try {
       payload = this.jwt.verify(refreshToken, {
@@ -516,15 +545,21 @@ export class AuthService {
       );
     }
 
+    // Préserve le choix "se souvenir de moi" de la connexion d'origine —
+    // sans ça, rafraîchir la session d'un utilisateur qui avait décoché la
+    // case reposerait par erreur un cookie persistant.
+    const rememberMe = payload.rememberMe ?? true;
     const tokens = this.generateTokens(
       user.id,
       user.email,
       user.role!.name,
       user.sessionVersion,
+      rememberMe,
     );
     const userInfo = this.extractUserInfo(user);
 
     return {
+      rememberMe,
       ...tokens,
       user: userInfo,
     };
@@ -756,19 +791,24 @@ export class AuthService {
   /**
    * Signe une paire access token (courte durée, JWT_SECRET) / refresh token
    * (longue durée, JWT_REFRESH_SECRET — secret distinct) avec le même
-   * payload `{ sub, email, role, sessionVersion }`.
+   * payload `{ sub, email, role, sessionVersion, rememberMe }`.
+   * `rememberMe` voyage dans le JWT (pas seulement dans le cookie) pour
+   * survivre à un refresh : sans ça, rafraîchir la session d'un utilisateur
+   * qui avait décoché "se souvenir de moi" reposerait par erreur un cookie
+   * persistant (voir AuthController.refresh).
    */
   private generateTokens(
     userId: string,
     email: string,
     role: string,
     sessionVersion: number,
+    rememberMe: boolean,
   ) {
     // `sessionVersion` est vérifié à chaque requête par JwtStrategy : un
     // jeton signé avec une valeur qui ne correspond plus à celle en base
     // (incrémentée à la déconnexion) est rejeté. C'est le mécanisme de
     // révocation de session côté serveur pour des JWT autrement stateless.
-    const payload = { sub: userId, email, role, sessionVersion };
+    const payload = { sub: userId, email, role, sessionVersion, rememberMe };
 
     const accessToken = this.jwt.sign(payload, {
       expiresIn: this.config.get('JWT_EXPIRATION', '15m'),
