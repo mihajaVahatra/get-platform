@@ -546,6 +546,7 @@
     "createAccount": "Créer un compte",
     "mfaCodeRequired": "Saisissez le code à 6 chiffres de votre application",
     "mfaInvalidCode": "Code invalide ou expiré",
+    "mfaSessionExpired": "Session de connexion expirée, merci de vous reconnecter",
     "mfaTitle": "Vérification en deux étapes",
     "mfaSubtitle": "Saisissez le code à 6 chiffres généré par votre application d’authentification.",
     "verifying": "Vérification…",

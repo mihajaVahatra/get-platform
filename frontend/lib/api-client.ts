@@ -59,6 +59,15 @@ const AUTH_ENDPOINTS_WITHOUT_REDIRECT = [
   '/auth/login',
   '/auth/register',
   '/auth/refresh',
+  // Un défi MFA expiré/invalide renvoie 401 (AuthService.completeMfaLogin) —
+  // avant l'ajout de cette exclusion, l'intercepteur global tentait un
+  // /auth/refresh (qui échoue forcément : aucun cookie de session n'existe
+  // encore avant la vérification MFA) puis redirigeait la page entière vers
+  // /auth/login, effaçant l'état React de MfaChallengeScreen au lieu de
+  // laisser l'écran MFA lui-même gérer l'expiration (faille corrigée suite
+  // à l'audit sécurité). Un mauvais *code* (400, pas 401) n'est pas concerné
+  // et continue d'être géré localement par un simple toast.
+  '/auth/mfa/login-verify',
 ];
 
 // L'access token expire au bout de 15 min (voir backend AuthController) —
