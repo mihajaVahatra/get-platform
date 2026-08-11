@@ -114,5 +114,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Échoue si le JS client total dépasse le budget (voir
+      # scripts/check-bundle-budget.mjs) — une dépendance lourde importée
+      # par erreur dans un composant client ne doit se remarquer qu'ici,
+      # pas une fois le temps de chargement dégradé en production.
+      - name: Budget de bundle
+        run: npm run check:bundle-budget
+
       - name: Dependency audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high

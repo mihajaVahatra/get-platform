@@ -1,24 +1,15 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Frontend de la plateforme GET (Next.js, App Router) — voir le [README racine](../README.md) pour la vue d'ensemble du monorepo (backend, infrastructure Docker) et le [guide de déploiement](../DEPLOYMENT.md).
 
-## Getting Started
-
-First, run the development server:
+## Démarrage
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ce dépôt utilise `npm` (`package-lock.json` committé) — pas de yarn/pnpm/bun, un second lockfile créerait une dérive de versions non détectée par la CI.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Le backend (voir [`../backend`](../backend)) doit tourner en parallèle (`npm run start:dev`, http://localhost:3001) pour que les appels API fonctionnent. Une fois les deux lancés, http://localhost:3000 affiche l'application.
 
 ## Avant de terminer un écran
 
