@@ -161,6 +161,9 @@ export default function StudentDashboardPage() {
   const [grades, setGrades] = useState<CourseGrades[]>([]);
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
   const [tasks, setTasks] = useState<AssignmentTask[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<{
+    ABSENT: number;
+  } | null>(null);
 
   useEffect(() => {
     apiClient
@@ -177,6 +180,11 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     const enrolled = (student?.schoolEnrollments?.length ?? 0) > 0;
     if (!enrolled) return;
+
+    apiClient
+      .get('/students/me/attendance/stats')
+      .then((res) => setAttendanceStats(res.data.data))
+      .catch((error) => console.error('Erreur chargement présence:', error));
 
     Promise.all([
       apiClient.get('/students/me/courses'),
@@ -333,7 +341,7 @@ export default function StudentDashboardPage() {
         <StatWidget
           icon={CalendarDays}
           title={t('statAbsences')}
-          value="2"
+          value={attendanceStats ? String(attendanceStats.ABSENT) : '—'}
           suffix=""
           hint={t('statAbsencesHint')}
           tone="orange"
