@@ -146,6 +146,26 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       res.status(403).json({ message: 'Accès refusé' });
       return;
     }
+
+    // Un document supprimé (`deletedAt` renseigné) ne doit plus jamais être
+    // téléchargeable, même si son objet S3 existe encore et que l'appelant
+    // est par ailleurs autorisé sur ce `studentId` : sans ce contrôle, une
+    // ancienne URL de document "supprimé" restait valide indéfiniment
+    // (faille corrigée suite à l'audit QA — voir aussi
+    // `StorageService.deleteObject` appelé par `deleteDocument`).
+    const document = await prisma.document.findFirst({
+      where: {
+        studentId,
+        fileUrl: { endsWith: `documents/${studentId}/${fileName}` },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!document) {
+      res.status(404).json({ message: 'Fichier introuvable' });
+      return;
+    }
+
     await redirectToFile(res, ['documents', studentId, fileName]);
   });
 

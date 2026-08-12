@@ -289,3 +289,56 @@ describe('StudentService — notes, emploi du temps et préférences', () => {
     expect(result).toEqual({ theme: 'dark' });
   });
 });
+
+describe('StudentService — deleteDocument', () => {
+  let service: StudentService;
+  let prisma: {
+    student: { findUnique: jest.Mock };
+    document: { findFirst: jest.Mock; update: jest.Mock };
+  };
+  let storageService: { deleteObject: jest.Mock };
+
+  beforeEach(() => {
+    prisma = {
+      student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1' }) },
+      document: { findFirst: jest.fn(), update: jest.fn() },
+    };
+    storageService = { deleteObject: jest.fn().mockResolvedValue(undefined) };
+    service = new StudentService(
+      prisma as unknown as PrismaService,
+      {} as EncryptionService,
+      storageService as unknown as StorageService,
+    );
+  });
+
+  it('refuse de supprimer un document introuvable ou déjà supprimé', async () => {
+    prisma.document.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.deleteDocument('user-1', 'document-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.document.update).not.toHaveBeenCalled();
+    expect(storageService.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('marque le document supprimé (deletedAt) et retire l’objet S3 sous-jacent', async () => {
+    prisma.document.findFirst.mockResolvedValue({
+      id: 'document-1',
+      studentId: 'student-1',
+      fileUrl: 'http://localhost:3001/uploads/documents/student-1/abc123.pdf',
+    });
+
+    const result = await service.deleteDocument('user-1', 'document-1');
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'document-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(storageService.deleteObject).toHaveBeenCalledWith(
+      'documents',
+      'student-1',
+      'abc123.pdf',
+    );
+    expect(result).toEqual({ success: true });
+  });
+});
