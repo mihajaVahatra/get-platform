@@ -137,7 +137,7 @@ export class NotificationService {
           result = await this.sendPush(dto, user);
           break;
         case NotificationType.IN_APP:
-          result = await this.sendInApp(dto, user);
+          result = this.sendInApp(dto, user);
           break;
         default:
           throw new BadRequestException('Unsupported notification type');
@@ -390,7 +390,7 @@ export class NotificationService {
    * Envoie une notification in-app.
    * (Stockée en base, affichée dans l'interface)
    */
-  private async sendInApp(dto: SendNotificationDto, user: NotificationUser) {
+  private sendInApp(dto: SendNotificationDto, user: NotificationUser) {
     console.log(
       `📨 Sending in-app notification to user ${user.id}: ${dto.title}`,
     );
