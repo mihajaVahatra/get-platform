@@ -76,7 +76,19 @@ type CourseTab =
   | 'evaluations'
   | 'assignments'
   | 'grades'
+  | 'attendance'
   | 'settings';
+
+/** Statut de présence d'un étudiant pour une séance (voir POST .../attendance). */
+type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE';
+
+/** Ligne du trombinoscope de présence, telle que renvoyée par GET .../attendance. */
+type AttendanceEntry = {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  status: AttendanceStatus | null;
+};
 
 /** Cours enseigné par le professeur, tel que listé dans la vue "Mes cours". */
 type CourseSummary = {
@@ -528,6 +540,7 @@ function CourseDetail({
       {tab === 'evaluations' && <CourseEvaluations courseId={course.id} />}
       {tab === 'assignments' && <CourseAssignments courseId={course.id} />}
       {tab === 'grades' && <CourseGrades courseId={course.id} />}
+      {tab === 'attendance' && <CourseAttendance courseId={course.id} />}
       {tab === 'settings' && (
         <CourseSettings course={course} onCourseChange={setCourse} />
       )}
@@ -550,6 +563,7 @@ function CourseTabs({
     ['evaluations', 'Évaluations'],
     ['assignments', 'Devoirs'],
     ['grades', 'Notes'],
+    ['attendance', 'Présence'],
     ['settings', 'Réglages'],
   ];
   return (
@@ -1552,6 +1566,187 @@ function CourseAssignments({ courseId }: { courseId: string }) {
 /** Onglet "Notes" d'un cours : délègue à `GradeBook`. */
 function CourseGrades({ courseId }: { courseId: string }) {
   return <GradeBook courseId={courseId} />;
+}
+
+/** Date du jour au format YYYY-MM-DD (fuseau local), pour préremplir l'appel. */
+function todayIsoDate(): string {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = {
+  PRESENT: 'Présent',
+  ABSENT: 'Absent',
+  LATE: 'En retard',
+};
+
+/**
+ * Onglet "Présence" d'un cours : appel pour une date donnée (par défaut
+ * aujourd'hui). Charge le trombinoscope avec le statut déjà enregistré à
+ * cette date le cas échéant (voir GET .../attendance), laisse l'enseignant
+ * ajuster chaque statut localement, puis enregistre tout en un seul appel
+ * (POST .../attendance) — idempotent côté backend, rappeler avec la même
+ * date écrase simplement les statuts précédents plutôt que de dupliquer.
+ */
+function CourseAttendance({ courseId }: { courseId: string }) {
+  const [date, setDate] = useState(todayIsoDate);
+  const [entries, setEntries] = useState<AttendanceEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const fetchAttendance = useCallback(async () => {
+    try {
+      setLoading(true);
+      setFailed(false);
+      const response = await apiClient.get(
+        `/teacher/courses/${courseId}/attendance`,
+        { params: { date } },
+      );
+      setEntries(response.data.data || []);
+    } catch (error) {
+      console.error('Erreur chargement présence:', error);
+      setFailed(true);
+      toast.error('Impossible de charger la présence de ce cours');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId, date]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) return fetchAttendance();
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchAttendance]);
+
+  const setStatus = (studentId: string, status: AttendanceStatus) => {
+    setEntries((current) =>
+      current.map((entry) =>
+        entry.studentId === studentId ? { ...entry, status } : entry,
+      ),
+    );
+  };
+
+  const markAllPresent = () => {
+    setEntries((current) =>
+      current.map((entry) => ({ ...entry, status: 'PRESENT' as const })),
+    );
+  };
+
+  const saveAttendance = async () => {
+    const records = entries
+      .filter((entry): entry is AttendanceEntry & { status: AttendanceStatus } =>
+        entry.status !== null,
+      )
+      .map(({ studentId, status }) => ({ studentId, status }));
+    if (records.length === 0) {
+      toast.error('Renseigne au moins un statut avant d’enregistrer');
+      return;
+    }
+    try {
+      setSaving(true);
+      const response = await apiClient.post(
+        `/teacher/courses/${courseId}/attendance`,
+        { date, records },
+      );
+      setEntries(response.data.data || []);
+      toast.success('Appel enregistré');
+    } catch (error) {
+      console.error('Erreur enregistrement présence:', error);
+      toast.error('Impossible d’enregistrer l’appel');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <span className="mb-1 block text-xs font-bold text-[#34406b]">
+            Date de la séance
+          </span>
+          <input
+            type="date"
+            value={date}
+            max={todayIsoDate()}
+            onChange={(event) => setDate(event.target.value)}
+            className="h-10 rounded-lg border border-border bg-background px-3 text-xs"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={markAllPresent}
+          disabled={loading || entries.length === 0}
+        >
+          Tout marquer présent
+        </Button>
+        <Button
+          type="button"
+          onClick={() => void saveAttendance()}
+          disabled={saving || loading || entries.length === 0}
+        >
+          {saving ? 'Enregistrement…' : 'Enregistrer l’appel'}
+        </Button>
+      </div>
+      <Card title="Appel">
+        {loading || failed || entries.length === 0 ? (
+          <AsyncState
+            status={loading ? 'loading' : failed ? 'error' : 'empty'}
+            variant="inline"
+            loadingMessage="Chargement du trombinoscope…"
+            retryLabel="Réessayer de charger la présence"
+            emptyMessage="Aucun étudiant n’est inscrit à ce cours."
+            onRetry={() => void fetchAttendance()}
+          />
+        ) : (
+          <div className="space-y-2">
+            {entries.map((entry) => (
+              <div
+                key={entry.studentId}
+                className="flex items-center gap-3 rounded-xl border border-slate-50 p-2.5"
+              >
+                <div className="min-w-0 flex-1">
+                  <StudentIdentity
+                    firstName={entry.firstName}
+                    lastName={entry.lastName}
+                  />
+                </div>
+                <Select
+                  items={(Object.keys(ATTENDANCE_LABELS) as AttendanceStatus[]).map(
+                    (status) => ({ value: status, label: ATTENDANCE_LABELS[status] }),
+                  )}
+                  value={entry.status ?? ''}
+                  onValueChange={(value) =>
+                    value && setStatus(entry.studentId, value as AttendanceStatus)
+                  }
+                >
+                  <SelectTrigger className="h-9 w-36 text-xs">
+                    <SelectValue placeholder="Non renseigné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ATTENDANCE_LABELS) as AttendanceStatus[]).map(
+                      (status) => (
+                        <SelectItem key={status} value={status}>
+                          {ATTENDANCE_LABELS[status]}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
 }
 
 /**

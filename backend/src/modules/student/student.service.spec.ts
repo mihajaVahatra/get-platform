@@ -19,6 +19,7 @@ describe('StudentService — devoirs', () => {
   let prisma: {
     student: { findUnique: jest.Mock };
     courseEnrollment: { findUnique: jest.Mock; findMany: jest.Mock };
+    studentEnrollment: { findUnique: jest.Mock };
     assignment: { findUnique: jest.Mock; findMany: jest.Mock };
     assignmentSubmission: { findUnique: jest.Mock; upsert: jest.Mock };
   };
@@ -28,6 +29,12 @@ describe('StudentService — devoirs', () => {
     prisma = {
       student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1' }) },
       courseEnrollment: { findUnique: jest.fn(), findMany: jest.fn() },
+      // ACTIVE par défaut : les tests d'un parcours "inscription valide"
+      // n'ont pas à s'en préoccuper, seuls ceux qui testent la révocation
+      // d'accès (retrait/diplomation) la redéfinissent explicitement.
+      studentEnrollment: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
       assignment: { findUnique: jest.fn(), findMany: jest.fn() },
       assignmentSubmission: { findUnique: jest.fn(), upsert: jest.fn() },
     };
@@ -53,6 +60,22 @@ describe('StudentService — devoirs', () => {
     expect(prisma.assignment.findMany).not.toHaveBeenCalled();
   });
 
+  it('refuse l’accès à un cours si l’inscription à l’école n’est plus active (retrait/diplomation)', async () => {
+    prisma.courseEnrollment.findUnique.mockResolvedValue({
+      id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
+    });
+    prisma.studentEnrollment.findUnique.mockResolvedValue({
+      status: 'WITHDRAWN',
+    });
+
+    await expect(
+      service.getCourseAssignments('user-1', 'course-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.assignment.findMany).not.toHaveBeenCalled();
+  });
+
   it('refuse de remplacer une soumission déjà notée avant tout upload', async () => {
     prisma.assignment.findUnique.mockResolvedValue({
       id: 'assignment-1',
@@ -61,6 +84,7 @@ describe('StudentService — devoirs', () => {
     });
     prisma.courseEnrollment.findUnique.mockResolvedValue({
       id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
     });
     prisma.assignmentSubmission.findUnique.mockResolvedValue({
       id: 'submission-1',
@@ -85,6 +109,7 @@ describe('StudentService — devoirs', () => {
     });
     prisma.courseEnrollment.findUnique.mockResolvedValue({
       id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
     });
     prisma.assignmentSubmission.findUnique.mockResolvedValue(null);
     prisma.assignmentSubmission.upsert.mockResolvedValue({
@@ -262,5 +287,58 @@ describe('StudentService — notes, emploi du temps et préférences', () => {
       select: { theme: true },
     });
     expect(result).toEqual({ theme: 'dark' });
+  });
+});
+
+describe('StudentService — deleteDocument', () => {
+  let service: StudentService;
+  let prisma: {
+    student: { findUnique: jest.Mock };
+    document: { findFirst: jest.Mock; update: jest.Mock };
+  };
+  let storageService: { deleteObject: jest.Mock };
+
+  beforeEach(() => {
+    prisma = {
+      student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1' }) },
+      document: { findFirst: jest.fn(), update: jest.fn() },
+    };
+    storageService = { deleteObject: jest.fn().mockResolvedValue(undefined) };
+    service = new StudentService(
+      prisma as unknown as PrismaService,
+      {} as EncryptionService,
+      storageService as unknown as StorageService,
+    );
+  });
+
+  it('refuse de supprimer un document introuvable ou déjà supprimé', async () => {
+    prisma.document.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.deleteDocument('user-1', 'document-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.document.update).not.toHaveBeenCalled();
+    expect(storageService.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it('marque le document supprimé (deletedAt) et retire l’objet S3 sous-jacent', async () => {
+    prisma.document.findFirst.mockResolvedValue({
+      id: 'document-1',
+      studentId: 'student-1',
+      fileUrl: 'http://localhost:3001/uploads/documents/student-1/abc123.pdf',
+    });
+
+    const result = await service.deleteDocument('user-1', 'document-1');
+
+    expect(prisma.document.update).toHaveBeenCalledWith({
+      where: { id: 'document-1' },
+      data: { deletedAt: expect.any(Date) },
+    });
+    expect(storageService.deleteObject).toHaveBeenCalledWith(
+      'documents',
+      'student-1',
+      'abc123.pdf',
+    );
+    expect(result).toEqual({ success: true });
   });
 });

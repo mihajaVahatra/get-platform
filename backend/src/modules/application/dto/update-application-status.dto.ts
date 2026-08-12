@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsArray,
   IsDateString,
+  IsUrl,
   MaxLength,
 } from 'class-validator';
 
@@ -124,9 +125,21 @@ export class ScheduleInterviewDto {
   @IsString()
   date: string;
 
+  // HTTPS strictement exigé (pas d'allowlist de domaine : les plateformes
+  // de visio légitimes sont trop variées — Zoom, Meet, Teams, un lien
+  // propre à l'école... — pour être listées de façon exhaustive sans
+  // bloquer des cas d'usage réels). Sans cette validation, n'importe quelle
+  // chaîne (y compris un schéma dangereux comme javascript:/data:) était
+  // acceptée et renvoyée telle quelle à l'étudiant, qui la voit comme un
+  // lien "officiel" envoyé par son école — faille corrigée suite à l'audit
+  // sécurité.
   @ApiPropertyOptional({ example: 'https://meet.google.com/abc-defg-hij' })
   @IsOptional()
-  @IsString()
+  @IsUrl(
+    { protocols: ['https'], require_protocol: true },
+    { message: "Le lien d'entretien doit être une URL https:// valide" },
+  )
+  @MaxLength(2000)
   link?: string;
 
   @ApiPropertyOptional({ example: 'Please bring your CV' })

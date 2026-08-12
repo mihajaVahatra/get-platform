@@ -5,6 +5,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
+import { appendFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
@@ -213,6 +215,13 @@ export class NotificationService {
       }
       console.log(`📧 [dev] Email à ${to} : ${subject}`);
       console.log(`   ${redactBody ? '[corps masqué — contient un secret]' : text}`);
+      // Le contenu complet (y compris un lien/code secret, même quand
+      // redactBody masque la console) part uniquement vers un fichier local
+      // — jamais vers la console/les logs applicatifs (qui peuvent être
+      // centralisés hors de la machine) ni, a fortiori, vers une réponse
+      // HTTP. Un développeur qui teste en local peut lire ce fichier sur son
+      // propre poste ; un appelant distant de l'API n'y a jamais accès.
+      await this.writeLocalMailSink(to, subject, text);
       return {
         provider: 'EMAIL',
         status: 'SIMULATED',
@@ -241,6 +250,29 @@ export class NotificationService {
     } catch (error) {
       this.logger.error(`Échec envoi email SendGrid à ${to}`, error as Error);
       throw error;
+    }
+  }
+
+  /**
+   * Écrit le contenu complet d'un email simulé (aucun provider réel
+   * configuré) dans un fichier local, gitignoré, jamais servi par
+   * l'application. C'est le seul endroit où un lien/code secret (reset de
+   * mot de passe, vérification d'email) est récupérable quand aucun email
+   * réel n'est envoyé — un test local doit lire ce fichier sur disque, il
+   * ne doit jamais transiter par une réponse HTTP (voir AuthService.forgotPassword).
+   * Best-effort : une erreur d'écriture ne doit jamais faire échouer l'envoi
+   * (simulé) qui l'a déclenchée.
+   */
+  private async writeLocalMailSink(to: string, subject: string, text: string) {
+    try {
+      const dir = join(process.cwd(), '.local-mail');
+      await mkdir(dir, { recursive: true });
+      const entry = `[${new Date().toISOString()}] à ${to} — ${subject}\n${text}\n${'-'.repeat(60)}\n`;
+      await appendFile(join(dir, 'outbox.log'), entry, 'utf8');
+    } catch (error) {
+      this.logger.warn(
+        `Impossible d'écrire dans le mail sink local : ${(error as Error).message}`,
+      );
     }
   }
 

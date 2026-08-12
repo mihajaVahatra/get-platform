@@ -36,9 +36,14 @@ jobs:
       PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Historique complet nécessaire pour calculer le diff des fichiers
+          # modifiés (voir step "Lint" ci-dessous) — sans ça, git n'a que le
+          # dernier commit et ne peut pas comparer avec la base de la PR.
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -54,14 +59,31 @@ jobs:
         run: npm run typecheck
 
       # Backlog connu (audit sécurité 2026-08-02) : 735 erreurs / 44
-      # avertissements ESLint, 41 fichiers non conformes Prettier. Non
-      # bloquant tant que ce backlog n'est pas résorbé — mais visible dans
-      # chaque run pour éviter toute régression silencieuse au-delà.
-      - name: Lint (non bloquant — backlog en cours de résorption)
+      # avertissements ESLint, 41 fichiers non conformes Prettier — bien trop
+      # volumineux pour être résorbé d'un coup, et bloquer sur un fichier
+      # entier dès qu'il est touché pénaliserait injustement toute PR qui
+      # modifierait ne serait-ce qu'une ligne d'un fichier déjà en dette
+      # (vérifié : ça aurait bloqué plusieurs commits déjà mergés sur
+      # develop). scripts/lint-diff.mjs ne bloque donc que sur les LIGNES
+      # réellement ajoutées/modifiées par ce diff — pas de nouvelle dette,
+      # sans exiger de résorber l'existant pour pouvoir merger. Couvre aussi
+      # Prettier (eslint-plugin-prettier remonte ses erreurs comme des
+      # erreurs ESLint classiques, règle `prettier/prettier`).
+      - name: Lint (lignes modifiées — bloquant)
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Pas de base fiable pour un diff (ex. tout premier push d'une branche) — vérification bloquante ignorée pour ce run, le lint complet non bloquant ci-dessous reste actif." >&2
+            exit 0
+          fi
+          node ../scripts/lint-diff.mjs "$BASE_SHA" "${{ github.sha }}" .ts
+
+      - name: Lint (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run lint
         continue-on-error: true
 
-      - name: Format check (non bloquant — backlog en cours de résorption)
+      - name: Format check (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run format:check
         continue-on-error: true
 
@@ -80,6 +102,23 @@ jobs:
       - name: Dependency audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high
 
+      # SBOM (inventaire des dépendances, format CycloneDX) — informatif,
+      # jamais un gate (`continue-on-error`) : `npm sbom` échoue dès qu'il
+      # détecte une incohérence dans l'arbre de dépendances (ex. actuellement
+      # js-yaml@5.2.3 installé alors que @nestjs/swagger en requiert 5.2.1),
+      # ce qui est un problème de lockfile à part entière, pas une raison de
+      # bloquer la CI depuis cette étape informative.
+      - name: Générer le SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=application > sbom-backend.json
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-backend
+          path: backend/sbom-backend.json
+          retention-days: 90
+          if-no-files-found: warn
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -94,9 +133,11 @@ jobs:
       # que le build compile.
       API_ORIGIN: https://ci-only-placeholder.invalid
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -109,9 +150,21 @@ jobs:
         run: npm run typecheck
 
       # Backlog connu (audit sécurité 2026-08-02) : 32 erreurs / 25
-      # avertissements ESLint. Non bloquant tant que ce backlog n'est pas
-      # résorbé.
-      - name: Lint (non bloquant — backlog en cours de résorption)
+      # avertissements ESLint — même logique que côté backend (voir le
+      # commentaire équivalent dans le job Backend) : bloquant sur les
+      # lignes modifiées, non bloquant sur le reste du dépôt tant que le
+      # backlog historique n'est pas résorbé.
+      - name: Lint (lignes modifiées — bloquant)
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Pas de base fiable pour un diff (ex. tout premier push d'une branche) — vérification bloquante ignorée pour ce run, le lint complet non bloquant ci-dessous reste actif." >&2
+            exit 0
+          fi
+          node ../scripts/lint-diff.mjs "$BASE_SHA" "${{ github.sha }}" .ts .tsx
+
+      - name: Lint (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run lint
         continue-on-error: true
 
@@ -123,3 +176,16 @@ jobs:
 
       - name: Dependency audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high
+
+      # Informatif, jamais un gate — voir le commentaire équivalent côté
+      # backend.
+      - name: Générer le SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=application > sbom-frontend.json
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-frontend
+          path: frontend/sbom-frontend.json
+          retention-days: 90
+          if-no-files-found: warn
