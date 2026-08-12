@@ -12,16 +12,22 @@ vi.mock('react-hot-toast', () => ({
 
 describe('TeacherDashboard', () => {
   it('affiche les statistiques renvoyées par l’API', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({
-      data: {
-        data: {
-          courses: 3,
-          students: 42,
-          submissionsToGrade: 7,
-          upcomingEvaluations: 2,
-          unreadMessages: 4,
-        },
-      },
+    const summary = {
+      courses: 3,
+      students: 42,
+      submissionsToGrade: 7,
+      upcomingEvaluations: 2,
+      unreadMessages: 4,
+    };
+    // Mock par URL : le composant appelle aussi /teacher/courses/schedule
+    // en parallèle, qui attend un tableau — un mockResolvedValue unique
+    // pour les deux appels lui renverrait l'objet summary par erreur.
+    vi.mocked(apiClient.get).mockImplementation((url: string) => {
+      if (url === '/teacher/dashboard/summary')
+        return Promise.resolve({ data: { data: summary } });
+      if (url === '/teacher/courses/schedule')
+        return Promise.resolve({ data: { data: [] } });
+      return Promise.reject(new Error(`unexpected url ${url}`));
     });
 
     render(<TeacherDashboard />);
@@ -31,6 +37,9 @@ describe('TeacherDashboard', () => {
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+    // unreadMessages n'est pas dans la grille de métriques — il n'apparaît
+    // que dans le raccourci "Messages non lus", au sein d'un texte plus
+    // large.
     expect(screen.getByText('4 messages en attente')).toBeInTheDocument();
   });
 

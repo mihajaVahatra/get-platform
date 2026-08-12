@@ -124,7 +124,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.REJECTED } as any,
+          {
+            status: ApplicationStatus.REJECTED,
+          },
           'user-1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -262,7 +264,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.ACCEPTED } as any,
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -283,7 +287,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.ACCEPTED } as any,
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -331,6 +337,7 @@ describe('ApplicationService', () => {
           schoolId: 'school-2',
           programId: 'program-1',
         }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
         update: expect.objectContaining({ programId: 'program-1' }),
       });
       expect(schoolService.syncCourseEnrollments).toHaveBeenCalledWith(
@@ -412,7 +419,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.ACCEPTED } as any,
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -435,7 +444,10 @@ describe('ApplicationService', () => {
       await expect(
         service.scheduleTest(
           'application-1',
-          { date: '2026-09-01T10:00:00Z', type: 'QCM' } as any,
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -454,7 +466,10 @@ describe('ApplicationService', () => {
       await expect(
         service.scheduleTest(
           'application-1',
-          { date: '2026-09-01T10:00:00Z', type: 'QCM' } as any,
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -473,7 +488,10 @@ describe('ApplicationService', () => {
       await expect(
         service.scheduleTest(
           'application-1',
-          { date: '2026-09-01T10:00:00Z', type: 'QCM' } as any,
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -502,6 +520,7 @@ describe('ApplicationService', () => {
       expect(prisma.application.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'application-1' },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             status: ApplicationStatus.TEST_SCHEDULED,
           }),
@@ -523,7 +542,7 @@ describe('ApplicationService', () => {
       await expect(
         service.scheduleInterview(
           'application-1',
-          { date: '2026-09-01T10:00:00Z' } as any,
+          { date: '2026-09-01T10:00:00Z' },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -542,7 +561,7 @@ describe('ApplicationService', () => {
       await expect(
         service.scheduleInterview(
           'application-1',
-          { date: '2026-09-01T10:00:00Z' } as any,
+          { date: '2026-09-01T10:00:00Z' },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -570,6 +589,7 @@ describe('ApplicationService', () => {
 
       expect(prisma.application.update).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             status: ApplicationStatus.INTERVIEW_SCHEDULED,
           }),
