@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import * as speakeasy from 'speakeasy';
+import type request from 'supertest';
 
 /**
  * Client Prisma dédié aux fixtures e2e (création/nettoyage), distinct de
@@ -37,6 +39,7 @@ export async function createUser(params: {
   email: string;
   password: string;
   roleName: string;
+  mfaEnabled?: boolean;
 }) {
   const role = await ensureRole(params.roleName);
   const passwordHash = await bcrypt.hash(params.password, 10);
@@ -46,6 +49,7 @@ export async function createUser(params: {
       password: passwordHash,
       roleId: role.id,
       isVerified: true,
+      mfaEnabled: params.mfaEnabled ?? false,
     },
   });
 }
@@ -85,6 +89,31 @@ export async function createPrivilegedUser(params: {
   roleName: 'ADMIN_GET' | 'SCHOOL_ADMIN' | 'MINISTRY';
 }) {
   return createUser(params);
+}
+
+/**
+ * Active réellement le MFA sur un agent déjà connecté (session cookies déjà
+ * posés), via le vrai parcours d'enrôlement (`POST /auth/mfa/enable` puis
+ * `/auth/mfa/verify` avec un code TOTP valide) — jamais une écriture directe
+ * de `mfaEnabled` en base, qui laisserait `mfaSecret` vide et casserait la
+ * page suivante nécessitant un second facteur.
+ *
+ * Peut s'appeler APRÈS le login initial sans avoir à se reconnecter :
+ * `JwtStrategy.validate` recharge l'utilisateur depuis la base à chaque
+ * requête (jamais depuis le payload du JWT), donc les mêmes cookies de
+ * session restent valides une fois le MFA activé — nécessaire pour
+ * `MfaEnforcedGuard`, qui bloque désormais (403) tout endpoint mutable pour
+ * un ADMIN_GET/SCHOOL_ADMIN/MINISTRY sans MFA actif.
+ */
+export async function enrollMfa(
+  agent: ReturnType<typeof request.agent>,
+): Promise<void> {
+  const enableResponse = await agent.post('/api/auth/mfa/enable').expect(201);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- réponse Supertest (.body) non typée par nature (any)
+  const secret: string = enableResponse.body.secret;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- @types/speakeasy résout mal ses propres types, voir le même disable dans mfa.e2e-spec.ts
+  const code: string = speakeasy.totp({ secret, encoding: 'base32' });
+  await agent.post('/api/auth/mfa/verify').send({ code }).expect(201);
 }
 
 export async function createSchool(params: {

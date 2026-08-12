@@ -11,6 +11,7 @@ import {
   createStudent,
   disconnectFixtures,
   e2eEmail,
+  enrollMfa,
   newRunId,
   prisma,
 } from './utils/fixtures';
@@ -126,6 +127,10 @@ describe('Paiement (e2e)', () => {
       .post('/api/auth/login')
       .send({ email: adminEmail, password })
       .expect(200);
+    // MfaEnforcedGuard exige le MFA actif pour SCHOOL_ADMIN sur tout
+    // endpoint mutable (voir enrollMfa) — sans ça, le PUT status ci-dessous
+    // échouerait en 403.
+    await enrollMfa(adminAgent);
     await adminAgent
       .put(`/api/applications/${applicationId}/status`)
       .send({ status: 'ACCEPTED' })

@@ -10,6 +10,7 @@ import {
   createStudent,
   disconnectFixtures,
   e2eEmail,
+  enrollMfa,
   newRunId,
 } from './utils/fixtures';
 
@@ -48,6 +49,10 @@ describe('Admission (e2e)', () => {
       .post('/api/auth/login')
       .send({ email: adminEmail, password })
       .expect(200);
+    // MfaEnforcedGuard exige le MFA actif pour SCHOOL_ADMIN sur tout
+    // endpoint mutable (voir enrollMfa) — sans ça, les PUT status ci-dessous
+    // échoueraient tous en 403.
+    await enrollMfa(schoolAdminAgent);
   });
 
   afterAll(async () => {

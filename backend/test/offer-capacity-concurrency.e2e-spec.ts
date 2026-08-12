@@ -10,6 +10,7 @@ import {
   createStudent,
   disconnectFixtures,
   e2eEmail,
+  enrollMfa,
   newRunId,
   prisma,
 } from './utils/fixtures';
@@ -58,6 +59,10 @@ describe('Concurrence de capacité d’offre (e2e)', () => {
       .post('/api/auth/login')
       .send({ email: adminEmail, password })
       .expect(200);
+    // MfaEnforcedGuard exige le MFA actif pour SCHOOL_ADMIN sur tout
+    // endpoint mutable — un seul enrôlement suffit pour les deux agents (même
+    // utilisateur en base, JwtStrategy la recharge à chaque requête).
+    await enrollMfa(adminAgentA);
 
     // Deux candidats distincts postulent à la même offre.
     const applicationIds: string[] = [];
