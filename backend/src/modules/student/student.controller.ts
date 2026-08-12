@@ -625,6 +625,26 @@ export class StudentController {
     return { success: true, data: schedule, message: 'Schedule retrieved' };
   }
 
+  // ========== ÉVÉNEMENTS ==========
+
+  /** Retourne les événements à venir des écoles où l'étudiant est activement inscrit. */
+  @Get('me/events')
+  @ApiOperation({ summary: 'Get upcoming events for enrolled schools' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Events retrieved' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getUpcomingEvents(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const events = await this.studentService.getUpcomingEvents(user.id);
+    return { success: true, data: events, message: 'Events retrieved' };
+  }
+
   // ========== SECURITY & PREFERENCES ==========
 
   /**

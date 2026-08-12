@@ -211,6 +211,7 @@ model School {
   academicYears      SchoolAcademicYear[]
   subjects           SchoolSubject[]
   competitions       Competition[]
+  events             SchoolEvent[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -1018,6 +1019,27 @@ model AnnouncementRecipient {
 
   @@unique([announcementId, userId])
   @@map("announcement_recipients")
+}
+
+// Événement calendaire d'une école (journée portes ouvertes, hackathon,
+// conférence...), géré par un SCHOOL_ADMIN — distinct des Announcement
+// (contenu texte diffusé aux étudiants d'un cours) : un événement a une
+// date/heure précise et un lieu, affiché sur le dashboard des étudiants
+// inscrits à l'école.
+model SchoolEvent {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  location    String?
+  startAt     DateTime
+  createdBy   String // User.id du SCHOOL_ADMIN ayant créé l'événement
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId, startAt])
+  @@map("school_events")
 }
 
 model Message {

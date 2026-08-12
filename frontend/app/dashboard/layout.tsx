@@ -814,6 +814,11 @@ function SchoolSidebar({
       href: '/dashboard/school/communications',
     },
     {
+      label: 'Événements',
+      icon: CalendarRange,
+      href: '/dashboard/school/events',
+    },
+    {
       label: 'Messages',
       icon: Mail,
       href: '/dashboard/school/messages',
