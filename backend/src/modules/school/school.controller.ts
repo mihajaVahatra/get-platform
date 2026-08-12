@@ -66,6 +66,10 @@ import {
 import { CreateCourseSlotDto, UpdateCourseSlotDto } from './dto/course-slot.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import {
+  CreateSchoolEventDto,
+  UpdateSchoolEventDto,
+} from './dto/school-event.dto';
 import { BroadcastAnnouncementDto } from './dto/broadcast-announcement.dto';
 import { CreateSchoolProgramDto, UpdateSchoolProgramDto } from './dto/school-program.dto';
 import { CreateSchoolAcademicYearDto, UpdateSchoolAcademicYearDto } from './dto/school-academic-year.dto';
@@ -1990,5 +1994,86 @@ export class SchoolController {
     if (!user.schoolAdmin) throw new ForbiddenException("Réservé aux administrateurs d'école");
     await this.schedulingService.unassignTeacher(user.schoolAdmin.schoolId, classId, requirementId);
     return { success: true, message: 'Professeur retiré' };
+  }
+
+  // ========== ÉVÉNEMENTS ==========
+
+  /** Liste les événements à venir de mon école. */
+  @Get('me/events')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List upcoming events for my school' })
+  async getMyEvents(@GetUser() user: SchoolAdminSession) {
+    if (!user.schoolAdmin)
+      throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schoolService.listUpcomingEvents(
+        user.schoolAdmin.schoolId,
+      ),
+    };
+  }
+
+  /** Crée un événement pour mon école. */
+  @Post('me/events')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Create an event for my school' })
+  async createMyEvent(
+    @GetUser() user: SchoolAdminSession & { id: string },
+    @Body() dto: CreateSchoolEventDto,
+  ) {
+    if (!user.schoolAdmin)
+      throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schoolService.createEvent(
+        user.schoolAdmin.schoolId,
+        user.id,
+        dto,
+      ),
+      message: 'Event created',
+    };
+  }
+
+  /** Modifie un événement de mon école. */
+  @Patch('me/events/:eventId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update an event of my school' })
+  async updateMyEvent(
+    @GetUser() user: SchoolAdminSession,
+    @Param('eventId') eventId: string,
+    @Body() dto: UpdateSchoolEventDto,
+  ) {
+    if (!user.schoolAdmin)
+      throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return {
+      success: true,
+      data: await this.schoolService.updateEvent(
+        user.schoolAdmin.schoolId,
+        eventId,
+        dto,
+      ),
+      message: 'Event updated',
+    };
+  }
+
+  /** Supprime un événement de mon école. */
+  @Delete('me/events/:eventId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SCHOOL_ADMIN')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Delete an event of my school' })
+  async deleteMyEvent(
+    @GetUser() user: SchoolAdminSession,
+    @Param('eventId') eventId: string,
+  ) {
+    if (!user.schoolAdmin)
+      throw new ForbiddenException("Réservé aux administrateurs d'école");
+    return this.schoolService.deleteEvent(user.schoolAdmin.schoolId, eventId);
   }
 }

@@ -72,4 +72,28 @@ describe('createReportExport', () => {
     expect(result.buffer.toString('utf8')).toContain('ENI');
     expect(result.buffer.toString('utf8')).toContain('Licence informatique');
   });
+
+  it.each(['=', '+', '-', '@'])(
+    'neutralise l’injection de formule CSV pour un nom de rapport commençant par "%s"',
+    (leadingChar) => {
+      // report.name passe tel quel dans une cellule CSV (contrairement aux
+      // dimensions bySchoolProgramme, toujours préfixées d'un libellé fixe
+      // comme "School: " — jamais exploitables telles quelles) : c'est la
+      // seule valeur de ce rapport agrégé qui pourrait littéralement
+      // commencer par le caractère déclencheur.
+      const maliciousReport = {
+        ...report,
+        name: `${leadingChar}cmd|'/c calc'!A1`,
+      };
+
+      const result = createReportExport(maliciousReport, ExportFormat.CSV);
+      const csv = result.buffer.toString('utf8');
+
+      // La cellule est préfixée d'une apostrophe (neutralisation standard
+      // OWASP) : elle ne doit plus jamais commencer par le caractère
+      // déclencheur juste après un guillemet ouvrant.
+      expect(csv).not.toContain(`"${leadingChar}cmd`);
+      expect(csv).toContain(`"'${leadingChar}cmd`);
+    },
+  );
 });

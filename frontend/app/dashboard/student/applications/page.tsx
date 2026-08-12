@@ -41,6 +41,22 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+/**
+ * Le backend valide déjà le lien d'entretien à l'écriture (HTTPS strict,
+ * voir ScheduleInterviewDto), mais ne jamais faire confiance uniquement à
+ * l'API pour une donnée affichée comme un lien cliquable "officiel" envoyé
+ * par l'école — une candidature planifiée avant ce correctif, ou toute
+ * autre voie d'écriture directe en base, pourrait encore porter un schéma
+ * dangereux (javascript:, data:...).
+ */
+export function isSafeHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** Candidature d'un étudiant à une offre, telle que retournée par l'API `/applications/me`, incluant son historique de statuts (`timeline`). */
 type Application = {
   id: string;
@@ -418,16 +434,21 @@ function StudentApplicationsContent() {
                     <p className="text-sm">
                       {formatDate(selectedApp.interviewDate)}
                     </p>
-                    {selectedApp.interviewLink && (
-                      <a
-                        href={selectedApp.interviewLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-300 hover:underline text-sm"
-                      >
-                        {t('interviewLink')}
-                      </a>
-                    )}
+                    {selectedApp.interviewLink &&
+                      (isSafeHttpsUrl(selectedApp.interviewLink) ? (
+                        <a
+                          href={selectedApp.interviewLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-300 hover:underline text-sm"
+                        >
+                          {t('interviewLink')}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-rose-600 dark:text-rose-400">
+                          {t('interviewLinkInvalid')}
+                        </p>
+                      ))}
                   </div>
                 )}
               </div>

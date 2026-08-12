@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnnouncementService } from '../announcement/announcement.service';
 import { StorageService } from '../../common/services/storage.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 /**
  * Logique métier de l'espace enseignant : profil, tableau de bord, cours
  * (chapitres, ressources, paramètres), évaluations/notes, devoirs/
@@ -23,6 +24,7 @@ export class TeachingService {
     private readonly prisma: PrismaService,
     private readonly announcementService: AnnouncementService,
     private readonly storageService: StorageService,
+    private readonly encryption: EncryptionService,
   ) {}
   /**
    * Résout l'entité Teacher liée à un compte utilisateur.
@@ -33,6 +35,24 @@ export class TeachingService {
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
     return teacher;
   }
+  /**
+   * Déchiffre `teacher.phone` (chiffré au repos, voir updateProfile) pour
+   * l'exposer au client. Même politique que StudentService.profile : en cas
+   * d'échec de déchiffrement (ligne legacy stockée en clair avant l'ajout du
+   * chiffrement, ou ENCRYPTION_KEY changée), le champ est masqué plutôt que
+   * renvoyé tel quel — jamais de fallback vers un potentiel texte en clair.
+   */
+  private decryptTeacherPhone<T extends { phone: string | null }>(
+    teacher: T,
+  ): T {
+    if (!teacher.phone) return teacher;
+    try {
+      return { ...teacher, phone: this.encryption.decrypt(teacher.phone) };
+    } catch (e) {
+      console.error('❌ Erreur déchiffrement phone (teacher):', e.message);
+      return { ...teacher, phone: null };
+    }
+  }
   /** Récupère le profil enseignant avec les infos utilisateur associées (email, thème). */
   async profile(userId: string) {
     const teacher = await this.prisma.teacher.findUnique({
@@ -40,7 +60,7 @@ export class TeachingService {
       include: { user: { select: { email: true, theme: true } } },
     });
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
-    return teacher;
+    return this.decryptTeacherPhone(teacher);
   }
   /**
    * Calcule les chiffres-clés du tableau de bord enseignant : nombre de
@@ -102,23 +122,31 @@ export class TeachingService {
     dto: { firstName?: string; lastName?: string; phone?: string },
   ) {
     const teacher = await this.teacher(userId);
-    return this.prisma.teacher.update({
+    const updated = await this.prisma.teacher.update({
       where: { id: teacher.id },
       data: {
         firstName: dto.firstName?.trim(),
         lastName: dto.lastName?.trim(),
-        phone: dto.phone?.trim(),
+        // Chiffré au repos (AES-256-GCM), comme Student.phone à
+        // l'inscription — un numéro de téléphone est une donnée
+        // personnelle, ne doit pas rester lisible par un simple accès en
+        // lecture à la base.
+        phone: dto.phone?.trim()
+          ? this.encryption.encrypt(dto.phone.trim())
+          : dto.phone,
       },
       include: { user: { select: { email: true, theme: true } } },
     });
+    return this.decryptTeacherPhone(updated);
   }
   async updateAvatar(userId: string, avatarUrl: string) {
     const teacher = await this.teacher(userId);
-    return this.prisma.teacher.update({
+    const updated = await this.prisma.teacher.update({
       where: { id: teacher.id },
       data: { avatarUrl },
       include: { user: { select: { email: true, theme: true } } },
     });
+    return this.decryptTeacherPhone(updated);
   }
   /**
    * `sessionVersion` incrémenté dans la même mise à jour pour révoquer
@@ -478,6 +506,104 @@ export class TeachingService {
     await this.course(userId, courseId);
     return this.enrolledStudents(courseId, page, limit);
   }
+
+  // ========== PRÉSENCE ==========
+
+  /**
+   * Retourne le trombinoscope du cours (tous les étudiants inscrits, sans
+   * pagination — une classe est toujours petite) avec, pour chacun, le
+   * statut déjà enregistré à cette date le cas échéant (permet de préremplir
+   * le formulaire d'appel si l'enseignant le rouvre).
+   */
+  async getAttendance(userId: string, courseId: string, date: string) {
+    await this.course(userId, courseId);
+    const day = new Date(date);
+    const [enrollments, existing] = await Promise.all([
+      this.prisma.courseEnrollment.findMany({
+        where: { courseId },
+        include: {
+          student: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { student: { lastName: 'asc' } },
+      }),
+      this.prisma.attendance.findMany({
+        where: { courseId, date: day },
+        select: { studentId: true, status: true },
+      }),
+    ]);
+    const statusByStudent = new Map(
+      existing.map((record) => [record.studentId, record.status]),
+    );
+    return enrollments.map(({ student }) => ({
+      studentId: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      status: statusByStudent.get(student.id) ?? null,
+    }));
+  }
+
+  /**
+   * Enregistre l'appel d'une séance (courseId + date précise — un CourseSlot
+   * ne décrit qu'un créneau hebdomadaire récurrent, jamais une occurrence
+   * datée). Idempotent : rappeler avec les mêmes valeurs écrase simplement
+   * le statut existant plutôt que de dupliquer (contrainte unique
+   * courseId+studentId+date, voir schema.prisma).
+   * @throws BadRequestException si un studentId fourni n'est pas inscrit à
+   * ce cours — empêche un enseignant de marquer la présence d'un étudiant
+   * qui n'a jamais mis les pieds dans ce cours.
+   */
+  async markAttendance(
+    userId: string,
+    courseId: string,
+    date: string,
+    records: Array<{ studentId: string; status: string }>,
+  ) {
+    const teacher = await this.teacher(userId);
+    await this.course(userId, courseId);
+    const day = new Date(date);
+
+    const enrolledIds = new Set(
+      (
+        await this.prisma.courseEnrollment.findMany({
+          where: {
+            courseId,
+            studentId: { in: records.map((r) => r.studentId) },
+          },
+          select: { studentId: true },
+        })
+      ).map((e) => e.studentId),
+    );
+    const unknown = records.find((r) => !enrolledIds.has(r.studentId));
+    if (unknown) {
+      throw new BadRequestException(
+        `L'étudiant ${unknown.studentId} n'est pas inscrit à ce cours`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      records.map((record) =>
+        this.prisma.attendance.upsert({
+          where: {
+            courseId_studentId_date: {
+              courseId,
+              studentId: record.studentId,
+              date: day,
+            },
+          },
+          create: {
+            courseId,
+            studentId: record.studentId,
+            date: day,
+            status: record.status,
+            markedBy: teacher.id,
+          },
+          update: { status: record.status, markedBy: teacher.id },
+        }),
+      ),
+    );
+
+    return this.getAttendance(userId, courseId, date);
+  }
   async evaluations(userId: string, courseId: string) {
     await this.course(userId, courseId);
     return this.prisma.evaluation.findMany({
@@ -560,7 +686,9 @@ export class TeachingService {
     const grades = await this.prisma.grade.findMany({
       where: {
         evaluationId,
-        studentId: { in: enrollments.map((enrollment) => enrollment.studentId) },
+        studentId: {
+          in: enrollments.map((enrollment) => enrollment.studentId),
+        },
       },
     });
     const gradesByStudentId = new Map(

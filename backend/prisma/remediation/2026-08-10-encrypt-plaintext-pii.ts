@@ -9,11 +9,18 @@
  * problème avec un fallback silencieux vers la valeur brute en cas d'échec
  * de déchiffrement (retiré dans le même correctif).
  *
+ * Étendu le même jour à Teacher.phone : TeachingService.updateProfile ne
+ * chiffrait pas du tout ce champ (contrairement à Student), et les seeds
+ * (prisma/seed.ts, prisma/seed/national.ts) écrivent Student.phone /
+ * Teacher.phone en clair — désormais chiffrés à la création (voir ces
+ * fichiers), mais les lignes déjà seedées avant ce correctif restent en
+ * clair tant que ce script n'a pas tourné.
+ *
  * Ce script chiffre, de façon idempotente, tout Student.phone / Student.cin
- * qui n'est pas déjà au format `iv:authTag:cipher` produit par
- * EncryptionService (16 octets IV + 16 octets authTag GCM, tout en hex) —
- * les lignes déjà chiffrées sont détectées et laissées intactes, donc ce
- * script peut être relancé sans risque.
+ * / Teacher.phone qui n'est pas déjà au format `iv:authTag:cipher` produit
+ * par EncryptionService (16 octets IV + 16 octets authTag GCM, tout en
+ * hex) — les lignes déjà chiffrées sont détectées et laissées intactes,
+ * donc ce script peut être relancé sans risque.
  *
  * Usage : ts-node prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts
  * (nécessite ENCRYPTION_KEY dans l'environnement, comme le backend)
@@ -82,7 +89,27 @@ async function main() {
   }
 
   console.log(
-    `Chiffrement terminé : ${phoneCount} téléphone(s) et ${cinCount} CIN passés du clair au chiffré (sur ${students.length} étudiant(s) avec au moins un des deux champs renseigné).`,
+    `Chiffrement terminé : ${phoneCount} téléphone(s) et ${cinCount} CIN étudiant(s) passés du clair au chiffré (sur ${students.length} étudiant(s) avec au moins un des deux champs renseigné).`,
+  );
+
+  const teachers = await prisma.teacher.findMany({
+    where: { phone: { not: null } },
+    select: { id: true, phone: true },
+  });
+
+  let teacherPhoneCount = 0;
+  for (const teacher of teachers) {
+    if (teacher.phone && !looksAlreadyEncrypted(teacher.phone)) {
+      await prisma.teacher.update({
+        where: { id: teacher.id },
+        data: { phone: encrypt(key, teacher.phone) },
+      });
+      teacherPhoneCount++;
+    }
+  }
+
+  console.log(
+    `Chiffrement terminé : ${teacherPhoneCount} téléphone(s) enseignant(s) passés du clair au chiffré (sur ${teachers.length} avec ce champ renseigné).`,
   );
 }
 

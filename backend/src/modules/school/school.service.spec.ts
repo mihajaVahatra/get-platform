@@ -15,6 +15,8 @@ describe('SchoolService', () => {
       upsert: jest.Mock;
     };
     teacherSchool: { findMany: jest.Mock };
+    studentEnrollment: { findMany: jest.Mock };
+    application: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -39,6 +41,8 @@ describe('SchoolService', () => {
           ),
       },
       teacherSchool: { findMany: jest.fn() },
+      studentEnrollment: { findMany: jest.fn() },
+      application: { findMany: jest.fn() },
       $transaction: jest.fn().mockResolvedValue([]),
     };
     service = new SchoolService(
@@ -121,7 +125,9 @@ describe('SchoolService', () => {
         courseId: 'course-1',
         student: {
           deletedAt: null,
-          schoolEnrollments: { some: { schoolId: 'school-1', status: 'ACTIVE' } },
+          schoolEnrollments: {
+            some: { schoolId: 'school-1', status: 'ACTIVE' },
+          },
         },
       },
     });
@@ -141,5 +147,70 @@ describe('SchoolService', () => {
       },
       orderBy: { createdAt: 'desc' },
     });
+  });
+
+  describe('exportCsv — neutralisation de l’injection de formule', () => {
+    /** Extrait la cellule `columnIndex` (0-indexée) de la première ligne de données (après l'en-tête). */
+    function firstDataRowCell(csv: string, columnIndex: number): string {
+      const withoutBom = csv.charCodeAt(0) === 0xfeff ? csv.slice(1) : csv;
+      const [, dataLine] = withoutBom.split('\r\n');
+      return dataLine.split(',')[columnIndex];
+    }
+
+    it.each(['=', '+', '-', '@'])(
+      'neutralise un prénom d’étudiant commençant par "%s" dans l’export des inscrits',
+      async (leadingChar) => {
+        prisma.studentEnrollment.findMany.mockResolvedValue([
+          {
+            student: {
+              firstName: `${leadingChar}cmd|'/c calc'!A1`,
+              lastName: 'Rakoto',
+              phone: '034 00 000 00',
+              city: 'Antananarivo',
+              user: { email: 'etu@get.mg' },
+            },
+            enrolledYear: '2026-2027',
+          },
+        ]);
+
+        const csv = (await service.exportCsv('school-1', 'students')).toString(
+          'utf8',
+        );
+        const firstNameCell = firstDataRowCell(csv, 0);
+
+        // La cellule est préfixée d'une apostrophe (neutralisation standard
+        // OWASP CSV Injection), jamais laissée telle quelle en tête de
+        // cellule — sans quoi Excel/LibreOffice l'interpréterait comme une
+        // formule à l'ouverture du fichier par un school-admin.
+        expect(firstNameCell.startsWith(leadingChar)).toBe(false);
+        expect(firstNameCell.startsWith(`'${leadingChar}`)).toBe(true);
+      },
+    );
+
+    it.each(['=', '+', '-', '@'])(
+      'neutralise un nom de famille d’étudiant commençant par "%s" dans l’export des candidatures',
+      async (leadingChar) => {
+        prisma.application.findMany.mockResolvedValue([
+          {
+            student: {
+              firstName: 'Fanja',
+              lastName: `${leadingChar}cmd|'/c calc'!A1`,
+              user: { email: 'etu@get.mg' },
+            },
+            offer: { title: 'Licence informatique' },
+            status: 'PENDING',
+            submittedAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ]);
+
+        const csv = (
+          await service.exportCsv('school-1', 'applications')
+        ).toString('utf8');
+        const lastNameCell = firstDataRowCell(csv, 1);
+
+        expect(lastNameCell.startsWith(leadingChar)).toBe(false);
+        expect(lastNameCell.startsWith(`'${leadingChar}`)).toBe(true);
+      },
+    );
   });
 });

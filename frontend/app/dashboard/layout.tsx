@@ -44,10 +44,12 @@ import {
 import { useTranslations } from 'next-intl';
 import { AvatarUpload } from '@/components/AvatarUpload';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { apiClient } from '@/lib/api-client';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
 import { Logo } from '@/components/Logo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useMobileDrawerA11y } from '@/hooks/useMobileDrawerA11y';
 
 type UserRole =
   'STUDENT' | 'SCHOOL_ADMIN' | 'TEACHER' | 'MINISTRY' | 'ADMIN_GET' | null;
@@ -90,6 +92,9 @@ export default function DashboardLayout({
   const tStudentNav = useTranslations('StudentNav');
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [user, setUser] = useState<DashboardUser | null>(null);
+  const [school, setSchool] = useState<{ name: string; logo?: string } | null>(
+    null,
+  );
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -150,6 +155,21 @@ export default function DashboardLayout({
       return () =>
         window.removeEventListener('teacher:profile-updated', loadProfile);
     }
+  }, [userRole]);
+
+  // Nom/logo de l'établissement affichés dans la sidebar SCHOOL_ADMIN —
+  // chargés depuis l'école réellement administrée par l'utilisateur
+  // connecté (voir SchoolSidebar), jamais une valeur fixe qui afficherait
+  // le mauvais établissement à un autre administrateur.
+  useEffect(() => {
+    if (userRole !== 'SCHOOL_ADMIN') return;
+    apiClient
+      .get('/schools/me')
+      .then((response) => {
+        const data = response.data.data;
+        setSchool({ name: data.name, logo: data.logo || undefined });
+      })
+      .catch((error) => console.error('Erreur chargement établissement:', error));
   }, [userRole]);
 
   useEffect(() => {
@@ -329,6 +349,7 @@ export default function DashboardLayout({
                 displayName === 'Étudiant' ? 'Administrateur' : displayName
               }
               gender={user?.gender}
+              school={school}
               onLogout={logout}
               unreadMessages={unreadMessages}
               mobileOpen={mobileMenuOpen}
@@ -401,6 +422,8 @@ export default function DashboardLayout({
         <Suspense fallback={null}>
           <AdminGetSidebar
             pathname={pathname}
+            displayName={displayName}
+            gender={user?.gender}
             onLogout={logout}
             unreadMessages={unreadMessages}
             mobileOpen={mobileMenuOpen}
@@ -447,6 +470,8 @@ export default function DashboardLayout({
         <Suspense fallback={null}>
           <MinistrySidebar
             pathname={pathname}
+            displayName={displayName}
+            gender={user?.gender}
             onLogout={logout}
             mobileOpen={mobileMenuOpen}
             onMobileClose={() => setMobileMenuOpen(false)}
@@ -612,6 +637,7 @@ function TeacherSidebar({
   onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
+  const drawerRef = useMobileDrawerA11y<HTMLElement>(mobileOpen, onMobileClose);
   const items = [
     { label: 'Tableau de bord', icon: Home, href: '/dashboard/teacher' },
     {
@@ -668,6 +694,10 @@ function TeacherSidebar({
   ];
   return (
     <aside
+      ref={drawerRef}
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? 'Menu de navigation' : undefined}
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-950 px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
@@ -754,6 +784,7 @@ function SchoolSidebar({
   pathname,
   displayName,
   gender,
+  school,
   onLogout,
   unreadMessages,
   mobileOpen,
@@ -762,12 +793,14 @@ function SchoolSidebar({
   pathname: string;
   displayName: string;
   gender?: string;
+  school: { name: string; logo?: string } | null;
   onLogout: () => void;
   unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
+  const drawerRef = useMobileDrawerA11y<HTMLElement>(mobileOpen, onMobileClose);
   const academic = [
     {
       label: 'Étudiants',
@@ -814,6 +847,11 @@ function SchoolSidebar({
       href: '/dashboard/school/communications',
     },
     {
+      label: 'Événements',
+      icon: CalendarRange,
+      href: '/dashboard/school/events',
+    },
+    {
       label: 'Messages',
       icon: Mail,
       href: '/dashboard/school/messages',
@@ -827,6 +865,10 @@ function SchoolSidebar({
   ];
   return (
     <aside
+      ref={drawerRef}
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? 'Menu de navigation' : undefined}
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} />
@@ -867,15 +909,15 @@ function SchoolSidebar({
       <div className="mt-2 shrink-0 space-y-3 pt-2">
         <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-full bg-indigo-100 text-sm font-black text-indigo-700">
-              E
-            </span>
-            <div>
-              <p className="text-sm font-bold">ESPA</p>
-              <p className="text-[10px] leading-4 text-slate-500">
-                École Supérieure
-                <br />
-                Polytechnique d’Antananarivo
+            <Avatar size="lg" className="shrink-0">
+              <AvatarImage src={school?.logo || undefined} alt="" />
+              <AvatarFallback className="bg-indigo-100 text-sm font-black text-indigo-700">
+                {(school?.name?.trim().charAt(0) || '?').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">
+                {school?.name || 'Chargement…'}
               </p>
             </div>
           </div>
@@ -969,18 +1011,23 @@ const UserRoundIcon = UsersRound;
 
 function AdminGetSidebar({
   pathname,
+  displayName,
+  gender,
   onLogout,
   unreadMessages,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
+  displayName: string;
+  gender?: string;
   onLogout: () => void;
   unreadMessages: number;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
+  const drawerRef = useMobileDrawerA11y<HTMLElement>(mobileOpen, onMobileClose);
   const global = [
     {
       label: 'Établissements',
@@ -1063,6 +1110,10 @@ function AdminGetSidebar({
   ];
   return (
     <aside
+      ref={drawerRef}
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? 'Menu de navigation' : undefined}
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-slate-100 bg-white px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} />
@@ -1070,11 +1121,9 @@ function AdminGetSidebar({
         <Logo variant="lockup" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl border border-slate-100 p-2.5 shadow-sm lg:hidden">
-        <span className="grid size-10 place-items-center rounded-full bg-indigo-100 text-sm font-black text-indigo-700">
-          AG
-        </span>
-        <div>
-          <p className="text-sm font-bold">Admin GET</p>
+        <DefaultAvatar gender={gender} size={40} />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{displayName}</p>
           <p className="text-[11px] text-slate-500">Superadministrateur</p>
         </div>
       </div>
@@ -1140,11 +1189,9 @@ function AdminGetSidebar({
       <div className="mt-2 shrink-0 space-y-3 pt-2">
         <div className="hidden rounded-xl border border-slate-100 p-3 shadow-sm lg:block">
           <div className="flex items-center gap-2">
-            <span className="grid size-9 place-items-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700">
-              AG
-            </span>
-            <div>
-              <p className="text-sm font-bold">Admin GET</p>
+            <DefaultAvatar gender={gender} size={36} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold">{displayName}</p>
               <p className="text-[10px] text-slate-500">Superadministrateur</p>
             </div>
           </div>
@@ -1172,16 +1219,21 @@ function AdminGetSidebar({
 
 function MinistrySidebar({
   pathname,
+  displayName,
+  gender,
   onLogout,
   mobileOpen,
   onMobileClose,
 }: {
   pathname: string;
+  displayName: string;
+  gender?: string;
   onLogout: () => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
   const currentUrl = useCurrentDashboardUrl(pathname);
+  const drawerRef = useMobileDrawerA11y<HTMLElement>(mobileOpen, onMobileClose);
   const navigation = [
     {
       label: 'Rapports',
@@ -1196,6 +1248,10 @@ function MinistrySidebar({
   ];
   return (
     <aside
+      ref={drawerRef}
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? 'Menu de navigation' : undefined}
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-950 px-4 py-5 text-white lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-6`}
     >
       <MobileCloseButton onClick={onMobileClose} dark />
@@ -1203,12 +1259,10 @@ function MinistrySidebar({
         <Logo variant="lockup" tone="light" size={40} />
       </Link>
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-xl bg-white/10 p-2.5 lg:hidden">
-        <span className="grid size-10 place-items-center rounded-full bg-white text-sm font-black text-indigo-700">
-          M
-        </span>
+        <DefaultAvatar gender={gender} size={40} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold">Ministère MESUPRES</p>
-          <p className="text-[11px] text-indigo-200">Administrateur</p>
+          <p className="truncate text-sm font-bold">{displayName}</p>
+          <p className="text-[11px] text-indigo-200">Ministère MESUPRES</p>
         </div>
       </div>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto">
@@ -1231,12 +1285,10 @@ function MinistrySidebar({
       </nav>
       <div className="mt-2 shrink-0 border-t border-white/10 pt-3">
         <div className="hidden items-center gap-3 rounded-xl bg-white/10 p-3 lg:flex">
-          <span className="grid size-9 place-items-center rounded-full bg-white text-xs font-black text-indigo-700">
-            M
-          </span>
+          <DefaultAvatar gender={gender} size={36} />
           <div className="min-w-0">
-            <p className="truncate text-xs font-bold">Ministère MESUPRES</p>
-            <p className="text-[10px] text-indigo-200">Administrateur</p>
+            <p className="truncate text-xs font-bold">{displayName}</p>
+            <p className="text-[10px] text-indigo-200">Ministère MESUPRES</p>
           </div>
         </div>
         <button
@@ -1308,6 +1360,7 @@ function StudentSidebar({
   onMobileClose: () => void;
 }) {
   const t = useTranslations('StudentNav');
+  const drawerRef = useMobileDrawerA11y<HTMLElement>(mobileOpen, onMobileClose);
 
   // Tant qu'aucune école n'a accepté le candidat, le menu ne montre que ce
   // qui le concerne réellement (découvrir, candidater, suivre) : les liens
@@ -1420,6 +1473,10 @@ function StudentSidebar({
 
   return (
     <aside
+      ref={drawerRef}
+      role={mobileOpen ? 'dialog' : undefined}
+      aria-modal={mobileOpen ? true : undefined}
+      aria-label={mobileOpen ? 'Menu de navigation' : undefined}
       className={`${mobileOpen ? 'fixed inset-y-0 right-0 z-50 flex animate-bubble-in' : 'hidden'} flex-col w-64 max-w-[85vw] shrink-0 border-r border-border bg-card px-4 py-5 lg:static lg:z-auto lg:flex lg:w-60 lg:min-h-screen lg:max-w-none lg:overflow-y-auto lg:py-7`}
     >
       <MobileCloseButton onClick={onMobileClose} />
