@@ -5,6 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
+import { Prisma } from '@prisma/client';
+import { appendFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
@@ -14,6 +17,9 @@ import {
   NotificationPriority,
 } from './dto/send-notification.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
+
+/** Utilisateur tel que chargé par `send()` (`prisma.user.findUnique` avec `include: { student: true }`). */
+type NotificationUser = Prisma.UserGetPayload<{ include: { student: true } }>;
 
 @Injectable()
 export class NotificationService {
@@ -106,27 +112,55 @@ export class NotificationService {
     // Vérifier si l'utilisateur a activé ce canal
     const isChannelEnabled = this.isChannelEnabled(dto.type, preferences);
     if (!isChannelEnabled) {
-      console.log(`Notification ${dto.type} disabled for user ${dto.userId}`);
+      this.logger.log(
+        `Notification ${dto.type} disabled for user ${dto.userId}`,
+      );
       return { success: false, reason: 'Channel disabled' };
     }
 
-    // Envoyer la notification selon le type
-    let result;
-    switch (dto.type) {
-      case NotificationType.EMAIL:
-        result = await this.sendEmail(dto, user);
-        break;
-      case NotificationType.SMS:
-        result = await this.sendSms(dto, user);
-        break;
-      case NotificationType.PUSH:
-        result = await this.sendPush(dto, user);
-        break;
-      case NotificationType.IN_APP:
-        result = await this.sendInApp(dto, user);
-        break;
-      default:
-        throw new BadRequestException('Unsupported notification type');
+    // Envoyer la notification selon le type. Un échec (garde-fou prod sans
+    // prestataire réel, erreur de déchiffrement du téléphone, etc.) est
+    // tracé en base plutôt que silencieusement perdu — voir traçabilité des
+    // échecs, US-14 — puis relancé tel quel : l'appelant (route admin,
+    // job planifié) doit continuer à voir un échec réel, pas un succès de
+    // façade.
+    let result: { provider: string; status: string; providerId: string };
+    try {
+      switch (dto.type) {
+        case NotificationType.EMAIL:
+          result = await this.sendEmail(dto, user);
+          break;
+        case NotificationType.SMS:
+          result = await this.sendSms(dto, user);
+          break;
+        case NotificationType.PUSH:
+          result = await this.sendPush(dto, user);
+          break;
+        case NotificationType.IN_APP:
+          result = this.sendInApp(dto, user);
+          break;
+        default:
+          throw new BadRequestException('Unsupported notification type');
+      }
+    } catch (error) {
+      const failureReason =
+        error instanceof Error ? error.message : String(error);
+      await this.prisma.notification.create({
+        data: {
+          userId: dto.userId,
+          type: dto.type,
+          title: dto.title,
+          body: dto.body,
+          data: dto.data as Prisma.InputJsonValue | undefined,
+          status: 'FAILED',
+          failureReason,
+        },
+      });
+      this.logger.error(
+        `Échec d'envoi de la notification ${dto.type} à l'utilisateur ${dto.userId}`,
+        error as Error,
+      );
+      throw error;
     }
 
     // Enregistrer la notification en base
@@ -136,8 +170,9 @@ export class NotificationService {
         type: dto.type,
         title: dto.title,
         body: dto.body,
-        data: dto.data,
+        data: dto.data as Prisma.InputJsonValue | undefined,
         sentAt: new Date(),
+        status: result.status,
       },
     });
 
@@ -155,7 +190,7 @@ export class NotificationService {
   /**
    * Envoie un email à un utilisateur existant.
    */
-  private async sendEmail(dto: SendNotificationDto, user: any) {
+  private async sendEmail(dto: SendNotificationDto, user: NotificationUser) {
     return this.dispatchEmail(user.email, dto.title, dto.body);
   }
 
@@ -213,6 +248,13 @@ export class NotificationService {
       }
       console.log(`📧 [dev] Email à ${to} : ${subject}`);
       console.log(`   ${redactBody ? '[corps masqué — contient un secret]' : text}`);
+      // Le contenu complet (y compris un lien/code secret, même quand
+      // redactBody masque la console) part uniquement vers un fichier local
+      // — jamais vers la console/les logs applicatifs (qui peuvent être
+      // centralisés hors de la machine) ni, a fortiori, vers une réponse
+      // HTTP. Un développeur qui teste en local peut lire ce fichier sur son
+      // propre poste ; un appelant distant de l'API n'y a jamais accès.
+      await this.writeLocalMailSink(to, subject, text);
       return {
         provider: 'EMAIL',
         status: 'SIMULATED',
@@ -245,10 +287,35 @@ export class NotificationService {
   }
 
   /**
-   * Envoie un SMS.
-   * (Simulé pour l'instant)
+   * Écrit le contenu complet d'un email simulé (aucun provider réel
+   * configuré) dans un fichier local, gitignoré, jamais servi par
+   * l'application. C'est le seul endroit où un lien/code secret (reset de
+   * mot de passe, vérification d'email) est récupérable quand aucun email
+   * réel n'est envoyé — un test local doit lire ce fichier sur disque, il
+   * ne doit jamais transiter par une réponse HTTP (voir AuthService.forgotPassword).
+   * Best-effort : une erreur d'écriture ne doit jamais faire échouer l'envoi
+   * (simulé) qui l'a déclenchée.
    */
-  private async sendSms(dto: SendNotificationDto, user: any) {
+  private async writeLocalMailSink(to: string, subject: string, text: string) {
+    try {
+      const dir = join(process.cwd(), '.local-mail');
+      await mkdir(dir, { recursive: true });
+      const entry = `[${new Date().toISOString()}] à ${to} — ${subject}\n${text}\n${'-'.repeat(60)}\n`;
+      await appendFile(join(dir, 'outbox.log'), entry, 'utf8');
+    } catch (error) {
+      this.logger.warn(
+        `Impossible d'écrire dans le mail sink local : ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Envoie un SMS. Aucun prestataire SMS réel n'est intégré à ce jour —
+   * `ensureSimulationAllowed` applique le même garde-fou qu'à l'email
+   * (dispatchEmail) : en production, une notification "simulée" ne doit
+   * jamais se faire passer pour un envoi réel sans opt-in explicite.
+   */
+  private async sendSms(dto: SendNotificationDto, user: NotificationUser) {
     const encryptedPhone = user.student?.phone;
     if (!encryptedPhone) {
       throw new BadRequestException('User has no phone number');
@@ -268,41 +335,62 @@ export class NotificationService {
     }
     void phone; // transmis au prestataire SMS réel une fois intégré
 
-    console.log(`📱 [dev] SMS simulé pour l'utilisateur ${user.id}`);
+    this.ensureSimulationAllowed('SMS', 'ALLOW_SIMULATED_SMS');
+    this.logger.log(`📱 [simulé] SMS pour l'utilisateur ${user.id}`);
 
     await this.delay(300);
 
     return {
       provider: 'SMS',
-      status: 'SENT',
+      status: 'SIMULATED',
       providerId: `sms-${Date.now()}`,
     };
   }
 
   /**
-   * Envoie une notification push.
-   * (Simulé pour l'instant)
+   * Envoie une notification push. Aucun prestataire push réel n'est intégré
+   * à ce jour — voir sendSms pour le garde-fou de production partagé.
    */
-  private async sendPush(dto: SendNotificationDto, user: any) {
-    console.log(
-      `🔔 Sending push notification to user ${user.id}: ${dto.title}`,
+  private async sendPush(dto: SendNotificationDto, user: NotificationUser) {
+    this.ensureSimulationAllowed('PUSH', 'ALLOW_SIMULATED_PUSH');
+    this.logger.log(
+      `🔔 [simulé] Push pour l'utilisateur ${user.id} : ${dto.title}`,
     );
-    console.log(`   Body: ${dto.body}`);
 
     await this.delay(200);
 
     return {
       provider: 'PUSH',
-      status: 'SENT',
+      status: 'SIMULATED',
       providerId: `push-${Date.now()}`,
     };
+  }
+
+  /**
+   * Refuse un envoi simulé en production sans opt-in explicite — même
+   * filet de sécurité que dispatchEmail (voir mock-payment.provider.ts) :
+   * un canal sans prestataire réel intégré ne doit jamais renvoyer un faux
+   * succès silencieux en production.
+   */
+  private ensureSimulationAllowed(
+    channel: 'SMS' | 'PUSH',
+    allowFlagName: 'ALLOW_SIMULATED_SMS' | 'ALLOW_SIMULATED_PUSH',
+  ) {
+    const isProduction = this.config.get('NODE_ENV') === 'production';
+    const allowSimulated = this.config.get(allowFlagName) === 'true';
+    if (isProduction && !allowSimulated) {
+      throw new Error(
+        `Aucun prestataire ${channel} réel intégré : impossible d'envoyer un ${channel} réel en production. ` +
+          `Définissez ${allowFlagName}=true en connaissance de cause (démo/staging uniquement) tant qu'aucun prestataire n'est intégré.`,
+      );
+    }
   }
 
   /**
    * Envoie une notification in-app.
    * (Stockée en base, affichée dans l'interface)
    */
-  private async sendInApp(dto: SendNotificationDto, user: any) {
+  private sendInApp(dto: SendNotificationDto, user: NotificationUser) {
     console.log(
       `📨 Sending in-app notification to user ${user.id}: ${dto.title}`,
     );
@@ -322,28 +410,19 @@ export class NotificationService {
 
   /**
    * Récupère les préférences de notification d'un utilisateur.
-   * Si elles n'existent pas, crée des préférences par défaut.
+   * Si elles n'existent pas encore (première consultation), une ligne par
+   * défaut est créée — voir NotificationPreference dans schema.prisma.
    */
   async getUserPreferences(
     userId: string,
   ): Promise<NotificationPreferencesDto> {
-    // On peut stocker les préférences dans une table dédiée
-    // Pour l'instant, on retourne des valeurs par défaut
-    // Dans le futur, on pourrait stocker dans SystemConfig ou une table UserPreferences
+    const preferences = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      update: {},
+      create: { userId },
+    });
 
-    // Simuler des préférences par défaut
-    return {
-      emailEnabled: true,
-      smsEnabled: true,
-      pushEnabled: true,
-      inAppEnabled: true,
-      categories: [
-        'APPLICATION_SUBMITTED',
-        'PAYMENT_CONFIRMED',
-        'STATUS_CHANGED',
-        'WELCOME',
-      ],
-    };
+    return this.toPreferencesDto(preferences);
   }
 
   /**
@@ -355,13 +434,44 @@ export class NotificationService {
     });
     if (!user) throw new NotFoundException('User not found');
 
-    // Dans le futur, on stockera dans une table dédiée
-    // Pour l'instant, on simule la mise à jour
-    console.log(`📝 Updated preferences for user ${userId}:`, dto);
+    const preferences = await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      update: {
+        emailEnabled: dto.emailEnabled,
+        smsEnabled: dto.smsEnabled,
+        pushEnabled: dto.pushEnabled,
+        inAppEnabled: dto.inAppEnabled,
+        categories: dto.categories,
+      },
+      create: {
+        userId,
+        emailEnabled: dto.emailEnabled,
+        smsEnabled: dto.smsEnabled,
+        pushEnabled: dto.pushEnabled,
+        inAppEnabled: dto.inAppEnabled,
+        categories: dto.categories,
+      },
+    });
 
     return {
       success: true,
-      preferences: dto,
+      preferences: this.toPreferencesDto(preferences),
+    };
+  }
+
+  private toPreferencesDto(preferences: {
+    emailEnabled: boolean;
+    smsEnabled: boolean;
+    pushEnabled: boolean;
+    inAppEnabled: boolean;
+    categories: string[];
+  }): NotificationPreferencesDto {
+    return {
+      emailEnabled: preferences.emailEnabled,
+      smsEnabled: preferences.smsEnabled,
+      pushEnabled: preferences.pushEnabled,
+      inAppEnabled: preferences.inAppEnabled,
+      categories: preferences.categories,
     };
   }
 

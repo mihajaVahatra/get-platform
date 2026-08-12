@@ -1,32 +1,20 @@
 import axios from 'axios';
 
 /**
- * Détermine l'URL de base de l'API backend.
- *
- * Priorité : `NEXT_PUBLIC_API_URL` si défini (prod/staging), sinon une
- * déduction dynamique côté navigateur, sinon un repli côté serveur.
- *
- * En dev, si NEXT_PUBLIC_API_URL n'est pas défini, on déduit l'URL de l'API
- * à partir de l'hôte utilisé pour accéder au frontend (localhost, IP locale
- * du réseau pour tester depuis un téléphone, etc.) plutôt que de figer
- * "localhost" en dur — sinon l'API est injoignable dès qu'on accède au site
- * via une autre adresse que localhost.
- *
- * @returns L'URL de base à utiliser pour toutes les requêtes API (ex. `http://192.168.1.10:3001/api`).
- */
-function resolveBaseUrl() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3001/api`;
-  }
-  return 'http://localhost:3001/api';
-}
-
-/**
  * Client HTTP Axios partagé par tout le frontend pour communiquer avec l'API backend.
  *
  * Configuration :
- * - `baseURL` résolue dynamiquement via {@link resolveBaseUrl}.
+ * - `baseURL: '/api'` — TOUJOURS une URL relative à l'origine du frontend,
+ *   jamais une URL absolue vers le backend. Le navigateur ne parle donc
+ *   qu'à son propre domaine ; c'est le proxy Next.js (voir la réécriture
+ *   `/api/*` dans `next.config.ts`, résolue côté serveur vers `API_ORIGIN`)
+ *   qui relaie vers le backend. Sans ça, le cookie de session est "tiers"
+ *   du point de vue du navigateur dès que frontend et backend sont sur des
+ *   domaines distincts (ex. Vercel + Render) : Safari (desktop et iOS)
+ *   bloque ce cookie par défaut (ITP) quel que soit le réglage `sameSite`
+ *   côté serveur — la connexion semblait réussir mais le dashboard restait
+ *   inaccessible (faille corrigée suite à l'audit sécurité — voir aussi
+ *   `next.config.ts` pour le détail du proxy).
  * - `withCredentials: true` pour envoyer/recevoir les cookies de session
  *   (access token / refresh token gérés côté backend en httpOnly).
  * - Timeout de 10s pour éviter les requêtes bloquées indéfiniment.
@@ -36,7 +24,7 @@ function resolveBaseUrl() {
  * de connexion si le rafraîchissement échoue.
  */
 export const apiClient = axios.create({
-  baseURL: resolveBaseUrl(),
+  baseURL: '/api',
   timeout: 10000,
   withCredentials: true,
   headers: {
@@ -59,6 +47,15 @@ const AUTH_ENDPOINTS_WITHOUT_REDIRECT = [
   '/auth/login',
   '/auth/register',
   '/auth/refresh',
+  // Un défi MFA expiré/invalide renvoie 401 (AuthService.completeMfaLogin) —
+  // avant l'ajout de cette exclusion, l'intercepteur global tentait un
+  // /auth/refresh (qui échoue forcément : aucun cookie de session n'existe
+  // encore avant la vérification MFA) puis redirigeait la page entière vers
+  // /auth/login, effaçant l'état React de MfaChallengeScreen au lieu de
+  // laisser l'écran MFA lui-même gérer l'expiration (faille corrigée suite
+  // à l'audit sécurité). Un mauvais *code* (400, pas 401) n'est pas concerné
+  // et continue d'être géré localement par un simple toast.
+  '/auth/mfa/login-verify',
 ];
 
 // L'access token expire au bout de 15 min (voir backend AuthController) —

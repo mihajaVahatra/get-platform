@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access -- réponses Supertest (.body) non typées par nature (any) ; ce fichier e2e lit des payloads JSON dynamiques dans des assertions, pas du code de production. */
 import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { bootstrapTestApp } from './utils/bootstrap';

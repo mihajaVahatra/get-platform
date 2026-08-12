@@ -25,17 +25,33 @@ const nextConfig: NextConfig = {
       { source: '/register', destination: '/auth/register', permanent: true },
     ];
   },
-  // Proxy /api/* vers le backend quand il est sur un domaine distinct
-  // (ex. Vercel + Render). Sans ça, le cookie de session est un cookie
+  // Proxy /api/* vers le backend (architecture d'auth retenue — voir
+  // lib/api-client.ts et DEPLOYMENT.md) : le navigateur ne parle jamais
+  // directement au backend, y compris quand il est sur un domaine distinct
+  // (ex. Vercel + Render). Sans ce proxy, le cookie de session serait
   // "tiers" du point de vue du navigateur : Safari (desktop et iOS) le
   // bloque par défaut (ITP), quel que soit le réglage sameSite côté
   // serveur — la connexion semble réussir mais le dashboard reste
   // inaccessible. En passant par ce proxy, le navigateur ne parle qu'au
   // domaine du frontend, le cookie redevient "premier parti" partout.
-  // N'a aucun effet en dev tant que API_ORIGIN n'est pas défini.
+  //
+  // API_ORIGIN est donc obligatoire dès que ce build tourne réellement en
+  // production (échec de build explicite plutôt qu'un déploiement qui
+  // semble réussir mais où plus aucun appel API n'aboutit — voir
+  // DEPLOYMENT.md §4). En dev, une valeur absente désactive juste la
+  // réécriture (utile si on préfère pointer NEXT_PUBLIC_API_URL en dur
+  // pour un besoin ponctuel) ; `frontend/.env.example` documente la valeur
+  // locale par défaut.
   async rewrites() {
     const apiOrigin = process.env.API_ORIGIN;
-    if (!apiOrigin) return [];
+    if (!apiOrigin) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          "API_ORIGIN doit être défini en production : sans lui, le proxy /api ne route vers aucun backend et toute la plateforme (connexion incluse) est injoignable. Voir DEPLOYMENT.md.",
+        );
+      }
+      return [];
+    }
     return [{ source: '/api/:path*', destination: `${apiOrigin}/api/:path*` }];
   },
 };

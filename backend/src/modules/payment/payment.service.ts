@@ -8,9 +8,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { Prisma, Payment } from '@prisma/client';
+import type Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import type { PaymentProvider } from './providers/payment-provider.interface';
+import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 import { v4 as uuidv4 } from 'uuid';
@@ -178,13 +180,23 @@ export class PaymentService {
   }
 
   /**
-   * Traite la notification asynchrone du fournisseur de paiement. Vérifie
-   * la signature HMAC, confirme le statut réel auprès du fournisseur
-   * (`confirmPayment`, ne fait jamais confiance au seul contenu du webhook),
-   * puis effectue en une transaction : mise à jour du paiement, inscription
-   * automatique de l'étudiant (StudentEnrollment + synchronisation des
-   * cours) et journalisation. Idempotent : un paiement déjà COMPLETED est
-   * retourné tel quel sans retraitement.
+   * Traite la notification asynchrone du fournisseur de paiement générique
+   * (`MockPaymentProvider`, signature HMAC maison — voir
+   * `assertValidWebhookSignature`). Pour Stripe, voir `handleStripeWebhook`,
+   * qui vérifie sa propre signature native puis délègue à la même logique
+   * de réconciliation ci-dessous (`reconcilePayment`).
+   * Vérifie la signature HMAC, confirme le statut réel auprès du
+   * fournisseur (`confirmPayment`, ne fait jamais confiance au seul contenu
+   * du webhook), puis effectue en une transaction : mise à jour du
+   * paiement, inscription automatique de l'étudiant (StudentEnrollment +
+   * synchronisation des cours) et journalisation. Idempotent : un paiement
+   * déjà COMPLETED est retourné tel quel sans retraitement (couvre
+   * notamment la double réception d'un même webhook).
+   * Si la candidature associée n'est plus ACCEPTED/ENROLLED au moment de la
+   * confirmation (webhook tardif reçu après une annulation), le candidat
+   * n'est jamais inscrit : le paiement reste enregistré fidèlement mais part
+   * en réconciliation (ligne `Refund` PENDING, remboursement fournisseur
+   * déclenché hors transaction).
    * @throws ForbiddenException si la signature webhook est absente/invalide.
    * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
    * @throws BadRequestException si le montant du webhook diffère du paiement enregistré.
@@ -195,8 +207,85 @@ export class PaymentService {
     signature?: string,
   ) {
     this.assertValidWebhookSignature(dto, rawBody, signature);
+    return this.reconcilePayment(dto.providerReference, dto.amount);
+  }
+
+  /**
+   * Traite un événement webhook Stripe natif : vérifie sa signature propre
+   * (`Stripe-Signature`, jamais le schéma HMAC maison utilisé par
+   * `handleWebhook`/`MockPaymentProvider`), n'agit que sur les événements de
+   * session de paiement pertinents (les autres sont accusés reçus sans
+   * traitement — Stripe envoie de nombreux types d'événements que ce
+   * backend n'a pas besoin de suivre), puis délègue à la même logique de
+   * réconciliation que le webhook générique.
+   * @throws ForbiddenException si Stripe n'est pas le fournisseur actif ou si le secret webhook n'est pas configuré.
+   * @throws BadRequestException si le corps brut ou la signature Stripe sont absents/invalides.
+   */
+  async handleStripeWebhook(
+    rawBody: Buffer | undefined,
+    signature: string | undefined,
+  ) {
+    if (!(this.paymentProvider instanceof StripePaymentProvider)) {
+      throw new ForbiddenException(
+        'Stripe n’est pas le fournisseur de paiement actif',
+      );
+    }
+    const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      throw new ForbiddenException(
+        'STRIPE_WEBHOOK_SECRET non configuré côté serveur',
+      );
+    }
+    if (!rawBody) {
+      // Contrairement au webhook générique (assertValidWebhookSignature),
+      // pas de repli sur un DTO re-sérialisé possible ici : la vérification
+      // Stripe exige les octets bruts exacts envoyés par Stripe, jamais une
+      // reconstruction.
+      throw new BadRequestException('Corps de requête brut manquant');
+    }
+    const event = this.paymentProvider.constructWebhookEvent(
+      rawBody,
+      signature,
+      webhookSecret,
+    );
+
+    const relevantEventTypes = new Set([
+      'checkout.session.completed',
+      'checkout.session.async_payment_succeeded',
+      'checkout.session.async_payment_failed',
+      'checkout.session.expired',
+    ]);
+    if (!relevantEventTypes.has(event.type)) {
+      return { received: true, ignored: event.type };
+    }
+
+    const session = event.data.object as Stripe.Checkout.Session;
+    return this.reconcilePayment(session.id);
+  }
+
+  /**
+   * Confirme le statut réel d'un paiement auprès du fournisseur
+   * (`confirmPayment`, ne fait jamais confiance au seul contenu d'un
+   * webhook, quel que soit le fournisseur), puis effectue en une
+   * transaction : mise à jour du paiement, inscription automatique de
+   * l'étudiant (StudentEnrollment + synchronisation des cours) et
+   * journalisation. Idempotent : un paiement déjà COMPLETED est retourné
+   * tel quel sans retraitement (couvre notamment la double réception d'un
+   * même webhook, quel qu'en soit le mécanisme de signature).
+   * Si la candidature associée n'est plus ACCEPTED/ENROLLED au moment de la
+   * confirmation (webhook tardif reçu après une annulation), le candidat
+   * n'est jamais inscrit : le paiement reste enregistré fidèlement mais part
+   * en réconciliation (ligne `Refund` PENDING, remboursement fournisseur
+   * déclenché hors transaction).
+   * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
+   * @throws BadRequestException si le montant fourni diffère du paiement enregistré.
+   */
+  private async reconcilePayment(
+    providerReference: string,
+    expectedAmount?: number,
+  ) {
     const payment = await this.prisma.payment.findFirst({
-      where: { providerRef: dto.providerReference },
+      where: { providerRef: providerReference },
     });
     if (!payment) {
       throw new NotFoundException(
@@ -204,13 +293,12 @@ export class PaymentService {
       );
     }
     if (payment.status === 'COMPLETED') return payment;
-    if (dto.amount !== undefined && dto.amount !== payment.amount) {
+    if (expectedAmount !== undefined && expectedAmount !== payment.amount) {
       throw new BadRequestException('Montant de webhook incohérent');
     }
 
-    const confirmation = await this.paymentProvider.confirmPayment(
-      dto.providerReference,
-    );
+    const confirmation =
+      await this.paymentProvider.confirmPayment(providerReference);
 
     if (confirmation.status === 'PENDING') {
       // Toujours en cours côté prestataire : ne rien conclure maintenant, un
@@ -225,7 +313,40 @@ export class PaymentService {
     // Paiement + candidature + inscription + relevé doivent être atomiques :
     // une panne à mi-chemin ne doit jamais laisser un paiement "COMPLETED"
     // sans inscription, ou l'inverse (cf. audit sécurité).
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Garde contre les livraisons concurrentes du même webhook (fréquent
+      // chez la plupart des prestataires, qui retentent tant qu'un 200 n'est
+      // pas reçu) : le check `payment.status === 'COMPLETED'` plus haut est
+      // fait HORS transaction (juste une optimisation pour éviter d'appeler
+      // le prestataire pour un paiement déjà visiblement terminé), donc pas
+      // atomique — deux appels quasi simultanés peuvent tous les deux le
+      // franchir avant qu'aucun n'ait écrit. La mise à jour conditionnée sur
+      // `status: { not: 'COMPLETED' }` ne peut réussir que pour UN SEUL
+      // appel ; le perdant (count === 0) renvoie le paiement déjà finalisé
+      // par l'autre sans rejouer l'inscription, le remboursement ou la
+      // création de Transaction (qui échouerait de toute façon sur la
+      // contrainte unique Transaction.paymentId, mais en erreur plutôt qu'en
+      // réponse idempotente).
+      const { count: claimed } = await tx.payment.updateMany({
+        where: { id: payment.id, status: { not: 'COMPLETED' } },
+        data: {
+          status,
+          paidAt: status === 'COMPLETED' ? new Date() : undefined,
+          providerRef: providerReference,
+        },
+      });
+      if (claimed === 0) {
+        return {
+          updatedPayment: await tx.payment.findUniqueOrThrow({
+            where: { id: payment.id },
+          }),
+          refund: null,
+        };
+      }
+      const updatedPayment = await tx.payment.findUniqueOrThrow({
+        where: { id: payment.id },
+      });
+
       // Webhook tardif : un autre paiement pour la même candidature est déjà
       // COMPLETED (ex. celui-ci a expiré côté app — voir initiatePayment —
       // puis une nouvelle tentative a abouti avant que le prestataire ne
@@ -245,14 +366,10 @@ export class PaymentService {
             })
           : null;
 
-      const updatedPayment = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status,
-          paidAt: status === 'COMPLETED' ? new Date() : undefined,
-          providerRef: dto.providerReference,
-        },
-      });
+      let requiresRefund: {
+        paymentId: string;
+        providerReference: string;
+      } | null = null;
 
       if (status === 'COMPLETED' && payment.applicationId && otherCompleted) {
         console.error(
@@ -271,93 +388,135 @@ export class PaymentService {
           include: { offer: true },
         });
 
-        let program: { id: string; name: string } | null = null;
-        let academicYear: { id: string; label: string } | null = null;
-        if (application?.offer.programId) {
-          [program, academicYear] = await Promise.all([
-            tx.schoolProgram.findFirst({
-              where: {
-                id: application.offer.programId,
-                schoolId: application.offer.schoolId,
-                isActive: true,
-              },
-            }),
-            tx.schoolAcademicYear.findFirst({
-              where: { schoolId: application.offer.schoolId, isCurrent: true },
-            }),
-          ]);
-        }
+        // La machine à états (`APPLICATION_STATUS_TRANSITIONS`) n'autorise
+        // qu'ACCEPTED → ENROLLED ou ACCEPTED → CANCELLED : entre l'initiation
+        // du paiement (qui exige ACCEPTED) et la confirmation tardive du
+        // webhook, la candidature n'a donc pu que rester ACCEPTED, être déjà
+        // ENROLLED (webhook rejoué), ou être ANNULÉE. Inscrire un candidat
+        // dont la candidature a été annulée entre-temps réactiverait
+        // silencieusement un dossier clos — l'argent reçu doit partir en
+        // réconciliation/remboursement plutôt que d'être associé à une
+        // inscription qui n'a plus lieu d'être (faille corrigée suite à
+        // l'audit QA).
+        const isEnrollmentEligible =
+          application?.status === 'ACCEPTED' ||
+          application?.status === 'ENROLLED';
 
-        if (application && program && academicYear) {
-          const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
-          // La candidature ne passe ENROLLED que si l'inscription a
-          // effectivement pu être créée (voir branche else ci-dessous) —
-          // avant ce correctif, ce statut était posé inconditionnellement
-          // dès qu'un paiement était confirmé, y compris quand l'inscription
-          // échouait juste après (cf. audit sécurité).
-          await tx.application.update({
-            where: { id: application.id },
-            data: { status: 'ENROLLED' },
-          });
-          await tx.studentEnrollment.upsert({
-            where: {
-              studentId_schoolId: {
-                studentId: application.studentId,
-                schoolId: application.offer.schoolId,
-              },
-            },
-            create: {
-              studentId: application.studentId,
-              schoolId: application.offer.schoolId,
-              programId: program.id,
-              programLevel: 1,
-              academicYearId: academicYear.id,
-              enrolledYear,
-              status: 'ACTIVE',
-            },
-            update: {
-              programId: program.id,
-              programLevel: 1,
-              academicYearId: academicYear.id,
-              enrolledYear,
-              status: 'ACTIVE',
-            },
-          });
-          await this.schoolService.syncCourseEnrollments(
-            application.studentId,
-            application.offer.schoolId,
-            program.id,
-            1,
-            tx,
-          );
-          await tx.applicationTimeline.create({
-            data: {
-              applicationId: application.id,
-              status: 'ENROLLED',
-              note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
-            },
-          });
-        } else if (application) {
-          // Le paiement est bien confirmé, mais l'inscription automatique
-          // n'a pas pu aboutir (offre sans programme lié, ou programme/année
-          // académique introuvable). Ne JAMAIS laisser passer ça en silence
-          // — un paiement réel sans inscription réelle est le pire des cas.
-          // Le statut de la candidature n'est PAS forcé à ENROLLED ici :
-          // il reflète la réalité (pas d'inscription effective) plutôt que
-          // de mentir sur l'état du dossier.
-          const reason = !application.offer.programId
-            ? "l'offre n'est liée à aucun programme"
-            : 'aucun programme actif ou année académique en cours pour cette école';
+        if (application && !isEnrollmentEligible) {
           console.error(
-            `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
+            `[ALERTE RÉCONCILIATION] Paiement ${payment.id} confirmé pour la candidature ${application.id}, mais son statut (${application.status}) n'autorise plus l'inscription — remboursement requis.`,
           );
+          await tx.refund.create({
+            data: {
+              paymentId: payment.id,
+              amount: payment.amount,
+              reason: `Webhook de paiement confirmé après passage de la candidature à ${application.status} — remboursement automatique requis`,
+              status: 'PENDING',
+            },
+          });
           await tx.applicationTimeline.create({
             data: {
               applicationId: application.id,
               status: application.status,
-              note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+              note: `⚠️ Paiement ${payment.reference} confirmé après annulation de la candidature — mis en réconciliation, remboursement en cours.`,
             },
           });
+          requiresRefund = {
+            paymentId: payment.id,
+            providerReference,
+          };
+        } else {
+          let program: { id: string; name: string } | null = null;
+          let academicYear: { id: string; label: string } | null = null;
+          if (application?.offer.programId) {
+            [program, academicYear] = await Promise.all([
+              tx.schoolProgram.findFirst({
+                where: {
+                  id: application.offer.programId,
+                  schoolId: application.offer.schoolId,
+                  isActive: true,
+                },
+              }),
+              tx.schoolAcademicYear.findFirst({
+                where: {
+                  schoolId: application.offer.schoolId,
+                  isCurrent: true,
+                },
+              }),
+            ]);
+          }
+
+          if (application && program && academicYear) {
+            const enrolledYear = `Année 1 · ${program.name} · ${academicYear.label}`;
+            // La candidature ne passe ENROLLED que si l'inscription a
+            // effectivement pu être créée (voir branche else ci-dessous) —
+            // avant ce correctif, ce statut était posé inconditionnellement
+            // dès qu'un paiement était confirmé, y compris quand l'inscription
+            // échouait juste après (cf. audit sécurité).
+            await tx.application.update({
+              where: { id: application.id },
+              data: { status: 'ENROLLED' },
+            });
+            await tx.studentEnrollment.upsert({
+              where: {
+                studentId_schoolId: {
+                  studentId: application.studentId,
+                  schoolId: application.offer.schoolId,
+                },
+              },
+              create: {
+                studentId: application.studentId,
+                schoolId: application.offer.schoolId,
+                programId: program.id,
+                programLevel: 1,
+                academicYearId: academicYear.id,
+                enrolledYear,
+                status: 'ACTIVE',
+              },
+              update: {
+                programId: program.id,
+                programLevel: 1,
+                academicYearId: academicYear.id,
+                enrolledYear,
+                status: 'ACTIVE',
+              },
+            });
+            await this.schoolService.syncCourseEnrollments(
+              application.studentId,
+              application.offer.schoolId,
+              program.id,
+              1,
+              tx,
+            );
+            await tx.applicationTimeline.create({
+              data: {
+                applicationId: application.id,
+                status: 'ENROLLED',
+                note: `Étudiant inscrit automatiquement : ${enrolledYear}`,
+              },
+            });
+          } else if (application) {
+            // Le paiement est bien confirmé, mais l'inscription automatique
+            // n'a pas pu aboutir (offre sans programme lié, ou programme/année
+            // académique introuvable). Ne JAMAIS laisser passer ça en silence
+            // — un paiement réel sans inscription réelle est le pire des cas.
+            // Le statut de la candidature n'est PAS forcé à ENROLLED ici :
+            // il reflète la réalité (pas d'inscription effective) plutôt que
+            // de mentir sur l'état du dossier.
+            const reason = !application.offer.programId
+              ? "l'offre n'est liée à aucun programme"
+              : 'aucun programme actif ou année académique en cours pour cette école';
+            console.error(
+              `[ALERTE INSCRIPTION] Paiement confirmé pour la candidature ${application.id} mais inscription automatique impossible : ${reason}.`,
+            );
+            await tx.applicationTimeline.create({
+              data: {
+                applicationId: application.id,
+                status: application.status,
+                note: `⚠️ Paiement confirmé mais inscription automatique impossible (${reason}) — intervention manuelle requise.`,
+              },
+            });
+          }
         }
       }
 
@@ -370,14 +529,62 @@ export class PaymentService {
             provider: payment.method,
             providerTransactionId: confirmation.providerTransactionId,
             status: 'SUCCESS',
-            rawResponse: confirmation.rawData,
+            rawResponse: confirmation.rawData as
+              Prisma.InputJsonValue | undefined,
             completedAt: new Date(),
           },
         });
       }
 
-      return updatedPayment;
+      return { updatedPayment, refund: requiresRefund };
     });
+
+    // Le remboursement effectif se fait hors transaction (appel réseau
+    // fournisseur, comme `confirmPayment` plus haut) : la ligne `Refund`
+    // PENDING créée dans la transaction ci-dessus garantit qu'aucun paiement
+    // tardif de candidature annulée ne reste sans trace même si cet appel
+    // échoue — un job de reprise / une vérification manuelle peut se baser
+    // dessus (jamais silencieux, cf. audit sécurité).
+    if (result.refund) {
+      await this.processRefund(
+        result.refund.paymentId,
+        result.refund.providerReference,
+      );
+    }
+
+    return result.updatedPayment;
+  }
+
+  /**
+   * Déclenche le remboursement auprès du fournisseur pour un paiement mis en
+   * réconciliation (webhook tardif sur une candidature annulée) et met à
+   * jour la ligne `Refund` PENDING déjà créée en conséquence. Best-effort :
+   * n'échoue jamais bruyamment (le paiement reste correctement enregistré
+   * COMPLETED et la ligne Refund reste PENDING pour reprise/traitement manuel
+   * si l'appel fournisseur échoue).
+   */
+  private async processRefund(paymentId: string, providerReference: string) {
+    try {
+      const result =
+        await this.paymentProvider.refundPayment(providerReference);
+      await this.prisma.refund.update({
+        where: { paymentId },
+        data: {
+          status: result.success ? 'COMPLETED' : 'FAILED',
+          processedAt: result.success ? new Date() : undefined,
+        },
+      });
+      if (!result.success) {
+        console.error(
+          `[ALERTE REMBOURSEMENT] Échec du remboursement fournisseur pour le paiement ${paymentId} — intervention manuelle requise.`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[ALERTE REMBOURSEMENT] Erreur lors du remboursement du paiement ${paymentId} :`,
+        error,
+      );
+    }
   }
 
   /**

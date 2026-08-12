@@ -9,7 +9,10 @@
   section [Écarts assumés par rapport au plan initial](#écarts-assumés-par-rapport-au-plan-initial).
 
 Preuve du fonctionnement technique : un n8n local a déjà reçu et traité un webhook
-de bout en bout (`docker-compose.n8n.yml`, `n8n/workflows/get-test-webhook.json`).
+de bout en bout (`docker-compose.n8n.yml`, workflow `GET-TEST-WEBHOOK` — retiré du
+dépôt depuis, voir [02-preparation-infrastructure.md](02-preparation-infrastructure.md#durcissement-sécurité-2026-08-11)
+une fois sa preuve de fonctionnement actée : un webhook d'écho sans
+authentification n'a pas vocation à rester versionné indéfiniment).
 Cette phase porte sur *quoi* automatiser et *pourquoi*, pas sur l'infrastructure.
 
 ## 1.1 Identification des processus

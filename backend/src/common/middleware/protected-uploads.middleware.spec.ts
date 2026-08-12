@@ -1,5 +1,6 @@
 import express from 'express';
 import request from 'supertest';
+import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../modules/prisma/prisma.service';
@@ -36,7 +37,9 @@ describe('protected-uploads.middleware — GET /documents/:studentId/:fileName',
         throw new Error(`Unexpected token requested: ${String(token)}`);
       },
     };
-    const router = createProtectedUploadsRouter(fakeNestApp as any);
+    const router = createProtectedUploadsRouter(
+      fakeNestApp as unknown as INestApplication,
+    );
     const app = express();
     app.use('/uploads', router);
     return app;
@@ -76,6 +79,7 @@ describe('protected-uploads.middleware — GET /documents/:studentId/:fileName',
     expect(res.headers.location).toBe('https://s3.example.test/signed-url');
     expect(prisma.document.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
         where: expect.objectContaining({
           studentId: 'student-1',
           deletedAt: null,

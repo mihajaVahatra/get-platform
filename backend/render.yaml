@@ -4,11 +4,16 @@ services:
     runtime: node
     plan: free
     rootDir: backend
+    # `npm ci` plutôt que `npm install` : installation reproductible depuis
+    # package-lock.json (échoue si le lockfile n'est pas synchronisé avec
+    # package.json, au lieu de dériver silencieusement) — c'est aussi ce que
+    # la CI utilise (voir .github/workflows/ci.yml), donc le build déployé
+    # correspond exactement à ce qui a été testé.
     # `--include=dev` est nécessaire malgré NODE_ENV=production ci-dessous :
     # npm saute les devDependencies par défaut quand NODE_ENV=production est
     # déjà présent au moment du build, or `nest build` vient de @nestjs/cli
     # qui est une devDependency (le runtime, lui, n'en a pas besoin).
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     # `prisma migrate deploy` est idempotent (n'applique que les migrations
     # en attente) — l'exécuter à chaque démarrage est sûr et évite de
     # dépendre d'une fonctionnalité "pre-deploy" qui n'existe pas forcément
@@ -23,13 +28,15 @@ services:
       - key: JWT_REFRESH_EXPIRATION
         value: 7d
       # ENABLE_SWAGGER / ALLOW_DEMO_SEED / ALLOW_MOCK_PAYMENT sont
-      # volontairement en `sync: false` (à saisir manuellement à "true"
-      # dans le dashboard Render pour un QA) et non en dur : ce sont
-      # précisément les garde-fous que seed.ts et payment.module.ts
-      # utilisent pour bloquer comptes de démo et paiements simulés en
-      # production. Les figer ici en "true" les rendrait actifs par
-      # défaut si ce fichier était un jour dupliqué comme template pour
-      # un vrai déploiement production (voir DEPLOYMENT.md).
+      # volontairement en `sync: false` (à saisir manuellement dans le
+      # dashboard Render) et non en dur : ce sont précisément les
+      # garde-fous que seed.ts et payment.module.ts utilisent pour bloquer
+      # comptes de démo et paiements simulés en production. Les figer ici
+      # en "true" les rendrait actifs par défaut si ce fichier était un
+      # jour dupliqué comme template pour un vrai déploiement production
+      # (voir DEPLOYMENT.md). ALLOW_MOCK_PAYMENT n'a plus besoin d'être
+      # activé pour ce QA depuis que STRIPE_SECRET_KEY (plus bas) est
+      # configurée — le laisser à `sync: false` sans valeur suffit.
       - key: ENABLE_SWAGGER
         sync: false
       - key: ALLOW_DEMO_SEED
@@ -47,6 +54,26 @@ services:
       - key: ENCRYPTION_KEY
         sync: false
       - key: PAYMENT_WEBHOOK_SECRET
+        sync: false
+      # Fournisseur de paiement réel (Stripe, mode test) — voir
+      # DEPLOYMENT.md. Dès que STRIPE_SECRET_KEY est définie,
+      # PaymentModule utilise StripePaymentProvider au lieu du mock, quelle
+      # que soit la valeur d'ALLOW_MOCK_PAYMENT ci-dessus.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # SendGrid : sans SENDGRID_API_KEY, NotificationService.dispatchEmail
+      # refuse d'envoyer un email dès que NODE_ENV=production (voir ci-dessus)
+      # — inscription et mot de passe oublié échoueraient donc explicitement
+      # sur ce service tant que ces clés ne sont pas renseignées. Listées ici
+      # (plutôt qu'omises) pour que Render les demande explicitement au
+      # moment du déploiement, voir DEPLOYMENT.md.
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: SENDGRID_FROM_NAME
         sync: false
       # Intégration n8n (voir docs/n8n/) — inutiles tant que ce QA n'est pas
       # utilisé pour tester les workflows n8n contre un backend déployé.

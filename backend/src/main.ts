@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { Request, Response, NextFunction } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -35,15 +36,18 @@ async function bootstrap() {
   // HEAD / avant de déclarer le service "Live") — en dehors du préfixe
   // global /api, donc traité en middleware Express brut plutôt que via un
   // contrôleur Nest.
-  app.use((request, response, next) => {
-    if (request.path === '/' && (request.method === 'GET' || request.method === 'HEAD')) {
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    if (
+      request.path === '/' &&
+      (request.method === 'GET' || request.method === 'HEAD')
+    ) {
       response.status(200).send('OK');
       return;
     }
     next();
   });
 
-  app.use((_, response, next) => {
+  app.use((_: Request, response: Response, next: NextFunction) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('X-Frame-Options', 'DENY');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -83,14 +87,20 @@ async function bootstrap() {
   // vérifie donc explicitement Origin (repli sur Referer si absent) contre
   // FRONTEND_URL pour toute méthode qui modifie l'état ; une requête sans
   // aucun des deux en-têtes n'est pas un scénario de navigateur exploitable
-  // par CSRF (curl, mobile, server-to-server) et reste autorisée. Le webhook
-  // de paiement est exclu : appelé serveur à serveur par le prestataire,
-  // sans cookie, déjà authentifié par signature HMAC (voir PaymentService).
+  // par CSRF (curl, mobile, server-to-server) et reste autorisée. Les
+  // webhooks de paiement sont exclus : appelés serveur à serveur par le
+  // prestataire, sans cookie, déjà authentifiés par leur propre signature
+  // (HMAC maison pour /webhook, Stripe-Signature native pour
+  // /webhook/stripe — voir PaymentService).
   const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-  app.use((request, response, next) => {
+  const PAYMENT_WEBHOOK_PATHS = new Set([
+    '/api/payments/webhook',
+    '/api/payments/webhook/stripe',
+  ]);
+  app.use((request: Request, response: Response, next: NextFunction) => {
     if (
       !MUTATING_METHODS.has(request.method) ||
-      request.path === '/api/payments/webhook'
+      PAYMENT_WEBHOOK_PATHS.has(request.path)
     ) {
       return next();
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -77,6 +77,7 @@ export default function StudentPaymentsPage() {
 
 function StudentPaymentsContent() {
   const t = useTranslations('StudentPayments');
+  const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedApplicationId = searchParams.get('applicationId');
 
@@ -102,6 +103,33 @@ function StudentPaymentsContent() {
   useEffect(() => {
     fetchPayments();
     fetchApplications();
+  }, []);
+
+  // Retour depuis la page de paiement Stripe Checkout (success_url/cancel_url,
+  // voir StripePaymentProvider) : le paiement n'est pas forcément confirmé à
+  // cet instant (le webhook peut arriver quelques secondes plus tard, voir
+  // PaymentService.reconcilePayment) — le message reste donc volontairement
+  // prudent ("confirmation en cours"), jamais "paiement réussi" avant que la
+  // liste ci-dessous ne le reflète réellement. Nettoie l'URL ensuite pour ne
+  // pas re-déclencher le toast à chaque rafraîchissement de la page.
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'success') {
+      toast.success(t('returnFromPaymentSuccess'));
+    } else if (status === 'cancelled') {
+      toast(t('returnFromPaymentCancelled'));
+    } else {
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('status');
+    params.delete('session_id');
+    router.replace(
+      params.size > 0
+        ? `/dashboard/student/payments?${params.toString()}`
+        : '/dashboard/student/payments',
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Arrivée depuis "Payer les frais" sur une candidature acceptée : ouvre

@@ -10,12 +10,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      // Sans `all`, v8 ne compte que les fichiers réellement importés par
-      // les tests exécutés — un chiffre trompeur sur un projet où la
-      // plupart des fichiers n'ont encore aucun test. `all: true` inclut
-      // tout `app/` et `components/` au dénominateur, pour un pourcentage
-      // honnête.
-      all: true,
+      // `include` couvre tout `app/` et `components/` au dénominateur — pas
+      // seulement les fichiers réellement importés par les tests exécutés —
+      // pour un pourcentage honnête sur un projet où la plupart des fichiers
+      // n'ont encore aucun test. (Vitest 4 a retiré l'option `all` : ce
+      // comportement est désormais celui par défaut dès que `include` est
+      // défini, plus besoin de l'activer explicitement.)
       include: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
       // Seuil volontairement bas (4 fichiers de test au 2026-08 sur un
       // frontend Next.js conséquent) — voir le commentaire équivalent sur
