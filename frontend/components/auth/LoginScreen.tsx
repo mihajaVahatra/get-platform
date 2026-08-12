@@ -86,10 +86,14 @@ export function LoginScreen() {
     router.replace(destinations[user.role] || '/dashboard/student');
   };
 
-  const onSubmit = async ({ email, password }: LoginForm) => {
+  const onSubmit = async ({ email, password, remember }: LoginForm) => {
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', { email, password });
+      const response = await apiClient.post('/auth/login', {
+        email,
+        password,
+        remember,
+      });
       const { mfaRequired, challengeToken: token, user } = response.data.data;
       if (mfaRequired) {
         setChallengeToken(token);

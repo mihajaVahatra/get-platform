@@ -22,6 +22,11 @@ model PendingRegistration {
   codeAttempts Int      @default(0)
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+  // Preuve d'acceptation des CGU/politique de confidentialité au moment de
+  // l'inscription (voir backend/src/modules/auth/terms.constant.ts) —
+  // recopiée sur User à la création du compte (completeEmailVerification).
+  acceptedTermsVersion String
+  acceptedTermsAt      DateTime
 
   @@map("pending_registrations")
 }
@@ -57,6 +62,12 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
+  // Recopiés depuis PendingRegistration à la création du compte (inscription
+  // via /auth/register). Nuls pour les comptes créés autrement (seed,
+  // création admin/professeur/école) — ce parcours ne passe pas par
+  // l'acceptation des CGU côté étudiant.
+  acceptedTermsVersion String?
+  acceptedTermsAt      DateTime?
 
   student                  Student?
   teacher                  Teacher?
