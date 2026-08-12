@@ -4,6 +4,15 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // Expose le SHA du commit déployé (fourni automatiquement par Vercel côté
+  // serveur au build, absent en local) pour pouvoir diagnostiquer en un
+  // coup d'œil un cache/déploiement figé — voir le footer de LoginScreen.
+  // `?? ''` plutôt qu'une valeur par défaut trompeuse type 'dev' : un champ
+  // vide indique sans ambiguïté "ceci n'a jamais transité par un build
+  // Vercel", ce qui est le signal recherché.
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: (process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7),
+  },
   // Autorise le serveur de dev à répondre aux requêtes venant d'autres
   // appareils du même réseau local (ex. un téléphone pour tester le responsive).
   // - '10.163.7.165' : IP locale actuelle, change à chaque réseau (DHCP) —
