@@ -11,30 +11,46 @@ version: '3.8'
 # Arrêt      : docker compose -f docker-compose.n8n.yml --env-file .env --env-file .env.n8n down
 services:
   n8n:
-    image: n8nio/n8n:latest
+    # Épinglé sur une version ET son digest (pas de tag flottant `:latest`) :
+    # un registre compromis ou une image republiée sous le même tag ne peut
+    # pas substituer silencieusement un binaire différent (faille corrigée
+    # suite à l'audit sécurité). Mise à jour : vérifier les notes de version
+    # n8n, puis régénérer le digest avec
+    # `docker buildx imagetools inspect n8nio/n8n:<nouvelle-version>`.
+    image: n8nio/n8n:2.34.1@sha256:b69bcc167595df7fe151b316210f56f5fd527fff06dc6a36bcbaa68249640e15
     container_name: get-n8n
     ports:
       - "127.0.0.1:5678:5678"
     environment:
-      # NB: n8n v2.x a retiré N8N_BASIC_AUTH_* pour l'éditeur (remplacé par
-      # un compte "owner" créé au premier lancement, cf. .env.n8n). Ces deux
-      # variables restent sans effet sur l'UI mais sont conservées pour
-      # référence si un downgrade de version est envisagé.
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: ${N8N_USER:?N8N_USER must be set}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:?N8N_PASSWORD must be set}
+      # n8n v2.x n'a plus de N8N_BASIC_AUTH_* pour l'éditeur : l'accès passe
+      # par un compte "owner" créé interactivement au premier lancement (pas
+      # préremplissable par variable d'environnement). Voir
+      # docs/n8n/02-preparation-infrastructure.md pour l'exigence de robustesse
+      # du mot de passe à saisir à cette étape.
       N8N_HOST: localhost
       N8N_PORT: "5678"
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:5678/
       GENERIC_TIMEZONE: Indian/Antananarivo
       N8N_SECURE_COOKIE: "false"
-      # n8n bloque $env dans les expressions de nœud par défaut. Acceptable
-      # ici (instance 127.0.0.1 uniquement) ; une vraie instance partagée
-      # devrait plutôt stocker INTEGRATION_API_KEY comme Credential n8n
-      # (httpHeaderAuth) au lieu d'une expression $env dans le JSON du
-      # workflow — voir docs/n8n/03-connecteurs-get.md.
-      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Empêche toute expression de nœud ($env.*, y compris dans un nœud IF
+      # ou un champ d'en-tête HTTP Request, pas seulement les nœuds Code) de
+      # lire les variables d'environnement du conteneur — la compromission
+      # d'un compte n8n (même sans accès au poste/conteneur lui-même) ne
+      # suffit donc plus à exfiltrer INTEGRATION_API_KEY, N8N_WEBHOOK_SECRET
+      # ou N8N_DB_PASSWORD via un workflow malveillant (faille corrigée
+      # suite à l'audit sécurité). Les 4 nœuds HTTP Request sortants utilisent
+      # désormais une Credential n8n chiffrée (httpHeaderAuth) au lieu d'une
+      # expression $env, et le webhook entrant utilise l'authentification
+      # "Header Auth" native du nœud Webhook — voir
+      # docs/n8n/03-connecteurs-get.md pour la configuration de ces
+      # Credentials (étape manuelle, hors de portée d'un fichier versionné).
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      # Complète le contrôle ci-dessus : N8N_BLOCK_ENV_ACCESS_IN_NODE ne
+      # bloque que l'expression $env, pas un accès aux variables
+      # d'environnement via une commande shell arbitraire — retirer
+      # entièrement le nœud qui permettrait ça.
+      NODES_EXCLUDE: '["n8n-nodes-base.executeCommand"]'
       # Base dédiée "n8n" dans le conteneur get-db existant (pas de nouvel
       # engin à opérer), avec un rôle Postgres propre à n8n (n8n_service) —
       # volontairement distinct de get_user pour ne pas dépendre de son mot
@@ -46,14 +62,6 @@ services:
       DB_POSTGRESDB_DATABASE: n8n
       DB_POSTGRESDB_USER: n8n_service
       DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:?N8N_DB_PASSWORD must be set}
-      # Consommés par les workflows via $env.* dans les nœuds HTTP Request
-      # (voir n8n/workflows/get-application-incomplete-reminder.json).
-      INTEGRATION_API_KEY: ${N8N_INTEGRATION_API_KEY:?N8N_INTEGRATION_API_KEY must be set}
-      GET_BACKEND_URL: ${GET_BACKEND_URL:?GET_BACKEND_URL must be set}
-      # Vérifié par le nœud IF du workflow GET-STUDENT-WELCOME-EMAIL avant
-      # d'appeler le backend — rejette les appels au webhook entrant qui ne
-      # viennent pas de AuthService.notifyN8n (voir .env.n8n).
-      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?N8N_WEBHOOK_SECRET must be set}
     volumes:
       # Ne conserve plus que la config n8n (clé de chiffrement des
       # credentials, etc.) — les workflows/exécutions vivent désormais dans

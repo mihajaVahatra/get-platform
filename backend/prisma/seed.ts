@@ -1,8 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { EncryptionService } from '../src/common/services/encryption.service';
 
 const prisma = new PrismaClient();
+// Script standalone (ts-node), hors du conteneur DI Nest : EncryptionService
+// n'a besoin que de `ConfigService.get`, on lui fournit un mini-adaptateur
+// sur process.env plutôt que de démarrer toute l'application pour ça.
+const encryption = new EncryptionService({
+  get: (key: string) => process.env[key],
+} as unknown as ConfigService);
 
 async function main() {
   if (
@@ -491,7 +499,7 @@ async function main() {
         create: {
           firstName: 'Jean',
           lastName: 'Rakoto',
-          phone: '+261341234567',
+          phone: encryption.encrypt('+261341234567'),
           city: 'Antananarivo',
           region: 'Analamanga',
         },
@@ -551,9 +559,9 @@ async function main() {
         create: {
           firstName: 'Toavina',
           lastName: 'Vahatra',
-          phone: '+261 34 234 5678',
+          phone: encryption.encrypt('+261 34 234 5678'),
           birthDate: new Date('2000-01-01'),
-          cin: '1012345678',
+          cin: encryption.encrypt('1012345678'),
           bacYear: 2018,
           bacType: 'Série C',
           city: 'Antananarivo',
@@ -1432,13 +1440,20 @@ async function main() {
     const bio = opts.finishing
       ? `Étudiant(e) en fin de cursus, à la recherche d’un premier emploi ou d’un stage dans son domaine.`
       : `Bachelier(ère) ${bacYear}, motivé(e) à poursuivre des études supérieures.`;
+    // phone/cin/address sont chiffrés au repos (voir StudentService) : les
+    // écrire en clair ici créerait exactement l'incohérence corrigée par
+    // prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts (des comptes de
+    // démo en clair coexistant avec des profils réellement mis à jour et
+    // donc chiffrés).
     return {
-      phone: genPhone(seed),
+      phone: encryption.encrypt(genPhone(seed)),
       birthDate: genBirthDate(seed, opts.minAge, opts.maxAge),
-      cin: genCin(seed),
+      cin: encryption.encrypt(genCin(seed)),
       bacYear,
       bacType: pick(BAC_TYPES, seed + 1),
-      address: `Lot ${pad((seed * 17) % 900, 3)} ${pick(['Ankorondrano', 'Analakely', 'Isotry', 'Ambohipo', 'Andraharo', 'Tsaralalana'], seed + 6)}`,
+      address: encryption.encrypt(
+        `Lot ${pad((seed * 17) % 900, 3)} ${pick(['Ankorondrano', 'Analakely', 'Isotry', 'Ambohipo', 'Andraharo', 'Tsaralalana'], seed + 6)}`,
+      ),
       city: cityEntry.city,
       region: cityEntry.region,
       country: 'Madagascar',

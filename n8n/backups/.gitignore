@@ -1,0 +1,5 @@
+# Sauvegardes locales générées par n8n/scripts/backup.sh — contiennent des
+# secrets déchiffrables (clé de chiffrement des Credentials n8n) et des
+# données potentiellement sensibles, jamais commitées.
+*
+!.gitignore

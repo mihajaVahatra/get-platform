@@ -1,7 +1,27 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { createHash } from 'crypto';
+import { createHash, randomBytes, createCipheriv } from 'crypto';
+
+// Même algorithme que EncryptionService (AES-256-GCM) : Teacher.phone est
+// chiffré au repos, y compris pour les comptes de démo seedés — voir
+// prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts pour le script de
+// rattrapage des lignes créées avant ce correctif.
+function encryptPii(text: string): string {
+  const configured = process.env.ENCRYPTION_KEY?.trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/^0x/i, '');
+  if (!configured || !/^[a-fA-F0-9]{64}$/.test(configured)) {
+    throw new Error('ENCRYPTION_KEY must be a 32-byte hexadecimal key');
+  }
+  const key = Buffer.from(configured, 'hex');
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
 
 /**
  * Population nationale de démonstration — réexécutable sans suppression.
@@ -952,12 +972,14 @@ async function main(): Promise<void> {
         userId: teacher.userId,
         firstName: teacher.firstName,
         lastName: teacher.lastName,
-        phone: `+261 34 ${String(teacher.schoolIndex + 10).padStart(2, '0')} ${String(
-          teacher.schoolTeacherIndex + 10,
-        ).padStart(
-          2,
-          '0',
-        )} ${String(teacher.schoolTeacherIndex + 20).padStart(2, '0')}`,
+        phone: encryptPii(
+          `+261 34 ${String(teacher.schoolIndex + 10).padStart(2, '0')} ${String(
+            teacher.schoolTeacherIndex + 10,
+          ).padStart(
+            2,
+            '0',
+          )} ${String(teacher.schoolTeacherIndex + 20).padStart(2, '0')}`,
+        ),
       })),
       skipDuplicates: true,
     }),

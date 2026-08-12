@@ -108,6 +108,7 @@ describe('NotificationService', () => {
       expect(result.providerResult?.status).toBe('SIMULATED');
       expect(prisma.notification.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({ status: 'SIMULATED' }),
         }),
       );
@@ -139,9 +140,11 @@ describe('NotificationService', () => {
       ).rejects.toThrow(/Aucun prestataire SMS réel intégré/);
 
       expect(prisma.notification.create).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
         data: expect.objectContaining({
           userId: 'user-1',
           status: 'FAILED',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.stringContaining() est typé `any` par @types/jest
           failureReason: expect.stringContaining(
             'Aucun prestataire SMS réel intégré',
           ),
@@ -204,8 +207,10 @@ describe('NotificationService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(prisma.notification.create).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
         data: expect.objectContaining({
           status: 'FAILED',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() est typé `any` par @types/jest
           failureReason: expect.any(String),
         }),
       });
