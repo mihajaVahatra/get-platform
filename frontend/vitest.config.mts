@@ -7,5 +7,30 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      // `include` couvre tout `app/` et `components/` au dénominateur — pas
+      // seulement les fichiers réellement importés par les tests exécutés —
+      // pour un pourcentage honnête sur un projet où la plupart des fichiers
+      // n'ont encore aucun test. (Vitest 4 a retiré l'option `all` : ce
+      // comportement est désormais celui par défaut dès que `include` est
+      // défini, plus besoin de l'activer explicitement.)
+      include: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}'],
+      // Seuil volontairement bas (4 fichiers de test au 2026-08 sur un
+      // frontend Next.js conséquent) — voir le commentaire équivalent sur
+      // backend/package.json (coverageThreshold). À relever au fur et à
+      // mesure des PR qui ajoutent des tests, jamais en baisse.
+      // Seuils légèrement sous la couverture réelle actuelle (2026-08 :
+      // ~2.9% statements, ~2.2% branches, ~3% functions, ~2.9% lines, tout
+      // app/ et components/ inclus) — juste assez de marge pour ne pas
+      // échouer sur une variance mineure entre exécutions.
+      thresholds: {
+        statements: 2,
+        branches: 2,
+        functions: 2,
+        lines: 2,
+      },
+    },
   },
 });

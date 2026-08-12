@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ApplicationService } from './application.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
@@ -123,7 +124,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.REJECTED } as any,
+          {
+            status: ApplicationStatus.REJECTED,
+          },
           'user-1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -148,7 +151,7 @@ describe('ApplicationService', () => {
         {
           status: ApplicationStatus.REJECTED,
           reason: 'Dossier incomplet',
-        } as any,
+        },
         'admin-1',
       );
 
@@ -180,7 +183,7 @@ describe('ApplicationService', () => {
 
       await service.updateStatus(
         'application-1',
-        { status: ApplicationStatus.ACCEPTED } as any,
+        { status: ApplicationStatus.ACCEPTED },
         'admin-1',
       );
 
@@ -230,7 +233,7 @@ describe('ApplicationService', () => {
 
       await service.updateStatus(
         'application-1',
-        { status: ApplicationStatus.ACCEPTED } as any,
+        { status: ApplicationStatus.ACCEPTED },
         'admin-1',
       );
 
@@ -261,7 +264,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.ACCEPTED } as any,
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -282,7 +287,9 @@ describe('ApplicationService', () => {
       await expect(
         service.updateStatus(
           'application-1',
-          { status: ApplicationStatus.ACCEPTED } as any,
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -314,7 +321,7 @@ describe('ApplicationService', () => {
 
       await service.updateStatus(
         'application-1',
-        { status: ApplicationStatus.ACCEPTED } as any,
+        { status: ApplicationStatus.ACCEPTED },
         'admin-1',
       );
 
@@ -330,6 +337,7 @@ describe('ApplicationService', () => {
           schoolId: 'school-2',
           programId: 'program-1',
         }),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
         update: expect.objectContaining({ programId: 'program-1' }),
       });
       expect(schoolService.syncCourseEnrollments).toHaveBeenCalledWith(
@@ -338,6 +346,313 @@ describe('ApplicationService', () => {
         'program-1',
         1,
         prisma,
+      );
+    });
+
+    it('utilise l’isolation Serializable pour accepter un candidat sur une offre à capacité limitée', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: ApplicationStatus.PENDING,
+        offerId: 'offer-1',
+        offer: { schoolId: 'school-1', programId: null, capacity: 5 },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.ACCEPTED,
+      });
+
+      await service.updateStatus(
+        'application-1',
+        { status: ApplicationStatus.ACCEPTED },
+        'admin-1',
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'Serializable',
+      });
+    });
+
+    it('n’impose pas l’isolation Serializable sur une offre sans capacité limitée', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: ApplicationStatus.PENDING,
+        offerId: 'offer-1',
+        offer: { schoolId: 'school-1', programId: null },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.ACCEPTED,
+      });
+
+      await service.updateStatus(
+        'application-1',
+        { status: ApplicationStatus.ACCEPTED },
+        'admin-1',
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        undefined,
+      );
+    });
+
+    it('traduit un conflit de sérialisation Postgres (P2034) en erreur claire plutôt que de le laisser fuiter', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        studentId: 'student-1',
+        status: ApplicationStatus.PENDING,
+        offerId: 'offer-1',
+        offer: { schoolId: 'school-1', programId: null, capacity: 1 },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.$transaction.mockImplementationOnce(() => {
+        throw new Prisma.PrismaClientKnownRequestError(
+          'Transaction failed due to a write conflict or a deadlock',
+          { code: 'P2034', clientVersion: '5.0.0' },
+        );
+      });
+
+      await expect(
+        service.updateStatus(
+          'application-1',
+          {
+            status: ApplicationStatus.ACCEPTED,
+          },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('scheduleTest', () => {
+    it('refuse à un administrateur d’une autre école de planifier un test', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.PENDING,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        role: { name: 'SCHOOL_ADMIN' },
+        schoolAdmin: { schoolId: 'other-school' },
+      });
+
+      await expect(
+        service.scheduleTest(
+          'application-1',
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse de planifier un test pour une candidature REJECTED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.REJECTED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.scheduleTest(
+          'application-1',
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse de planifier un test pour une candidature CANCELLED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.CANCELLED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.scheduleTest(
+          'application-1',
+          {
+            date: '2026-09-01T10:00:00Z',
+            type: 'QCM',
+          },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('planifie un test pour une candidature PENDING', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.PENDING,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.TEST_SCHEDULED,
+      });
+
+      await service.scheduleTest(
+        'application-1',
+        { date: '2026-09-01T10:00:00Z', type: 'QCM' },
+        'admin-1',
+      );
+
+      expect(prisma.application.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'application-1' },
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
+          data: expect.objectContaining({
+            status: ApplicationStatus.TEST_SCHEDULED,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('scheduleInterview', () => {
+    it('refuse de planifier un entretien pour une candidature REJECTED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.REJECTED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.scheduleInterview(
+          'application-1',
+          { date: '2026-09-01T10:00:00Z' },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse de planifier un entretien pour une candidature CANCELLED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.CANCELLED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.scheduleInterview(
+          'application-1',
+          { date: '2026-09-01T10:00:00Z' },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('planifie un entretien après un test complété', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.TEST_COMPLETED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.INTERVIEW_SCHEDULED,
+      });
+
+      await service.scheduleInterview(
+        'application-1',
+        { date: '2026-09-01T10:00:00Z' },
+        'admin-1',
+      );
+
+      expect(prisma.application.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
+          data: expect.objectContaining({
+            status: ApplicationStatus.INTERVIEW_SCHEDULED,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('recordScore', () => {
+    it('refuse d’enregistrer un score pour une candidature REJECTED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.REJECTED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+        testResults: null,
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.recordScore('application-1', { score: 15 }, 'admin-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('refuse d’enregistrer un score pour une candidature CANCELLED (état terminal)', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.CANCELLED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+        testResults: null,
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+
+      await expect(
+        service.recordScore('application-1', { score: 15 }, 'admin-1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.application.update).not.toHaveBeenCalled();
+    });
+
+    it('enregistre le score après un test planifié', async () => {
+      prisma.application.findUnique.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.TEST_SCHEDULED,
+        offer: { schoolId: 'school-1' },
+        student: { userId: 'student-user-1' },
+        testResults: { type: 'QCM' },
+      });
+      prisma.user.findUnique.mockResolvedValue({ role: { name: 'ADMIN_GET' } });
+      prisma.application.update.mockResolvedValue({
+        id: 'application-1',
+        status: ApplicationStatus.TEST_COMPLETED,
+      });
+
+      await service.recordScore('application-1', { score: 15 }, 'admin-1');
+
+      expect(prisma.application.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: ApplicationStatus.TEST_COMPLETED,
+          }),
+        }),
       );
     });
   });

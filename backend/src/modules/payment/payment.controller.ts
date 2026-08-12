@@ -197,6 +197,29 @@ export class PaymentController {
   }
 
   /**
+   * Webhook natif Stripe (Checkout Sessions) : signature vérifiée via
+   * `Stripe-Signature` (schéma propre à Stripe, distinct du HMAC maison de
+   * `/webhook` ci-dessus) puis déléguée à la même logique de réconciliation
+   * — voir `PaymentService.handleStripeWebhook`. `@Public()` pour la même
+   * raison que `/webhook` : appelé serveur à serveur par Stripe, aucun JWT
+   * possible.
+   */
+  @Public()
+  @Post('webhook/stripe')
+  @ApiOperation({ summary: 'Native Stripe webhook for payment confirmation' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Webhook processed' })
+  async handleStripeWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') signature?: string,
+  ) {
+    const result = await this.paymentService.handleStripeWebhook(
+      req.rawBody,
+      signature,
+    );
+    return { success: true, data: result };
+  }
+
+  /**
    * Télécharge le reçu PDF d'un paiement (même contrôle d'accès que
    * getPayment, délégué au service). Génère un PDF minimal à la volée.
    */

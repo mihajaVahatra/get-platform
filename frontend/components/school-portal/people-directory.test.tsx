@@ -38,8 +38,12 @@ describe('TeacherDirectory', () => {
     render(<TeacherDirectory />);
 
     expect(await screen.findByText('prof@get.mg')).toBeInTheDocument();
-    expect(screen.getByText('Informatique')).toBeInTheDocument();
-    expect(screen.getByText('Algorithmique')).toBeInTheDocument();
+    // Le département et la spécialité partagent le même <p> (texte
+    // "Informatique · Algorithmique" reconstitué à partir de plusieurs
+    // nœuds texte) — un matcher exact sur un seul des deux ne trouverait
+    // aucun nœud, d'où les regex ci-dessous.
+    expect(screen.getByText(/Informatique/)).toBeInTheDocument();
+    expect(screen.getByText(/Algorithmique/)).toBeInTheDocument();
   });
 
   it('affiche un message lorsqu’aucun professeur n’est affecté', async () => {

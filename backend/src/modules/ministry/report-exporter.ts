@@ -295,9 +295,16 @@ function wrapPdfLine(line: string, width: number) {
   return lines;
 }
 
-/** Échappe une valeur pour l'inclure entre guillemets dans une cellule CSV. */
+/**
+ * Échappe une valeur pour l'inclure entre guillemets dans une cellule CSV,
+ * et neutralise l'injection de formule (CSV/DDE) : Excel/LibreOffice
+ * interprètent comme une formule toute cellule commençant par =, +, - ou @
+ * (recommandation OWASP CSV Injection) — préfixe apostrophe pour forcer
+ * l'interprétation en texte brut (faille corrigée suite à l'audit sécurité).
+ */
 function escapeCsv(value: string) {
-  return `"${value.replaceAll('"', '""')}"`;
+  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 /** Échappe les caractères spéciaux XML pour une insertion sûre dans le SpreadsheetML. */

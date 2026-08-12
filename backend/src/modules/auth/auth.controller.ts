@@ -21,6 +21,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { MfaExempt } from '../../common/decorators/mfa-exempt.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -57,11 +58,18 @@ export class AuthController {
    * `sameSite` vaut 'lax' par défaut, ou 'none' si CROSS_SITE_COOKIES=true
    * (déploiements avec frontend/backend sur des domaines différents) — voir
    * le commentaire ci-dessous pour le détail de cet arbitrage sécurité.
+   *
+   * @param rememberMe true (défaut) : cookies persistants (`maxAge` fixe,
+   * survivent à la fermeture du navigateur — durée du JWT sous-jacent
+   * inchangée par ailleurs). false : cookies de session au sens propre —
+   * pas de `maxAge`/`expires`, le navigateur les efface à sa fermeture,
+   * même si le JWT qu'ils contiennent reste valide plus longtemps.
    */
   private setSessionCookies(
     response: Response,
     accessToken: string,
     refreshToken: string,
+    rememberMe = true,
   ) {
     const secure = this.config.get('NODE_ENV') === 'production';
     // 'lax' est le réglage sûr par défaut (protection CSRF) et suffit quand
@@ -76,14 +84,14 @@ export class AuthController {
       httpOnly: true,
       secure: secure || crossSite,
       sameSite,
-      maxAge: 15 * 60 * 1000,
+      ...(rememberMe ? { maxAge: 15 * 60 * 1000 } : {}),
       path: '/',
     });
     response.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: secure || crossSite,
       sameSite,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      ...(rememberMe ? { maxAge: 7 * 24 * 60 * 60 * 1000 } : {}),
       path: '/',
     });
   }
@@ -218,7 +226,12 @@ export class AuthController {
       // Aucun cookie de session tant que le code MFA n'est pas vérifié.
       return { mfaRequired: true, challengeToken: result.challengeToken };
     }
-    this.setSessionCookies(response, result.accessToken, result.refreshToken);
+    this.setSessionCookies(
+      response,
+      result.accessToken,
+      result.refreshToken,
+      result.rememberMe,
+    );
     return { user: result.user };
   }
 
@@ -243,9 +256,9 @@ export class AuthController {
     @Body() dto: MfaLoginVerifyDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { accessToken, refreshToken, user } =
+    const { accessToken, refreshToken, user, rememberMe } =
       await this.authService.completeMfaLogin(dto.challengeToken, dto.code);
-    this.setSessionCookies(response, accessToken, refreshToken);
+    this.setSessionCookies(response, accessToken, refreshToken, rememberMe);
     return { user };
   }
 
@@ -284,9 +297,13 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('Aucune session à rafraîchir');
     }
-    const { accessToken, refreshToken: newRefreshToken, user } =
-      await this.authService.refreshTokens(refreshToken);
-    this.setSessionCookies(response, accessToken, newRefreshToken);
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      user,
+      rememberMe,
+    } = await this.authService.refreshTokens(refreshToken);
+    this.setSessionCookies(response, accessToken, newRefreshToken, rememberMe);
     return { user };
   }
 
@@ -294,9 +311,14 @@ export class AuthController {
    * Retourne le profil de l'utilisateur actuellement authentifié, à partir
    * du `request.user` peuplé par JwtStrategy (aucun accès direct à la base
    * ici). Protégé par JwtAuthGuard : nécessite un access token valide.
+   * @MfaExempt : un compte à rôle privilégié pas encore enrôlé au MFA doit
+   * pouvoir lire son propre statut `mfaEnabled` (voir MfaEnforcedGuard) —
+   * sinon le frontend n'aurait aucun moyen de savoir qu'il doit rediriger
+   * vers l'enrôlement.
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @MfaExempt()
   @ApiBearerAuth('access-token')
   async me(@GetUser() user: any) {
     return {
@@ -411,6 +433,7 @@ export class AuthController {
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @MfaExempt()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Enable MFA for admin' })
@@ -442,6 +465,7 @@ export class AuthController {
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @MfaExempt()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Verify and enable MFA' })

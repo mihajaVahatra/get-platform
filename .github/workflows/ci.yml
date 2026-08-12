@@ -32,17 +32,68 @@ jobs:
       DATABASE_URL: postgresql://get_ci:get_ci@localhost:5432/get_ci?schema=public
       JWT_SECRET: ci-only-secret-not-for-production
       JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production
-      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_FORCE_PATH_STYLE: "true"
+      S3_BUCKET: get-poc-uploads
+      S3_PUBLIC_BUCKET: get-poc-public
+      S3_ACCESS_KEY_ID: get_ci_minio
+      S3_SECRET_ACCESS_KEY: get_ci_minio_secret
+      S3_PUBLIC_URL: http://localhost:9000/get-poc-public
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # Historique complet nécessaire pour calculer le diff des fichiers
+          # modifiés (voir step "Lint" ci-dessous) — sans ça, git n'a que le
+          # dernier commit et ne peut pas comparer avec la base de la PR.
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
+
+      # MinIO en `services:` ne fonctionne pas ici : l'image officielle exige
+      # la commande explicite `server /data` (sinon elle affiche l'aide et
+      # quitte aussitôt), or GitHub Actions ne permet pas de surcharger la
+      # commande d'un service container — seuls image/env/ports/options sont
+      # configurables. Démarré manuellement en conteneur Docker "classique"
+      # à la place, ce qui permet aussi d'enchaîner la création des buckets
+      # juste après (MinIO ne les crée jamais lui-même). Requis par les e2e
+      # d'upload/suppression de documents : StorageService parle S3 réel,
+      # jamais mocké — sans ce service, tout appel S3 échoue avec
+      # AuthorizationHeaderMalformed faute d'endpoint à signer.
+      - name: Démarrer MinIO (S3 pour les e2e d'upload de documents)
+        run: |
+          docker run -d --name ci-minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=get_ci_minio \
+            -e MINIO_ROOT_PASSWORD=get_ci_minio_secret \
+            minio/minio:RELEASE.2025-04-08T15-41-24Z server /data
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO prêt."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MinIO n'a jamais répondu healthy." >&2
+          docker logs ci-minio || true
+          exit 1
+
+      - name: Créer les buckets S3 (get-poc-uploads privé, get-poc-public en lecture publique)
+        env:
+          AWS_ACCESS_KEY_ID: get_ci_minio
+          AWS_SECRET_ACCESS_KEY: get_ci_minio_secret
+        run: |
+          aws --endpoint-url http://localhost:9000 --region us-east-1 s3 mb s3://get-poc-uploads
+          aws --endpoint-url http://localhost:9000 --region us-east-1 s3 mb s3://get-poc-public
+          aws --endpoint-url http://localhost:9000 --region us-east-1 s3api put-bucket-policy \
+            --bucket get-poc-public \
+            --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::get-poc-public/*"}]}'
 
       - name: Install dependencies
         run: npm ci
@@ -54,14 +105,31 @@ jobs:
         run: npm run typecheck
 
       # Backlog connu (audit sécurité 2026-08-02) : 735 erreurs / 44
-      # avertissements ESLint, 41 fichiers non conformes Prettier. Non
-      # bloquant tant que ce backlog n'est pas résorbé — mais visible dans
-      # chaque run pour éviter toute régression silencieuse au-delà.
-      - name: Lint (non bloquant — backlog en cours de résorption)
+      # avertissements ESLint, 41 fichiers non conformes Prettier — bien trop
+      # volumineux pour être résorbé d'un coup, et bloquer sur un fichier
+      # entier dès qu'il est touché pénaliserait injustement toute PR qui
+      # modifierait ne serait-ce qu'une ligne d'un fichier déjà en dette
+      # (vérifié : ça aurait bloqué plusieurs commits déjà mergés sur
+      # develop). scripts/lint-diff.mjs ne bloque donc que sur les LIGNES
+      # réellement ajoutées/modifiées par ce diff — pas de nouvelle dette,
+      # sans exiger de résorber l'existant pour pouvoir merger. Couvre aussi
+      # Prettier (eslint-plugin-prettier remonte ses erreurs comme des
+      # erreurs ESLint classiques, règle `prettier/prettier`).
+      - name: Lint (lignes modifiées — bloquant)
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Pas de base fiable pour un diff (ex. tout premier push d'une branche) — vérification bloquante ignorée pour ce run, le lint complet non bloquant ci-dessous reste actif." >&2
+            exit 0
+          fi
+          node ../scripts/lint-diff.mjs "$BASE_SHA" "${{ github.sha }}" .ts
+
+      - name: Lint (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run lint
         continue-on-error: true
 
-      - name: Format check (non bloquant — backlog en cours de résorption)
+      - name: Format check (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run format:check
         continue-on-error: true
 
@@ -80,16 +148,42 @@ jobs:
       - name: Dependency audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high
 
+      # SBOM (inventaire des dépendances, format CycloneDX) — informatif,
+      # jamais un gate (`continue-on-error`) : `npm sbom` échoue dès qu'il
+      # détecte une incohérence dans l'arbre de dépendances (ex. actuellement
+      # js-yaml@5.2.3 installé alors que @nestjs/swagger en requiert 5.2.1),
+      # ce qui est un problème de lockfile à part entière, pas une raison de
+      # bloquer la CI depuis cette étape informative.
+      - name: Générer le SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=application > sbom-backend.json
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-backend
+          path: backend/sbom-backend.json
+          retention-days: 90
+          if-no-files-found: warn
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
+    env:
+      # `next build` tourne toujours avec NODE_ENV=production (comportement
+      # interne de Next.js, indépendant de l'environnement CI) — sans cette
+      # valeur, le garde-fou API_ORIGIN de next.config.ts fait échouer le
+      # build ici alors qu'aucun backend réel n'est requis pour vérifier
+      # que le build compile.
+      API_ORIGIN: https://ci-only-placeholder.invalid
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -102,17 +196,49 @@ jobs:
         run: npm run typecheck
 
       # Backlog connu (audit sécurité 2026-08-02) : 32 erreurs / 25
-      # avertissements ESLint. Non bloquant tant que ce backlog n'est pas
-      # résorbé.
-      - name: Lint (non bloquant — backlog en cours de résorption)
+      # avertissements ESLint — même logique que côté backend (voir le
+      # commentaire équivalent dans le job Backend) : bloquant sur les
+      # lignes modifiées, non bloquant sur le reste du dépôt tant que le
+      # backlog historique n'est pas résorbé.
+      - name: Lint (lignes modifiées — bloquant)
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "Pas de base fiable pour un diff (ex. tout premier push d'une branche) — vérification bloquante ignorée pour ce run, le lint complet non bloquant ci-dessous reste actif." >&2
+            exit 0
+          fi
+          node ../scripts/lint-diff.mjs "$BASE_SHA" "${{ github.sha }}" .ts .tsx
+
+      - name: Lint (dépôt entier, non bloquant — backlog historique en cours de résorption)
         run: npm run lint
         continue-on-error: true
 
-      - name: Tests
-        run: npm run test
+      - name: Tests + coverage threshold
+        run: npm run test:cov
 
       - name: Build
         run: npm run build
 
+      # Échoue si le JS client total dépasse le budget (voir
+      # scripts/check-bundle-budget.mjs) — une dépendance lourde importée
+      # par erreur dans un composant client ne doit se remarquer qu'ici,
+      # pas une fois le temps de chargement dégradé en production.
+      - name: Budget de bundle
+        run: npm run check:bundle-budget
+
       - name: Dependency audit (production dependencies)
         run: npm audit --omit=dev --audit-level=high
+
+      # Informatif, jamais un gate — voir le commentaire équivalent côté
+      # backend.
+      - name: Générer le SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=application > sbom-frontend.json
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-frontend
+          path: frontend/sbom-frontend.json
+          retention-days: 90
+          if-no-files-found: warn
