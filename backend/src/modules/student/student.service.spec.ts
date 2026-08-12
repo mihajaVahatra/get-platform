@@ -332,6 +332,7 @@ describe('StudentService — profil (PII chiffrées)', () => {
       );
       expect(prisma.student.update).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             phone: 'enc(034 00 000 00)',
             cin: 'enc(123456789012)',
@@ -348,6 +349,7 @@ describe('StudentService — profil (PII chiffrées)', () => {
       });
 
       await expect(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- DTO volontairement partiel pour ce cas de test
         service.updateProfile('user-1', {
           address: 'Lot II B 45 Antananarivo',
         } as any),
@@ -362,7 +364,10 @@ describe('StudentService — profil (PII chiffrées)', () => {
       await service.updateProfile('user-1', { city: 'Antananarivo' });
 
       expect(encryption.encrypt).not.toHaveBeenCalled();
-      const data = prisma.student.update.mock.calls[0][0].data;
+      const calls = prisma.student.update.mock.calls as Array<
+        [{ data: Record<string, unknown> }]
+      >;
+      const data = calls[0][0].data;
       expect(data.phone).toBeUndefined();
       expect(data.cin).toBeUndefined();
       expect(data.address).toBeUndefined();

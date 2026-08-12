@@ -259,7 +259,10 @@ export class StudentService {
         try {
           decryptedAddress = this.encryption.decrypt(student.address);
         } catch (e) {
-          console.error('❌ Erreur déchiffrement address:', e.message);
+          console.error(
+            '❌ Erreur déchiffrement address:',
+            e instanceof Error ? e.message : String(e),
+          );
         }
       }
 
@@ -337,8 +340,10 @@ export class StudentService {
     }
     if (dto.address) {
       try {
-        data.address = this.encryption.encrypt(dto.address);
-      } catch (e) {
+        (data as Record<string, unknown>).address = this.encryption.encrypt(
+          dto.address,
+        );
+      } catch {
         throw new BadRequestException(
           'Impossible de sécuriser l’adresse, réessayez plus tard',
         );

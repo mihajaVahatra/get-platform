@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { EncryptionService } from '../src/common/services/encryption.service';
 
 const prisma = new PrismaClient();
@@ -9,7 +10,7 @@ const prisma = new PrismaClient();
 // sur process.env plutôt que de démarrer toute l'application pour ça.
 const encryption = new EncryptionService({
   get: (key: string) => process.env[key],
-} as any);
+} as unknown as ConfigService);
 
 async function main() {
   if (
