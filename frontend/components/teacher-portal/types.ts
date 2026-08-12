@@ -22,7 +22,19 @@ export type CourseTab =
   | 'evaluations'
   | 'assignments'
   | 'grades'
+  | 'attendance'
   | 'settings';
+
+/** Statut de présence d'un étudiant pour une séance (voir POST .../attendance). */
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE';
+
+/** Ligne du trombinoscope de présence, telle que renvoyée par GET .../attendance. */
+export type AttendanceEntry = {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  status: AttendanceStatus | null;
+};
 
 /** Cours enseigné par le professeur, tel que listé dans la vue "Mes cours". */
 export type CourseSummary = {
