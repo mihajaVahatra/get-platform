@@ -15,6 +15,8 @@ import {
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -26,6 +28,7 @@ import {
   Matches,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { GetUser } from '../../common/decorators/get-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -120,6 +123,20 @@ class SubmissionGradeDto {
   @Type(() => Number) @IsNumber() grade: number;
   @IsOptional() @IsString() @MaxLength(2000) feedback?: string;
 }
+/** Statut de présence d'un étudiant pour une séance. */
+class AttendanceRecordDto {
+  @IsString() studentId: string;
+  @IsIn(['PRESENT', 'ABSENT', 'LATE']) status: string;
+}
+/** Appel d'une séance : date précise + statut de chaque étudiant inscrit. */
+class MarkAttendanceDto {
+  @IsDateString() date: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => AttendanceRecordDto)
+  records: AttendanceRecordDto[];
+}
 /**
  * API "espace enseignant" pour la gestion des cours dont l'enseignant a la
  * charge : liste des cours/écoles/emploi du temps, détail d'un cours,
@@ -181,6 +198,22 @@ export class TeachingController {
     @Query('limit') limit?: number,
   ) {
     return this.teaching.students(id, courseId, page, limit);
+  }
+  /** Trombinoscope du cours avec le statut de présence déjà enregistré à la date donnée, le cas échéant. */
+  @Get(':courseId/attendance') getAttendance(
+    @GetUser('id') id: string,
+    @Param('courseId') courseId: string,
+    @Query('date') date: string,
+  ) {
+    return this.teaching.getAttendance(id, courseId, date);
+  }
+  /** Enregistre l'appel d'une séance (présent/absent/en retard par étudiant). */
+  @Post(':courseId/attendance') markAttendance(
+    @GetUser('id') id: string,
+    @Param('courseId') courseId: string,
+    @Body() dto: MarkAttendanceDto,
+  ) {
+    return this.teaching.markAttendance(id, courseId, dto.date, dto.records);
   }
   /** Liste les évaluations d'un cours. */
   @Get(':courseId/evaluations') evaluations(

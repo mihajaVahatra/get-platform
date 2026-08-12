@@ -144,6 +144,7 @@ model Student {
   enrollments  CourseEnrollment[]
   submissions  AssignmentSubmission[]
   grades       Grade[]
+  attendances  Attendance[]
 
   @@map("students")
 }
@@ -619,6 +620,7 @@ model Course {
   assignments          Assignment[]
   slots                CourseSlot[]
   announcements        Announcement[]
+  attendances          Attendance[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
@@ -658,6 +660,28 @@ model CourseEnrollment {
   @@unique([courseId, studentId])
   @@index([studentId])
   @@map("course_enrollments")
+}
+
+// Présence marquée par l'enseignant pour une séance donnée (courseId + date,
+// pas courseId + CourseSlot : un CourseSlot ne décrit qu'un créneau
+// hebdomadaire récurrent, jamais une occurrence datée précise). Une ligne
+// par étudiant présent/absent/en retard pour cette séance.
+model Attendance {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  status    String // PRESENT | ABSENT | LATE
+  markedBy  String // Teacher.id ayant fait l'appel
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, studentId, date])
+  @@index([courseId, date])
+  @@index([studentId, status])
+  @@map("attendances")
 }
 
 model CourseChapter {
