@@ -10,6 +10,7 @@ import {
 import { TeachingService } from './teaching.service';
 import { AnnouncementModule } from '../announcement/announcement.module';
 import { StorageService } from '../../common/services/storage.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 @Module({
   imports: [PrismaModule, AnnouncementModule],
   controllers: [
@@ -19,6 +20,6 @@ import { StorageService } from '../../common/services/storage.service';
     TeacherSubmissionsController,
     TeacherProfileController,
   ],
-  providers: [TeachingService, StorageService],
+  providers: [TeachingService, StorageService, EncryptionService],
 })
 export class TeachingModule {}

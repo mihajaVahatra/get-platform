@@ -1,4 +1,5 @@
 import { getLocale } from 'next-intl/server';
+import { z } from 'zod';
 import LandingAnimated, {
   type LandingConfig,
   type NewsItem,
@@ -50,26 +51,132 @@ const DEFAULT_CONFIGS: Record<string, LandingConfig> = {
   },
 };
 
-async function getLandingData(locale: string) {
-  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-  const defaultConfig = DEFAULT_CONFIGS[locale] ?? DEFAULT_CONFIGS.fr;
+/* =============================================================
+   VALIDATION — la landing page est alimentée par un CMS piloté par
+   l'admin GET (voir dashboard/admin?section=landing-content). Une
+   réponse dont la forme ne correspond plus à ce que le composant attend
+   (champ renommé/retiré côté backend, retour d'erreur inattendu...) ne
+   doit jamais planter le rendu ni afficher des données à moitié
+   présentes — repli sur le contenu par défaut pour CE seul bloc.
+   ============================================================= */
+const heroSchema = z.object({ title: z.string(), subtitle: z.string() });
+const statItemSchema = z.object({
+  icon: z.string(),
+  value: z.string(),
+  label: z.string(),
+});
+const stepItemSchema = z.object({ title: z.string(), text: z.string() });
+const actorCardItemSchema = z.object({
+  icon: z.string(),
+  title: z.string(),
+  text: z.string(),
+});
+const landingConfigSchema = z.object({
+  hero: heroSchema,
+  stats: z.array(statItemSchema),
+  steps: z.array(stepItemSchema),
+  actorCards: z.array(actorCardItemSchema),
+});
+const newsItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  body: z.string(),
+  imageUrl: z.string().nullable(),
+  publishedAt: z.string(),
+});
+const partnerItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  logoUrl: z.string().nullable(),
+  kind: z.string(),
+});
+const partnersSchema = z.object({
+  schools: z.array(partnerItemSchema),
+  financialPartners: z.array(partnerItemSchema),
+});
+
+// Contenu marketing public, modifié occasionnellement via le CMS admin — pas
+// besoin de le refaire à neuf à chaque visite. `revalidate` (secondes) : le
+// contenu servi peut avoir jusqu'à cette ancienneté avant qu'un prochain
+// visiteur ne déclenche une régénération en arrière-plan (ISR), au lieu du
+// `cache: 'no-store'` précédent qui refaisait ces 3 appels backend à chaque
+// chargement de page, même pour du contenu identique.
+const REVALIDATE_SECONDS = 120;
+
+/**
+ * Récupère un bloc de contenu de la landing page, valide sa forme, et
+ * retourne le repli fourni si la requête échoue (réseau, statut HTTP non-2xx,
+ * JSON invalide, ou forme inattendue) — un échec sur un bloc n'affecte
+ * jamais les deux autres (contrairement à un `Promise.all` qui échoue en bloc).
+ */
+async function fetchLandingBlock<T>(
+  url: string,
+  schema: z.ZodType<T>,
+  fallback: T,
+  label: string,
+): Promise<T> {
   try {
-    const [configRes, newsRes, partnersRes] = await Promise.all([
-      fetch(`${base}/landing/config?locale=${locale}`, { cache: 'no-store' }),
-      fetch(`${base}/landing/news?limit=3`, { cache: 'no-store' }),
-      fetch(`${base}/landing/partners`, { cache: 'no-store' }),
-    ]);
-    const [configJson, newsJson, partnersJson] = await Promise.all([
-      configRes.json(), newsRes.json(), partnersRes.json(),
-    ]);
-    return {
-      config: (configJson.data as LandingConfig) || defaultConfig,
-      news: (newsJson.data as NewsItem[]) || [],
-      partners: (partnersJson.data as Partners) || { schools: [], financialPartners: [] },
-    };
-  } catch {
-    return { config: defaultConfig, news: [] as NewsItem[], partners: { schools: [], financialPartners: [] } as Partners };
+    const response = await fetch(url, {
+      next: { revalidate: REVALIDATE_SECONDS },
+    });
+    if (!response.ok) {
+      console.error(`Landing: ${label} a répondu ${response.status}`);
+      return fallback;
+    }
+    const body: unknown = await response.json();
+    const data =
+      body && typeof body === 'object' && 'data' in body
+        ? (body as { data: unknown }).data
+        : body;
+    const parsed = schema.safeParse(data);
+    if (!parsed.success) {
+      console.error(
+        `Landing: forme inattendue pour ${label}`,
+        parsed.error.issues,
+      );
+      return fallback;
+    }
+    return parsed.data;
+  } catch (error) {
+    console.error(`Landing: échec de chargement de ${label}`, error);
+    return fallback;
   }
+}
+
+async function getLandingData(locale: string) {
+  // Cette fonction s'exécute côté serveur (fonction Vercel), pas dans le
+  // navigateur : elle peut donc joindre le backend directement via
+  // `API_ORIGIN` (même variable que le proxy /api de next.config.ts), sans
+  // passer par le proxy ni transporter de cookie — cette route ne lit que
+  // des données publiques.
+  const base = process.env.API_ORIGIN
+    ? `${process.env.API_ORIGIN}/api`
+    : 'http://localhost:3001/api';
+  const defaultConfig = DEFAULT_CONFIGS[locale] ?? DEFAULT_CONFIGS.fr;
+
+  const [config, news, partners] = await Promise.all([
+    fetchLandingBlock(
+      `${base}/landing/config?locale=${locale}`,
+      landingConfigSchema,
+      defaultConfig,
+      'config',
+    ),
+    fetchLandingBlock(
+      `${base}/landing/news?limit=3`,
+      z.array(newsItemSchema),
+      [] as NewsItem[],
+      'news',
+    ),
+    fetchLandingBlock(
+      `${base}/landing/partners`,
+      partnersSchema,
+      { schools: [], financialPartners: [] } as Partners,
+      'partners',
+    ),
+  ]);
+
+  return { config, news, partners };
 }
 
 export default async function Home() {

@@ -41,25 +41,62 @@ export class StudentService {
   }
 
   /**
-   * Vérifie qu'un étudiant est bien inscrit à un cours donné.
-   * @throws NotFoundException si l'inscription n'existe pas.
+   * Vérifie qu'un étudiant est bien inscrit à un cours donné, ET que son
+   * inscription à l'école propriétaire de ce cours est toujours ACTIVE.
+   * Un retrait ou une diplomation (StudentEnrollment.status devient
+   * WITHDRAWN/GRADUATED, voir SchoolService.updateEnrollment) ne supprime
+   * délibérément pas les CourseEnrollment historiques — sans cette
+   * seconde vérification, un étudiant retiré/diplômé garderait donc un
+   * accès indéfini aux devoirs/contenus du cours (faille corrigée suite à
+   * l'audit sécurité).
+   * @throws NotFoundException si l'inscription n'existe pas, ou si
+   * l'inscription à l'école n'est plus active.
    */
   private async courseEnrollment(studentId: string, courseId: string) {
     const enrollment = await this.prisma.courseEnrollment.findUnique({
       where: { courseId_studentId: { courseId, studentId } },
+      include: { course: { select: { schoolId: true } } },
     });
     if (!enrollment) throw new NotFoundException('Cours introuvable');
+    const schoolEnrollment = await this.prisma.studentEnrollment.findUnique({
+      where: {
+        studentId_schoolId: { studentId, schoolId: enrollment.course.schoolId },
+      },
+      select: { status: true },
+    });
+    if (schoolEnrollment?.status !== 'ACTIVE') {
+      throw new NotFoundException('Cours introuvable');
+    }
     return enrollment;
   }
 
-  /** Liste les cours (avec leur école) auxquels l'étudiant est inscrit. */
+  /**
+   * Liste les cours (avec leur école) auxquels l'étudiant est inscrit et
+   * dont l'inscription à l'école est toujours ACTIVE (voir courseEnrollment
+   * pour le raisonnement — un retrait/diplomation ne doit pas laisser les
+   * cours visibles indéfiniment).
+   */
   async getCourses(userId: string) {
     const student = await this.enrolledStudent(userId);
+    const activeSchools = await this.prisma.studentEnrollment.findMany({
+      where: { studentId: student.id, status: 'ACTIVE' },
+      select: { schoolId: true },
+    });
+    const activeSchoolIds = new Set(activeSchools.map((e) => e.schoolId));
     const enrollments = await this.prisma.courseEnrollment.findMany({
       where: { studentId: student.id },
-      include: { course: { include: { school: true } } },
+      include: {
+        course: {
+          include: {
+            school: true,
+            teacher: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
     });
-    return enrollments.map(({ course }) => course);
+    return enrollments
+      .filter(({ course }) => activeSchoolIds.has(course.schoolId))
+      .map(({ course }) => course);
   }
 
   /**
@@ -394,9 +431,17 @@ export class StudentService {
   }
 
   /**
-   * Supprime un document de manière logique (`deletedAt` renseigné, le
-   * fichier n'est pas retiré du stockage). Vérifie que le document
-   * appartient bien à l'étudiant demandeur.
+   * Supprime un document de manière logique (`deletedAt` renseigné — la
+   * ligne est conservée, jamais purgée physiquement, conformément à la
+   * règle de gestion GET-RG-066) et retire également l'objet S3 sous-jacent.
+   * Le retrait S3 est une défense en profondeur en plus du contrôle
+   * `deletedAt` déjà appliqué par la route protégée de téléchargement (voir
+   * `protected-uploads.middleware.ts`) : avant ce correctif, un document
+   * "supprimé" restait indéfiniment accessible via son ancienne URL, tant
+   * côté base (aucun contrôle `deletedAt` sur la route de téléchargement)
+   * que côté stockage (objet S3 jamais retiré) — faille corrigée suite à
+   * l'audit QA.
+   * Vérifie que le document appartient bien à l'étudiant demandeur.
    * @throws NotFoundException si le profil ou le document est introuvable.
    */
   async deleteDocument(userId: string, documentId: string) {
@@ -424,6 +469,11 @@ export class StudentService {
       where: { id: documentId },
       data: { deletedAt: new Date() },
     });
+
+    const fileName = document.fileUrl.split('/').pop();
+    if (fileName) {
+      await this.storageService.deleteObject('documents', student.id, fileName);
+    }
 
     return { success: true };
   }
@@ -705,6 +755,34 @@ export class StudentService {
     }));
   }
 
+  // ========== PRÉSENCE ==========
+
+  /**
+   * Compte les présences/absences/retards de l'étudiant, tous cours
+   * confondus, marqués par ses enseignants (voir TeachingService.
+   * markAttendance). Historique complet, non filtré sur le statut
+   * d'inscription actif — au même titre que les notes (getGrades), c'est un
+   * fait passé, pas un accès en cours à révoquer.
+   */
+  async getAttendanceStats(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const records = await this.prisma.attendance.groupBy({
+      by: ['status'],
+      where: { studentId: student.id },
+      _count: { status: true },
+    });
+    const counts = { PRESENT: 0, ABSENT: 0, LATE: 0 };
+    for (const record of records) {
+      if (record.status in counts) {
+        counts[record.status as keyof typeof counts] = record._count.status;
+      }
+    }
+    return {
+      ...counts,
+      total: counts.PRESENT + counts.ABSENT + counts.LATE,
+    };
+  }
+
   // ========== SCHEDULE ==========
 
   /**
@@ -727,6 +805,31 @@ export class StudentService {
         course: { select: { id: true, title: true, code: true } },
       },
       orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    });
+  }
+
+  // ========== ÉVÉNEMENTS ==========
+
+  /**
+   * Événements à venir des écoles où l'étudiant a une inscription ACTIVE
+   * (voir SchoolService.createEvent côté school-admin) — un retrait/
+   * diplomation ne doit pas laisser les événements de l'école visibles
+   * indéfiniment, même raisonnement que courseEnrollment.
+   */
+  async getUpcomingEvents(userId: string) {
+    const student = await this.enrolledStudent(userId);
+    const activeSchools = await this.prisma.studentEnrollment.findMany({
+      where: { studentId: student.id, status: 'ACTIVE' },
+      select: { schoolId: true },
+    });
+    const schoolIds = activeSchools.map((enrollment) => enrollment.schoolId);
+    if (schoolIds.length === 0) return [];
+
+    return this.prisma.schoolEvent.findMany({
+      where: { schoolId: { in: schoolIds }, startAt: { gte: new Date() } },
+      include: { school: { select: { name: true } } },
+      orderBy: { startAt: 'asc' },
+      take: 10,
     });
   }
 

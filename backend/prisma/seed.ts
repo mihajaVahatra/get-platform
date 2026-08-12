@@ -498,7 +498,7 @@ async function main() {
         create: {
           firstName: 'Jean',
           lastName: 'Rakoto',
-          phone: '+261341234567',
+          phone: encryption.encrypt('+261341234567'),
           city: 'Antananarivo',
           region: 'Analamanga',
         },
@@ -558,9 +558,9 @@ async function main() {
         create: {
           firstName: 'Toavina',
           lastName: 'Vahatra',
-          phone: '+261 34 234 5678',
+          phone: encryption.encrypt('+261 34 234 5678'),
           birthDate: new Date('2000-01-01'),
-          cin: '1012345678',
+          cin: encryption.encrypt('1012345678'),
           bacYear: 2018,
           bacType: 'Série C',
           city: 'Antananarivo',

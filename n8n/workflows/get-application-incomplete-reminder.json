@@ -31,26 +31,28 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/applications/pending-reminder",
+        "url": "http://host.docker.internal:3001/api/integration/applications/pending-reminder",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             { "name": "staleDays", "value": "3" }
           ]
         },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
-          ]
-        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
       "id": "b2f3c4d5-0002-4b2b-9b2b-000000000002",
       "name": "Lister les candidatures à relancer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [450, 390]
+      "position": [450, 390],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "get-integration-api-key",
+          "name": "GET Integration API Key"
+        }
+      }
     },
     {
       "parameters": {
@@ -66,20 +68,22 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/applications/{{ $json.applicationId }}/reminder",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
-          ]
-        },
+        "url": "http://host.docker.internal:3001/api/integration/applications/{{ $json.applicationId }}/reminder",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
       "id": "b2f3c4d5-0002-4b2b-9b2b-000000000004",
       "name": "Envoyer le rappel (endpoint existant)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [950, 390]
+      "position": [950, 390],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "get-integration-api-key",
+          "name": "GET Integration API Key"
+        }
+      }
     }
   ],
   "connections": {

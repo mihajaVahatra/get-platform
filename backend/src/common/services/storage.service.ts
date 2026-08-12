@@ -249,6 +249,24 @@ export class StorageService {
   }
 
   /**
+   * Supprime un objet du bucket privé (document, support de cours, pièce
+   * jointe) désigné par ses segments de clé. Best-effort comme
+   * `deleteImage` : un échec est journalisé mais ne doit jamais empêcher la
+   * suppression logique (base de données) qui l'accompagne côté appelant.
+   */
+  async deleteObject(...segments: string[]): Promise<void> {
+    const key = this.buildKey(...segments);
+    await this.client
+      .send(new DeleteObjectCommand({ Bucket: this.privateBucket, Key: key }))
+      .catch((error) =>
+        console.warn(
+          `StorageService.deleteObject: échec de suppression S3 pour la clé "${key}"`,
+          error,
+        ),
+      );
+  }
+
+  /**
    * Génère une URL de téléchargement à courte durée de vie pour un fichier
    * protégé, une fois l'autorisation déjà vérifiée par l'appelant (voir
    * `protected-uploads.middleware.ts`).

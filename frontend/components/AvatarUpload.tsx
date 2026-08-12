@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DefaultAvatar } from './DefaultAvatar';
@@ -31,6 +31,11 @@ export function AvatarUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedPreview, setUploadedPreview] = useState<string | undefined>();
   const preview = uploadedPreview ?? currentUrl;
+  // Ce composant est monté deux fois simultanément sur la même page (bloc
+  // mobile + bloc desktop, l'un des deux masqué en CSS mais toujours dans
+  // le DOM) : un id fixe produirait deux #avatar-upload, cassant
+  // l'association label/input (le clic peut activer le mauvais input).
+  const inputId = useId();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,13 +78,14 @@ export function AvatarUpload({
     <div className="relative group">
       <input
         type="file"
-        id="avatar-upload"
+        id={inputId}
         accept="image/*"
+        aria-label="Modifier la photo de profil"
         className="hidden"
         onChange={handleUpload}
         disabled={isUploading}
       />
-      <label htmlFor="avatar-upload" className="cursor-pointer block">
+      <label htmlFor={inputId} className="cursor-pointer block">
         {showPreview ? (
           <Avatar
             className="border-4 border-white/20 transition-opacity group-hover:opacity-75"

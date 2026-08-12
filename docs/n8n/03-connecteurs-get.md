@@ -129,18 +129,34 @@ L'idempotence reste théoriquement absente ici aussi (`sendWelcomeEmail`
 n'a pas de garde-fou anti-doublon), mais le seul déclencheur possible est une
 inscription — qui ne se produit qu'une fois par compte dans le flux normal.
 
-**Webhook entrant authentifié (corrigé).** `AuthService.notifyN8n` envoie
-désormais un en-tête `x-webhook-secret` (nouveau `N8N_WEBHOOK_SECRET`,
-distinct de `INTEGRATION_API_KEY` — sens inverse, backend → n8n) et le
-workflow vérifie cet en-tête via un nœud IF ("Secret webhook valide ?") avant
-d'appeler le backend. Choix délibéré face à l'authentification native du
-nœud Webhook (`authentication: headerAuth`) : celle-ci exige une Credential
-n8n chiffrée à créer via `import:credentials`, plus de surface pour se
-tromper sans pouvoir déboguer visuellement ; le nœud IF est entièrement en
-JSON versionné, testable par API, et donne le même résultat pour du local.
-Vérifié dans les deux sens : un appel forgé sans le secret s'arrête au nœud
-IF (`lastNodeExecuted: "Secret webhook valide ?"`, l'appel vers le backend
-n'a jamais lieu) ; une vraie inscription passe et déclenche bien l'email.
+**Webhook entrant authentifié (corrigé, puis durci le 2026-08-11).**
+`AuthService.notifyN8n` envoie un en-tête `x-webhook-secret` (nouveau
+`N8N_WEBHOOK_SECRET`, distinct de `INTEGRATION_API_KEY` — sens inverse,
+backend → n8n).
+
+Historiquement, le workflow vérifiait cet en-tête via un nœud IF ("Secret
+webhook valide ?") comparant à `$env.N8N_WEBHOOK_SECRET` — choix délibéré
+face à l'authentification native du nœud Webhook (`authentication:
+headerAuth`), qui exige une Credential n8n chiffrée : à l'époque, plus de
+surface pour se tromper sans pouvoir déboguer visuellement, contre un nœud
+IF entièrement en JSON versionné et testable par API. Vérifié dans les deux
+sens à l'époque : un appel forgé sans le secret s'arrêtait au nœud IF
+(`lastNodeExecuted: "Secret webhook valide ?"`, l'appel vers le backend
+n'avait jamais lieu) ; une vraie inscription passait et déclenchait bien
+l'email.
+
+**Ce compromis ne tient plus depuis `N8N_BLOCK_ENV_ACCESS_IN_NODE=true`**
+(voir [Détail technique notable](#détail-technique-notable) ci-dessous) :
+`$env` n'est plus lisible dans aucune expression de nœud, IF inclus. Le
+webhook utilise donc désormais l'authentification "Header Auth" native du
+nœud Webhook lui-même (`n8n/workflows/get-student-welcome-email.json`) — le
+nœud IF a été retiré, n8n rejette une requête sans le bon en-tête avant même
+que le workflow ne s'exécute. La Credential `httpHeaderAuth` référencée
+(`id: get-n8n-webhook-secret`, `name: "GET Webhook Secret (backend -> n8n)"`)
+doit être créée manuellement dans l'éditeur n8n (Settings → Credentials)
+avec la valeur de `N8N_WEBHOOK_SECRET`/`GET_N8N_WEBHOOK_SECRET` (voir
+`.env.n8n.example`) avant réimport/activation — ce n'est plus une étape
+optionnelle comme le suggérait l'ancien choix.
 
 ## Écart de sécurité assumé, à corriger avant tout usage réel
 
@@ -158,13 +174,50 @@ décidé.
 
 ## Détail technique notable
 
-`N8N_BLOCK_ENV_ACCESS_IN_NODE=false` a été activé dans
+**Mise à jour 2026-08-11 (durcissement sécurité, US-07) :**
+`N8N_BLOCK_ENV_ACCESS_IN_NODE` est désormais `true` (était `false` — voir
+l'ancienne justification barrée ci-dessous, qui ne tient plus). Aucune
+expression de nœud ($env.*, dans n'importe quel type de nœud, pas seulement
+Code) ne peut plus lire les variables d'environnement du conteneur — la
+compromission d'un compte n8n (accès à l'éditeur, sans forcément accéder au
+conteneur/poste lui-même) ne suffit donc plus à lire `INTEGRATION_API_KEY`,
+`N8N_WEBHOOK_SECRET` ou `N8N_DB_PASSWORD` via un workflow malveillant.
+Conséquences sur les 3 workflows :
+- **`INTEGRATION_API_KEY`** (en-tête `x-api-key`, 4 nœuds HTTP Request au
+  total dans les 3 workflows) : remplacé par une **Credential n8n** de type
+  `httpHeaderAuth` (`id: get-integration-api-key`, `name: "GET Integration
+  API Key"`), référencée dans chaque nœud via
+  `authentication: "genericCredentialType"` / `genericAuthType:
+  "httpHeaderAuth"`. Une seule Credential, réutilisée par les 4 nœuds — à
+  créer manuellement dans l'éditeur n8n (Settings → Credentials) avec la
+  valeur de `INTEGRATION_API_KEY`/`GET_INTEGRATION_API_KEY` (voir
+  `.env.n8n.example`) avant réimport/activation.
+- **`GET_BACKEND_URL`** : ce n'est pas un secret (juste un nom d'hôte), donc
+  pas de Credential nécessaire — chaque nœud HTTP Request porte désormais
+  l'URL en clair dans son champ `url`
+  (`http://host.docker.internal:3001` en local, voir `extra_hosts` dans
+  `docker-compose.n8n.yml`). À éditer directement dans chaque nœud (UI ou
+  JSON) si l'URL du backend change ou lors d'un import sur un autre
+  environnement — un seul endroit avant (variable d'environnement), quatre
+  maintenant (un par nœud), en échange de ne plus dépendre de `$env` du
+  tout.
+- Le webhook entrant (`x-webhook-secret`) est traité séparément, voir plus
+  haut.
+- **`NODES_EXCLUDE`** retire en complément le nœud "Execute Command" :
+  `N8N_BLOCK_ENV_ACCESS_IN_NODE` ne bloque que l'expression `$env`, pas une
+  commande shell arbitraire qui lirait les variables d'environnement
+  autrement (`printenv` depuis un nœud Execute Command, par exemple).
+
+~~`N8N_BLOCK_ENV_ACCESS_IN_NODE=false` a été activé dans
 `docker-compose.n8n.yml` pour que les nœuds HTTP Request du workflow
 puissent lire `$env.GET_BACKEND_URL` et `$env.INTEGRATION_API_KEY`. Correct
 sur une instance strictement locale ; une instance partagée devrait plutôt
 stocker `INTEGRATION_API_KEY` comme **Credential n8n** (type
 `httpHeaderAuth`, chiffré par n8n) référencée dans les nœuds, au lieu d'une
-expression `$env` visible dans l'export JSON du workflow.
+expression `$env` visible dans l'export JSON du workflow.~~ (le "instance
+strictement locale" ne suffisait déjà plus à justifier le risque dès que la
+compromission d'un *compte* n8n — pas seulement du poste — entre dans le
+modèle de menace, cf. US-07 du backlog sécurité.)
 
 ## Critère de sortie
 
