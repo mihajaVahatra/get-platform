@@ -46,6 +46,17 @@ export default async function RootLayout({
         <NextIntlClientProvider>
           {children}
         </NextIntlClientProvider>
+        {process.env.NEXT_PUBLIC_BUILD_SHA && (
+          // Diagnostic de fraîcheur de déploiement : sans repère visible, un
+          // navigateur qui sert une version en cache (service worker, proxy
+          // agressif, onglet jamais rechargé) est indiscernable d'un vrai bug
+          // applicatif — voir l'incident du 12/08 (page de recherche d'offres
+          // obsolète confondue avec une régression). Vide en local (voir
+          // next.config.ts), donc invisible en dev.
+          <p className="pointer-events-none fixed bottom-1 right-1.5 z-50 select-none font-mono text-[9px] text-slate-300 dark:text-slate-700">
+            {process.env.NEXT_PUBLIC_BUILD_SHA}
+          </p>
+        )}
         <Toaster
           position="top-right"
           toastOptions={{
