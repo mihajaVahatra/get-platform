@@ -38,8 +38,12 @@ describe('TeacherDirectory', () => {
     render(<TeacherDirectory />);
 
     expect(await screen.findByText('prof@get.mg')).toBeInTheDocument();
-    expect(screen.getByText('Informatique')).toBeInTheDocument();
-    expect(screen.getByText('Algorithmique')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) =>
+        element?.tagName === 'P' &&
+        element.textContent === 'Informatique · Algorithmique',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('affiche un message lorsqu’aucun professeur n’est affecté', async () => {
