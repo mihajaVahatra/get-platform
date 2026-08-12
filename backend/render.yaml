@@ -28,13 +28,15 @@ services:
       - key: JWT_REFRESH_EXPIRATION
         value: 7d
       # ENABLE_SWAGGER / ALLOW_DEMO_SEED / ALLOW_MOCK_PAYMENT sont
-      # volontairement en `sync: false` (à saisir manuellement à "true"
-      # dans le dashboard Render pour un QA) et non en dur : ce sont
-      # précisément les garde-fous que seed.ts et payment.module.ts
-      # utilisent pour bloquer comptes de démo et paiements simulés en
-      # production. Les figer ici en "true" les rendrait actifs par
-      # défaut si ce fichier était un jour dupliqué comme template pour
-      # un vrai déploiement production (voir DEPLOYMENT.md).
+      # volontairement en `sync: false` (à saisir manuellement dans le
+      # dashboard Render) et non en dur : ce sont précisément les
+      # garde-fous que seed.ts et payment.module.ts utilisent pour bloquer
+      # comptes de démo et paiements simulés en production. Les figer ici
+      # en "true" les rendrait actifs par défaut si ce fichier était un
+      # jour dupliqué comme template pour un vrai déploiement production
+      # (voir DEPLOYMENT.md). ALLOW_MOCK_PAYMENT n'a plus besoin d'être
+      # activé pour ce QA depuis que STRIPE_SECRET_KEY (plus bas) est
+      # configurée — le laisser à `sync: false` sans valeur suffit.
       - key: ENABLE_SWAGGER
         sync: false
       - key: ALLOW_DEMO_SEED
@@ -52,6 +54,14 @@ services:
       - key: ENCRYPTION_KEY
         sync: false
       - key: PAYMENT_WEBHOOK_SECRET
+        sync: false
+      # Fournisseur de paiement réel (Stripe, mode test) — voir
+      # DEPLOYMENT.md. Dès que STRIPE_SECRET_KEY est définie,
+      # PaymentModule utilise StripePaymentProvider au lieu du mock, quelle
+      # que soit la valeur d'ALLOW_MOCK_PAYMENT ci-dessus.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
         sync: false
       # SendGrid : sans SENDGRID_API_KEY, NotificationService.dispatchEmail
       # refuse d'envoyer un email dès que NODE_ENV=production (voir ci-dessus)

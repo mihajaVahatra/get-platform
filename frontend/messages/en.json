@@ -336,6 +336,8 @@
     "loadingPayments": "Loading payments...",
     "loadPaymentsError": "Error while loading payments",
     "loadApplicationsError": "Unable to load available applications",
+    "returnFromPaymentSuccess": "Payment received, confirming (a few seconds)...",
+    "returnFromPaymentCancelled": "Payment cancelled, nothing was charged.",
     "title": "My payments",
     "totalCount": "{count, plural, one {# payment in total} other {# payments in total}}",
     "totalPaid": "Total paid",
