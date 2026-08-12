@@ -9,12 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import { NotificationService } from '../notification/notification.service';
 import { AuditService } from '../audit/audit.service';
-import {
-  ApplicationStatus,
-  UpdateApplicationStatusDto,
-  ScheduleTestDto,
-  ScheduleInterviewDto,
-} from './dto/update-application-status.dto';
+import { ApplicationStatus } from './dto/update-application-status.dto';
 
 describe('ApplicationService', () => {
   let service: ApplicationService;
@@ -131,7 +126,7 @@ describe('ApplicationService', () => {
           'application-1',
           {
             status: ApplicationStatus.REJECTED,
-          } as unknown as UpdateApplicationStatusDto,
+          },
           'user-1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
@@ -271,7 +266,7 @@ describe('ApplicationService', () => {
           'application-1',
           {
             status: ApplicationStatus.ACCEPTED,
-          } as unknown as UpdateApplicationStatusDto,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -294,7 +289,7 @@ describe('ApplicationService', () => {
           'application-1',
           {
             status: ApplicationStatus.ACCEPTED,
-          } as unknown as UpdateApplicationStatusDto,
+          },
           'admin-1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
