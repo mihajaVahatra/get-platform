@@ -458,9 +458,13 @@ export class AuthService {
    * @throws BadRequestException si le code TOTP est incorrect.
    */
   async completeMfaLogin(challengeToken: string, code: string) {
-    let payload: any;
+    let payload: { sub: string; type: string; rememberMe?: boolean };
     try {
-      payload = this.jwt.verify(challengeToken, {
+      payload = this.jwt.verify<{
+        sub: string;
+        type: string;
+        rememberMe?: boolean;
+      }>(challengeToken, {
         secret: this.config.get('JWT_SECRET'),
       });
     } catch {
