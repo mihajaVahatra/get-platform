@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Router, Request, Response } from 'express';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { StorageService } from '../services/storage.service';
+import { ApplicationStatus } from '../../modules/application/dto/update-application-status.dto';
 
 /**
  * Extrait le JWT d'accès depuis la requête : d'abord l'en-tête `Authorization: Bearer`,
@@ -123,10 +124,19 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
     if (user.role === 'ADMIN_GET') {
       isAuthorizedReviewer = true;
     } else if (user.role === 'SCHOOL_ADMIN' && user.schoolAdmin) {
+      // Exclut les candidatures dans un état terminal (REJECTED/CANCELLED,
+      // voir APPLICATION_STATUS_TRANSITIONS) : sans ce filtre, une école
+      // gardait un accès permanent aux documents d'un candidat qu'elle a
+      // rejeté ou qui a annulé sa candidature, des années après la fin de
+      // toute relation légitime avec ce candidat (faille corrigée suite à
+      // l'audit sécurité).
       const hasApplicationAtThisSchool = await prisma.application.findFirst({
         where: {
           studentId,
           offer: { schoolId: user.schoolAdmin.schoolId },
+          status: {
+            notIn: [ApplicationStatus.REJECTED, ApplicationStatus.CANCELLED],
+          },
         },
         select: { id: true },
       });
@@ -156,14 +166,33 @@ export function createProtectedUploadsRouter(app: INestApplication): Router {
       select: { teacherId: true, schoolId: true },
     });
     const isTeacher = course && user.teacher?.id === course.teacherId;
-    const isEnrolledStudent =
-      user.student &&
-      (await prisma.courseEnrollment.findUnique({
+    // Un retrait/diplomation (StudentEnrollment.status !== ACTIVE) ne
+    // supprime pas les CourseEnrollment historiques (voir
+    // SchoolService.updateEnrollment, même raisonnement que
+    // StudentService.courseEnrollment) : la seule existence d'un
+    // CourseEnrollment ne suffit donc pas à autoriser le téléchargement,
+    // il faut aussi que l'inscription à l'école soit toujours active.
+    let isEnrolledStudent = false;
+    if (user.student && course) {
+      const hasCourseEnrollment = await prisma.courseEnrollment.findUnique({
         where: {
           courseId_studentId: { courseId, studentId: user.student.id },
         },
         select: { id: true },
-      }));
+      });
+      if (hasCourseEnrollment) {
+        const schoolEnrollment = await prisma.studentEnrollment.findUnique({
+          where: {
+            studentId_schoolId: {
+              studentId: user.student.id,
+              schoolId: course.schoolId,
+            },
+          },
+          select: { status: true },
+        });
+        isEnrolledStudent = schoolEnrollment?.status === 'ACTIVE';
+      }
+    }
     // Même règle que /documents : un ADMIN_GET (plateforme) peut tout
     // consulter, mais un SCHOOL_ADMIN ne peut consulter que les supports
     // des cours de SA propre école — sans ce contrôle, n'importe quel

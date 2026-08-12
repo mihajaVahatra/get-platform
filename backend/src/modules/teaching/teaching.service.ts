@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnnouncementService } from '../announcement/announcement.service';
 import { StorageService } from '../../common/services/storage.service';
+import { EncryptionService } from '../../common/services/encryption.service';
 /**
  * Logique métier de l'espace enseignant : profil, tableau de bord, cours
  * (chapitres, ressources, paramètres), évaluations/notes, devoirs/
@@ -23,6 +24,7 @@ export class TeachingService {
     private readonly prisma: PrismaService,
     private readonly announcementService: AnnouncementService,
     private readonly storageService: StorageService,
+    private readonly encryption: EncryptionService,
   ) {}
   /**
    * Résout l'entité Teacher liée à un compte utilisateur.
@@ -33,6 +35,24 @@ export class TeachingService {
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
     return teacher;
   }
+  /**
+   * Déchiffre `teacher.phone` (chiffré au repos, voir updateProfile) pour
+   * l'exposer au client. Même politique que StudentService.profile : en cas
+   * d'échec de déchiffrement (ligne legacy stockée en clair avant l'ajout du
+   * chiffrement, ou ENCRYPTION_KEY changée), le champ est masqué plutôt que
+   * renvoyé tel quel — jamais de fallback vers un potentiel texte en clair.
+   */
+  private decryptTeacherPhone<T extends { phone: string | null }>(
+    teacher: T,
+  ): T {
+    if (!teacher.phone) return teacher;
+    try {
+      return { ...teacher, phone: this.encryption.decrypt(teacher.phone) };
+    } catch (e) {
+      console.error('❌ Erreur déchiffrement phone (teacher):', e.message);
+      return { ...teacher, phone: null };
+    }
+  }
   /** Récupère le profil enseignant avec les infos utilisateur associées (email, thème). */
   async profile(userId: string) {
     const teacher = await this.prisma.teacher.findUnique({
@@ -40,7 +60,7 @@ export class TeachingService {
       include: { user: { select: { email: true, theme: true } } },
     });
     if (!teacher) throw new ForbiddenException('Profil professeur introuvable');
-    return teacher;
+    return this.decryptTeacherPhone(teacher);
   }
   /**
    * Calcule les chiffres-clés du tableau de bord enseignant : nombre de
@@ -102,23 +122,31 @@ export class TeachingService {
     dto: { firstName?: string; lastName?: string; phone?: string },
   ) {
     const teacher = await this.teacher(userId);
-    return this.prisma.teacher.update({
+    const updated = await this.prisma.teacher.update({
       where: { id: teacher.id },
       data: {
         firstName: dto.firstName?.trim(),
         lastName: dto.lastName?.trim(),
-        phone: dto.phone?.trim(),
+        // Chiffré au repos (AES-256-GCM), comme Student.phone à
+        // l'inscription — un numéro de téléphone est une donnée
+        // personnelle, ne doit pas rester lisible par un simple accès en
+        // lecture à la base.
+        phone: dto.phone?.trim()
+          ? this.encryption.encrypt(dto.phone.trim())
+          : dto.phone,
       },
       include: { user: { select: { email: true, theme: true } } },
     });
+    return this.decryptTeacherPhone(updated);
   }
   async updateAvatar(userId: string, avatarUrl: string) {
     const teacher = await this.teacher(userId);
-    return this.prisma.teacher.update({
+    const updated = await this.prisma.teacher.update({
       where: { id: teacher.id },
       data: { avatarUrl },
       include: { user: { select: { email: true, theme: true } } },
     });
+    return this.decryptTeacherPhone(updated);
   }
   /**
    * `sessionVersion` incrémenté dans la même mise à jour pour révoquer

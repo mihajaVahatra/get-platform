@@ -41,25 +41,55 @@ export class StudentService {
   }
 
   /**
-   * Vérifie qu'un étudiant est bien inscrit à un cours donné.
-   * @throws NotFoundException si l'inscription n'existe pas.
+   * Vérifie qu'un étudiant est bien inscrit à un cours donné, ET que son
+   * inscription à l'école propriétaire de ce cours est toujours ACTIVE.
+   * Un retrait ou une diplomation (StudentEnrollment.status devient
+   * WITHDRAWN/GRADUATED, voir SchoolService.updateEnrollment) ne supprime
+   * délibérément pas les CourseEnrollment historiques — sans cette
+   * seconde vérification, un étudiant retiré/diplômé garderait donc un
+   * accès indéfini aux devoirs/contenus du cours (faille corrigée suite à
+   * l'audit sécurité).
+   * @throws NotFoundException si l'inscription n'existe pas, ou si
+   * l'inscription à l'école n'est plus active.
    */
   private async courseEnrollment(studentId: string, courseId: string) {
     const enrollment = await this.prisma.courseEnrollment.findUnique({
       where: { courseId_studentId: { courseId, studentId } },
+      include: { course: { select: { schoolId: true } } },
     });
     if (!enrollment) throw new NotFoundException('Cours introuvable');
+    const schoolEnrollment = await this.prisma.studentEnrollment.findUnique({
+      where: {
+        studentId_schoolId: { studentId, schoolId: enrollment.course.schoolId },
+      },
+      select: { status: true },
+    });
+    if (schoolEnrollment?.status !== 'ACTIVE') {
+      throw new NotFoundException('Cours introuvable');
+    }
     return enrollment;
   }
 
-  /** Liste les cours (avec leur école) auxquels l'étudiant est inscrit. */
+  /**
+   * Liste les cours (avec leur école) auxquels l'étudiant est inscrit et
+   * dont l'inscription à l'école est toujours ACTIVE (voir courseEnrollment
+   * pour le raisonnement — un retrait/diplomation ne doit pas laisser les
+   * cours visibles indéfiniment).
+   */
   async getCourses(userId: string) {
     const student = await this.enrolledStudent(userId);
+    const activeSchools = await this.prisma.studentEnrollment.findMany({
+      where: { studentId: student.id, status: 'ACTIVE' },
+      select: { schoolId: true },
+    });
+    const activeSchoolIds = new Set(activeSchools.map((e) => e.schoolId));
     const enrollments = await this.prisma.courseEnrollment.findMany({
       where: { studentId: student.id },
       include: { course: { include: { school: true } } },
     });
-    return enrollments.map(({ course }) => course);
+    return enrollments
+      .filter(({ course }) => activeSchoolIds.has(course.schoolId))
+      .map(({ course }) => course);
   }
 
   /**

@@ -19,6 +19,7 @@ describe('StudentService — devoirs', () => {
   let prisma: {
     student: { findUnique: jest.Mock };
     courseEnrollment: { findUnique: jest.Mock; findMany: jest.Mock };
+    studentEnrollment: { findUnique: jest.Mock };
     assignment: { findUnique: jest.Mock; findMany: jest.Mock };
     assignmentSubmission: { findUnique: jest.Mock; upsert: jest.Mock };
   };
@@ -28,6 +29,12 @@ describe('StudentService — devoirs', () => {
     prisma = {
       student: { findUnique: jest.fn().mockResolvedValue({ id: 'student-1' }) },
       courseEnrollment: { findUnique: jest.fn(), findMany: jest.fn() },
+      // ACTIVE par défaut : les tests d'un parcours "inscription valide"
+      // n'ont pas à s'en préoccuper, seuls ceux qui testent la révocation
+      // d'accès (retrait/diplomation) la redéfinissent explicitement.
+      studentEnrollment: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
       assignment: { findUnique: jest.fn(), findMany: jest.fn() },
       assignmentSubmission: { findUnique: jest.fn(), upsert: jest.fn() },
     };
@@ -53,6 +60,22 @@ describe('StudentService — devoirs', () => {
     expect(prisma.assignment.findMany).not.toHaveBeenCalled();
   });
 
+  it('refuse l’accès à un cours si l’inscription à l’école n’est plus active (retrait/diplomation)', async () => {
+    prisma.courseEnrollment.findUnique.mockResolvedValue({
+      id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
+    });
+    prisma.studentEnrollment.findUnique.mockResolvedValue({
+      status: 'WITHDRAWN',
+    });
+
+    await expect(
+      service.getCourseAssignments('user-1', 'course-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.assignment.findMany).not.toHaveBeenCalled();
+  });
+
   it('refuse de remplacer une soumission déjà notée avant tout upload', async () => {
     prisma.assignment.findUnique.mockResolvedValue({
       id: 'assignment-1',
@@ -61,6 +84,7 @@ describe('StudentService — devoirs', () => {
     });
     prisma.courseEnrollment.findUnique.mockResolvedValue({
       id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
     });
     prisma.assignmentSubmission.findUnique.mockResolvedValue({
       id: 'submission-1',
@@ -85,6 +109,7 @@ describe('StudentService — devoirs', () => {
     });
     prisma.courseEnrollment.findUnique.mockResolvedValue({
       id: 'enrollment-1',
+      course: { schoolId: 'school-1' },
     });
     prisma.assignmentSubmission.findUnique.mockResolvedValue(null);
     prisma.assignmentSubmission.upsert.mockResolvedValue({
