@@ -190,7 +190,7 @@ export class NotificationService {
   /**
    * Envoie un email à un utilisateur existant.
    */
-  private async sendEmail(dto: SendNotificationDto, user: any) {
+  private async sendEmail(dto: SendNotificationDto, user: NotificationUser) {
     return this.dispatchEmail(user.email, dto.title, dto.body);
   }
 
@@ -351,7 +351,7 @@ export class NotificationService {
    * Envoie une notification push. Aucun prestataire push réel n'est intégré
    * à ce jour — voir sendSms pour le garde-fou de production partagé.
    */
-  private async sendPush(dto: SendNotificationDto, user: any) {
+  private async sendPush(dto: SendNotificationDto, user: NotificationUser) {
     this.ensureSimulationAllowed('PUSH', 'ALLOW_SIMULATED_PUSH');
     this.logger.log(
       `🔔 [simulé] Push pour l'utilisateur ${user.id} : ${dto.title}`,
@@ -390,7 +390,7 @@ export class NotificationService {
    * Envoie une notification in-app.
    * (Stockée en base, affichée dans l'interface)
    */
-  private async sendInApp(dto: SendNotificationDto, user: any) {
+  private async sendInApp(dto: SendNotificationDto, user: NotificationUser) {
     console.log(
       `📨 Sending in-app notification to user ${user.id}: ${dto.title}`,
     );
