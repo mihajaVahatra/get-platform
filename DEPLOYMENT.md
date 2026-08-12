@@ -44,7 +44,24 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
    ```
    Copier cette URL telle quelle — c'est la valeur de `DATABASE_URL`. Le plan gratuit Neon n'expire pas : la base se met juste en pause après une période d'inactivité et se réveille automatiquement au premier appel (quelques centaines de ms, bien plus rapide que le réveil du service Render).
 
-## 3. Render (backend, plan gratuit)
+## 3. SendGrid (emails transactionnels)
+
+Le backend s'appuie sur SendGrid pour l'email de vérification d'inscription et le lien de réinitialisation de mot de passe. **Sans clé configurée, ces deux parcours échouent explicitement** dès que `NODE_ENV=production` (le cas de ce déploiement Render, voir étape suivante) — ce n'est pas une dégradation silencieuse, une erreur claire est renvoyée à l'appelant plutôt que de faire semblant d'avoir envoyé l'email.
+
+1. Créer un compte gratuit sur [sendgrid.com](https://sendgrid.com) (100 emails/jour à vie sur le plan Free, largement suffisant pour un QA).
+2. **Settings** → **API Keys** → créer une clé avec permission "Mail Send" uniquement. Noter la valeur (affichée une seule fois) : c'est `SENDGRID_API_KEY`.
+3. **Settings** → **Sender Authentication** → vérifier au moins une adresse d'expéditeur (Single Sender Verification suffit pour un QA, pas besoin de vérifier un domaine entier). C'est la valeur de `SENDGRID_FROM_EMAIL`.
+
+Variables à retenir pour l'étape Render :
+```
+SENDGRID_API_KEY=<la clé créée à l'étape 2>
+SENDGRID_FROM_EMAIL=<l'adresse vérifiée à l'étape 3>
+SENDGRID_FROM_NAME=GET
+```
+
+*(Échappatoire pour un QA sans besoin d'emails fonctionnels : définir `ALLOW_SIMULATED_EMAIL=true` à la place — les emails sont alors simulés (jamais réellement envoyés) et les liens/codes de vérification ne sont récupérables que dans les logs du service Render, pas dans les réponses API. Dans ce mode, inscription et mot de passe oublié ne peuvent pas être testés de bout en bout.)*
+
+## 4. Render (backend, plan gratuit)
 
 1. Créer un compte sur [render.com](https://render.com), connecter le compte GitHub.
 2. **New** → **Blueprint** → choisir ce dépôt. Render détecte `backend/render.yaml` et propose de créer le service `get-poc-backend` automatiquement (plan Free, build/démarrage déjà configurés).
@@ -57,11 +74,14 @@ S3_PUBLIC_URL=https://pub-xxxx.r2.dev
    ENCRYPTION_KEY=<64 caractères hexadécimaux>
    PAYMENT_WEBHOOK_SECRET=<valeur longue aléatoire>
    APP_URL=<URL publique Render du service, ex. https://get-poc-backend.onrender.com>
-   FRONTEND_URL=<URL Vercel, complétée à l'étape 4>
+   FRONTEND_URL=<URL Vercel, complétée à l'étape 5>
    ENABLE_SWAGGER=true
    ALLOW_DEMO_SEED=true
    ALLOW_MOCK_PAYMENT=true
    TRUST_PROXY=true
+   SENDGRID_API_KEY=<la clé SendGrid de l'étape 3>
+   SENDGRID_FROM_EMAIL=<l'adresse vérifiée à l'étape 3>
+   SENDGRID_FROM_NAME=GET
    S3_ENDPOINT=...
    S3_REGION=auto
    S3_FORCE_PATH_STYLE=false
@@ -82,7 +102,7 @@ SEED_MODE=national npx ts-node prisma/seed/national.ts
 ```
 Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à travailler par erreur sur la base Neon depuis ta machine.
 
-## 4. Vercel (frontend)
+## 5. Vercel (frontend)
 
 1. Créer un compte sur [vercel.com](https://vercel.com), connecter GitHub.
 2. **Add New** → **Project** → choisir ce dépôt.
@@ -94,10 +114,10 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 5. Déployer. Vercel donne une URL du type `https://<projet>.vercel.app`.
 6. Revenir sur Render → mettre à jour `FRONTEND_URL` avec cette URL Vercel exacte, redéployer le backend (sinon le navigateur bloquera les appels API en CORS).
 
-## 5. Vérification de bout en bout
+## 6. Vérification de bout en bout
 
 1. Ouvrir l'URL Vercel — le tout premier appel peut prendre 30-60s si le backend Render s'était endormi, c'est normal.
-2. Créer un compte candidat, compléter le profil.
+2. Créer un compte candidat, compléter le profil — l'email de vérification doit arriver réellement (SendGrid configuré à l'étape 3) ; un 400 immédiat à l'inscription signale une clé SendGrid manquante ou invalide.
 3. Uploader un document (pièce d'identité fictive) → doit réussir (passe par le bucket privé R2).
 4. Se connecter en School Admin (`schooladmin@get.mg` / mot de passe du seed, ou un compte `admin.ecole.XX@demo.get.test` / `DemoNational2026!` si `seed:national` a été lancé). Le MFA est obligatoire pour ce rôle (ADMIN_GET/SCHOOL_ADMIN/MINISTRY) : au premier login, tout endpoint hors `/auth/me` et `/auth/mfa/*` renvoie 403 tant qu'il n'est pas activé — scanner le QR code renvoyé par `POST /auth/mfa/enable` dans une app d'authentification (Google Authenticator, Aegis...), puis confirmer avec `POST /auth/mfa/verify`. Ensuite seulement, consulter la candidature et son document.
 5. Uploader un avatar → l'image doit s'afficher immédiatement (bucket public, pas de redirection nécessaire).
@@ -108,5 +128,6 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 - **Render (plan free)** met le service en veille après ~15 min d'inactivité — premier appel suivant plus lent (30-60s), c'est le compromis du 100% gratuit. Pas de solution gratuite pour l'éviter ; un plan payant (Render Starter, Railway...) supprime ce comportement.
 - **Redis** n'est provisionné nulle part ici : le code ne l'utilise pas (rate-limiting en mémoire), ce n'est pas un oubli.
 - **Paiements** : `ALLOW_MOCK_PAYMENT=true` active un fournisseur de paiement simulé — aucune vraie transaction n'est possible, c'est voulu pour un QA.
+- **Emails** : sans `SENDGRID_API_KEY` valide, inscription et mot de passe oublié échouent explicitement (`NODE_ENV=production` sur ce service interdit le repli silencieux vers un envoi simulé) — voir étape 3.
 - Le filesystem Render étant éphémère, ne pas définir `UPLOAD_DIR` ni retirer les variables `S3_*` : sans elles, les uploads échoueraient silencieusement au premier redéploiement/réveil.
 - `backend/railway.json` est conservé dans le dépôt comme chemin alternatif si un jour la mise en veille Render devient gênante et que tu acceptes de payer — non utilisé par le parcours 100% gratuit ci-dessus.
