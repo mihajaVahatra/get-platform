@@ -125,6 +125,13 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      # `next build` tourne toujours avec NODE_ENV=production (comportement
+      # interne de Next.js, indépendant de l'environnement CI) — sans cette
+      # valeur, le garde-fou API_ORIGIN de next.config.ts fait échouer le
+      # build ici alors qu'aucun backend réel n'est requis pour vérifier
+      # que le build compile.
+      API_ORIGIN: https://ci-only-placeholder.invalid
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

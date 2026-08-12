@@ -92,7 +92,7 @@ SENDGRID_FROM_NAME=GET
    S3_PUBLIC_URL=...
    ```
    `PORT` est injecté automatiquement par Render, ne pas le redéfinir. `ENABLE_SWAGGER`/`ALLOW_DEMO_SEED`/`ALLOW_MOCK_PAYMENT` sont volontairement en `sync: false` dans `render.yaml` (pas préremplis à `true`) : ce sont les garde-fous qui bloquent comptes de démo et paiements simulés en production — les saisir manuellement ici à `true` pour ce QA évite qu'ils se retrouvent actifs par défaut si ce fichier est un jour réutilisé comme template pour un vrai déploiement.
-4. Déployer. L'URL du service (`https://<nom-du-service>.onrender.com`) apparaît en haut du dashboard — c'est celle à utiliser pour `APP_URL` ci-dessus et pour `NEXT_PUBLIC_API_URL` côté Vercel (avec `/api` en suffixe). Suivre les logs jusqu'à `🚀 Server running on...`.
+4. Déployer. L'URL du service (`https://<nom-du-service>.onrender.com`) apparaît en haut du dashboard — c'est celle à utiliser pour `APP_URL` ci-dessus et pour `API_ORIGIN` côté Vercel (**sans** `/api` en suffixe, voir étape 4 — le proxy Next.js l'ajoute lui-même). Suivre les logs jusqu'à `🚀 Server running on...`.
 
 ### Peupler la base
 
@@ -109,10 +109,15 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 3. **Root Directory** = `frontend` (important, c'est un monorepo).
 4. **Environment Variables** → ajouter :
    ```
-   NEXT_PUBLIC_API_URL=https://<domaine-render>/api
+   API_ORIGIN=https://<domaine-render>
    ```
+   **Sans** `/api` en suffixe — la réécriture Next.js (`frontend/next.config.ts`) l'ajoute déjà. Cette variable est lue **côté serveur** par le proxy `/api/*` de Next.js (`rewrites()`), jamais exposée au navigateur (contrairement à une variable `NEXT_PUBLIC_*`) : le frontend n'appelle jamais le backend directement (`frontend/lib/api-client.ts` — `baseURL: '/api'`, une URL relative à son propre domaine, en toute circonstance).
+
+   **Pourquoi un proxy et pas un appel direct au backend ?** Avec deux domaines distincts (Vercel + Render), un appel direct du navigateur vers Render rendrait le cookie de session "tiers" de son point de vue. Chrome/Firefox l'acceptent avec `SameSite=None; Secure`, mais **Safari (desktop et iOS) le bloque par défaut (ITP) quel que soit ce réglage** : la connexion semble réussir, mais le dashboard reste inaccessible ensuite. Le proxy fait que le navigateur ne parle *jamais* qu'à son propre domaine (Vercel) — le cookie redevient "premier parti" partout, y compris Safari. C'est l'architecture retenue par ce projet ; ne pas la contourner en définissant `NEXT_PUBLIC_API_URL` (variable volontairement ignorée par `api-client.ts`).
+
+   *(Si tu choisis malgré tout l'architecture alternative — appel direct sans proxy — il faut définir `CROSS_SITE_COOKIES=true` côté Render **et** accepter que Safari/iOS ne fonctionnera pas ; voir le commentaire dans `.env.example` à la racine. Ce n'est pas la voie recommandée ni celle documentée ci-dessous.)*
 5. Déployer. Vercel donne une URL du type `https://<projet>.vercel.app`.
-6. Revenir sur Render → mettre à jour `FRONTEND_URL` avec cette URL Vercel exacte, redéployer le backend (sinon le navigateur bloquera les appels API en CORS).
+6. Revenir sur Render → mettre à jour `FRONTEND_URL` avec cette URL Vercel exacte, redéployer le backend (sinon le navigateur bloquera les appels API en CORS **et** la protection CSRF par vérification d'origine, voir `backend/src/main.ts`).
 
 ## 6. Vérification de bout en bout
 
@@ -122,6 +127,12 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 4. Se connecter en School Admin (`schooladmin@get.mg` / mot de passe du seed, ou un compte `admin.ecole.XX@demo.get.test` / `DemoNational2026!` si `seed:national` a été lancé). Le MFA est obligatoire pour ce rôle (ADMIN_GET/SCHOOL_ADMIN/MINISTRY) : au premier login, tout endpoint hors `/auth/me` et `/auth/mfa/*` renvoie 403 tant qu'il n'est pas activé — scanner le QR code renvoyé par `POST /auth/mfa/enable` dans une app d'authentification (Google Authenticator, Aegis...), puis confirmer avec `POST /auth/mfa/verify`. Ensuite seulement, consulter la candidature et son document.
 5. Uploader un avatar → l'image doit s'afficher immédiatement (bucket public, pas de redirection nécessaire).
 6. `https://<domaine-render>/api/docs` doit afficher Swagger (activé via `ENABLE_SWAGGER=true`).
+7. **Session (à valider sur au moins Chrome/Firefox et Safari — desktop et iOS si possible, c'est justement le navigateur que l'architecture proxy vise à corriger) :**
+   - Se connecter → la session doit rester active après un rafraîchissement de page (F5) et après avoir fermé/rouvert l'onglet.
+   - Ouvrir les DevTools → Application/Storage → Cookies sur le domaine Vercel : `access_token` et `refresh_token` doivent y apparaître (`httpOnly`, `Secure`), **jamais** sur le domaine Render — s'ils apparaissent sur le domaine Render, `API_ORIGIN` n'est pas configuré ou le frontend n'a pas été redéployé après l'avoir défini.
+   - Rester connecté plus de 15 minutes (durée de vie de l'access token) sans naviguer, puis effectuer une action → doit fonctionner sans redemander de connexion (rafraîchissement silencieux via `/auth/refresh`, voir `frontend/lib/api-client.ts`).
+   - Se déconnecter → les deux cookies doivent disparaître et l'accès aux pages protégées doit rediriger vers `/auth/login`.
+   - Sur un compte avec MFA activé (`ADMIN_GET`/`SCHOOL_ADMIN`/`MINISTRY`) : vérifier le cycle complet enrôlement → déconnexion → reconnexion avec code MFA.
 
 ## Limitations connues de cet environnement QA
 
