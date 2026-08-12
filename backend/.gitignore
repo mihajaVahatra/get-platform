@@ -9,3 +9,8 @@ node_modules
 
 # User-uploaded media (runtime content, not source)
 /uploads
+
+# Boîte de réception locale des emails simulés (aucun provider configuré) —
+# voir NotificationService.writeLocalMailSink. Contient potentiellement des
+# liens/codes secrets de test, ne doit jamais être versionné.
+/.local-mail

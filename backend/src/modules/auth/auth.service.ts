@@ -631,9 +631,11 @@ export class AuthService {
     // corps du message dans Notification.body, ce qui laisserait le lien —
     // donc le token — lisible indéfiniment par quiconque peut lire cette
     // table. redactBody empêche aussi le fallback dev (sans SendGrid) de le
-    // journaliser en clair. Ne jamais propager une erreur d'envoi au
-    // client : le message reste générique pour ne pas révéler l'existence
-    // du compte.
+    // journaliser en clair — voir NotificationService.writeLocalMailSink
+    // pour le seul canal (fichier local, jamais HTTP) par lequel ce lien
+    // reste récupérable quand aucun email réel n'est envoyé. Ne jamais
+    // propager une erreur d'envoi au client : le message reste générique
+    // pour ne pas révéler l'existence du compte.
     try {
       await this.notificationService.sendRawEmail({
         to: user.email,
@@ -646,19 +648,11 @@ export class AuthService {
       // l'existence du compte via un comportement différent en cas d'erreur.
     }
 
-    // Hors production, le lien n'atteint jamais les logs ni la base
-    // (redactBody + sendRawEmail ci-dessus) : sans fournisseur email réel,
-    // le seul moyen de tester le parcours en local est de le renvoyer
-    // directement dans la réponse, plutôt que de contourner cette
-    // suppression en le journalisant ailleurs.
-    if (this.config.get('NODE_ENV') !== 'production') {
-      return {
-        message:
-          'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
-        devResetUrl: resetUrl,
-      };
-    }
-
+    // Le token de réinitialisation ne transite JAMAIS par la réponse HTTP,
+    // quel que soit NODE_ENV : une instance non-production (QA/staging)
+    // accessible sur le réseau exposerait sinon une prise de compte
+    // triviale par énumération d'email (voir writeLocalMailSink pour le
+    // canal de test local).
     return {
       message:
         'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.',
