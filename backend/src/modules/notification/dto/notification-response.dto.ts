@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class NotificationResponseDto {
   @ApiProperty()
@@ -27,6 +27,16 @@ export class NotificationResponseDto {
 
   @ApiProperty()
   sentAt?: Date;
+
+  @ApiProperty({
+    example: 'SENT',
+    description:
+      'SENT, SIMULATED (aucun prestataire réel intégré), STORED (in-app) ou FAILED',
+  })
+  status: string;
+
+  @ApiPropertyOptional()
+  failureReason?: string;
 
   @ApiProperty()
   createdAt: Date;

@@ -23,7 +23,7 @@ import {
   ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
-import { IsIn, IsString, Matches, MinLength } from 'class-validator';
+import { IsIn, IsString, MaxLength, Matches, MinLength } from 'class-validator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { StudentService } from './student.service';
 import {
@@ -45,10 +45,16 @@ type CurrentStudentUser = {
 };
 
 /** Changement de mot de passe : exige l'ancien mot de passe et une politique de complexité pour le nouveau. */
-class ChangePasswordDto {
+export class ChangePasswordDto {
   @IsString() currentPassword: string;
+  // Borne haute alignée sur RegisterDto.password : bcrypt.hash tronque
+  // silencieusement tout au-delà de 72 octets sans erreur ni avertissement —
+  // sans cette limite, un mot de passe plus long semblerait accepté mais
+  // seuls ses 72 premiers octets compteraient réellement à la vérification
+  // (faille corrigée suite à l'audit sécurité).
   @IsString()
   @MinLength(8)
+  @MaxLength(32)
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
     {
@@ -576,6 +582,35 @@ export class StudentController {
     return { success: true, data: grades, message: 'Grades retrieved' };
   }
 
+  // ========== ATTENDANCE ==========
+
+  /** Retourne le décompte des présences/absences/retards de l'étudiant, tous cours confondus. */
+  @Get('me/attendance/stats')
+  @ApiOperation({
+    summary: 'Get attendance summary across all enrolled courses',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Attendance stats retrieved',
+  })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getAttendanceStats(@GetUser() user: any) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const stats = await this.studentService.getAttendanceStats(user.id);
+    return {
+      success: true,
+      data: stats,
+      message: 'Attendance stats retrieved',
+    };
+  }
+
   // ========== SCHEDULE ==========
 
   /** Retourne l'emploi du temps hebdomadaire des cours auxquels l'étudiant est inscrit. */
@@ -594,6 +629,26 @@ export class StudentController {
     }
     const schedule = await this.studentService.getSchedule(user.id);
     return { success: true, data: schedule, message: 'Schedule retrieved' };
+  }
+
+  // ========== ÉVÉNEMENTS ==========
+
+  /** Retourne les événements à venir des écoles où l'étudiant est activement inscrit. */
+  @Get('me/events')
+  @ApiOperation({ summary: 'Get upcoming events for enrolled schools' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Events retrieved' })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'User is not a student',
+  })
+  async getUpcomingEvents(@GetUser() user: CurrentStudentUser) {
+    if (!user.student) {
+      throw new ForbiddenException(
+        'Cette fonctionnalité est réservée aux étudiants',
+      );
+    }
+    const events = await this.studentService.getUpcomingEvents(user.id);
+    return { success: true, data: events, message: 'Events retrieved' };
   }
 
   // ========== SECURITY & PREFERENCES ==========

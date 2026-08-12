@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { MfaEnforcedGuard } from './modules/auth/guards/mfa-enforced.guard';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { StudentModule } from './modules/student/student.module';
@@ -84,6 +85,11 @@ import { IntegrationModule } from './modules/integration/integration.module';
     // restent en place (redondants mais inoffensifs) pour la vérification
     // des rôles via RolesGuard.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Doit venir après JwtAuthGuard (les APP_GUARD s'exécutent dans l'ordre
+    // d'enregistrement) : il lit request.user.role/mfaEnabled, peuplés par
+    // JwtStrategy dans JwtAuthGuard. Impose le MFA aux rôles à privilèges
+    // élevés — voir MfaEnforcedGuard.
+    { provide: APP_GUARD, useClass: MfaEnforcedGuard },
   ],
 })
 export class AppModule {}

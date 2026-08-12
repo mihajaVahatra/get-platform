@@ -1,7 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../../common/services/encryption.service';
+import { MfaService } from './mfa/mfa.service';
+import { NotificationService } from '../notification/notification.service';
 import { AuthService } from './auth.service';
 import { CURRENT_TERMS_VERSION } from './terms.constant';
 
@@ -18,6 +22,7 @@ describe('AuthService', () => {
       update: jest.Mock;
     };
     pendingRegistration: { upsert: jest.Mock };
+    refreshSession: { create: jest.Mock; updateMany: jest.Mock };
   };
   let jwtService: { sign: jest.Mock; verify: jest.Mock };
   let config: { get: jest.Mock };
@@ -50,6 +55,10 @@ describe('AuthService', () => {
           firstName: 'Jean',
         }),
       },
+      refreshSession: {
+        create: jest.fn().mockResolvedValue({ id: 'session-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
     };
     jwtService = {
       sign: jest.fn().mockReturnValue('signed-jwt'),
@@ -66,10 +75,10 @@ describe('AuthService', () => {
     };
     service = new AuthService(
       prisma as unknown as PrismaService,
-      jwtService as any,
-      config as any,
-      mfaService as any,
-      notificationService as any,
+      jwtService as unknown as JwtService,
+      config as unknown as ConfigService,
+      mfaService as unknown as MfaService,
+      notificationService as unknown as NotificationService,
       encryption as unknown as EncryptionService,
     );
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -105,12 +114,16 @@ describe('AuthService', () => {
 
       expect(prisma.pendingRegistration.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining()/expect.any() sont typés `any` par @types/jest
           create: expect.objectContaining({
             acceptedTermsVersion: CURRENT_TERMS_VERSION,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() est typé `any` par @types/jest
             acceptedTermsAt: expect.any(Date),
           }),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining()/expect.any() sont typés `any` par @types/jest
           update: expect.objectContaining({
             acceptedTermsVersion: CURRENT_TERMS_VERSION,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() est typé `any` par @types/jest
             acceptedTermsAt: expect.any(Date),
           }),
         }),
@@ -126,7 +139,7 @@ describe('AuthService', () => {
       });
 
       expect(result.mfaRequired).toBe(false);
-      expect((result as any).rememberMe).toBe(true);
+      expect((result as { rememberMe: boolean }).rememberMe).toBe(true);
       expect(jwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ rememberMe: true }),
         expect.anything(),
@@ -140,7 +153,7 @@ describe('AuthService', () => {
         remember: false,
       });
 
-      expect((result as any).rememberMe).toBe(false);
+      expect((result as { rememberMe: boolean }).rememberMe).toBe(false);
       expect(jwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ rememberMe: false }),
         expect.anything(),

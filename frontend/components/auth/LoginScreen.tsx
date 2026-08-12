@@ -380,6 +380,18 @@ function MfaChallengeScreen({
       });
       await onVerified(response.data.data.user);
     } catch (error: unknown) {
+      // 401 = challengeToken expiré/invalide (AuthService.completeMfaLogin) :
+      // rester sur cet écran n'a plus de sens, il ne redeviendra jamais
+      // valide — reste dans le parcours MFA en revenant à l'écran de
+      // connexion (onBack) plutôt que de laisser l'intercepteur global
+      // déclencher un rechargement complet de la page (voir api-client.ts,
+      // AUTH_ENDPOINTS_WITHOUT_REDIRECT). Un mauvais *code* (400) reste géré
+      // ici même, sans quitter cet écran.
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        toast.error(t('mfaSessionExpired'));
+        onBack();
+        return;
+      }
       toast.error(
         axios.isAxiosError(error)
           ? error.response?.data?.message || t('mfaInvalidCode')

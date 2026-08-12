@@ -21,6 +21,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { MfaExempt } from '../../common/decorators/mfa-exempt.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -310,9 +311,14 @@ export class AuthController {
    * Retourne le profil de l'utilisateur actuellement authentifié, à partir
    * du `request.user` peuplé par JwtStrategy (aucun accès direct à la base
    * ici). Protégé par JwtAuthGuard : nécessite un access token valide.
+   * @MfaExempt : un compte à rôle privilégié pas encore enrôlé au MFA doit
+   * pouvoir lire son propre statut `mfaEnabled` (voir MfaEnforcedGuard) —
+   * sinon le frontend n'aurait aucun moyen de savoir qu'il doit rediriger
+   * vers l'enrôlement.
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @MfaExempt()
   @ApiBearerAuth('access-token')
   async me(@GetUser() user: any) {
     return {
@@ -427,6 +433,7 @@ export class AuthController {
   @Post('mfa/enable')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @MfaExempt()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Enable MFA for admin' })
@@ -458,6 +465,7 @@ export class AuthController {
   @Post('mfa/verify')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN_GET', 'SCHOOL_ADMIN', 'MINISTRY')
+  @MfaExempt()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Verify and enable MFA' })
