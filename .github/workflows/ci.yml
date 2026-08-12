@@ -32,7 +32,7 @@ jobs:
       DATABASE_URL: postgresql://get_ci:get_ci@localhost:5432/get_ci?schema=public
       JWT_SECRET: ci-only-secret-not-for-production
       JWT_REFRESH_SECRET: ci-only-refresh-secret-not-for-production
-      ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret
 
     steps:
