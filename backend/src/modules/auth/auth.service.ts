@@ -20,6 +20,12 @@ const EMAIL_VERIFICATION_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24h
 const EMAIL_VERIFICATION_JWT_EXPIRATION = '24h';
 const MAX_VERIFICATION_CODE_ATTEMPTS = 8;
 const RESET_TOKEN_EXPIRATION_MS = 60 * 60 * 1000; // 1h
+// Hash bcrypt d'une valeur aléatoire fixe, jamais un mot de passe réel : sert
+// uniquement à faire exécuter un bcrypt.compare de coût constant quand aucun
+// hash réel n'existe (email totalement inconnu), pour que login() ne prenne
+// pas un chemin visiblement plus rapide dans ce cas — voir login().
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$CwTycUXWue0Thq9StjUM0uJ8g2xnfj/RcM7lz3l0i5U7YQ29OaG3.';
 
 /**
  * Service central d'authentification : inscription avec vérification
@@ -264,12 +270,7 @@ export class AuthService {
 
     this.notifyN8n('student-created', 'student.created', user.id);
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role!.name,
-      user.sessionVersion,
-    );
+    const tokens = await this.issueTokens(user);
     const userInfo = this.extractUserInfo(user);
 
     return {
@@ -359,7 +360,18 @@ export class AuthService {
       const pending = await this.prisma.pendingRegistration.findUnique({
         where: { email: dto.email },
       });
-      if (pending) {
+      // Ne révèle le message "vérifie ton email" que si le mot de passe
+      // fourni correspond bien à celui de l'inscription en attente — sinon
+      // n'importe qui pourrait sonder cet endpoint pour savoir quels emails
+      // ont une inscription non vérifiée en cours (énumération). Un
+      // bcrypt.compare est toujours exécuté (contre un hash factice s'il n'y
+      // a pas d'inscription en attente) pour que le timing de réponse ne
+      // révèle pas non plus cette information.
+      const matchesPending = await bcrypt.compare(
+        dto.password,
+        pending?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      );
+      if (pending && matchesPending) {
         throw new UnauthorizedException(
           'Merci de vérifier ton adresse email avant de te connecter (vérifie ta boîte de réception et tes spams).',
         );
@@ -395,12 +407,7 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role!.name,
-      user.sessionVersion,
-    );
+    const tokens = await this.issueTokens(user);
     const userInfo = this.extractUserInfo(user);
 
     return {
@@ -453,12 +460,7 @@ export class AuthService {
       data: { lastLogin: new Date() },
     });
 
-    const tokens = this.generateTokens(
-      user.id,
-      user.email,
-      user.role!.name,
-      user.sessionVersion,
-    );
+    const tokens = await this.issueTokens(user);
     const userInfo = this.extractUserInfo(user);
 
     return {
@@ -476,13 +478,15 @@ export class AuthService {
    * Échange un refresh token valide contre une nouvelle paire de tokens.
    * @throws UnauthorizedException si le refresh token est invalide/expiré,
    * porte un `type` (jeton à usage unique détourné), si l'utilisateur est
-   * introuvable/inactif, ou si sessionVersion ne correspond plus (session
-   * révoquée par un logout entre-temps).
+   * introuvable/inactif, si sessionVersion ne correspond plus (session
+   * révoquée par un logout entre-temps), ou si le jti a déjà été consommé
+   * par une rotation précédente (réutilisation détectée).
    */
   async refreshTokens(refreshToken: string) {
     let payload: {
       sub: string;
       sessionVersion: number;
+      jti?: string;
       type?: string;
     };
     try {
@@ -516,11 +520,40 @@ export class AuthService {
       );
     }
 
+    const newJti = randomUUID();
+    // Rotation à usage unique : cette mise à jour ne matche que la ligne
+    // RefreshSession dont le jti actuel est exactement celui présenté — donc
+    // atomique (deux appels concurrents avec le même refresh token ne
+    // peuvent pas tous les deux réussir la rotation, le perdant retombe dans
+    // le cas count === 0 ci-dessous). Un jti qui ne matche plus rien (déjà
+    // tourné, ou refresh token volé rejoué après coup) signale une
+    // réutilisation : on la traite comme une compromission potentielle et on
+    // révoque alors TOUTES les sessions de l'utilisateur, pas seulement
+    // celle-ci — un attaquant en possession d'un refresh token volé ne doit
+    // pas pouvoir se contenter d'attendre que le propriétaire légitime
+    // rafraîchisse pour repartir d'un jti à jour.
+    const { count } = await this.prisma.refreshSession.updateMany({
+      where: {
+        userId: user.id,
+        currentJti: payload.jti ?? '',
+        revokedAt: null,
+      },
+      data: { currentJti: newJti, lastUsedAt: new Date() },
+    });
+
+    if (count === 0) {
+      await this.revokeSession(user.id);
+      throw new UnauthorizedException(
+        'Session révoquée, veuillez vous reconnecter',
+      );
+    }
+
     const tokens = this.generateTokens(
       user.id,
       user.email,
       user.role!.name,
       user.sessionVersion,
+      newJti,
     );
     const userInfo = this.extractUserInfo(user);
 
@@ -533,15 +566,22 @@ export class AuthService {
   // ========== LOGOUT ==========
 
   /**
-   * Révoque la session en cours en incrémentant `sessionVersion` : tout
-   * access/refresh token émis avant cet appel devient invalide, même s'il
-   * n'a pas expiré (mécanisme de révocation pour des JWT stateless).
+   * Révoque toutes les sessions de l'utilisateur en incrémentant
+   * `sessionVersion` : tout access/refresh token émis avant cet appel
+   * devient invalide, même s'il n'a pas expiré (mécanisme de révocation pour
+   * des JWT stateless). Supprime aussi les chaînes de rotation
+   * (RefreshSession) — sans ça, sessionVersion suffit déjà à bloquer un
+   * refresh (voir refreshTokens), mais les lignes resteraient indéfiniment
+   * en base.
    */
   async revokeSession(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { sessionVersion: { increment: 1 } },
-    });
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { sessionVersion: { increment: 1 } },
+      }),
+      this.prisma.refreshSession.deleteMany({ where: { userId } }),
+    ]);
   }
 
   // ========== FORGOT PASSWORD ==========
@@ -643,6 +683,15 @@ export class AuthService {
     const resetTokenHash = this.sha256Hex(token);
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    // Récupéré uniquement pour nettoyer les RefreshSession ci-dessous — la
+    // requête qui consomme réellement le token (et garantit l'atomicité
+    // décrite plus haut) reste le updateMany suivant, avec les mêmes
+    // conditions hash + expiration.
+    const candidate = await this.prisma.user.findFirst({
+      where: { resetTokenHash, resetTokenExpiresAt: { gt: new Date() } },
+      select: { id: true },
+    });
+
     const { count } = await this.prisma.user.updateMany({
       where: { resetTokenHash, resetTokenExpiresAt: { gt: new Date() } },
       data: {
@@ -655,6 +704,12 @@ export class AuthService {
 
     if (count === 0) {
       throw new BadRequestException('Token invalide ou expiré');
+    }
+
+    if (candidate) {
+      await this.prisma.refreshSession.deleteMany({
+        where: { userId: candidate.id },
+      });
     }
 
     return {
@@ -763,6 +818,7 @@ export class AuthService {
     email: string,
     role: string,
     sessionVersion: number,
+    refreshJti: string,
   ) {
     // `sessionVersion` est vérifié à chaque requête par JwtStrategy : un
     // jeton signé avec une valeur qui ne correspond plus à celle en base
@@ -775,12 +831,45 @@ export class AuthService {
       secret: this.config.get('JWT_SECRET'),
     });
 
-    const refreshToken = this.jwt.sign(payload, {
-      expiresIn: this.config.get('JWT_REFRESH_EXPIRATION', '7d'),
-      secret: this.config.get('JWT_REFRESH_SECRET'),
-    });
+    // `jti` uniquement sur le refresh token : c'est lui que refreshTokens
+    // compare à RefreshSession.currentJti pour la rotation à usage unique
+    // (voir refreshTokens). L'access token n'en a pas besoin, il n'est
+    // jamais échangé contre lui-même.
+    const refreshToken = this.jwt.sign(
+      { ...payload, jti: refreshJti },
+      {
+        expiresIn: this.config.get('JWT_REFRESH_EXPIRATION', '7d'),
+        secret: this.config.get('JWT_REFRESH_SECRET'),
+      },
+    );
 
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * Émet un nouveau couple access/refresh token pour une connexion réussie
+   * (login, login MFA, vérification d'email) et crée la RefreshSession
+   * correspondante — une chaîne de rotation par connexion, indépendante des
+   * autres appareils/sessions déjà ouverts pour le même utilisateur (voir
+   * refreshTokens pour la suite du cycle de vie de cette chaîne).
+   */
+  private async issueTokens(user: {
+    id: string;
+    email: string;
+    role: { name: string } | null;
+    sessionVersion: number;
+  }) {
+    const jti = randomUUID();
+    await this.prisma.refreshSession.create({
+      data: { userId: user.id, currentJti: jti },
+    });
+    return this.generateTokens(
+      user.id,
+      user.email,
+      user.role!.name,
+      user.sessionVersion,
+      jti,
+    );
   }
 
   // ========== LOGIN ATTEMPTS ==========
