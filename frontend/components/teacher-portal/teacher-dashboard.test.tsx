@@ -16,6 +16,7 @@ describe('TeacherDashboard', () => {
       data: {
         data: {
           courses: 3,
+          students: 42,
           submissionsToGrade: 7,
           upcomingEvaluations: 2,
           unreadMessages: 4,
@@ -25,13 +26,12 @@ describe('TeacherDashboard', () => {
 
     render(<TeacherDashboard />);
 
-    expect(
-      await screen.findByText('Cours qui vous sont affectés'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Cours enseignés')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('4 messages en attente')).toBeInTheDocument();
   });
 
   it('affiche un message d’erreur avec un bouton Réessayer si l’API échoue', async () => {
