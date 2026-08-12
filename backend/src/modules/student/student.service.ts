@@ -85,7 +85,14 @@ export class StudentService {
     const activeSchoolIds = new Set(activeSchools.map((e) => e.schoolId));
     const enrollments = await this.prisma.courseEnrollment.findMany({
       where: { studentId: student.id },
-      include: { course: { include: { school: true } } },
+      include: {
+        course: {
+          include: {
+            school: true,
+            teacher: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
     });
     return enrollments
       .filter(({ course }) => activeSchoolIds.has(course.schoolId))
