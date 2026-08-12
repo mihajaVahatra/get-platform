@@ -22,6 +22,11 @@ model PendingRegistration {
   codeAttempts Int      @default(0)
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+  // Preuve d'acceptation des CGU/politique de confidentialité au moment de
+  // l'inscription (voir backend/src/modules/auth/terms.constant.ts) —
+  // recopiée sur User à la création du compte (completeEmailVerification).
+  acceptedTermsVersion String
+  acceptedTermsAt      DateTime
 
   @@map("pending_registrations")
 }
@@ -57,17 +62,45 @@ model User {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
+  // Recopiés depuis PendingRegistration à la création du compte (inscription
+  // via /auth/register). Nuls pour les comptes créés autrement (seed,
+  // création admin/professeur/école) — ce parcours ne passe pas par
+  // l'acceptation des CGU côté étudiant.
+  acceptedTermsVersion String?
+  acceptedTermsAt      DateTime?
 
   student                  Student?
   teacher                  Teacher?
   schoolAdmin              SchoolAdmin?
   notifications            Notification[]
+  notificationPreference   NotificationPreference?
   auditLogs                AuditLog[]
   sentMessages             Message[]                 @relation("SentMessages")
   receivedMessages         Message[]                 @relation("ReceivedMessages")
   conversationParticipants ConversationParticipant[]
+  refreshSessions          RefreshSession[]
 
   @@map("users")
+}
+
+// Une ligne par chaîne de rotation de refresh token (typiquement un
+// login/appareil). `currentJti` est le seul jti actuellement valide pour
+// cette chaîne : AuthService.refreshTokens ne fait avancer cette valeur que
+// si le jti présenté matche exactement (mise à jour conditionnelle
+// atomique), ce qui permet la rotation à usage unique. Un jti qui ne matche
+// plus (refresh token déjà tourné, rejoué après coup) signale une
+// réutilisation — traité comme une compromission potentielle de CETTE
+// chaîne, sans affecter les autres appareils connectés du même utilisateur.
+model RefreshSession {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentJti String    @unique
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@map("refresh_sessions")
 }
 
 model Role {
@@ -123,6 +156,7 @@ model Student {
   enrollments  CourseEnrollment[]
   submissions  AssignmentSubmission[]
   grades       Grade[]
+  attendances  Attendance[]
 
   @@map("students")
 }
@@ -189,6 +223,7 @@ model School {
   academicYears      SchoolAcademicYear[]
   subjects           SchoolSubject[]
   competitions       Competition[]
+  events             SchoolEvent[]
 
   subscription SchoolSubscription?
   compliance   ComplianceCheck[]
@@ -598,6 +633,7 @@ model Course {
   assignments          Assignment[]
   slots                CourseSlot[]
   announcements        Announcement[]
+  attendances          Attendance[]
 
   @@unique([schoolId, code, group])
   @@index([teacherId, isPublished])
@@ -637,6 +673,28 @@ model CourseEnrollment {
   @@unique([courseId, studentId])
   @@index([studentId])
   @@map("course_enrollments")
+}
+
+// Présence marquée par l'enseignant pour une séance donnée (courseId + date,
+// pas courseId + CourseSlot : un CourseSlot ne décrit qu'un créneau
+// hebdomadaire récurrent, jamais une occurrence datée précise). Une ligne
+// par étudiant présent/absent/en retard pour cette séance.
+model Attendance {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  status    String // PRESENT | ABSENT | LATE
+  markedBy  String // Teacher.id ayant fait l'appel
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, studentId, date])
+  @@index([courseId, date])
+  @@index([studentId, status])
+  @@map("attendances")
 }
 
 model CourseChapter {
@@ -941,11 +999,35 @@ model Notification {
   readAt                DateTime?
   sentAt                DateTime?
   deliveredAt           DateTime?
+  // État réel de la tentative d'envoi côté canal (SENT, SIMULATED — pas de
+  // prestataire réel configuré, STORED pour l'in-app, ou FAILED) — distinct
+  // de isRead qui décrit la lecture par l'utilisateur, pas la livraison.
+  // Voir NotificationService.send.
+  status                String                 @default("SENT")
+  failureReason         String?
   createdAt             DateTime               @default(now())
   announcementRecipient AnnouncementRecipient?
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+// Préférences de notification par utilisateur — une ligne par utilisateur,
+// créée à la demande (voir NotificationService.getUserPreferences) plutôt
+// qu'à l'inscription, pour ne pas complexifier AuthService.register.
+model NotificationPreference {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled Boolean  @default(true)
+  smsEnabled   Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  inAppEnabled Boolean  @default(true)
+  categories   String[] @default(["APPLICATION_SUBMITTED", "PAYMENT_CONFIRMED", "STATUS_CHANGED", "WELCOME"])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("notification_preferences")
 }
 
 model Announcement {
@@ -978,6 +1060,27 @@ model AnnouncementRecipient {
 
   @@unique([announcementId, userId])
   @@map("announcement_recipients")
+}
+
+// Événement calendaire d'une école (journée portes ouvertes, hackathon,
+// conférence...), géré par un SCHOOL_ADMIN — distinct des Announcement
+// (contenu texte diffusé aux étudiants d'un cours) : un événement a une
+// date/heure précise et un lieu, affiché sur le dashboard des étudiants
+// inscrits à l'école.
+model SchoolEvent {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  location    String?
+  startAt     DateTime
+  createdBy   String // User.id du SCHOOL_ADMIN ayant créé l'événement
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId, startAt])
+  @@map("school_events")
 }
 
 model Message {

@@ -185,6 +185,18 @@ export class PaymentService {
    * `assertValidWebhookSignature`). Pour Stripe, voir `handleStripeWebhook`,
    * qui vérifie sa propre signature native puis délègue à la même logique
    * de réconciliation ci-dessous (`reconcilePayment`).
+   * Vérifie la signature HMAC, confirme le statut réel auprès du
+   * fournisseur (`confirmPayment`, ne fait jamais confiance au seul contenu
+   * du webhook), puis effectue en une transaction : mise à jour du
+   * paiement, inscription automatique de l'étudiant (StudentEnrollment +
+   * synchronisation des cours) et journalisation. Idempotent : un paiement
+   * déjà COMPLETED est retourné tel quel sans retraitement (couvre
+   * notamment la double réception d'un même webhook).
+   * Si la candidature associée n'est plus ACCEPTED/ENROLLED au moment de la
+   * confirmation (webhook tardif reçu après une annulation), le candidat
+   * n'est jamais inscrit : le paiement reste enregistré fidèlement mais part
+   * en réconciliation (ligne `Refund` PENDING, remboursement fournisseur
+   * déclenché hors transaction).
    * @throws ForbiddenException si la signature webhook est absente/invalide.
    * @throws NotFoundException si aucun paiement ne correspond à la référence fournisseur.
    * @throws BadRequestException si le montant du webhook diffère du paiement enregistré.
@@ -517,7 +529,8 @@ export class PaymentService {
             provider: payment.method,
             providerTransactionId: confirmation.providerTransactionId,
             status: 'SUCCESS',
-            rawResponse: confirmation.rawData,
+            rawResponse: confirmation.rawData as
+              Prisma.InputJsonValue | undefined,
             completedAt: new Date(),
           },
         });

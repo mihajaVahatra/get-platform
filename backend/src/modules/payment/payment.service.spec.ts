@@ -10,6 +10,7 @@ import { SchoolService } from '../school/school.service';
 import { ConfigService } from '@nestjs/config';
 import type { PaymentProvider } from './providers/payment-provider.interface';
 import { StripePaymentProvider } from './providers/stripe-payment.provider';
+import { PaymentWebhookDto } from './dto/payment-webhook.dto';
 
 const WEBHOOK_SECRET = 'test-secret';
 
@@ -182,7 +183,9 @@ describe('PaymentService', () => {
   });
 
   describe('handleWebhook', () => {
-    const dto = { providerReference: 'provider-ref-1' } as any;
+    const dto = {
+      providerReference: 'provider-ref-1',
+    } as unknown as PaymentWebhookDto;
 
     it('refuse un webhook sans signature', async () => {
       await expect(
@@ -381,6 +384,7 @@ describe('PaymentService', () => {
       expect(schoolService.syncCourseEnrollments).not.toHaveBeenCalled();
       expect(prisma.refund.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             paymentId: 'payment-1',
             amount: 5000,
@@ -390,8 +394,10 @@ describe('PaymentService', () => {
       );
       expect(prisma.applicationTimeline.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             applicationId: 'application-1',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.stringContaining() est typé `any` par @types/jest
             note: expect.stringContaining('réconciliation'),
           }),
         }),
@@ -404,6 +410,7 @@ describe('PaymentService', () => {
       );
       expect(prisma.refund.update).toHaveBeenCalledWith({
         where: { paymentId: 'payment-1' },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() est typé `any` par @types/jest
         data: { status: 'COMPLETED', processedAt: expect.any(Date) },
       });
       // Le relevé comptable du paiement reçu reste écrit même en réconciliation.

@@ -4,11 +4,16 @@ services:
     runtime: node
     plan: free
     rootDir: backend
+    # `npm ci` plutôt que `npm install` : installation reproductible depuis
+    # package-lock.json (échoue si le lockfile n'est pas synchronisé avec
+    # package.json, au lieu de dériver silencieusement) — c'est aussi ce que
+    # la CI utilise (voir .github/workflows/ci.yml), donc le build déployé
+    # correspond exactement à ce qui a été testé.
     # `--include=dev` est nécessaire malgré NODE_ENV=production ci-dessous :
     # npm saute les devDependencies par défaut quand NODE_ENV=production est
     # déjà présent au moment du build, or `nest build` vient de @nestjs/cli
     # qui est une devDependency (le runtime, lui, n'en a pas besoin).
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     # `prisma migrate deploy` est idempotent (n'applique que les migrations
     # en attente) — l'exécuter à chaque démarrage est sûr et évite de
     # dépendre d'une fonctionnalité "pre-deploy" qui n'existe pas forcément
@@ -57,6 +62,18 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # SendGrid : sans SENDGRID_API_KEY, NotificationService.dispatchEmail
+      # refuse d'envoyer un email dès que NODE_ENV=production (voir ci-dessus)
+      # — inscription et mot de passe oublié échoueraient donc explicitement
+      # sur ce service tant que ces clés ne sont pas renseignées. Listées ici
+      # (plutôt qu'omises) pour que Render les demande explicitement au
+      # moment du déploiement, voir DEPLOYMENT.md.
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: SENDGRID_FROM_NAME
         sync: false
       # Intégration n8n (voir docs/n8n/) — inutiles tant que ce QA n'est pas
       # utilisé pour tester les workflows n8n contre un backend déployé.

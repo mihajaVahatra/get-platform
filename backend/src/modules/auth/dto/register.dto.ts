@@ -46,4 +46,16 @@ export class RegisterDto {
   @IsString()
   @MaxLength(30)
   phone: string;
+
+  // Doit correspondre exactement à CURRENT_TERMS_VERSION (voir
+  // terms.constant.ts) — envoyée par le frontend au moment où l'utilisateur
+  // coche la case d'acceptation, jamais déduite côté serveur.
+  @ApiProperty({
+    example: '2026-08-11',
+    description:
+      'Version des CGU/politique de confidentialité affichée au moment de l’acceptation',
+  })
+  @IsNotEmpty({ message: 'L’acceptation des CGU est obligatoire' })
+  @IsString()
+  acceptedTermsVersion: string;
 }

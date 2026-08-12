@@ -32,20 +32,22 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.GET_BACKEND_URL }}/api/integration/reports/weekly/send",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "x-api-key", "value": "={{ $env.INTEGRATION_API_KEY }}" }
-          ]
-        },
+        "url": "http://host.docker.internal:3001/api/integration/reports/weekly/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
       "id": "c3f4d5e6-0003-4c3c-9c3c-000000000002",
       "name": "Calculer et envoyer le rapport aux admins GET",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [450, 380]
+      "position": [450, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "get-integration-api-key",
+          "name": "GET Integration API Key"
+        }
+      }
     }
   ],
   "connections": {

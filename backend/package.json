@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "postinstall": "prisma generate",
@@ -31,7 +31,8 @@
     "remediate:backfill-student-enrollments": "ts-node prisma/remediation/2026-08-03-backfill-student-enrollments.ts",
     "remediate:encrypt-plaintext-pii": "ts-node prisma/remediation/2026-08-10-encrypt-plaintext-pii.ts",
     "remediate:purge-expired-pending-registrations": "ts-node prisma/remediation/2026-08-10-purge-expired-pending-registrations.ts",
-    "remediate:redact-reset-link-notifications": "ts-node prisma/remediation/2026-08-10-redact-reset-link-notifications.ts"
+    "remediate:redact-reset-link-notifications": "ts-node prisma/remediation/2026-08-10-redact-reset-link-notifications.ts",
+    "remediate:encrypt-plaintext-student-address": "ts-node prisma/remediation/2026-08-11-encrypt-plaintext-student-address.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -104,6 +105,11 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "^5.2.2"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

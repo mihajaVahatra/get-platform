@@ -59,6 +59,7 @@ describe('StripePaymentProvider', () => {
           client_reference_id: 'PAY-1',
           line_items: [
             expect.objectContaining({
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
               price_data: expect.objectContaining({
                 currency: 'mga',
                 unit_amount: 500000,

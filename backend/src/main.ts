@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { Request, Response, NextFunction } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -35,7 +36,7 @@ async function bootstrap() {
   // HEAD / avant de déclarer le service "Live") — en dehors du préfixe
   // global /api, donc traité en middleware Express brut plutôt que via un
   // contrôleur Nest.
-  app.use((request, response, next) => {
+  app.use((request: Request, response: Response, next: NextFunction) => {
     if (
       request.path === '/' &&
       (request.method === 'GET' || request.method === 'HEAD')
@@ -46,7 +47,7 @@ async function bootstrap() {
     next();
   });
 
-  app.use((_, response, next) => {
+  app.use((_: Request, response: Response, next: NextFunction) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('X-Frame-Options', 'DENY');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -96,7 +97,7 @@ async function bootstrap() {
     '/api/payments/webhook',
     '/api/payments/webhook/stripe',
   ]);
-  app.use((request, response, next) => {
+  app.use((request: Request, response: Response, next: NextFunction) => {
     if (
       !MUTATING_METHODS.has(request.method) ||
       PAYMENT_WEBHOOK_PATHS.has(request.path)
