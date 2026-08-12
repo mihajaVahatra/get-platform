@@ -65,7 +65,7 @@ SENDGRID_FROM_NAME=GET
 
 1. Créer un compte sur [render.com](https://render.com), connecter le compte GitHub.
 2. **New** → **Blueprint** → choisir ce dépôt. Render détecte `backend/render.yaml` et propose de créer le service `get-poc-backend` automatiquement (plan Free, build/démarrage déjà configurés).
-   - Si tu préfères une création manuelle plutôt que le Blueprint : **New** → **Web Service**, choisir le repo, **Root Directory** = `backend`, **Build Command** = `npm install && npm run build`, **Start Command** = `npx prisma migrate deploy && npm run start:prod`, **Plan** = Free.
+   - Si tu préfères une création manuelle plutôt que le Blueprint : **New** → **Web Service**, choisir le repo, **Root Directory** = `backend`, **Build Command** = `npm ci --include=dev && npm run build` (voir le commentaire dans `render.yaml` pour le pourquoi de `--include=dev` malgré `NODE_ENV=production`, et de `npm ci` plutôt que `npm install` — installation reproductible depuis le lockfile, identique à ce que la CI a testé), **Start Command** = `npx prisma migrate deploy && npm run start:prod`, **Plan** = Free.
 3. Render va demander de renseigner les variables marquées `sync: false` dans `render.yaml` (ou toutes les variables si création manuelle) — dans l'onglet **Environment** du service :
    ```
    DATABASE_URL=<la connection string Neon de l'étape 2>
@@ -131,3 +131,17 @@ Remettre ensuite `DATABASE_URL` local dans `.env` pour ne pas continuer à trava
 - **Emails** : sans `SENDGRID_API_KEY` valide, inscription et mot de passe oublié échouent explicitement (`NODE_ENV=production` sur ce service interdit le repli silencieux vers un envoi simulé) — voir étape 3.
 - Le filesystem Render étant éphémère, ne pas définir `UPLOAD_DIR` ni retirer les variables `S3_*` : sans elles, les uploads échoueraient silencieusement au premier redéploiement/réveil.
 - `backend/railway.json` est conservé dans le dépôt comme chemin alternatif si un jour la mise en veille Render devient gênante et que tu acceptes de payer — non utilisé par le parcours 100% gratuit ci-dessus.
+
+## Revenir en arrière après un déploiement problématique
+
+**Code seul (pas de migration Prisma dans le déploiement qui pose problème)** — cas le plus courant :
+- **Render** : onglet **Events** (ou **Deploys**) du service → repérer le dernier déploiement sain → **Redeploy**. Redéploie exactement ce commit sans nécessiter de revert Git.
+- **Vercel** : onglet **Deployments** du projet → dernier déploiement sain → **⋯** → **Promote to Production** (« Instant Rollback ») — bascule immédiate, pas de rebuild.
+- **Railway** : onglet **Deployments** du service → déploiement précédent → **Redeploy**.
+
+Dans les trois cas, c'est un aller simple tant qu'aucune migration de schéma n'a été appliquée entre-temps — sinon voir le point suivant.
+
+**Si le déploiement problématique incluait une migration Prisma** — ne jamais se contenter de redéployer l'ancien code :
+- Les migrations de ce projet sont à sens unique (`prisma migrate deploy`, pas de migration "down" maintenue) — revenir au code d'avant sans revenir sur le schéma laisse tourner une version du code qui ne correspond plus à la structure de la base (colonnes manquantes/en trop selon le sens du changement), ce qui casse silencieusement des requêtes plutôt que d'échouer proprement au démarrage.
+- La bonne réaction est presque toujours une **migration corrective qui avance** (ajouter une nouvelle migration qui annule l'effet de la précédente), pas un retour en arrière du schéma — cohérent avec la façon dont les migrations de ce dépôt ont déjà été gérées (voir par ex. `docs/n8n/04-decisions-actees.md` pour un exemple de correctif appliqué en avant).
+- Si la migration a corrompu des données (pas seulement le schéma) et qu'aucun correctif en avant n'est possible : Neon propose une restauration ponctuelle (**point-in-time restore**) ou la création d'une branche de base à un instant antérieur — fonctionnalité et fenêtre de rétention dépendent du plan Neon en vigueur au moment des faits, à vérifier dans leur dashboard avant de s'y fier en urgence plutôt que de le supposer.
