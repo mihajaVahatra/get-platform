@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
 import { Bell, CheckCheck } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -23,25 +24,89 @@ const dateOf = (date: string) =>
     minute: '2-digit',
   }).format(new Date(date));
 
+// Intervalle de sondage des nouvelles notifications (annonces d'école,
+// mises à jour de candidature...) pour le popup en bas à droite — pas de
+// websocket : ce backend (Render, plan gratuit) s'endort après 15 min
+// d'inactivité, une connexion persistante serait coupée de toute façon,
+// et un sondage à cette fréquence reste imperceptible pour l'utilisateur.
+const POLL_INTERVAL_MS = 25_000;
+
 export function NotificationBell({ dark = false }: { dark?: boolean }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  // IDs déjà vus par CE montant du composant (pas seulement déjà lus) :
+  // évite de re-notifier en popup une notification déjà connue à chaque
+  // sondage. `null` tant que le premier sondage n'a pas encore établi la
+  // référence de départ — sans cette distinction, tout ce qui était déjà
+  // non lu au chargement de la page serait annoncé en popup d'un coup.
+  const knownIds = useRef<Set<string> | null>(null);
 
-  const refreshUnreadCount = useCallback(() => {
+  const markAsReadFromToast = useCallback((id: string) => {
     apiClient
-      .get('/notifications/me', { params: { isRead: false, limit: 1 } })
-      .then((response) => setUnreadCount(response.data.meta?.total ?? 0))
-      .catch(() => setUnreadCount(0));
+      .put(`/notifications/${id}/read`)
+      .then(() => window.dispatchEvent(new Event('notifications:updated')))
+      .catch(() => undefined);
   }, []);
 
+  const pollForNew = useCallback(() => {
+    apiClient
+      .get('/notifications/me', { params: { isRead: false, limit: 10 } })
+      .then((response) => {
+        const unread: NotificationItem[] = response.data.data ?? [];
+        setUnreadCount(response.data.meta?.total ?? 0);
+
+        if (knownIds.current === null) {
+          // Premier sondage : mémorise l'existant sans rien annoncer.
+          knownIds.current = new Set(unread.map((item) => item.id));
+          return;
+        }
+
+        const fresh = unread.filter((item) => !knownIds.current!.has(item.id));
+        for (const item of fresh) {
+          knownIds.current.add(item.id);
+          toast.custom(
+            (t) => (
+              <button
+                onClick={() => {
+                  markAsReadFromToast(item.id);
+                  toast.dismiss(t.id);
+                }}
+                className={cn(
+                  'w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card p-4 text-left shadow-xl transition-opacity',
+                  t.visible ? 'opacity-100' : 'opacity-0',
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-indigo-600" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-[#111949]">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                      {item.body}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ),
+            { position: 'bottom-right', duration: 8000 },
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, [markAsReadFromToast]);
+
   useEffect(() => {
-    refreshUnreadCount();
-    window.addEventListener('notifications:updated', refreshUnreadCount);
-    return () =>
-      window.removeEventListener('notifications:updated', refreshUnreadCount);
-  }, [refreshUnreadCount]);
+    pollForNew();
+    const interval = setInterval(pollForNew, POLL_INTERVAL_MS);
+    window.addEventListener('notifications:updated', pollForNew);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('notifications:updated', pollForNew);
+    };
+  }, [pollForNew]);
 
   const loadNotifications = useCallback(() => {
     setLoading(true);

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 /**
  * Client HTTP Axios partagé par tout le frontend pour communiquer avec l'API backend.
@@ -91,11 +92,33 @@ function refreshSession(): Promise<boolean> {
   return refreshPromise;
 }
 
+// Message renvoyé par MfaEnforcedGuard (backend) — voir
+// backend/src/modules/auth/guards/mfa-enforced.guard.ts. Comparé par
+// sous-chaîne plutôt qu'égalité stricte : robuste à une reformulation
+// mineure du message côté backend tant que l'idée reste la même.
+const MFA_REQUIRED_MARKER =
+  'authentification à deux facteurs (MFA) est obligatoire';
+
+// Affiché une seule fois par session de navigation (pas une fois par appel
+// API en échec) : un chargement de tableau de bord déclenche plusieurs
+// requêtes en parallèle (cloche de notifications, widgets...), qui
+// échoueraient toutes avec ce même 403 tant que le MFA n'est pas activé —
+// sans ce verrou, l'utilisateur verrait le même toast s'empiler plusieurs
+// fois d'un coup.
+let mfaWarningShown = false;
+
 /**
  * Intercepteur de réponse global : sur un 401 (hors endpoints exclus), tente
  * un rafraîchissement de session puis rejoue la requête d'origine une seule
  * fois (`_retriedAfterRefresh` évite toute boucle infinie). Si le
  * rafraîchissement échoue, redirige l'utilisateur vers `/auth/login`.
+ *
+ * Sur un 403 MfaEnforcedGuard (rôle à privilèges élevés, MFA pas encore
+ * activé), affiche un avertissement explicite au lieu de laisser chaque
+ * composant appelant échouer silencieusement (cloche de notifications,
+ * widgets de tableau de bord...) — avant ce correctif, ces comptes
+ * voyaient un tableau de bord vide sans aucune indication de la cause
+ * réelle (voir l'incident du 13/08).
  */
 apiClient.interceptors.response.use(
   (response) => response,
@@ -115,6 +138,18 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         window.location.href = '/auth/login';
       }
+    }
+    if (
+      error.response?.status === 403 &&
+      typeof error.response?.data?.message === 'string' &&
+      error.response.data.message.includes(MFA_REQUIRED_MARKER) &&
+      !mfaWarningShown
+    ) {
+      mfaWarningShown = true;
+      toast.error(
+        "Ton rôle exige la double authentification (MFA) — active-la dans Paramètres pour débloquer le reste de la plateforme (notifications, tableau de bord...).",
+        { duration: 8000 },
+      );
     }
     return Promise.reject(error);
   },
