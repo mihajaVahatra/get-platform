@@ -649,6 +649,7 @@ describe('ApplicationService', () => {
 
       expect(prisma.application.update).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.objectContaining() est typé `any` par @types/jest
           data: expect.objectContaining({
             status: ApplicationStatus.TEST_COMPLETED,
           }),

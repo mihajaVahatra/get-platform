@@ -597,7 +597,7 @@ export class StudentController {
     status: HttpStatus.FORBIDDEN,
     description: 'User is not a student',
   })
-  async getAttendanceStats(@GetUser() user: any) {
+  async getAttendanceStats(@GetUser() user: CurrentStudentUser) {
     if (!user.student) {
       throw new ForbiddenException(
         'Cette fonctionnalité est réservée aux étudiants',
