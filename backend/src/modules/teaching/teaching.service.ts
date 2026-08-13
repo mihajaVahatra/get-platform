@@ -49,7 +49,10 @@ export class TeachingService {
     try {
       return { ...teacher, phone: this.encryption.decrypt(teacher.phone) };
     } catch (e) {
-      console.error('❌ Erreur déchiffrement phone (teacher):', e.message);
+      console.error(
+        '❌ Erreur déchiffrement phone (teacher):',
+        e instanceof Error ? e.message : String(e),
+      );
       return { ...teacher, phone: null };
     }
   }

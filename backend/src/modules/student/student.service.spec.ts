@@ -464,6 +464,7 @@ describe('StudentService — deleteDocument', () => {
 
     expect(prisma.document.update).toHaveBeenCalledWith({
       where: { id: 'document-1' },
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.any() est typé `any` par @types/jest
       data: { deletedAt: expect.any(Date) },
     });
     expect(storageService.deleteObject).toHaveBeenCalledWith(
