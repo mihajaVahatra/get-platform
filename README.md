@@ -16,13 +16,17 @@ Monorepo à deux paquets :
 - Docker + Docker Compose (Postgres, Redis, MinIO en local)
 - `npm` (ce dépôt utilise des `package-lock.json`, pas de yarn/pnpm)
 
+Pour une installation complète sur un nouveau Mac, y compris Docker, Node,
+GitHub, les secrets, MinIO et les commandes de vérification, suivre le
+[`GUIDE_INSTALLATION_MAC.md`](GUIDE_INSTALLATION_MAC.md).
+
 ## Démarrage local
 
 ### 1. Services d'infrastructure (Postgres, Redis, MinIO)
 
 ```bash
 cp .env.example .env    # renseigner les valeurs marquées "change-this-..."
-docker compose up -d
+docker compose -p get-poc up -d
 ```
 
 MinIO est administrable sur http://localhost:9001 (identifiants `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` du `.env`) — créer les deux buckets (`get-poc-uploads` privé, `get-poc-public`) avant de lancer le backend, voir [`DEPLOYMENT.md`](DEPLOYMENT.md) pour la configuration S3 complète.
@@ -32,7 +36,7 @@ MinIO est administrable sur http://localhost:9001 (identifiants `MINIO_ROOT_USER
 ```bash
 cd backend
 cp .env.example .env    # ajuster DATABASE_URL/ENCRYPTION_KEY/etc. si besoin
-npm install
+npm ci
 npx prisma migrate deploy   # applique les migrations sur la base du .env
 npx prisma db seed          # optionnel : données de démonstration (comptes affichés en fin d'exécution)
 npm run start:dev           # http://localhost:3001, Swagger sur /api/docs
@@ -53,7 +57,7 @@ npm run build          # nest build
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev          # http://localhost:3000
 ```
 

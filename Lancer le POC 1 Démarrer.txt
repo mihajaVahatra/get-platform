@@ -1,30 +1,20 @@
-Lancer le POC
-# 1. Démarrer les conteneurs (PostgreSQL, Redis, MinIO)
-cd ~/get-poc
-docker compose up -d
+Ce fichier historique est remplacé par GUIDE_INSTALLATION_MAC.md.
 
-# 2. Lancer le backend (API) - dans un terminal séparé
-cd ~/get-poc/backend
-npx nodemon index.js
+La commande « npx nodemon index.js » indiquée auparavant est obsolète : il n'y
+a ni fichier index.js ni dépendance nodemon dans ce projet.
 
-# 3. Lancer le frontend (Next.js) - dans un autre terminal
-cd ~/get-poc/frontend
-npm run dev
+Démarrage quotidien :
 
-Arreter le POC
-# 1. Arrêter le frontend (dans son terminal) : Ctrl + C
-# 2. Arrêter le backend (dans son terminal) : Ctrl + C
+# Terminal 1 — services techniques
+cd ~/Developer/get-poc && docker compose -p get-poc up -d
 
-# 3. Arrêter les conteneurs Docker
-cd ~/get-poc
-docker compose down
+# Terminal 2 — backend (API)
+cd ~/Developer/get-poc/backend && nvm use && npm run start:dev
 
-Relancer le POC 
-# Démarrer les conteneurs
-cd ~/get-poc && docker compose up -d
+# Terminal 3 — frontend (Next.js)
+cd ~/Developer/get-poc/frontend && nvm use && npm run dev
 
-# Lancer le backend (dans un terminal)
-cd ~/get-poc/backend && npx nodemon index.js
+Ouvrir ensuite http://localhost:3000.
 
-# Lancer le frontend (dans un autre terminal)
-cd ~/get-poc/frontend && npm run dev
+Pour l'installation initiale, les fichiers .env, les buckets MinIO, les
+migrations Prisma, l'arrêt, n8n et le dépannage, lire GUIDE_INSTALLATION_MAC.md.
