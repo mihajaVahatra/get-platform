@@ -80,11 +80,16 @@ const fadeInRight: Variants = {
   show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 80, damping: 18 } },
 };
 
+/** Marge ajoutée au viewport de détection : positive, elle déclenche l'apparition
+ *  avant que l'élément n'entre réellement à l'écran, pour qu'un scroll rapide
+ *  (fling mobile) ne dépasse jamais l'animation et ne laisse le contenu invisible. */
+const REVEAL_MARGIN = '0px 0px 25% 0px';
+
 function Reveal({
   children,
   variants = fadeUp,
   className,
-  amount = 0.25,
+  amount = 0.1,
   once = true,
 }: {
   children: React.ReactNode;
@@ -94,7 +99,7 @@ function Reveal({
   once?: boolean;
 }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once, amount });
+  const inView = useInView(ref, { once, amount, margin: REVEAL_MARGIN });
   const reduce = useReducedMotion();
   return (
     <motion.div
@@ -114,7 +119,7 @@ function Reveal({
    ============================================================= */
 function AnimatedStat({ value }: { value: string }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const inView = useInView(ref, { once: true, amount: 0.1, margin: REVEAL_MARGIN });
   const reduce = useReducedMotion();
   const locale = useLocale();
 
@@ -420,7 +425,7 @@ export default function LandingAnimated({
           variants={containerStagger}
           initial="hidden"
           whileInView="show"
-          viewport={{ once: true, amount: 0.2 }}
+          viewport={{ once: true, amount: 0.1, margin: REVEAL_MARGIN }}
           className="mt-13 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
         >
           {config.actorCards.map((card, i) => {
@@ -463,7 +468,7 @@ export default function LandingAnimated({
             variants={containerStagger}
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.3 }}
+            viewport={{ once: true, amount: 0.1, margin: REVEAL_MARGIN }}
             className="relative mt-13 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
           >
             {config.steps.map((step, i) => {
@@ -579,7 +584,7 @@ export default function LandingAnimated({
             variants={containerStagger}
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, amount: 0.2 }}
+            viewport={{ once: true, amount: 0.1, margin: REVEAL_MARGIN }}
             className="mt-11 grid gap-6 md:grid-cols-3"
           >
             {news.map((item, index) => (
@@ -787,17 +792,20 @@ function StatIcon({ name }: { name: string }) {
 function PartnerRow({ title, items }: { title: string; items: PartnerItem[] }) {
   return (
     <div>
-      <h3 className="text-xs font-black uppercase tracking-wide text-[#68738f]">{title}</h3>
+      <div className="flex items-center gap-2.5">
+        <span className="h-[3px] w-5 rounded-full bg-gradient-to-r from-violet-600 to-[#ff8a5b]" />
+        <h3 className="text-[13px] font-black uppercase tracking-wider text-[#68738f]">{title}</h3>
+      </div>
       <motion.div
         variants={containerStagger}
         initial="hidden"
         whileInView="show"
-        viewport={{ once: true, amount: 0.3 }}
-        className="mt-4 flex flex-wrap gap-4"
+        viewport={{ once: true, amount: 0.1, margin: REVEAL_MARGIN }}
+        className="mt-5 grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
       >
-        {items.map((item) => (
+        {items.map((item, i) => (
           <motion.div key={item.id} variants={fadeUp}>
-            <PartnerLogo item={item} />
+            <PartnerLogo item={item} tone={ACTOR_TONES[i % ACTOR_TONES.length]} />
           </motion.div>
         ))}
       </motion.div>
@@ -805,17 +813,23 @@ function PartnerRow({ title, items }: { title: string; items: PartnerItem[] }) {
   );
 }
 
-function PartnerLogo({ item }: { item: PartnerItem }) {
+function PartnerLogo({ item, tone }: { item: PartnerItem; tone: (typeof ACTOR_TONES)[number] }) {
   return (
-    <div className="flex w-[140px] flex-col items-center gap-2 rounded-xl border border-slate-100 bg-white p-4 text-center shadow-sm">
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      className={`group flex h-full flex-col items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-5 text-center shadow-sm transition-colors hover:${tone.border}`}
+    >
       {item.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.logoUrl} alt={item.name} className="h-12 w-full object-contain" />
+        <img src={item.logoUrl} alt={item.name} className="h-12 w-full object-contain grayscale transition group-hover:grayscale-0" />
       ) : (
-        <span className="grid size-12 place-items-center rounded-full bg-violet-50 text-sm font-black text-violet-600">{item.name.slice(0, 1).toUpperCase()}</span>
+        <span className={`grid size-12 place-items-center rounded-xl text-[15px] font-black ${tone.bg} ${tone.tx}`}>
+          {item.name.slice(0, 2).toUpperCase()}
+        </span>
       )}
-      <p className="line-clamp-2 text-[11px] font-bold text-[#28315e]">{item.name}</p>
-    </div>
+      <p className="line-clamp-2 text-[11.5px] font-bold leading-snug text-[#28315e]">{item.name}</p>
+    </motion.div>
   );
 }
 
